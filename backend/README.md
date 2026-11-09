@@ -116,7 +116,8 @@ matching Kotlin's naming keeps `@SerialName` off every field.
 | `GET /healthz` | Render's health check. |
 | `GET /api/time` | `{"serverMs":…}` — a clock sample before the socket exists. |
 | `POST /api/parties` | Create a party and join it as host. Body: `userId`, `deviceId`, `displayName`, `avatarUrl?`. → `201` with `code`, `token`, `you`, `party`. Creation is capped per IP and by the service-wide party limit. |
-| `POST /api/parties/{code}/join` | Same body. `404` unknown code, `409` full, `422` no identity. The code is normalised first, so lower case, spaces, and `O`/`I`/`L` typed for `0`/`1` all work. |
+| `POST /api/parties/{code}/join` | Same body. `404` unknown code, `409` full, `422` no identity, `429` too many join attempts from this IP. The code is normalised first, so lower case, spaces, and `O`/`I`/`L` typed for `0`/`1` all work. |
+| `GET /api/parties/{code}/preview` | Who is in a party, without a token or joining. `429` when the per-IP preview budget is spent. |
 | `GET /api/parties/{code}` | Full snapshot. Needs `Authorization: Bearer <token>`. |
 | `POST /api/parties/{code}/leave` | Give up the slot. Needs the bearer token. |
 
@@ -331,6 +332,8 @@ Every one of these is optional — `config/config.go` carries the same defaults.
 | `JAM_FRAME_RATE_PER_SECOND` | `30` | Per-member WebSocket frame ceiling, including ping and sync frames. |
 | `JAM_MAX_PARTIES` | `50` | Maximum concurrent parties. Conservative default for Render Free (250 sockets at five devices each). |
 | `JAM_CREATE_RATE_PER_MINUTE` | `2` | Maximum new parties per client IP per minute. |
+| `JAM_JOIN_RATE_PER_MINUTE` | `30` | Maximum join attempts per client IP per minute. Join is unauthenticated (the code is the credential), so this also caps code brute-forcing. |
+| `JAM_PREVIEW_RATE_PER_MINUTE` | `60` | Maximum party previews per client IP per minute. |
 | `JAM_RATE_LIMIT_MAX_ENTRIES` | `10000` | Maximum tracked client IPs before new creations are rejected, preventing the limiter itself from growing without bound. |
 | `JAM_REQUEST_MAX_BYTES` | `16384` | Maximum REST request size. |
 | `JAM_WEBSOCKET_MAX_BYTES` | `16384` | Maximum incoming WebSocket message size. |

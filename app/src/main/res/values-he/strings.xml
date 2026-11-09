@@ -650,6 +650,10 @@
         <item quantity="one">שיר %1$d נוסף לתור</item>
         <item quantity="other">%1$d שירים נוספו לתור</item>
     </plurals>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d שיר הוסר</item>
+        <item quantity="other">%1$d שירים הוסרו</item>
+    </plurals>
     <plurals name="log_copied_line_count">
         <item quantity="one">יומן הועתק · שורה %1$d</item>
         <item quantity="other">יומן הועתק · %1$d שורות</item>

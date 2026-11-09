@@ -108,6 +108,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.BrowseItem
@@ -804,6 +805,7 @@ class PlaybackService : MediaLibraryService() {
     private val queueMoveToUserCommand = SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY)
     private val queueMoveMutex = Mutex()
     private val queueRemoveUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_WITH_UNDO, Bundle.EMPTY)
+    private val queueRemoveEntriesUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, Bundle.EMPTY)
     private val queueClearUndoCommand = SessionCommand(ACTION_QUEUE_CLEAR_WITH_UNDO, Bundle.EMPTY)
     private val queueUndoCommand = SessionCommand(ACTION_QUEUE_UNDO, Bundle.EMPTY)
 
@@ -2837,6 +2839,194 @@ class PlaybackService : MediaLibraryService() {
         true
     } ?: false
 
+    private fun queueEntryIdentities(args: Bundle): List<QueueEntryIdentity>? {
+        val mediaIds = args.getStringArrayList(EXTRA_QUEUE_BULK_MEDIA_IDS) ?: return null
+        val entryIds = args.getStringArrayList(EXTRA_QUEUE_BULK_ENTRY_IDS) ?: return null
+        val hasEntryIds = args.getBooleanArray(EXTRA_QUEUE_BULK_ENTRY_ID_PRESENT) ?: return null
+        val occurrences = args.getIntArray(EXTRA_QUEUE_BULK_OCCURRENCES) ?: return null
+        if (mediaIds.isEmpty() || mediaIds.size != entryIds.size ||
+            mediaIds.size != hasEntryIds.size || mediaIds.size != occurrences.size
+        ) return null
+        if (mediaIds.indices.any {
+                mediaIds[it].isBlank() || occurrences[it] < 0 ||
+                    (hasEntryIds[it] && entryIds[it].isEmpty()) ||
+                    (!hasEntryIds[it] && entryIds[it].isNotEmpty())
+            }
+        ) return null
+        return mediaIds.indices.map { index ->
+            QueueEntryIdentity(
+                mediaIds[index],
+                entryIds[index].takeIf { hasEntryIds[index] },
+                occurrences[index],
+            )
+        }
+    }
+
+    private fun resolveQueueEntryIndices(
+        before: QueueUndoFingerprint,
+        identities: List<QueueEntryIdentity>,
+        window: QueueWindow?,
+    ): Pair<List<Int>, Int> {
+        val candidates = HashMap<Pair<String, String?>, MutableList<Int>>()
+        before.items.forEachIndexed { index, item ->
+            candidates.getOrPut(item.mediaId to item.queueEntryId) { mutableListOf() } += index
+        }
+        val requested = HashSet<QueueEntryIdentity>()
+        val indices = mutableListOf<Int>()
+        var skipped = 0
+        identities.forEach { identity ->
+            if (!requested.add(identity)) {
+                skipped++
+                return@forEach
+            }
+            val index = candidates[identity.mediaId to identity.queueEntryId]
+                ?.getOrNull(identity.occurrence)
+            if (index == null) {
+                skipped++
+                return@forEach
+            }
+            val item = before.items[index]
+            if (item.mediaId != identity.mediaId || item.queueEntryId != identity.queueEntryId) {
+                skipped++
+                return@forEach
+            }
+            if (index > before.currentIndex && item.queueTier == QueueTier.CONTEXT) {
+                val canonicalIndex = item.canonicalIndex
+                val cycleId = item.contextCycleId
+                if (window == null || canonicalIndex == null || cycleId == null ||
+                    !window.exclude(QueueWindowEntry(canonicalIndex, cycleId))
+                ) {
+                    skipped++
+                    return@forEach
+                }
+            }
+            indices += index
+        }
+        return indices.sorted() to skipped
+    }
+
+    private fun sameQueueUndoRoute(
+        before: QueueUndoFingerprint,
+        current: QueueUndoFingerprint,
+    ): Boolean = before.player === current.player &&
+        before.contextToken == current.contextToken &&
+        before.contextRegistryToken == current.contextRegistryToken &&
+        before.source == current.source &&
+        before.sourceConfigs == current.sourceConfigs &&
+        before.routeRevision == current.routeRevision &&
+        before.castActive == current.castActive &&
+        before.watchActive == current.watchActive &&
+        before.outputId == current.outputId &&
+        before.selectedOutputId == current.selectedOutputId &&
+        before.partyCode == current.partyCode &&
+        before.controlsLocked == current.controlsLocked
+
+    private suspend fun finishQueueUndoRemoval(
+        before: QueueUndoFingerprint,
+        raw: ExoPlayer,
+        oldPosition: Long,
+        removedCurrent: Boolean,
+        mutationSettled: CompletableDeferred<Unit>,
+        removedCount: Int,
+        messageForCount: (Int) -> String,
+        includeRemovalCount: Boolean = false,
+        skippedCount: Int = 0,
+    ): Boolean {
+        partySync?.onLocalIntent()
+        saveQueueSnapshotImmediately(raw)
+        val synchronousAfter = queueUndoFingerprint() ?: return true
+        val settlingRevision = queueUndoInvalidationRevision
+        // Complete the transition's own bounded refill before publishing the baseline.
+        // External intent, navigation, route/party/source changes still reject the inverse.
+        boundedTopUpJob?.join()
+        val settled = withTimeoutOrNull(1_000L) { mutationSettled.await(); true } ?: false
+        if (queueUndoMutationSettled === mutationSettled) queueUndoMutationSettled = null
+        if (!settled) return true
+        delay(1L)
+        val after = queueUndoFingerprint() ?: return true
+        if (queueUndoInvalidationRevision != settlingRevision ||
+            after != synchronousAfter.copy(items = after.items, window = after.window, edits = after.edits) ||
+            after.edits.contextGeneration != synchronousAfter.edits.contextGeneration ||
+            !isQueueUndoSubsequence(synchronousAfter.items, after.items)
+        ) return true
+        val token = UUID.randomUUID().toString()
+        val edit = QueueUndoEdit(
+            token, before, oldPosition, removedCurrent, after,
+            SystemClock.elapsedRealtime() + 4_500L,
+        )
+        queueUndoEdit = edit
+        QueueScreenUndo.publish(
+            QueueUndoNotice(
+                token,
+                messageForCount(removedCount),
+                removedCount.takeIf { includeRemovalCount },
+                skippedCount,
+            ),
+        )
+        queueUndoExpiryJob = scope.launch {
+            while (queueUndoEdit === edit) {
+                delay(minOf(100L, (edit.expiresAt - SystemClock.elapsedRealtime()).coerceAtLeast(1L)))
+                checkQueueUndoValidity()
+            }
+        }
+        return true
+    }
+
+    private suspend fun removeQueueEntriesWithUndo(args: Bundle): Boolean {
+        if (ListenTogether.state.value.controlsLocked) return false
+        val requested = queueUndoFingerprint() ?: return false
+        val identities = queueEntryIdentities(args) ?: return false
+        if (!settleQueueUndoEdit()) return false
+        val before = queueUndoFingerprint() ?: return false
+        if (!sameQueueUndoRoute(requested, before) || ListenTogether.state.value.controlsLocked) return false
+        if (before.window != null &&
+            (before.contextToken != before.contextRegistryToken || boundedContextWindow == null)
+        ) return false
+
+        val contextWindow = before.window?.let { QueueWindow.restore(it) }
+        val (indices, skippedCount) = resolveQueueEntryIndices(before, identities, contextWindow)
+        if (indices.isEmpty()) return false
+        val raw = before.player
+        val oldPosition = (if (speakers.active) speakers.positionMs else raw.currentPosition).coerceAtLeast(0L)
+        val removedCurrent = before.currentIndex in indices
+        invalidateQueueUndo()
+        boundedContextWindow = contextWindow
+        val mutationSettled = CompletableDeferred<Unit>()
+        queueUndoMutationSettled = mutationSettled
+        try {
+            var end = indices.size
+            while (end > 0) {
+                var start = end - 1
+                while (start > 0 && indices[start - 1] == indices[start] - 1) start--
+                raw.removeMediaItems(indices[start], indices[end - 1] + 1)
+                end = start
+            }
+        } catch (error: Exception) {
+            queueUndoMutationSettled = null
+            boundedContextWindow = before.window?.let { QueueWindow.restore(it) }
+            throw error
+        }
+        val removedCount = before.items.size - raw.mediaItemCount
+        if (removedCount <= 0) {
+            queueUndoMutationSettled = null
+            boundedContextWindow = before.window?.let { QueueWindow.restore(it) }
+            return false
+        }
+        return finishQueueUndoRemoval(
+            before = before,
+            raw = raw,
+            oldPosition = oldPosition,
+            removedCurrent = removedCurrent,
+            mutationSettled = mutationSettled,
+            removedCount = removedCount,
+            messageForCount = { count ->
+                resources.getQuantityString(R.plurals.queue_removed_count, count, count)
+            },
+            includeRemovalCount = true,
+            skippedCount = skippedCount + (indices.size - removedCount).coerceAtLeast(0),
+        )
+    }
+
     /** Same native remove/clear semantics as before; only this command records an inverse. */
     private suspend fun removeQueueWithUndo(args: Bundle, clear: Boolean): Boolean {
         if (ListenTogether.state.value.controlsLocked) return false
@@ -2874,39 +3064,22 @@ class PlaybackService : MediaLibraryService() {
             boundedContextWindow = before.window?.let { QueueWindow.restore(it) }
             return false
         }
-        partySync?.onLocalIntent()
-        saveQueueSnapshotImmediately(raw)
-        val synchronousAfter = queueUndoFingerprint() ?: return true
-        val settlingRevision = queueUndoInvalidationRevision
-        // Complete the transition's own bounded refill before publishing the baseline.
-        // External intent, navigation, route/party/source changes still reject the inverse.
-        boundedTopUpJob?.join()
-        val settled = withTimeoutOrNull(1_000L) { mutationSettled.await(); true } ?: false
-        if (queueUndoMutationSettled === mutationSettled) queueUndoMutationSettled = null
-        if (!settled) return true
-        delay(1L)
-        val after = queueUndoFingerprint() ?: return true
-        if (queueUndoInvalidationRevision != settlingRevision ||
-            after != synchronousAfter.copy(items = after.items, window = after.window, edits = after.edits) ||
-            after.edits.contextGeneration != synchronousAfter.edits.contextGeneration ||
-            !isQueueUndoSubsequence(synchronousAfter.items, after.items)
-        ) return true
-        val token = UUID.randomUUID().toString()
-        val edit = QueueUndoEdit(
-            token, before, oldPosition, removedCurrent, after,
-            SystemClock.elapsedRealtime() + 4_500L,
+        val removedCount = before.items.size - raw.mediaItemCount
+        return finishQueueUndoRemoval(
+            before = before,
+            raw = raw,
+            oldPosition = oldPosition,
+            removedCurrent = removedCurrent,
+            mutationSettled = mutationSettled,
+            removedCount = removedCount,
+            messageForCount = {
+                if (clear) getString(R.string.queue_cleared_section, getString(R.string.next_in_queue))
+                else getString(
+                    R.string.queue_removed_song,
+                    before.items[requestedIndex].mediaMetadata.title?.toString().orEmpty(),
+                )
+            },
         )
-        queueUndoEdit = edit
-        val message = if (clear) getString(R.string.queue_cleared_section, getString(R.string.next_in_queue))
-            else getString(R.string.queue_removed_song, before.items[requestedIndex].mediaMetadata.title?.toString().orEmpty())
-        QueueScreenUndo.publish(QueueUndoNotice(token, message))
-        queueUndoExpiryJob = scope.launch {
-            while (queueUndoEdit === edit) {
-                delay(minOf(100L, (edit.expiresAt - SystemClock.elapsedRealtime()).coerceAtLeast(1L)))
-                checkQueueUndoValidity()
-            }
-        }
-        return true
     }
 
     /** Whether reinsertion alone can recover the snapshot without touching the decoder/clock. */
@@ -8996,6 +9169,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(queueDragCommand)
                 .add(queueMoveToUserCommand)
                 .add(queueRemoveUndoCommand)
+                .add(queueRemoveEntriesUndoCommand)
                 .add(queueClearUndoCommand)
                 .add(queueUndoCommand)
                 .build()
@@ -9023,13 +9197,19 @@ class PlaybackService : MediaLibraryService() {
             args: Bundle,
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
-                ACTION_QUEUE_REMOVE_WITH_UNDO, ACTION_QUEUE_CLEAR_WITH_UNDO, ACTION_QUEUE_UNDO -> {
+                ACTION_QUEUE_REMOVE_WITH_UNDO, ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO,
+                ACTION_QUEUE_CLEAR_WITH_UNDO, ACTION_QUEUE_UNDO -> {
                     val editArgs = Bundle(args)
                     return scope.future {
                         queueMoveMutex.withLock {
                             val success = when (customCommand.customAction) {
                                 ACTION_QUEUE_UNDO -> undoQueueEdit(editArgs)
-                                else -> removeQueueWithUndo(editArgs, customCommand.customAction == ACTION_QUEUE_CLEAR_WITH_UNDO)
+                                ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO ->
+                                    removeQueueEntriesWithUndo(editArgs)
+                                else -> removeQueueWithUndo(
+                                    editArgs,
+                                    customCommand.customAction == ACTION_QUEUE_CLEAR_WITH_UNDO,
+                                )
                             }
                             SessionResult(if (success) SessionResult.RESULT_SUCCESS else SessionError.ERROR_INVALID_STATE)
                         }

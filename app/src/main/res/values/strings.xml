@@ -620,6 +620,10 @@
         <item quantity="one">Added %1$d song to the queue</item>
         <item quantity="other">Added %1$d songs to the queue</item>
     </plurals>
+    <plurals name="queue_removed_count">
+        <item quantity="one">Removed %1$d song</item>
+        <item quantity="other">Removed %1$d songs</item>
+    </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>

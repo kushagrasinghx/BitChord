@@ -35,6 +35,7 @@ class BoundedContextPersistenceTest {
                 albumName = "Album",
                 isVideo = index == 3,
                 isVideoOrigin = index == 3,
+                isPodcastEpisode = index == 2,
                 setVideoId = "set-$index",
                 radioName = "Station",
                 localUri = "content://$index",

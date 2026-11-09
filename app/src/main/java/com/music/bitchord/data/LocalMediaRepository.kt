@@ -328,6 +328,8 @@ object LocalMediaRepository {
             return Song(
                 videoId = videoIdByUri[contentUri] ?: contentUri,
                 title = songTitle,
+                isPodcastEpisode = videoIdByUri[contentUri]
+                    ?.let { Downloads.isPodcastEpisode(it) } == true,
                 artist = cursor.getString(artist).cleanTag() ?: "Unknown Artist",
                 thumbnailUrl = if (artId > 0) ContentUris.withAppendedId(ALBUM_ART_URI, artId).toString() else null,
                 durationText = durationMs.takeIf { it > 0 }?.let { formatDuration(it) },

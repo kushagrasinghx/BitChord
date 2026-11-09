@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Shapes trimmed from YouTube Music's own responses for a podcast show (`MPSPP…`). */
 class PodcastTest {
@@ -69,6 +70,7 @@ class PodcastTest {
         assertEquals(listOf("2:43:00", "34:00"), songs.map { it.durationText })
         // Widescreen art, but an episode is listened to.
         assertFalse(songs.any { it.isVideo })
+        assertTrue(songs.all { it.isPodcastEpisode })
         assertEquals("PAGE2", InnertubeParser.continuationToken(showPage))
     }
 
@@ -86,6 +88,7 @@ class PodcastTest {
         val song = InnertubeParser.collectSongsDeep(page, "Huberman Lab").single()
         assertEquals("Huberman Lab", song.artist)
         assertEquals("2:09:00", song.durationText)
+        assertTrue(song.isPodcastEpisode)
     }
 
     @Test
@@ -134,5 +137,6 @@ class PodcastTest {
         assertEquals("Y566_T-YlNQ", song.videoId)
         assertEquals("Figuring Out With Raj Shamani", song.artist)
         assertFalse(song.isVideo)
+        assertTrue(song.isPodcastEpisode)
     }
 }

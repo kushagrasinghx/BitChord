@@ -27,7 +27,7 @@ class PartyPersonalQueueStashTest {
 
         val songs = listOf(
             Song(videoId = "vid1", title = "Song 1", artist = "Artist 1", thumbnailUrl = "url1"),
-            Song(videoId = "vid2", title = "Song 2", artist = "Artist 2", thumbnailUrl = "url2"),
+            Song(videoId = "vid2", title = "Song 2", artist = "Artist 2", thumbnailUrl = "url2", isPodcastEpisode = true),
             Song(videoId = "vid3", title = "Song 3", artist = "Artist 3", thumbnailUrl = "url3"),
         )
 
@@ -44,6 +44,7 @@ class PartyPersonalQueueStashTest {
         assertEquals(3, snapshot!!.songs.size)
         assertEquals("vid1", snapshot.songs[0].videoId)
         assertEquals("vid2", snapshot.songs[1].videoId)
+        assertTrue(snapshot.songs[1].isPodcastEpisode)
         assertEquals("vid3", snapshot.songs[2].videoId)
         assertEquals(1, snapshot.index)
         assertEquals(45000L, snapshot.positionMs)

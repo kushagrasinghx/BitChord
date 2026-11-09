@@ -14,7 +14,8 @@
     <string name="autoplay_off">AutoPlay off</string>
     <string name="autoplay_on">AutoPlay on</string>
     <string name="autoplay_queue_description">Similar music, selected to play next</string>
-    <string name="autoplay_repeat_description">Queue is repeating, AutoPlay is paused</string>
+    <string name="autoplay_repeat_description">Queue is repeating, AutoPlay paused</string>
+    <string name="autoplay_repeat_one_description">Track is repeating, skip for similar music</string>
     <string name="bit_depth">%1$d-bit</string>
     <string name="cancel">Cancel</string>
     <string name="cast">Cast</string>

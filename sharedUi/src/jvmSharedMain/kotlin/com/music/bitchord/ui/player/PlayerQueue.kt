@@ -487,7 +487,7 @@ private fun AutoplayHeading(hasTracks: Boolean, repeatMode: Int, modifier: Modif
             Text(
                 text = stringResource(
                     when {
-                        repeatMode == RepeatModes.ONE -> Res.string.autoplay_empty_description
+                        repeatMode == RepeatModes.ONE -> Res.string.autoplay_repeat_one_description
                         repeatMode != RepeatModes.OFF -> Res.string.autoplay_repeat_description
                         hasTracks -> Res.string.autoplay_queue_description
                         else -> Res.string.autoplay_empty_description

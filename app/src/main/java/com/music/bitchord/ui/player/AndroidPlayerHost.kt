@@ -72,6 +72,14 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
         override val playerTheme get() = AppSettings.playerTheme
         override val blurIntensity get() = AppSettings.blurIntensity
+        override val movingBlur get() = AppSettings.movingBlur
+        override val hideSlideBar get() = AppSettings.hideSlideBar
+        override val hidePlayerThumbnail get() = AppSettings.hidePlayerThumbnail
+        override val thumbnailCornerRadius get() = AppSettings.thumbnailCornerRadius
+        override val playerButtonsStyle get() = AppSettings.playerButtonsStyle
+        override val playerSliderStyle get() = AppSettings.playerSliderStyle
+        override val lyricsBackgroundStyle get() = AppSettings.lyricsBackgroundStyle
+        override val tabletMode get() = AppSettings.tabletMode
         override val lyricsBlur get() = AppSettings.lyricsBlur
         override val lyricsOffsetMs get() = AppSettings.lyricsOffsetMs
         override val lyricsSourceOrder get() = AppSettings.lyricsSourceOrder

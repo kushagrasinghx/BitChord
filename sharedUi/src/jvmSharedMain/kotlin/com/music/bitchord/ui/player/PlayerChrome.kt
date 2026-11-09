@@ -18,6 +18,14 @@ import androidx.compose.ui.graphics.layer.drawLayer
 internal val LocalPlayerChrome = compositionLocalOf { false }
 
 /**
+ * The colour the player's chrome is drawn in — white, as it always has been,
+ * or the theme's secondary colour while the player's buttons style (ported
+ * from ArchiveTune's PlayerButtonsStyle) says otherwise. Provided around the
+ * player, beside [LocalPlayerChrome].
+ */
+internal val LocalPlayerChromeTint = compositionLocalOf { Color.White }
+
+/**
  * How strong a control's "full" white is while the blend is on. Solid white comes
  * out of [additiveChrome] as solid white, with none of the backdrop in it.
  */
@@ -26,11 +34,13 @@ internal const val CHROME_FULL_ALPHA = 0.73f
 /** How far below its plain strength blended content is drawn, so more of the backdrop comes through. */
 private const val CHROME_ALPHA_DROP = 0.15f
 
-/** White at [alpha], or that less [CHROME_ALPHA_DROP] while the blend is on. */
+/** The chrome tint at [alpha], or that less [CHROME_ALPHA_DROP] while the blend is on. */
 @Composable
 @ReadOnlyComposable
 internal fun chromeWhite(alpha: Float): Color =
-    Color.White.copy(alpha = if (LocalPlayerChrome.current) alpha - CHROME_ALPHA_DROP else alpha)
+    LocalPlayerChromeTint.current.copy(
+        alpha = if (LocalPlayerChrome.current) alpha - CHROME_ALPHA_DROP else alpha,
+    )
 
 /**
  * What [vibrantChrome] content is drawn in: a neutral ink, so the hue is all the backdrop's.

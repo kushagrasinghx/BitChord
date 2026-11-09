@@ -72,6 +72,7 @@
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.BitChord"
         tools:targetApi="34">
 
@@ -605,6 +606,22 @@
                 <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <!--
+          The always-on playing screen, ported from ArchiveTune's AOD. A dream
+          (screen saver) the system offers while the screen is idle; it draws
+          nothing unless the AOD settings page's master switch is on, so leaving
+          it enabled costs nothing for anyone who hasn't asked for it.
+        -->
+        <service
+            android:name=".aod.AodDreamService"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
 

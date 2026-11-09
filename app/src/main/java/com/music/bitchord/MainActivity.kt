@@ -12,6 +12,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -113,6 +114,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import com.music.bitchord.data.settings.AppFont
+import com.music.bitchord.ui.theme.CustomFontLoader
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -150,11 +154,14 @@ import com.music.bitchord.data.model.withoutVideos
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.BackAnimationStyle
+import com.music.bitchord.data.settings.DefaultOpenTab
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.ui.AddonBlockedAlert
@@ -405,6 +412,19 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
+            // The custom font, ported from ArchiveTune: loaded off the file the
+            // picker copied into the app's own storage, recomposing the whole
+            // app once it lands — until then the app's own type stands in.
+            val customFontUri by AppSettings.customFontUri.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            var customFontFamily by remember { mutableStateOf<FontFamily?>(null) }
+            LaunchedEffect(appFont, customFontUri) {
+                customFontFamily = if (appFont == AppFont.CUSTOM && customFontUri.isNotBlank()) {
+                    CustomFontLoader.loadFontFamily(context, customFontUri)
+                } else {
+                    null
+                }
+            }
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
@@ -433,7 +453,12 @@ class MainActivity : AppCompatActivity() {
             val scaledDensity = remember(density, uiScale) {
                 Density(density.density, density.fontScale * uiScale)
             }
-            BitChordTheme(darkTheme = darkTheme, font = appFont, seedPalette = seedPalette) {
+            BitChordTheme(
+                darkTheme = darkTheme,
+                font = appFont,
+                customFontFamily = customFontFamily,
+                seedPalette = seedPalette,
+            ) {
                 // The app-wide status-bar hiding, ported from ArchiveTune's
                 // Appearance setting. Composed beside the player's own so both
                 // can ask at once — see HideStatusBar's reference counting.
@@ -569,7 +594,18 @@ private fun BitChordApp(
     // rather than inside the bar because the page's scroll is what drives it,
     // and the page is a sibling of the bar rather than a child.
     val navBarScroll = rememberFloatingTabBarScrollConnection()
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // The tab the app opens on, ported from ArchiveTune's default open tab.
+    // Read once — a change is about the *next* launch, not this one's layout.
+    val defaultOpenTab = remember { AppSettings.defaultOpenTab.value }
+    var selectedTab by rememberSaveable {
+        mutableIntStateOf(
+            when (defaultOpenTab) {
+                DefaultOpenTab.SEARCH -> TAB_SEARCH
+                DefaultOpenTab.LIBRARY -> TAB_LIBRARY
+                DefaultOpenTab.HOME -> TAB_HOME
+            },
+        )
+    }
     // Explore loads the first time it's shown, not at launch beside Home.
     LaunchedEffect(selectedTab) {
         if (selectedTab == TAB_EXPLORE) viewModel.onExploreShown()
@@ -2839,7 +2875,26 @@ private fun BitChordApp(
         // drawn over a page, then the alerts drawn over everything. Each sheet
         // and dialog further down registers its own handler as it opens, and
         // so outranks all of these while it is up.
-        BackHandler(enabled = canGoBack, onBack = goBack)
+        // Back, in the style the Appearance page asked for — ported from
+        // ArchiveTune's back animation style. Default pops at once, as the app
+        // always has; Predictive hands the system's own gesture the same
+        // goBack, so the page scales away under the finger as the system draws
+        // it, and a cancel simply snaps everything back. (The manifest's
+        // enableOnBackInvokedCallback is what lets the gesture reach us at all.)
+        val backAnimationStyle by AppSettings.backAnimationStyle.collectAsStateWithLifecycle()
+        if (backAnimationStyle == BackAnimationStyle.PREDICTIVE) {
+            PredictiveBackHandler(enabled = canGoBack) { progress ->
+                try {
+                    progress.await()
+                    goBack()
+                } catch (_: CancellationException) {
+                    // The gesture was let go partway: the system has already
+                    // returned the page to full size.
+                }
+            }
+        } else {
+            BackHandler(enabled = canGoBack, onBack = goBack)
+        }
         // Replay's stories and its share sheet are drawn over everything, and
         // unwind in the order they were opened. Only while there is a summary
         // to draw them from — otherwise back would spend a step closing
@@ -3159,6 +3214,22 @@ private fun BitChordApp(
                                 onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                                 onAppLanguage = { showAppLanguage = true },
                                 onEditSignatureApi = { editingSignatureApi = true },
+                                onCustomFontPicked = { uri ->
+                                    scope.launch {
+                                        val picked = CustomFontLoader.persistPickedFont(context, uri)
+                                        if (picked != null) {
+                                            val (name, privateUri) = picked
+                                            AppSettings.setCustomFont(name, privateUri)
+                                            AppSettings.setAppFont(AppFont.CUSTOM)
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.custom_font_invalid,
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                },
                                 onConfirmBitPerfect = { confirmBitPerfect = it },
                                 onConfirmFixedVolume = { confirmFixedVolume = true },
                                 contentPadding = listPadding,

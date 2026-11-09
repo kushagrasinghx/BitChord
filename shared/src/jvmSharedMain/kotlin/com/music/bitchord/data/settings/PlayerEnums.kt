@@ -37,7 +37,70 @@ enum class PlayerTheme {
 
     /** The cover blurred across the whole screen, as the lyrics and queue are. */
     SIMPLE,
+
+    /**
+     * The theme's own background, flat — the "follow theme" background. The
+     * player's chrome stays white over it, as it does over the blur.
+     */
+    FLAT,
+
+    /**
+     * A radial glow grown from the artwork's palette behind the sleeve, fading
+     * to the theme background at the screen's edges.
+     */
+    GLOW,
 }
+
+/**
+ * The shape the player's seek bar takes. Ported from ArchiveTune's SliderStyle
+ * (Standard / Wavy / Thick / Circular / Simple), drawn as variants of the
+ * player's own ThinSlider so the Automix sheen, the transition window and the
+ * load morph keep working under every style.
+ */
+enum class PlayerSliderStyle { STANDARD, WAVY, THICK, CIRCULAR, SIMPLE }
+
+/**
+ * The colour the player's transport buttons take. Ported from ArchiveTune's
+ * PlayerButtonsStyle: DEFAULT keeps the white chrome; SECONDARY tints the
+ * transport with the theme's secondary colour.
+ */
+enum class PlayerButtonsStyle { DEFAULT, SECONDARY }
+
+/**
+ * What stands behind the lyrics panel. Ported from ArchiveTune's
+ * LyricsBackgroundStyle minus the options that need a custom background image
+ * (CUSTOM — that player background mode is not ported yet).
+ */
+enum class LyricsBackgroundStyle {
+    /** The blurred cover, as the lyrics have always been drawn. */
+    DEFAULT,
+
+    /** The theme's own background, flat. */
+    FOLLOW_THEME,
+
+    /** A wash of the artwork's own colours. */
+    COLORING,
+
+    /** The blurred cover, drifting slowly behind the lyrics. */
+    MOVING_BLUR,
+}
+
+/**
+ * The mini player's surface. Ported from ArchiveTune's
+ * MiniPlayerBackgroundStyle; FROSTED is the frosted pill this app has always
+ * drawn, so it is the default.
+ */
+enum class MiniPlayerBackgroundStyle { THEME, GRADIENT, GLOW, FROSTED }
+
+/** Which tab the app opens on. Ported from ArchiveTune's NavigationTab. */
+enum class DefaultOpenTab { HOME, SEARCH, LIBRARY }
+
+/**
+ * How the app's own back navigations animate. Ported from ArchiveTune's
+ * BackAnimationStyle: DEFAULT is the instant pop; PREDICTIVE follows the
+ * system's predictive back gesture, scaling the page away under the finger.
+ */
+enum class BackAnimationStyle { DEFAULT, PREDICTIVE }
 
 /** The surface that was last open inside the expanded player. */
 enum class LastPlayerScreen {

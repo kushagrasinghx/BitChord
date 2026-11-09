@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
@@ -56,6 +57,8 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.MiniPlayerBackgroundStyle
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.sharedui.resources.Res as SharedRes
 import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
@@ -367,6 +370,49 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    // The bar's surface, ported from ArchiveTune's mini player background
+    // style: the frosted pill this app has always drawn, the theme's own
+    // colour, a gradient of the artwork's colours, or a glow of them. The
+    // frosted surface stays the one under "reduce dynamic blur" — that
+    // setting's whole point is to stop the blur.
+    val miniPlayerBackground by AppSettings.miniPlayerBackgroundStyle.collectAsStateWithLifecycle()
+    val palette = when (miniPlayerBackground) {
+        MiniPlayerBackgroundStyle.GRADIENT, MiniPlayerBackgroundStyle.GLOW ->
+            rememberArtworkPalette(rememberRemoteArtworkUrl(song))
+        else -> null
+    }
+    val surfaceModifier = when (miniPlayerBackground) {
+        MiniPlayerBackgroundStyle.THEME ->
+            Modifier.background(MaterialTheme.colorScheme.surface)
+        MiniPlayerBackgroundStyle.GRADIENT -> Modifier.background(
+            Brush.horizontalGradient(
+                listOf(
+                    palette?.background ?: MaterialTheme.colorScheme.surface,
+                    MaterialTheme.colorScheme.surface,
+                ),
+            ),
+        )
+        MiniPlayerBackgroundStyle.GLOW -> Modifier
+            .background(MaterialTheme.colorScheme.surface)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        (palette?.background ?: MaterialTheme.colorScheme.surface),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                    ),
+                ),
+            )
+        // Frosted: the haze the bar has always drawn — or the plain surface
+        // under "reduce dynamic blur", exactly as before the styles arrived.
+        else -> if (reduceDynamicBlur) {
+            Modifier.background(MaterialTheme.colorScheme.surface)
+        } else {
+            Modifier.optimizedHazeEffect(
+                state = hazeState,
+                style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+            )
+        }
+    }
     val haptics = rememberHaptics()
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
@@ -391,16 +437,7 @@ fun MiniPlayer(
                 onBlocked = onBlockedControl,
             )
             .clip(shape)
-            .then(
-                if (reduceDynamicBlur) {
-                    Modifier.background(MaterialTheme.colorScheme.surface)
-                } else {
-                    Modifier.optimizedHazeEffect(
-                        state = hazeState,
-                        style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
-                    )
-                },
-            )
+            .then(surfaceModifier)
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is

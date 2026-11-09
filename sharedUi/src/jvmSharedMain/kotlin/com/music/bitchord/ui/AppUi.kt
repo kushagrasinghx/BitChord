@@ -23,6 +23,20 @@ interface AppUiHost {
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
 
+    // ---- The Appearance page's home and library switches, ported from ArchiveTune ----
+
+    /** Home keeps only its lead shelf — see ArchiveTune's minimal home mode. */
+    val minimalHomeMode: StateFlow<Boolean>
+
+    /** The sign-in banner at the top of Home, for the signed-out listener. */
+    val hideSignInBanner: StateFlow<Boolean>
+
+    /** The Replay card at the top of the Library tab. */
+    val hideLibraryReplayCard: StateFlow<Boolean>
+
+    /** The On-device shelf on the Library tab. */
+    val hideLibraryOnDeviceShelf: StateFlow<Boolean>
+
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>

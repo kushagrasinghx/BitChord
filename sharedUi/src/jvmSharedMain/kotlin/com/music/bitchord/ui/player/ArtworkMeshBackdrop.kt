@@ -13,18 +13,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material3.MaterialTheme
 import coil3.compose.LocalPlatformContext
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.graphics.argbPixels
 import com.music.bitchord.ui.graphics.forPixelAccess
 import com.music.bitchord.ui.graphics.imageBitmapOf
@@ -142,13 +148,31 @@ fun rememberFullArtworkBlurImage(
  * clip plays over it. A new cover crossfades in over the last one.
  *
  * It looks the same in all three states and reads nothing that moves, so moving
- * between them never redraws it: only what sits on top of it changes.
+ * between them never redraws it: only what sits on top of it changes — unless
+ * [drift] is set, the moving blur ported from ArchiveTune: the cover then
+ * wanders slowly behind the player on a wander path of its own, scaled up a
+ * hair so the drift never bares an edge.
  */
 @Composable
 fun FullArtworkBlurBackdrop(
     image: ImageBitmap?,
     modifier: Modifier = Modifier,
+    drift: Boolean = false,
 ) {
+    val wander = if (drift) remember { BlurWanderDrift() } else null
+    if (wander != null) {
+        LaunchedEffect(wander) {
+            var last = System.nanoTime()
+            while (true) {
+                withFrameNanos {
+                    val now = System.nanoTime()
+                    val deltaMs = (now - last).coerceIn(0L, 100_000_000L) / 1_000_000f
+                    last = now
+                    wander.advance(deltaMs)
+                }
+            }
+        }
+    }
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
         Crossfade(
             targetState = image,
@@ -161,7 +185,23 @@ fun FullArtworkBlurBackdrop(
                     painter = painter,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    // Scaled a touch past the bounds so the drift below never
+                    // shows an unfilled edge, as ArchiveTune's wander does.
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (wander != null) {
+                                Modifier.graphicsLayer {
+                                    scaleX = 1.06f
+                                    scaleY = 1.06f
+                                    translationX = wander.xDp.floatValue.dp.toPx()
+                                    translationY = wander.yDp.floatValue.dp.toPx()
+                                    rotationZ = wander.rotationDeg.floatValue
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
             }
         }
@@ -770,3 +810,98 @@ private fun Int.lifted(): Int {
 
 private const val MESH_VIBRANCE = 1.12f
 private const val MESH_FLOOR = 0.045f
+
+/**
+ * The blurred cover's wander, ported from ArchiveTune's BlurWanderDrift: a
+ * slow drift between random waypoints inside a small radius, easing between
+ * legs so it never starts or stops, and barely turning as it goes. A screen
+ * saver's pace — the backdrop reads as still until you notice it has moved.
+ */
+internal class BlurWanderDrift(
+    private val maxDriftDp: Float = DefaultWanderRadiusDp,
+    private val minLegDurationMs: Float = MinLegDurationMs,
+    private val maxLegDurationMs: Float = MaxLegDurationMs,
+) {
+    private val xState = mutableFloatStateOf(0f)
+    private val yState = mutableFloatStateOf(0f)
+    private val rotationState = mutableFloatStateOf(0f)
+
+    val xDp: FloatState get() = xState
+    val yDp: FloatState get() = yState
+    val rotationDeg: FloatState get() = rotationState
+
+    private var fromX = 0f
+    private var fromY = 0f
+    private var toX = 0f
+    private var toY = 0f
+    private var fromRotation = 0f
+    private var toRotation = 0f
+    private var legDurationMs = 0f
+    private var legElapsedMs = 0f
+
+    init {
+        startNextLeg()
+    }
+
+    fun advance(deltaMs: Float) {
+        if (deltaMs <= 0f) return
+        legElapsedMs += deltaMs
+        while (legElapsedMs >= legDurationMs) {
+            legElapsedMs -= legDurationMs
+            startNextLeg()
+        }
+
+        val t = legElapsedMs / legDurationMs
+        val eased = 0.5f - 0.5f * kotlin.math.cos(kotlin.math.PI.toFloat() * t)
+        xState.floatValue = fromX + (toX - fromX) * eased
+        yState.floatValue = fromY + (toY - fromY) * eased
+        rotationState.floatValue = fromRotation + (toRotation - fromRotation) * eased
+    }
+
+    private fun startNextLeg() {
+        fromX = toX
+        fromY = toY
+        fromRotation = toRotation
+
+        val radius = maxDriftDp * kotlin.math.sqrt(kotlin.random.Random.nextFloat())
+        val angle = kotlin.random.Random.nextFloat() * TwoPi
+        toX = kotlin.math.cos(angle) * radius
+        toY = kotlin.math.sin(angle) * radius
+        toRotation = fromRotation + (kotlin.random.Random.nextFloat() - 0.5f) * 6f
+        legDurationMs = minLegDurationMs + kotlin.random.Random.nextFloat() * (maxLegDurationMs - minLegDurationMs)
+    }
+
+    private companion object {
+        const val DefaultWanderRadiusDp = 18f
+        const val MinLegDurationMs = 5_000f
+        const val MaxLegDurationMs = 10_000f
+        const val TwoPi = (2 * kotlin.math.PI).toFloat()
+    }
+}
+
+/**
+ * The Glow player background, ported across from ArchiveTune's background
+ * styles: one radial wash of the artwork's own palette colour behind the
+ * sleeve's place, easing out to the theme's background at the screen's edges,
+ * like a lamp behind the record.
+ */
+@Composable
+internal fun PlayerGlowBackdrop(
+    imageUrl: String?,
+    modifier: Modifier = Modifier,
+) {
+    val palette = rememberArtworkPalette(imageUrl)
+    val background = MaterialTheme.colorScheme.background
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(background)
+            .background(
+                // Centered where the sleeve sits, a little under the middle of
+                // the screen, and eased out to nothing by the edges.
+                Brush.radialGradient(
+                    colors = listOf(palette.background, background.copy(alpha = 0f)),
+                ),
+            ),
+    )
+}

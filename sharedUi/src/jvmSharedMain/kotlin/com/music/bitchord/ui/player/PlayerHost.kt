@@ -253,6 +253,32 @@ interface PlayerSettingsSource {
      * blur intensity setting.
      */
     val blurIntensity: StateFlow<Float>
+
+    // ---- The player's own appearance, ported from ArchiveTune's Appearance page ----
+
+    /** The blurred backdrop drifts slowly behind the player. */
+    val movingBlur: StateFlow<Boolean>
+
+    /** Hides the seek bar. */
+    val hideSlideBar: StateFlow<Boolean>
+
+    /** Hides the sleeve. */
+    val hidePlayerThumbnail: StateFlow<Boolean>
+
+    /** The sleeve's corner radius in dp; 8 is the stock corner. */
+    val thumbnailCornerRadius: StateFlow<Float>
+
+    val playerButtonsStyle: StateFlow<PlayerButtonsStyle>
+
+    val playerSliderStyle: StateFlow<PlayerSliderStyle>
+
+    val lyricsBackgroundStyle: StateFlow<LyricsBackgroundStyle>
+
+    /**
+     * Draws the player the way a tablet-sized window gets it, at any width.
+     * Ported from ArchiveTune's tablet mode.
+     */
+    val tabletMode: StateFlow<Boolean>
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>

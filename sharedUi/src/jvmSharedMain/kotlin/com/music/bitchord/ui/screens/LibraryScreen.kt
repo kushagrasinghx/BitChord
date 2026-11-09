@@ -118,6 +118,11 @@ fun LibraryScreen(
     showTitle: Boolean = true,
 ) {
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
+    // The two library switches, ported from ArchiveTune's Extras page: the
+    // Replay card at the head of the page and the On-device shelf under the
+    // links — each gone from the page entirely while its switch says so.
+    val hideReplayCard by AppUi.host.hideLibraryReplayCard.collectAsStateWithLifecycle()
+    val hideOnDeviceShelf by AppUi.host.hideLibraryOnDeviceShelf.collectAsStateWithLifecycle()
     val onDevice = stringResource(Res.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
@@ -140,11 +145,13 @@ fun LibraryScreen(
                     )
                 }
             }
-            item(key = "replay") { replay() }
+            if (!hideReplayCard) {
+                item(key = "replay") { replay() }
+            }
             if (links.isNotEmpty()) {
                 item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
             }
-            if (deviceItems.isNotEmpty()) {
+            if (deviceItems.isNotEmpty() && !hideOnDeviceShelf) {
                 item(key = "shelf:$onDevice") {
                     val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
                     LibraryGridShelf(

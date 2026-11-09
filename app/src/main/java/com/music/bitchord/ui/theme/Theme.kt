@@ -149,6 +149,12 @@ fun BitChordTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     font: AppFont = AppFont.DEFAULT,
     /**
+     * The loaded custom font, for [AppFont.CUSTOM] — null until it has loaded
+     * (or forever, if it can't be read), in which case the app's own type is
+     * the fallback, exactly as ArchiveTune's CustomFontLoader leaves it.
+     */
+    customFontFamily: FontFamily? = null,
+    /**
      * A palette to grow the scheme from, ported from ArchiveTune — null keeps
      * the app's own black-and-white scheme exactly as it was. See
      * [seedPaletteColorScheme].
@@ -161,12 +167,23 @@ fun BitChordTheme(
     } else {
         if (darkTheme) DarkColors else LightColors
     }
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = when (font) {
+    // Remembered so a custom font that finishes loading mid-composition swaps
+    // the scale once, not one style at a time as each is first read.
+    val typography = remember(font, customFontFamily) {
+        when (font) {
             AppFont.DEFAULT -> BitChordTypography
             AppFont.LEGACY -> LegacyTypography
-        },
+            // The device's own typeface: the system default, whatever the OEM
+            // shipped. Kept on the same type scale as the app's own cut.
+            AppFont.SYSTEM -> BitChordTypography.withFamily(FontFamily.Default)
+            AppFont.CUSTOM -> customFontFamily
+                ?.let(BitChordTypography::withFamily)
+                ?: BitChordTypography
+        }
+    }
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = typography,
         content = content,
     )
 }

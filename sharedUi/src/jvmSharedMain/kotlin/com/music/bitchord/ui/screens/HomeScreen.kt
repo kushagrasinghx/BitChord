@@ -161,6 +161,11 @@ fun HomeScreen(
 ) {
     // Top Picks' pictures and motion wait for the feed — see LocalArtworkImages.
     val feedReady = state !is UiState.Loading
+    // Minimal mode, ported from ArchiveTune's minimal home mode: the feed
+    // keeps only its lead shelf — the continue-listening recents — and the
+    // banner and station and moods go with the rest.
+    val minimalHome by AppUi.host.minimalHomeMode.collectAsStateWithLifecycle()
+    val hideSignInBanner by AppUi.host.hideSignInBanner.collectAsStateWithLifecycle()
     CompositionLocalProvider(
         LocalArtworkMotion provides (artworkMotion && feedReady),
         LocalArtworkImages provides feedReady,
@@ -192,7 +197,7 @@ fun HomeScreen(
             if (title != null) {
                 item { HomeTitle(title, festiveLogo = festiveLogo, onFestiveLogoClick = onFestiveLogoClick) }
             }
-            if (!signedIn && onSignIn != null) {
+            if (!signedIn && onSignIn != null && !hideSignInBanner) {
                 item {
                     // Read in this item, so a scroll starting or ending
                     // recomposes the banner alone.
@@ -203,7 +208,7 @@ fun HomeScreen(
                     )
                 }
             }
-            if (onTopPickClick != null) {
+            if (onTopPickClick != null && !minimalHome) {
                 when {
                     !topPicks.isNullOrEmpty() -> item(key = "top-picks") {
                         TopPicksShelf(
@@ -231,15 +236,16 @@ fun HomeScreen(
                         recentlyPlayedSkeleton()
                     }
                     itemsIndexedShelves(
-                        shelves = state.data,
-                        onMoodClick = onMoodClick,
+                        // The lead shelf alone under minimal mode, as above.
+                        shelves = if (minimalHome) state.data.take(1) else state.data,
+                        onMoodClick = onMoodClick?.takeIf { !minimalHome },
                         onMoodsShowAll = onMoodsShowAll,
                         onItemClick = onItemClick,
                         onItemLongPress = onItemLongPress,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                     )
-                    if (loadingMore) feedMoreSkeleton()
+                    if (loadingMore && !minimalHome) feedMoreSkeleton()
                 }
             }
         }
@@ -248,7 +254,7 @@ fun HomeScreen(
     }
     }
 
-    if (onLoadMore != null && state is UiState.Success) {
+    if (onLoadMore != null && state is UiState.Success && !minimalHome) {
         val loadMore by rememberUpdatedState(onLoadMore)
         // Re-checked on every layout change, rather than on the rising edge of
         // "the tail is in view". A page that appends only a shelf or two leaves

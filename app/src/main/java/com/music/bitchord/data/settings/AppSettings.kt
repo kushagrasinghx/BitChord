@@ -133,8 +133,10 @@ enum class ThemeMode(val label: String) {
  * How the app's SF Pro Display is set. [DEFAULT] draws each weight one cut
  * lighter and spaces it to Apple Music's own screens; [LEGACY] is the cut the
  * app shipped with before that, every weight its own and spaced tight.
+ * [SYSTEM] and [CUSTOM] are ported from ArchiveTune's AppFontPreference: the
+ * device's own typeface, or a font file of the user's.
  */
-enum class AppFont { DEFAULT, LEGACY }
+enum class AppFont { DEFAULT, LEGACY, SYSTEM, CUSTOM }
 
 /**
  * The preset tiers the Liquid Glass tuning is built from, ported from
@@ -575,13 +577,105 @@ object AppSettings {
 
     /** Scales every sp-measured size, 0.85..1.30; dp layout is untouched, as in ArchiveTune. */
     val uiScale = MutableStateFlow(1.0f)
-
     /**
      * The full-cover blur's strength in dp, 0..64 and 48 by default — the
      * strength the player has always drawn. Feeds the Simple player theme's
      * backdrop and the lyrics and queue covers.
      */
     val blurIntensity = MutableStateFlow(DEFAULT_BLUR_INTENSITY)
+
+    // ---- The Appearance page's player group, ported from ArchiveTune ----
+
+    /** The custom font's display name, shown on the Custom font row. */
+    val customFontName = MutableStateFlow("")
+
+    /** The custom font's file uri, inside the app's own storage. */
+    val customFontUri = MutableStateFlow("")
+
+    /**
+     * The blurred cover behind the player drifts slowly, as a screen saver
+     * does. Ported from ArchiveTune's moving blur (the Apple Music design's
+     * background effect); off keeps the backdrop perfectly still.
+     */
+    val movingBlur = MutableStateFlow(false)
+
+    /** Hides the player's seek bar, leaving the transport and the times off. */
+    val hideSlideBar = MutableStateFlow(false)
+
+    /** Hides the sleeve in the player, leaving the backdrop and the controls. */
+    val hidePlayerThumbnail = MutableStateFlow(false)
+
+    /**
+     * The sleeve's corner radius in dp. 8 is the corner the app has always
+     * drawn, so that is the default — the stock look until it is moved.
+     */
+    val thumbnailCornerRadius = MutableStateFlow(DEFAULT_THUMBNAIL_CORNER_RADIUS)
+
+    val playerButtonsStyle = MutableStateFlow(PlayerButtonsStyle.DEFAULT)
+
+    val playerSliderStyle = MutableStateFlow(PlayerSliderStyle.STANDARD)
+
+    val lyricsBackgroundStyle = MutableStateFlow(LyricsBackgroundStyle.DEFAULT)
+
+    val miniPlayerBackgroundStyle = MutableStateFlow(MiniPlayerBackgroundStyle.FROSTED)
+
+    // ---- The Appearance page's home, misc and extras groups ----
+
+    /** The home feed keeps only the lead shelf, as a screen saver keeps a clock. */
+    val minimalHomeMode = MutableStateFlow(false)
+
+    val defaultOpenTab = MutableStateFlow(DefaultOpenTab.HOME)
+
+    /**
+     * Draws the player the way a tablet-sized window gets it — the full-cover
+     * blur standing behind everything — at any width. Ported from ArchiveTune's
+     * tablet mode; the window's own width still decides on its own until this
+     * is switched on.
+     */
+    val tabletMode = MutableStateFlow(false)
+
+    val backAnimationStyle = MutableStateFlow(BackAnimationStyle.DEFAULT)
+
+    /** Tab labels under the bottom bar's glyphs. */
+    val navBarShowLabels = MutableStateFlow(true)
+
+    /** The sign-in banner at the top of Home, for the signed-out listener. */
+    val hideSignInBanner = MutableStateFlow(false)
+
+    /** The Replay card at the top of the Library tab. */
+    val hideLibraryReplayCard = MutableStateFlow(false)
+
+    /** The On-device shelf on the Library tab. */
+    val hideLibraryOnDeviceShelf = MutableStateFlow(false)
+
+    // ---- The always-on playing screen, ported from ArchiveTune's AOD ----
+
+    /** The master switch: off, the screen saver the system picks plays instead. */
+    val aodEnabled = MutableStateFlow(false)
+
+    val aodShowThumbnail = MutableStateFlow(true)
+    val aodShowArtist = MutableStateFlow(true)
+    val aodShowAlbum = MutableStateFlow(false)
+    val aodShowProgress = MutableStateFlow(true)
+    val aodShowTimeLabels = MutableStateFlow(true)
+    val aodShowControls = MutableStateFlow(true)
+    val aodShowClock = MutableStateFlow(true)
+    val aodShowBattery = MutableStateFlow(true)
+
+    /** The screen's brightness while the AOD is up, as a share of full. */
+    val aodBrightness = MutableStateFlow(0.15f)
+
+    /** Eases the brightness down the longer the screen stays on. */
+    val aodAutoDimming = MutableStateFlow(true)
+
+    /** Seconds after which the AOD gives the screen back; 0 keeps it on. */
+    val aodAutoTimerSeconds = MutableStateFlow(0)
+
+    /** Takes taps so a pocket cannot skip a track; the power key still exits. */
+    val aodTouchLock = MutableStateFlow(false)
+
+    /** Nudges the artwork a hair every minute, so one pixel row doesn't age. */
+    val aodPixelShift = MutableStateFlow(true)
 
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
@@ -1146,6 +1240,39 @@ object AppSettings {
         hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
         uiScale.value = prefs.getFloat(KEY_UI_SCALE, 1.0f).coerceIn(MIN_UI_SCALE, MAX_UI_SCALE)
         blurIntensity.value = prefs.getFloat(KEY_BLUR_INTENSITY, DEFAULT_BLUR_INTENSITY).coerceIn(0f, MAX_BLUR_INTENSITY)
+        customFontName.value = prefs.getString(KEY_CUSTOM_FONT_NAME, "").orEmpty()
+        customFontUri.value = prefs.getString(KEY_CUSTOM_FONT_URI, "").orEmpty()
+        movingBlur.value = prefs.getBoolean(KEY_MOVING_BLUR, false)
+        hideSlideBar.value = prefs.getBoolean(KEY_HIDE_SLIDE_BAR, false)
+        hidePlayerThumbnail.value = prefs.getBoolean(KEY_HIDE_PLAYER_THUMBNAIL, false)
+        thumbnailCornerRadius.value = prefs.getFloat(KEY_THUMBNAIL_CORNER_RADIUS, DEFAULT_THUMBNAIL_CORNER_RADIUS)
+            .coerceIn(0f, MAX_THUMBNAIL_CORNER_RADIUS)
+        playerButtonsStyle.value = readEnum(KEY_PLAYER_BUTTONS_STYLE, PlayerButtonsStyle.DEFAULT)
+        playerSliderStyle.value = readEnum(KEY_PLAYER_SLIDER_STYLE, PlayerSliderStyle.STANDARD)
+        lyricsBackgroundStyle.value = readEnum(KEY_LYRICS_BACKGROUND_STYLE, LyricsBackgroundStyle.DEFAULT)
+        miniPlayerBackgroundStyle.value = readEnum(KEY_MINI_PLAYER_BACKGROUND_STYLE, MiniPlayerBackgroundStyle.FROSTED)
+        minimalHomeMode.value = prefs.getBoolean(KEY_MINIMAL_HOME_MODE, false)
+        defaultOpenTab.value = readEnum(KEY_DEFAULT_OPEN_TAB, DefaultOpenTab.HOME)
+        tabletMode.value = prefs.getBoolean(KEY_TABLET_MODE, false)
+        backAnimationStyle.value = readEnum(KEY_BACK_ANIMATION_STYLE, BackAnimationStyle.DEFAULT)
+        navBarShowLabels.value = prefs.getBoolean(KEY_NAV_BAR_SHOW_LABELS, true)
+        hideSignInBanner.value = prefs.getBoolean(KEY_HIDE_SIGN_IN_BANNER, false)
+        hideLibraryReplayCard.value = prefs.getBoolean(KEY_HIDE_LIBRARY_REPLAY_CARD, false)
+        hideLibraryOnDeviceShelf.value = prefs.getBoolean(KEY_HIDE_LIBRARY_ON_DEVICE_SHELF, false)
+        aodEnabled.value = prefs.getBoolean(KEY_AOD_ENABLED, false)
+        aodShowThumbnail.value = prefs.getBoolean(KEY_AOD_SHOW_THUMBNAIL, true)
+        aodShowArtist.value = prefs.getBoolean(KEY_AOD_SHOW_ARTIST, true)
+        aodShowAlbum.value = prefs.getBoolean(KEY_AOD_SHOW_ALBUM, false)
+        aodShowProgress.value = prefs.getBoolean(KEY_AOD_SHOW_PROGRESS, true)
+        aodShowTimeLabels.value = prefs.getBoolean(KEY_AOD_SHOW_TIME_LABELS, true)
+        aodShowControls.value = prefs.getBoolean(KEY_AOD_SHOW_CONTROLS, true)
+        aodShowClock.value = prefs.getBoolean(KEY_AOD_SHOW_CLOCK, true)
+        aodShowBattery.value = prefs.getBoolean(KEY_AOD_SHOW_BATTERY, true)
+        aodBrightness.value = prefs.getFloat(KEY_AOD_BRIGHTNESS, 0.15f).coerceIn(0.02f, 1f)
+        aodAutoDimming.value = prefs.getBoolean(KEY_AOD_AUTO_DIMMING, true)
+        aodAutoTimerSeconds.value = prefs.getInt(KEY_AOD_AUTO_TIMER_SECONDS, 0).coerceIn(0, 3600)
+        aodTouchLock.value = prefs.getBoolean(KEY_AOD_TOUCH_LOCK, false)
+        aodPixelShift.value = prefs.getBoolean(KEY_AOD_PIXEL_SHIFT, true)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
@@ -1726,6 +1853,171 @@ object AppSettings {
         val clamped = value.coerceIn(0f, MAX_BLUR_INTENSITY)
         blurIntensity.value = clamped
         prefs.edit().putFloat(KEY_BLUR_INTENSITY, clamped).apply()
+    }
+
+    // ---- Setters for the ported Appearance rows ----
+
+    /** Names the font the uri holds; the two are written together. */
+    fun setCustomFont(name: String, uri: String) {
+        customFontName.value = name
+        customFontUri.value = uri
+        prefs.edit()
+            .putString(KEY_CUSTOM_FONT_NAME, name)
+            .putString(KEY_CUSTOM_FONT_URI, uri)
+            .apply()
+    }
+
+    fun setMovingBlur(value: Boolean) {
+        movingBlur.value = value
+        prefs.edit().putBoolean(KEY_MOVING_BLUR, value).apply()
+    }
+
+    fun setHideSlideBar(value: Boolean) {
+        hideSlideBar.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SLIDE_BAR, value).apply()
+    }
+
+    fun setHidePlayerThumbnail(value: Boolean) {
+        hidePlayerThumbnail.value = value
+        prefs.edit().putBoolean(KEY_HIDE_PLAYER_THUMBNAIL, value).apply()
+    }
+
+    fun setThumbnailCornerRadius(value: Float) {
+        val clamped = value.coerceIn(0f, MAX_THUMBNAIL_CORNER_RADIUS)
+        thumbnailCornerRadius.value = clamped
+        prefs.edit().putFloat(KEY_THUMBNAIL_CORNER_RADIUS, clamped).apply()
+    }
+
+    fun setPlayerButtonsStyle(value: PlayerButtonsStyle) {
+        playerButtonsStyle.value = value
+        prefs.edit().putString(KEY_PLAYER_BUTTONS_STYLE, value.name).apply()
+    }
+
+    fun setPlayerSliderStyle(value: PlayerSliderStyle) {
+        playerSliderStyle.value = value
+        prefs.edit().putString(KEY_PLAYER_SLIDER_STYLE, value.name).apply()
+    }
+
+    fun setLyricsBackgroundStyle(value: LyricsBackgroundStyle) {
+        lyricsBackgroundStyle.value = value
+        prefs.edit().putString(KEY_LYRICS_BACKGROUND_STYLE, value.name).apply()
+    }
+
+    fun setMiniPlayerBackgroundStyle(value: MiniPlayerBackgroundStyle) {
+        miniPlayerBackgroundStyle.value = value
+        prefs.edit().putString(KEY_MINI_PLAYER_BACKGROUND_STYLE, value.name).apply()
+    }
+
+    fun setMinimalHomeMode(value: Boolean) {
+        minimalHomeMode.value = value
+        prefs.edit().putBoolean(KEY_MINIMAL_HOME_MODE, value).apply()
+    }
+
+    fun setDefaultOpenTab(value: DefaultOpenTab) {
+        defaultOpenTab.value = value
+        prefs.edit().putString(KEY_DEFAULT_OPEN_TAB, value.name).apply()
+    }
+
+    fun setTabletMode(value: Boolean) {
+        tabletMode.value = value
+        prefs.edit().putBoolean(KEY_TABLET_MODE, value).apply()
+    }
+
+    fun setBackAnimationStyle(value: BackAnimationStyle) {
+        backAnimationStyle.value = value
+        prefs.edit().putString(KEY_BACK_ANIMATION_STYLE, value.name).apply()
+    }
+
+    fun setNavBarShowLabels(value: Boolean) {
+        navBarShowLabels.value = value
+        prefs.edit().putBoolean(KEY_NAV_BAR_SHOW_LABELS, value).apply()
+    }
+
+    fun setHideSignInBanner(value: Boolean) {
+        hideSignInBanner.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SIGN_IN_BANNER, value).apply()
+    }
+
+    fun setHideLibraryReplayCard(value: Boolean) {
+        hideLibraryReplayCard.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LIBRARY_REPLAY_CARD, value).apply()
+    }
+
+    fun setHideLibraryOnDeviceShelf(value: Boolean) {
+        hideLibraryOnDeviceShelf.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LIBRARY_ON_DEVICE_SHELF, value).apply()
+    }
+
+    fun setAodEnabled(value: Boolean) {
+        aodEnabled.value = value
+        prefs.edit().putBoolean(KEY_AOD_ENABLED, value).apply()
+    }
+
+    fun setAodShowThumbnail(value: Boolean) {
+        aodShowThumbnail.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_THUMBNAIL, value).apply()
+    }
+
+    fun setAodShowArtist(value: Boolean) {
+        aodShowArtist.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_ARTIST, value).apply()
+    }
+
+    fun setAodShowAlbum(value: Boolean) {
+        aodShowAlbum.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_ALBUM, value).apply()
+    }
+
+    fun setAodShowProgress(value: Boolean) {
+        aodShowProgress.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_PROGRESS, value).apply()
+    }
+
+    fun setAodShowTimeLabels(value: Boolean) {
+        aodShowTimeLabels.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_TIME_LABELS, value).apply()
+    }
+
+    fun setAodShowControls(value: Boolean) {
+        aodShowControls.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_CONTROLS, value).apply()
+    }
+
+    fun setAodShowClock(value: Boolean) {
+        aodShowClock.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_CLOCK, value).apply()
+    }
+
+    fun setAodShowBattery(value: Boolean) {
+        aodShowBattery.value = value
+        prefs.edit().putBoolean(KEY_AOD_SHOW_BATTERY, value).apply()
+    }
+
+    fun setAodBrightness(value: Float) {
+        val clamped = value.coerceIn(0.02f, 1f)
+        aodBrightness.value = clamped
+        prefs.edit().putFloat(KEY_AOD_BRIGHTNESS, clamped).apply()
+    }
+
+    fun setAodAutoDimming(value: Boolean) {
+        aodAutoDimming.value = value
+        prefs.edit().putBoolean(KEY_AOD_AUTO_DIMMING, value).apply()
+    }
+
+    fun setAodAutoTimerSeconds(value: Int) {
+        val clamped = value.coerceIn(0, 3600)
+        aodAutoTimerSeconds.value = clamped
+        prefs.edit().putInt(KEY_AOD_AUTO_TIMER_SECONDS, clamped).apply()
+    }
+
+    fun setAodTouchLock(value: Boolean) {
+        aodTouchLock.value = value
+        prefs.edit().putBoolean(KEY_AOD_TOUCH_LOCK, value).apply()
+    }
+
+    fun setAodPixelShift(value: Boolean) {
+        aodPixelShift.value = value
+        prefs.edit().putBoolean(KEY_AOD_PIXEL_SHIFT, value).apply()
     }
 
     fun setHighPerformanceMode(value: Boolean) {
@@ -2524,6 +2816,48 @@ object AppSettings {
     private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
     private const val KEY_UI_SCALE = "ui_scale"
     private const val KEY_BLUR_INTENSITY = "blur_intensity"
+    private const val KEY_CUSTOM_FONT_NAME = "custom_font_name"
+    private const val KEY_CUSTOM_FONT_URI = "custom_font_uri"
+    private const val KEY_MOVING_BLUR = "moving_blur"
+    private const val KEY_HIDE_SLIDE_BAR = "hide_slide_bar"
+    private const val KEY_HIDE_PLAYER_THUMBNAIL = "hide_player_thumbnail"
+    private const val KEY_THUMBNAIL_CORNER_RADIUS = "thumbnail_corner_radius"
+    private const val KEY_PLAYER_BUTTONS_STYLE = "player_buttons_style"
+    private const val KEY_PLAYER_SLIDER_STYLE = "player_slider_style"
+    private const val KEY_LYRICS_BACKGROUND_STYLE = "lyrics_background_style"
+    private const val KEY_MINI_PLAYER_BACKGROUND_STYLE = "mini_player_background_style"
+    private const val KEY_MINIMAL_HOME_MODE = "minimal_home_mode"
+    private const val KEY_DEFAULT_OPEN_TAB = "default_open_tab"
+    private const val KEY_TABLET_MODE = "tablet_mode"
+    private const val KEY_BACK_ANIMATION_STYLE = "back_animation_style"
+    private const val KEY_NAV_BAR_SHOW_LABELS = "nav_bar_show_labels"
+    private const val KEY_HIDE_SIGN_IN_BANNER = "hide_sign_in_banner"
+    private const val KEY_HIDE_LIBRARY_REPLAY_CARD = "hide_library_replay_card"
+    private const val KEY_HIDE_LIBRARY_ON_DEVICE_SHELF = "hide_library_on_device_shelf"
+    private const val KEY_AOD_ENABLED = "aod_enabled"
+    private const val KEY_AOD_SHOW_THUMBNAIL = "aod_show_thumbnail"
+    private const val KEY_AOD_SHOW_ARTIST = "aod_show_artist"
+    private const val KEY_AOD_SHOW_ALBUM = "aod_show_album"
+    private const val KEY_AOD_SHOW_PROGRESS = "aod_show_progress"
+    private const val KEY_AOD_SHOW_TIME_LABELS = "aod_show_time_labels"
+    private const val KEY_AOD_SHOW_CONTROLS = "aod_show_controls"
+    private const val KEY_AOD_SHOW_CLOCK = "aod_show_clock"
+    private const val KEY_AOD_SHOW_BATTERY = "aod_show_battery"
+    private const val KEY_AOD_BRIGHTNESS = "aod_brightness"
+    private const val KEY_AOD_AUTO_DIMMING = "aod_auto_dimming"
+    private const val KEY_AOD_AUTO_TIMER_SECONDS = "aod_auto_timer_seconds"
+    private const val KEY_AOD_TOUCH_LOCK = "aod_touch_lock"
+    private const val KEY_AOD_PIXEL_SHIFT = "aod_pixel_shift"
+
+    /** The sleeve's stock corner, which the corner-radius row opens on. */
+    const val DEFAULT_THUMBNAIL_CORNER_RADIUS = 8f
+    const val MAX_THUMBNAIL_CORNER_RADIUS = 28f
+
+    /** Reads an enum by name, falling back when the stored name isn't one. */
+    private inline fun <reified T : Enum<T>> readEnum(key: String, default: T): T =
+        runCatching {
+            enumValueOf<T>(prefs.getString(key, null) ?: default.name)
+        }.getOrDefault(default)
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
 
     // The Liquid Glass tuning defaults, shared with the renderer (see

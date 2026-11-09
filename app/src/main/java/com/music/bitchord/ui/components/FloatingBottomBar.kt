@@ -377,6 +377,10 @@ private fun BottomBarItem(
         label = "tabScale",
     )
     val haptics = rememberHaptics()
+    // The label under the glyph, ported from ArchiveTune's navigation bar
+    // settings: off, the glyph stands alone and the icon's own padding keeps
+    // the bar's height — a shorter bar would jump the page's bottom inset.
+    val showLabel by AppSettings.navBarShowLabels.collectAsStateWithLifecycle()
     val tint by animateColorAsState(
         targetValue = if (selected) {
             selectedTint ?: MaterialTheme.colorScheme.primary
@@ -411,13 +415,15 @@ private fun BottomBarItem(
                     scaleY = scale
                 },
         )
-        Spacer(Modifier.height(TAB_ICON_LABEL_GAP))
-        Text(
-            text = tab.label,
-            style = tabLabelStyle(),
-            color = tint,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showLabel) {
+            Spacer(Modifier.height(TAB_ICON_LABEL_GAP))
+            Text(
+                text = tab.label,
+                style = tabLabelStyle(),
+                color = tint,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

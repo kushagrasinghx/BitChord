@@ -36,25 +36,38 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MixBlend
+import com.music.bitchord.data.settings.PlayerSliderStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Apple Music's scrubber: a hairline capsule with no thumb knob, which
  * thickens under your finger and settles back when you let go. Material's
  * Slider can't be shaped like this — it always draws a thumb and a tall
  * track — so this is drawn directly.
+ *
+ * [style] is the player slider style ported from ArchiveTune (Standard / Wavy
+ * / Thick / Circular / Simple), drawn as variants of this same bar so the
+ * Automix sheen, the transition window and the load morph keep working under
+ * every one of them. [animated] is whether the wavy styles may move — the
+ * track playing, and motion not reduced.
  */
 @Composable
 fun ThinSlider(
@@ -93,14 +106,42 @@ fun ThinSlider(
      * unplayed bar so the mix is visible before it arrives.
      */
     transitionWindow: ClosedFloatingPointRange<Float>? = null,
-    idleHeight: Dp = 7.dp,
-    activeHeight: Dp = 12.dp,
+    style: PlayerSliderStyle = PlayerSliderStyle.STANDARD,
+    animated: Boolean = false,
+    idleHeight: Dp = when (style) {
+        PlayerSliderStyle.SIMPLE -> 3.dp
+        PlayerSliderStyle.THICK -> 12.dp
+        else -> 7.dp
+    },
+    activeHeight: Dp = when (style) {
+        PlayerSliderStyle.SIMPLE -> 5.dp
+        PlayerSliderStyle.THICK -> 16.dp
+        else -> 12.dp
+    },
     activeColor: Color = Color.White.copy(alpha = 0.92f),
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
     /** Halfway between the two track colours: visible against unplayed, invisible under played. */
     markerColor: Color = Color.White.copy(alpha = 0.5f),
 ) {
     var dragging by remember { mutableStateOf(false) }
+    val wavy = style == PlayerSliderStyle.WAVY || style == PlayerSliderStyle.CIRCULAR
+    val wavesMove = wavy && animated
+    // The wave's own clock, advancing only while it may move — a paused track
+    // holds the wave still (drawn flat, as the standard bar is) and the clock
+    // itself stops, so an idle player pays nothing for the style.
+    var wavePhase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(wavesMove) {
+        if (!wavesMove) return@LaunchedEffect
+        var last = System.nanoTime()
+        while (true) {
+            withFrameNanos {
+                val now = System.nanoTime()
+                val dt = (now - last).coerceIn(0L, 100_000_000L)
+                last = now
+                wavePhase = (wavePhase + dt / (WAVE_PERIOD_MS * 1_000_000f)) % 1f
+            }
+        }
+    }
     val height by animateDpAsState(
         targetValue = if (dragging) activeHeight else idleHeight,
         animationSpec = spring(
@@ -187,6 +228,62 @@ fun ThinSlider(
                 .height(height),
         ) {
             val radius = CornerRadius(size.height / 2f)
+            val cover = if (dragging) 0f else mixPulse?.cover ?: 0f
+            val base = value.coerceIn(0f, 1f)
+            val fraction = base + (1f - base) * cover
+            if (wavy) {
+                // The wavy styles' track: a sine squiggle across the bar, its
+                // played stretch claimed in the active colour. Amplitude 2dp
+                // while the track plays — SquigglySlider's own figure — and
+                // flat while paused, so the bar still reads at a glance.
+                val amplitude = if (animated) 2.dp.toPx() else 0f
+                val stroke = when (style) {
+                    PlayerSliderStyle.CIRCULAR -> 6.dp.toPx()
+                    else -> 5.dp.toPx()
+                }
+                fun wave(fromX: Float, toX: Float, brush: Brush) {
+                    if (toX <= fromX) return
+                    val path = Path()
+                    val midY = size.height / 2f
+                    var first = true
+                    var x = fromX
+                    while (x <= toX) {
+                        val t = x / size.width
+                        val y = midY + amplitude * sin(
+                            (t * WAVE_COUNT + if (wavesMove) wavePhase else 0f) * 2f * PI.toFloat(),
+                        )
+                        if (first) {
+                            path.moveTo(x, y)
+                            first = false
+                        } else {
+                            path.lineTo(x, y)
+                        }
+                        x += 2f
+                    }
+                    drawPath(path, brush, style = Stroke(width = stroke, cap = StrokeCap.Round))
+                }
+                wave(0f, size.width, SolidColor(inactiveColor))
+                shownWindow?.takeIf { windowAlpha > 0f }?.let { window ->
+                    val from = size.width * window.start.coerceIn(0f, 1f)
+                    val to = size.width * window.endInclusive.coerceIn(0f, 1f)
+                    if (to > from) {
+                        wave(from, to, SolidColor(markerColor.copy(alpha = markerColor.alpha * windowAlpha)))
+                    }
+                }
+                if (fillFactor > 0f) {
+                    val filled = (size.width * fraction * fillFactor).coerceAtLeast(4f)
+                    val alpha = if (dragging) activeColor.alpha else mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
+                    wave(0f, filled, SolidColor(activeColor.copy(alpha = alpha)))
+                    if (style == PlayerSliderStyle.CIRCULAR && fillFactor >= 1f) {
+                        // The circular style's knob rides the wave's crest.
+                        val t = (filled / size.width).coerceIn(0f, 1f)
+                        val y = size.height / 2f + amplitude * sin(
+                            (t * WAVE_COUNT + if (wavesMove) wavePhase else 0f) * 2f * PI.toFloat(),
+                        )
+                        drawCircle(activeColor, radius = 5.dp.toPx(), center = Offset(filled.coerceAtMost(size.width - 5.dp.toPx()), y))
+                    }
+                }
+            } else {
             drawRoundRect(color = inactiveColor, cornerRadius = radius)
             // Between the two track colours, and drawn *under* the played fill:
             // once the playhead reaches the window the transition is no longer
@@ -230,10 +327,9 @@ fun ThinSlider(
             // While a blend runs the whole bar is the fill, outgoing song and
             // incoming alike, and it is the fill's opacity that carries the mix:
             // brightest on each beat, easing down between them over the unplayed
-            // track colour. A drag in progress always shows the finger.
-            val cover = if (dragging) 0f else mixPulse?.cover ?: 0f
-            val base = value.coerceIn(0f, 1f)
-            val fraction = base + (1f - base) * cover
+            // track colour. A drag in progress always shows the finger. (The
+            // cover, base and fraction it works from are declared above the
+            // branch, shared with the wavy track.)
             // Scaled by [fillFactor]: retracted to nothing while the sheen
             // runs (two white signals on one bar would read as progress
             // fighting the wait) and slid back in when the switch lands. The
@@ -251,6 +347,7 @@ fun ThinSlider(
                     ),
                     cornerRadius = radius,
                 )
+            }
             }
         }
         // Composed only while switching or mixing. The infinite animation therefore costs no
@@ -276,6 +373,12 @@ fun ThinSlider(
 }
 
 private const val SHEEN_BAND_FRACTION = 0.34f
+
+/** One pass of the wavy styles' wave, in milliseconds. */
+private const val WAVE_PERIOD_MS = 1600
+
+/** How many full waves sit across the bar. */
+private const val WAVE_COUNT = 3f
 
 /** Share of the Automix window each feathered end takes, before the limits below. */
 private const val WINDOW_FEATHER_SHARE = 0.4f

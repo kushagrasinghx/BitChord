@@ -102,19 +102,21 @@ dependencies {
     implementation(project(":archivetune:lastfm"))
     implementation(project(":archivetune:spotifycore"))
 
-    // ---- Compose, on the app's pins ----
+    // ---- Compose ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
-    implementation("androidx.compose.foundation:foundation:1.10.0")
+    implementation("androidx.compose.foundation:foundation:1.11.0-beta02")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-util")
-    // ArchiveTune's own pin: the ten styles draw material3's expressive
+    // ArchiveTune's own line: the ten styles draw material3's expressive
     // widgets (LoadingIndicator, the wavy progress indicators, ToggleButton
-    // and ButtonGroup, MaterialShapes, MotionScheme), which are public only
-    // from the 1.5 line on — and 1.5.0-alpha23's foundation requirement
-    // stays within what this app already pins.
-    implementation("androidx.compose.material3:material3:1.5.0-alpha23")
+    // and ButtonGroup with customItem, MaterialShapes, MotionScheme, the
+    // floating toolbar, the emphasized text roles), public only from the 1.5
+    // alphas on. alpha18 is the newest one whose Compose requirement
+    // (1.11.0-beta02) still accepts this app's AGP — the 1.12-alphas the
+    // later ones pull demand AGP 9.1.
+    implementation("androidx.compose.material3:material3:1.5.0-alpha18")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation-graphics")
     implementation("androidx.compose.runtime:runtime")

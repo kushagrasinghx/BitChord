@@ -22,6 +22,8 @@
  * backdrop, datastore, timber, materialkolor), it is declared here at the
  * newest version that still compiles against those pins.
  */
+import java.util.Properties
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -39,7 +41,7 @@ android {
         // The two buildConfig fields the copied sources read (the account
         // pool the tidal/qobuz providers authenticate against). Same defaults
         // as ArchiveTune's app; overridable from local.properties/env.
-        val localProps = java.util.Properties().apply {
+        val localProps = Properties().apply {
             val f = rootProject.file("local.properties")
             if (f.exists()) f.inputStream().use(::load)
         }

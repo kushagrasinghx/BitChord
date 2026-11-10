@@ -203,6 +203,12 @@ object SourceRegistry {
             "app.bitchord.lossless-bridge",
             "botkeep.bppcaf.addon",
             "dev.akira.bitchord-hires",
+            "eljohnzc.addon.deezer",
+            "dev.eljohnzc.addon.deezer",
+            "app.bitchord.confih",
+            "dev.confih.bitchord.addon",
+            "com.8spine.tidal-deezer",
+            "dev.bluebit.stream",
         )
         val deadHostPatterns = listOf(
             "gglos",
@@ -210,6 +216,9 @@ object SourceRegistry {
             "bppcaf",
             "lastbabe",
             "bitchord-hires",
+            "deplexo",
+            "confih",
+            "workers.dev",
         )
 
         // Purge dead, offline, or retired addons from existing storage
@@ -702,33 +711,6 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Qobuz [Monochrome] (Hi-Res FLAC)",
             baseUrl = "https://tracks.monochrome.st",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "eljohnzc.addon.deezer",
-            kind = SourceKind.ADDON,
-            label = "Eljohnzc Addon Deezer (Lossless)",
-            baseUrl = "https://eljohnzc-addon-deezer.de.deplexo.com/manifest.json",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "app.bitchord.confih",
-            kind = SourceKind.ADDON,
-            label = "Confih Hi-Res",
-            baseUrl = "https://bitchord.confih.tech/manifest.json",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "com.8spine.tidal-deezer",
-            kind = SourceKind.ADDON,
-            label = "BluBit Station Hi-Fi",
-            baseUrl = "https://bluebit.jucepe0929.workers.dev/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,

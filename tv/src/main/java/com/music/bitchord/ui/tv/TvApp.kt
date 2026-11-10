@@ -201,8 +201,7 @@ fun TvApp(
     val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
     val activeSong = playerState.song
     val activeCanvasArt = activeSong?.let { song ->
-        AppleArtworkRepository.cached(song)?.artworkUrl
-            ?: if (!hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song.thumbnailUrl)) song.thumbnailUrl else null
+        AppleArtworkRepository.cached(song)?.artworkUrl ?: song.thumbnailUrl
     }
 
     Box(

@@ -229,11 +229,7 @@ fun TvNowPlayingScreen(
         LaunchedEffect(song.videoId) {
             appleArt = AppleArtworkRepository.artworkFor(song)
         }
-        val effectiveArtworkUrl = when {
-            !appleArt?.artworkUrl.isNullOrBlank() -> appleArt?.artworkUrl
-            !hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song.thumbnailUrl) -> song.thumbnailUrl
-            else -> null
-        }
+        val effectiveArtworkUrl = appleArt?.artworkUrl?.takeIf { it.isNotBlank() } ?: song.thumbnailUrl
         TvPlayerBackground(artworkUrl = effectiveArtworkUrl, style = playerStyle)
 
         // The stage: takes the remote while the transport is down. Select or a

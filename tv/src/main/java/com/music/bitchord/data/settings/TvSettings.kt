@@ -40,7 +40,7 @@ object TvSettings {
     val tvLyricsCanvasEnabled = MutableStateFlow(true)
     val tvVideoAuto1080p = MutableStateFlow(true)
     val tvNavLayout = MutableStateFlow("left_rail")
-    val tvHideYoutubeThumbnails = MutableStateFlow(true)
+    val tvHideYoutubeThumbnails = MutableStateFlow(false)
     val tvPlayerStyle = MutableStateFlow(TvPlayerStyle.DEFAULT)
 
     /** UI density/scale multiplier for the TV layout: 0.8 (Small) → 1.0 (Normal) → 1.2 (Large) → 1.4 (XL). */
@@ -64,7 +64,7 @@ object TvSettings {
         tvLyricsCanvasEnabled.value = prefs.getBoolean(KEY_TV_LYRICS_CANVAS, true)
         tvVideoAuto1080p.value = prefs.getBoolean(KEY_TV_VIDEO_AUTO_1080P, true)
         tvNavLayout.value = prefs.getString(KEY_TV_NAV_LAYOUT, "left_rail") ?: "left_rail"
-        tvHideYoutubeThumbnails.value = prefs.getBoolean(KEY_TV_HIDE_YOUTUBE_THUMBNAILS, true)
+        tvHideYoutubeThumbnails.value = prefs.getBoolean(KEY_TV_HIDE_YOUTUBE_THUMBNAILS, false)
         tvPlayerStyle.value = runCatching {
             TvPlayerStyle.valueOf(prefs.getString(KEY_TV_PLAYER_STYLE, null) ?: TvPlayerStyle.DEFAULT.name)
         }.getOrDefault(TvPlayerStyle.DEFAULT)

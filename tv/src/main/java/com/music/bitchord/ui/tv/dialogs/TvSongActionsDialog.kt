@@ -141,8 +141,7 @@ fun TvSongActionMenuDialog(
     }
 
     val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
-    val dialogArtUrl = AppleArtworkRepository.cached(song)?.artworkUrl
-        ?: if (!hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song.thumbnailUrl)) song.thumbnailUrl else null
+    val dialogArtUrl = AppleArtworkRepository.cached(song)?.artworkUrl ?: song.thumbnailUrl
     TvDialog(title = song.title, message = song.artist.ifBlank { null }, onDismissRequest = onDismiss) {
         TvArtwork(
             url = dialogArtUrl,

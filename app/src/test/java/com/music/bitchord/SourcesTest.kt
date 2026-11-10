@@ -656,7 +656,7 @@ class SourcesTest {
         assertFalse(initialized.any { it.baseUrl.contains("lastbabe") })
         assertFalse(initialized.any { it.baseUrl.contains("bitchord-hires") })
         assertTrue(initialized.any { it.id == "dev.bitperfect.qobuz.heisenbergg" })
-        assertEquals(4, SourceRegistry.PREBAKED_SOURCES.size)
+        assertEquals(1, SourceRegistry.PREBAKED_SOURCES.size)
     }
 
     @Test

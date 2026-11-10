@@ -233,8 +233,7 @@ internal fun TvNowPlayingStage(
         ) {
             val coverUrl = when {
                 !appleArt?.artworkUrl.isNullOrBlank() -> appleArt?.artworkUrl
-                !hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song.thumbnailUrl) -> song.thumbnailUrl
-                else -> null
+                else -> song.thumbnailUrl
             }
             TvArtwork(url = coverUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
             canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
@@ -973,7 +972,7 @@ internal fun TvUpNext(
                 bottom = 5.dp,
             ) { i, entry ->
                 val cardArtUrl = AppleArtworkRepository.cached(entry.value)?.artworkUrl
-                    ?: if (!hideYoutubeThumbnails || !isYouTubeThumbnailUrl(entry.value.thumbnailUrl)) entry.value.thumbnailUrl else null
+                    ?: entry.value.thumbnailUrl
                 val format = streamChoices[entry.value.videoId]
                 val badge = when {
                     format?.isDolbyAtmos == true -> "ATMOS"

@@ -64,7 +64,8 @@ class MonochromeSource(
                 TrackLog.d(TAG, "  ✓ Monochrome returned ${parsed.tracks.size} tracks for \"$trimmed\"")
                 parsed.tracks.take(limit).map { raw ->
                     val artistName = raw.artistNames.joinToString(", ").ifBlank { "Unknown Artist" }
-                    val durationSec = (raw.duration / 1000).toInt()
+                    val dur = raw.duration
+                    val durationSec = if (dur > 10000) (dur / 1000).toInt() else dur.toInt()
                     val m = durationSec / 60
                     val s = durationSec % 60
                     Song(
@@ -73,7 +74,7 @@ class MonochromeSource(
                         artist = artistName,
                         albumName = null,
                         thumbnailUrl = raw.artwork,
-                        durationText = String.format("%d:%02d", m, s),
+                        durationText = String.format(java.util.Locale.US, "%d:%02d", m, s),
                         sourceQuality = "LOSSLESS",
                         isExplicit = raw.explicit,
                     )

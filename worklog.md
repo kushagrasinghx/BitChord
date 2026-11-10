@@ -145,3 +145,73 @@ Stage Summary:
   app ships — over BitChord's playback through a thin bridge. BITCHORD
   stays the app's own untouched player. First push handed to CI; repair
   loop to follow.
+
+---
+
+Task ID: 2 (continuation — the compile-repair loop, CI-driven per instruction)
+Agent: main (Super Z)
+Task: Carry the one-to-one player style port (Task ID: 2's first push) to a
+green build: push, monitor check.yml / android.yml, fix from the failure
+logs, repeat. No local compilation.
+
+Work Log (seven rounds, from the CI logs):
+- Round 1 — the module's own compile, the shapes the copied UI reads:
+  playbackState made public on the bridge connection; the service bridge
+  gained the live-track facts the stats sheet reads (currentMediaMetadata,
+  currentStreamInfo, liveNormalizeFactor, inert); LyricsHelperEntryPoint
+  registered in the bridge entry-point registry; BackdropTonePalette.kt
+  and LyricsTextWrapping.kt copied from ArchiveTune (they were outside the
+  original closure — the V7 backdrop's tones and the bouncing-word wrap
+  units); VideoBackgroundPreloader bridged inert (no background hold
+  exists without ArchiveTune's service); DownloadFetchProgress bridged
+  inert for SpatialFlow's download pill; SyncUtils.likeSong takes the
+  toggled SongEntity exactly as the TikTok rail passes it; materialkolor
+  raised to ArchiveTune's own 5.0.0-alpha07 (isAmoled defaults there, and
+  its Compose 1.11.0-alpha03 deps resolve under the module's beta02 pins);
+  room-ktx for the withTransaction import SimpMusicPlayer spells out; the
+  pipeline/channel/DSP stubs reshaped to the original data classes so
+  ShowMediaInfo compiles unmodified; the javax.inject shim files
+  deduplicated; DownloadManager's five-arg constructor; the tf.monochrome
+  eq sub-screens stubbed inert (the engine stack they belong to is not
+  carried — the dialog's tone/speed/reverb halves stay live); the
+  export_lyrics_saved string.
+- Round 2 — the app joins the module's Compose line. The vendored stack's
+  pins (foundation 1.11.0-beta02, material3 1.5.0-alpha18) reach the app's
+  compile classpath through the module and its runtime classpath
+  regardless, so app and tv declare that line outright, and the three call
+  sites that predate it move with it: the now-playing sheet's
+  SheetState.Saver / constructor hand material3 1.5 the swipe thresholds it
+  used to derive from density (the same 56/125 dp, so the sheet feels
+  unchanged); ComposeUiFlags.isAdaptiveRefreshRateEnabled — retired in ui
+  1.11 — is set through reflection where it exists and no-ops where it
+  doesn't; datastore-preferences on the app's classpath (the bridge
+  preference adapters carry Preferences.Key in their signatures). The
+  bridge impl's constructor lambdas renamed (openArtist & co. collided
+  with the overrides they feed — an untypeable recursion), like status is
+  this app's LikeStatus.LIKE, the lyrics source reads its label safely,
+  radio seeds map from ArchiveTune's metadata shape.
+- Round 3 — the renamed lambdas' call site in MainActivity.
+- Round 4 — unit tests green; packaging: BravePipe (the vendored core's
+  extractor, under org.schabi.newpipe as ArchiveTune pins it) and the
+  app's own stripped TeamNewPipe v0.26.3 share the package and D8 refuses
+  the duplicates. The app keeps its own jar: every org.schabi call the
+  vendored core makes (Response's 5-arg constructor,
+  YoutubeJavaScriptPlayerManager's signature / n-param entry points,
+  StreamInfo.getInfo, AudioStream's bitrates) was verified against
+  v0.26.3's bytecode and matches, and the core treats extractor failure
+  as a fallback, never an error. BravePipe stays on the core's own
+  compile classpath; only app/tv resolution drop it.
+- Round 5 — kuromoji's two jars ship one CONTRIBUTORS.md and one
+  LICENSE.md between them (and BouncyCastle's licence joins the pile):
+  excluded / picked in packaging, in both app and tv (the tv build was
+  missing the pickFirsts the phone app already had).
+- Round 6/7 — R8: javax.inject must be the real artifact, not a shim —
+  the release graph carries javax.inject:1 from elsewhere and R8 refuses
+  the module-local copy. The artifact provides every annotation the
+  copied sources use; only the dagger/hilt side stays shimmed.
+
+Stage Summary:
+- check.yml green (testDevDebugUnitTest + assembleDevDebug), android.yml
+  (the nightly R8 release APK, arm64-v8a) green, TV green. All ten
+  ported styles build over their real ArchiveTune sources; the BITCHORD
+  style keeps the app's own player untouched.

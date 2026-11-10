@@ -225,6 +225,9 @@ android {
             // on demand; the one inside the kuromoji jar (tens of MB) stays out
             // of the APK — the same cut ArchiveTune makes.
             excludes += "com/atilika/kuromoji/ipadic/*.bin"
+            // kuromoji's two jars (core and ipadic) ship one contributor list
+            // between them.
+            excludes += "META-INF/CONTRIBUTORS.md"
         }
     }
     buildFeatures {
@@ -264,6 +267,20 @@ kotlin {
  * the transitive dependencies it would otherwise have carried are declared by
  * hand in the dependencies block below, since dropping the module drops them too.
  */
+// The vendored ArchiveTune core compiles against BravePipe (under
+// org.schabi.newpipe, as ArchiveTune does), while this app's stream
+// resolution ships TeamNewPipe's v0.26.3 under the same package — one
+// namespace, two jars, and D8 refuses the duplicates. This app keeps its
+// own: every org.schabi call the vendored core makes — Response's 5-arg
+// constructor, YoutubeJavaScriptPlayerManager's signature / n-param entry
+// points, StreamInfo.getInfo, AudioStream's bitrates — exists in v0.26.3
+// with the same shape, and the core treats extractor failure as a
+// fallback, never an error. BravePipe stays on the core's own compile
+// classpath; only this app's resolution drops it.
+configurations.all {
+    exclude(group = "com.github.maxrave-dev", module = "BravePipeExtractor")
+}
+
 val newPipeExtractorRaw: Configuration by configurations.creating {
     isTransitive = false
     isCanBeConsumed = false

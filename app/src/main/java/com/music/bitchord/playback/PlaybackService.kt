@@ -4263,7 +4263,7 @@ class PlaybackService : MediaLibraryService() {
         val fallback = item.toYouTubeFallbackMediaItem() ?: return false
         val mediaId = item.mediaId
 
-        val networkFault = isNetworkFault(error)
+        val networkFault = keepComplete
         QualityUpgrade.forget(mediaId)
         if (!networkFault) {
             QualityUpgrade.refuseUpgrades(mediaId)

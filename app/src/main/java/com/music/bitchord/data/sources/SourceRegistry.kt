@@ -287,16 +287,11 @@ object SourceRegistry {
      * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
     fun active(): List<MusicSource> {
-        val unverified = AddonAuth.standingRefusal() != null
         return enabledConfigs(configs.value)
             // Not in the walk at all while it would be refused anyway: an addon
             // that asked for a lossless output costs nothing — not even a timed
             // out search — while there isn't one. See [SourceConfig.checkValidLossless].
             .filterNot { it.awaitsLosslessOutput }
-            // Nor, for an addon that asks for auth, while this device was just
-            // refused verification: back in the walk once the backoff lapses,
-            // when the next resolve asks the auth service again.
-            .filterNot { unverified && it.kind == SourceKind.ADDON && it.bitchordAuth == true }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
     }
@@ -648,13 +643,16 @@ object SourceRegistry {
      */
     suspend fun probeCandidate(config: SourceConfig): SourceHealth = build(config).health()
 
-    private fun build(config: SourceConfig): MusicSource = when (config.kind) {
-        SourceKind.ADDON -> AddonSource(config)
+    private fun build(config: SourceConfig): MusicSource = when {
+        config.baseUrl.contains("monochrome", ignoreCase = true) || config.id.contains("monochrome", ignoreCase = true) || config.id == "dev.bitperfect.qobuz.heisenbergg" ->
+            MonochromeSource(config)
+        config.kind == SourceKind.ADDON -> AddonSource(config)
         // Same protocol, same implementation — the kinds differ only in rank.
-        SourceKind.CUSTOM_MODULE -> ModuleSource(config)
-        SourceKind.MODULE -> ModuleSource(config)
-        SourceKind.JIOSAAVN -> JioSaavnSource(config)
-        SourceKind.YOUTUBE -> YouTubeSource(config)
+        config.kind == SourceKind.CUSTOM_MODULE -> ModuleSource(config)
+        config.kind == SourceKind.MODULE -> ModuleSource(config)
+        config.kind == SourceKind.JIOSAAVN -> JioSaavnSource(config)
+        config.kind == SourceKind.YOUTUBE -> YouTubeSource(config)
+        else -> AddonSource(config)
     }
 
     /**
@@ -702,8 +700,8 @@ object SourceRegistry {
         SourceConfig(
             id = "dev.bitperfect.qobuz.heisenbergg",
             kind = SourceKind.ADDON,
-            label = "Qobuz [Heisenbergg] (Hi-Res FLAC)",
-            baseUrl = "https://heisenbergbackaaahh.de.deplexo.com/a/manifest.json",
+            label = "Qobuz [Monochrome] (Hi-Res FLAC)",
+            baseUrl = "https://tracks.monochrome.st",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,

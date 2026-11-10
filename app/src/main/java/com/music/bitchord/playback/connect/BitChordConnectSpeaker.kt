@@ -59,12 +59,15 @@ class BitChordConnectSpeaker(
         val player = localPlayer() ?: return
 
         val currentMediaId = player.currentMediaItem?.mediaId
-        val queueSize = snapshot.queue.size
-        if (currentMediaId == remoteSong.videoId && (queueSize <= 1 || player.mediaItemCount == queueSize)) {
+        val remoteIds = snapshot.queue.map { it.videoId }
+        val localIds = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        val queuesMatch = localIds.isNotEmpty() && localIds == remoteIds
+
+        if (currentMediaId == remoteSong.videoId && (queuesMatch || snapshot.queue.isEmpty())) {
             return
         }
 
-        Log.i("BitChordConnect", "syncRemoteSnapshot: remoteSong=${remoteSong.title} (${remoteSong.videoId}) currentMediaId=$currentMediaId count=${player.mediaItemCount} queueSize=$queueSize")
+        Log.i("BitChordConnect", "syncRemoteSnapshot: remoteSong=${remoteSong.title} (${remoteSong.videoId}) currentMediaId=$currentMediaId count=${player.mediaItemCount} queueSize=${snapshot.queue.size}")
 
         val existingIndex = (0 until player.mediaItemCount).firstOrNull {
             player.getMediaItemAt(it).mediaId == remoteSong.videoId
@@ -72,7 +75,7 @@ class BitChordConnectSpeaker(
 
         syncingFromRemote = true
         try {
-            if (existingIndex != null && player.mediaItemCount == queueSize) {
+            if (existingIndex != null && queuesMatch) {
                 player.seekTo(existingIndex, snapshot.positionMs)
                 player.pause()
             } else {
@@ -167,35 +170,11 @@ class BitChordConnectSpeaker(
     override fun seekToNext() {
         if (!active) return
         client.sendCommand(ConnectCommand(action = ConnectCommand.ACTION_SKIP_NEXT))
-        val player = localPlayer()
-        if (player != null && player.hasNextMediaItem()) {
-            syncingFromRemote = true
-            try {
-                player.seekToNextMediaItem()
-                player.pause()
-            } finally {
-                syncingFromRemote = false
-            }
-            sink?.onRemotePlaybackChanged()
-            onSpeakerStateChanged()
-        }
     }
 
     override fun seekToPrevious() {
         if (!active) return
         client.sendCommand(ConnectCommand(action = ConnectCommand.ACTION_SKIP_PREVIOUS))
-        val player = localPlayer()
-        if (player != null && player.hasPreviousMediaItem()) {
-            syncingFromRemote = true
-            try {
-                player.seekToPreviousMediaItem()
-                player.pause()
-            } finally {
-                syncingFromRemote = false
-            }
-            sink?.onRemotePlaybackChanged()
-            onSpeakerStateChanged()
-        }
     }
 
     override fun setVolume(fraction: Float) {

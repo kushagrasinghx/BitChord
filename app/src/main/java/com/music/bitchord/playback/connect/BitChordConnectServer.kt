@@ -82,6 +82,39 @@ class BitChordConnectServer(
     private val sseClients = CopyOnWriteArrayList<PrintWriter>()
     private var eventBroadcastJob: Job? = null
 
+    private val playerListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            triggerImmediateBroadcast()
+        }
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            triggerImmediateBroadcast()
+        }
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            triggerImmediateBroadcast()
+        }
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            triggerImmediateBroadcast()
+        }
+        override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+            triggerImmediateBroadcast()
+        }
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            triggerImmediateBroadcast()
+        }
+    }
+
+    private fun triggerImmediateBroadcast() {
+        if (!isRunning || sseClients.isEmpty()) return
+        scope.launch(Dispatchers.Main) {
+            val snapshot = getPlaybackSnapshot()
+            broadcastPlaybackState(snapshot)
+        }
+    }
+
     fun start() {
         if (isRunning) return
         isRunning = true
@@ -90,10 +123,16 @@ class BitChordConnectServer(
         startHttpServer()
         registerMdnsService()
         startEventBroadcastTicker()
+        scope.launch(Dispatchers.Main) {
+            getPlayer()?.addListener(playerListener)
+        }
     }
 
     fun stop() {
         isRunning = false
+        scope.launch(Dispatchers.Main) {
+            getPlayer()?.removeListener(playerListener)
+        }
         eventBroadcastJob?.cancel()
         eventBroadcastJob = null
 
@@ -346,6 +385,7 @@ class BitChordConnectServer(
 
         withContext(Dispatchers.Main) {
             executeCommand(command)
+            triggerImmediateBroadcast()
         }
 
         writeHttpResponse(output, 200, "OK", "application/json", "{\"status\":\"ok\"}")
@@ -409,11 +449,52 @@ class BitChordConnectServer(
         val currentItem = player.currentMediaItem
         val currentSong = currentItem?.toSong()
 
-        val queue = mutableListOf<Song>()
         val count = player.mediaItemCount
         val curIndex = player.currentMediaItemIndex
-        for (i in 0 until count.coerceAtMost(50)) {
-            player.getMediaItemAt(i).let { queue += it.toSong() }
+        val timeline = player.currentTimeline
+        val shuffle = player.shuffleModeEnabled
+        val queue = mutableListOf<Song>()
+        var queueIndex = 0
+
+        if (count > 0 && curIndex in 0 until count) {
+            if (shuffle && !timeline.isEmpty) {
+                // Collect history (previous in shuffle order) and upcoming (next in shuffle order)
+                val orderedIndices = mutableListOf<Int>()
+                var prevIdx = curIndex
+                val prevList = mutableListOf<Int>()
+                while (prevList.size < 15) {
+                    prevIdx = timeline.getPreviousWindowIndex(prevIdx, player.repeatMode, true)
+                    if (prevIdx == C.INDEX_UNSET || prevIdx in prevList || prevIdx == curIndex) break
+                    prevList.add(0, prevIdx)
+                }
+                orderedIndices.addAll(prevList)
+                queueIndex = orderedIndices.size
+                orderedIndices.add(curIndex)
+
+                var nextIdx = curIndex
+                while (orderedIndices.size < 50) {
+                    nextIdx = timeline.getNextWindowIndex(nextIdx, player.repeatMode, true)
+                    if (nextIdx == C.INDEX_UNSET || nextIdx in orderedIndices) break
+                    orderedIndices.add(nextIdx)
+                }
+
+                for (idx in orderedIndices) {
+                    if (idx in 0 until count) {
+                        queue += player.getMediaItemAt(idx).toSong()
+                    }
+                }
+            } else {
+                // Standard linear order: window centered around curIndex
+                val start = (curIndex - 15).coerceAtLeast(0)
+                val end = (start + 50).coerceAtMost(count)
+                for (i in start until end) {
+                    queue += player.getMediaItemAt(i).toSong()
+                }
+                queueIndex = (curIndex - start).coerceIn(0, (queue.size - 1).coerceAtLeast(0))
+            }
+        } else if (currentSong != null) {
+            queue.add(currentSong)
+            queueIndex = 0
         }
 
         val duration = if (player.duration != C.TIME_UNSET) player.duration else 0L
@@ -435,7 +516,7 @@ class BitChordConnectServer(
             shuffle = player.shuffleModeEnabled,
             song = currentSong,
             queue = queue,
-            queueIndex = curIndex,
+            queueIndex = queueIndex,
             sourceQuality = currentSong?.sourceQuality ?: "Lossless FLAC",
             isHiRes = currentSong?.sourceHiRes == true || (currentSong?.sourceQuality?.contains("24-bit", true) == true),
             timestamp = System.currentTimeMillis(),

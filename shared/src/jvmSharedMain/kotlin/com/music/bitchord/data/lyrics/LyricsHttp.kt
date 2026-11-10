@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * after the second chorus is of no use to anyone, and the fallbacks behind it
  * are the better answer.
  */
-private const val LYRICS_TIMEOUT_SECONDS = 6L
+private const val LYRICS_TIMEOUT_SECONDS = 3L
 
 internal const val LYRICS_AGENT = "BitChord (https://github.com/bitchord)"
 
@@ -35,8 +35,8 @@ private val client by lazy {
 // while its backend is still resolving a track.
 private val authenticatedClient by lazy {
     client.newBuilder()
-        .callTimeout(15, TimeUnit.SECONDS)
-        .connectTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(4, TimeUnit.SECONDS)
+        .connectTimeout(3, TimeUnit.SECONDS)
         .build()
 }
 

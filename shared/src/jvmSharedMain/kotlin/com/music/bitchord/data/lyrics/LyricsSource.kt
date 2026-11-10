@@ -40,45 +40,61 @@ enum class LyricsSource(
     // [LRC_RED] is ahead of all of them: it is where [BINI_LYRICS] gets its
     // documents now, so asking it directly is the same Apple timing without
     // the middleman, and it is the one a dead mirror can't take down with it.
+    BINI_LYRICS(
+        label = "BiniLyrics",
+        detail = "Apple Music word-by-word syllable timings, matched on the recording",
+        wordSynced = true,
+    ),
     LRC_RED(
         label = "lrc.red",
         detail = "Apple timings by recording, syllable by syllable",
         wordSynced = true,
     ),
-    BINI_LYRICS(
-        label = "BiniLyrics",
-        detail = "The same Apple timings, matched on the recording itself",
-        wordSynced = true,
+    LRCLIB(
+        label = "LRCLIB",
+        detail = "Whole lines only, ultra-fast and always up",
+        wordSynced = false,
+    ),
+    KUGOU(
+        label = "KuGou",
+        detail = "Whole lines, fast and comprehensive catalogue",
+        wordSynced = false,
     ),
     BETTER_LYRICS(
         label = "BetterLyrics",
         detail = "Apple Music timings, word by word",
         wordSynced = true,
+        hidden = true,
     ),
     BETTER_LYRICS_PORTATO(
         label = "BetterLyrics Portato",
         detail = "QQ Music karaoke timings through BetterLyrics",
         wordSynced = true,
+        hidden = true,
     ),
     PAXSENIX(
         label = "PaxSenix",
         detail = "Apple Music timings through the original keyless provider",
         wordSynced = true,
+        hidden = true,
     ),
     PAXSENIX_SPOTIFY(
         label = "PaxSenix: Spotify",
         detail = "Spotify lyrics with PaxSenix fallback; API key required",
         wordSynced = false,
+        hidden = true,
     ),
     PAXSENIX_MUSIXMATCH(
         label = "PaxSenix: Musixmatch",
         detail = "Musixmatch timings with PaxSenix fallback; API key required",
         wordSynced = true,
+        hidden = true,
     ),
     LYRICS_PLUS(
         label = "LyricsPlus",
         detail = "Syllable by syllable, on community mirrors",
         wordSynced = true,
+        hidden = true,
     ),
     SIMP_MUSIC(
         label = "SimpMusic",
@@ -90,6 +106,7 @@ enum class LyricsSource(
         label = "Unison",
         detail = "Contributed by listeners, so it has what nobody licensed",
         wordSynced = true,
+        hidden = true,
     ),
     YOUTUBE_TRANSCRIPT(
         label = "YouTube captions",
@@ -107,20 +124,11 @@ enum class LyricsSource(
         wordSynced = false,
         hidden = true,
     ),
-    KUGOU(
-        label = "KuGou",
-        detail = "Whole lines, strong outside the English catalogue",
-        wordSynced = false,
-    ),
-    LRCLIB(
-        label = "LRCLIB",
-        detail = "Whole lines only, and always up",
-        wordSynced = false,
-    ),
     MUSIXMATCH(
         label = "Musixmatch",
         detail = "Whole lines, from the biggest lyrics database there is",
         wordSynced = false,
+        hidden = true,
     ),
     GENIUS(
         label = "Genius",

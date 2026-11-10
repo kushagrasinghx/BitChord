@@ -540,7 +540,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         lyricsProviderResults[source] = result
         _lyricsProviderStates.update { it + (source to LyricsProviderState.FOUND) }
-        if (selectedLyricsSource == source) showLyricsResult(result)
+        if (selectedLyricsSource == null) {
+            val current = _lyrics.value
+            val currentHasWords = current?.any { it.isWordSynced } == true
+            val incomingHasWords = result.lines.any { it.isWordSynced }
+            // 1. Show the first fast time-synced lyrics immediately (sub-second)
+            // 2. Seamlessly upgrade to syllable word-by-word bouncing karaoke as soon as it arrives
+            if (current == null || (!currentHasWords && incomingHasWords)) {
+                showLyricsResult(result)
+            }
+        } else if (selectedLyricsSource == source) {
+            showLyricsResult(result)
+        }
     }
 
     private fun providerCancelled(generation: Long, source: LyricsSource) {

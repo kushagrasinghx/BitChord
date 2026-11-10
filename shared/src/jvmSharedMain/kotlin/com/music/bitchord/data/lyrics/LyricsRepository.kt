@@ -269,7 +269,7 @@ object LyricsRepository {
      * lyrics panel sitting empty because one host is having a slow morning is a
      * worse failure than a fuzzy match.
      */
-    private const val IDENTIFY_TIMEOUT_MS = 2_500L
+    private const val IDENTIFY_TIMEOUT_MS = 1_200L
 
     /**
      * The one request made before the race: which recording is this?

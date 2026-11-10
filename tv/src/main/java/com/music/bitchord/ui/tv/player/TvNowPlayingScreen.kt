@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.media3.common.Player
+import com.music.bitchord.data.model.durationMillis
 import androidx.media3.session.MediaController
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.model.LikeStatus
@@ -108,12 +109,12 @@ fun TvNowPlayingScreen(
     val autoplay by AppSettings.autoplay.collectAsState()
     val playerStyle by TvSettings.tvPlayerStyle.collectAsState()
 
-    LaunchedEffect(song.videoId, durationMs) {
+    LaunchedEffect(song.videoId) {
         viewModel.loadLyrics(
             videoId = song.videoId,
             title = song.title,
             artist = song.artist,
-            durationMs = durationMs.coerceAtLeast(0L),
+            durationMs = playerState.durationMs.takeIf { it > 0L } ?: song.durationMillis(),
             album = song.albumName,
         )
     }

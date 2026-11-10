@@ -142,8 +142,6 @@ fun TvPlayerBackground(
     Box(modifier = modifier.fillMaxSize()) {
         ArtworkMeshBackdrop(
             mesh = mesh,
-            blurRadius = 34.dp,
-            seam = 0.dp,
             modifier = Modifier.fillMaxSize(),
         )
         Box(

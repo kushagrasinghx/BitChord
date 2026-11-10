@@ -99,7 +99,6 @@ fun TvSettingsScreen(
     val refreshRate by TvRefreshRateController.preference.collectAsState()
     val reduceMotion by AppSettings.reduceAnimation.collectAsState()
     val reduceTransparency by AppSettings.reduceDynamicBlur.collectAsState()
-    val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
 
     var blurb by remember { mutableStateOf(DefaultBlurb) }
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
@@ -163,22 +162,24 @@ fun TvSettingsScreen(
                     onClick = { AppSettings.setSmartFadeEnabled(!automix) },
                 )
             }
-            item {
-                TvListRow(
-                    title = "Crossfade",
-                    value = if (crossfade > 0) "$crossfade s" else "Off",
-                    onFocused = { blurb = "Fades each song out as the next one fades in. Select to change the length." },
-                    onClick = {
-                        AppSettings.setCrossfadeSeconds(
-                            when (crossfade) {
-                                0 -> 3
-                                3 -> 6
-                                6 -> 10
-                                else -> 0
-                            },
-                        )
-                    },
-                )
+            if (!automix) {
+                item {
+                    TvListRow(
+                        title = "Crossfade",
+                        value = if (crossfade > 0) "$crossfade s" else "Off",
+                        onFocused = { blurb = "Fades each song out as the next one fades in. Select to change the length." },
+                        onClick = {
+                            AppSettings.setCrossfadeSeconds(
+                                when (crossfade) {
+                                    0 -> 3
+                                    3 -> 6
+                                    6 -> 10
+                                    else -> 0
+                                },
+                            )
+                        },
+                    )
+                }
             }
             item {
                 TvListRow(
@@ -326,22 +327,6 @@ fun TvSettingsScreen(
                         onClick = { TvSettings.setTvLyricsCanvasEnabled(!lyricsCanvas) },
                     )
                 }
-            }
-            item {
-                TvListRow(
-                    title = "Hide YouTube Thumbnails",
-                    value = onOff(hideYoutubeThumbnails),
-                    onFocused = { blurb = "Prioritizes official Apple Artwork and Spotify Canvas; suppresses low-resolution YouTube thumbnails." },
-                    onClick = { TvSettings.setTvHideYoutubeThumbnails(!hideYoutubeThumbnails) },
-                )
-            }
-            item {
-                TvListRow(
-                    title = "Artwork Priority",
-                    value = if (prioritizeSpotifyCanvas) "Spotify First" else "Apple Music First",
-                    onFocused = { blurb = "Choose whether Apple Music studio artwork or Spotify Canvas takes top display priority." },
-                    onClick = { AppSettings.setPrioritizeSpotifyCanvas(!prioritizeSpotifyCanvas) },
-                )
             }
             item {
                 TvListRow(

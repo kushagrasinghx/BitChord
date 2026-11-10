@@ -8,8 +8,10 @@ import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
+import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
+import com.music.bitchord.data.sources.addon.AddonQualityOption
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
@@ -59,7 +61,28 @@ data class SourceConfig(
      * already break that. Refreshed whenever the manifest is next read.
      */
     val checkValidLossless: Boolean = false,
+    /**
+     * The addon's `quality` choices, as its manifest last said. Stored for the
+     * same reason as [checkValidLossless]: the editor has to be able to list
+     * them for a gated addon without contacting it.
+     */
+    val qualityOptions: List<AddonQualityOption> = emptyList(),
+    /** Which of [qualityOptions] the user chose, or null for the first one listed. */
+    val pickedQuality: String? = null,
+    /**
+     * Whether the addon's manifest declares `bitchordAuth`, as it last said;
+     * null until it has been read. Addons that don't are out of date. They are
+     * still searched and streamed from, without credentials, but the sources
+     * screen flags them and tells the user to ask the developer to update.
+     * Stored so the flag shows while the addon is down, and refreshed whenever
+     * the manifest is next read.
+     */
+    val bitchordAuth: Boolean? = null,
 ) {
+    /** The entry of [qualityOptions] in force: the pick while the addon still lists it, else its first. */
+    val activeQuality: AddonQualityOption?
+        get() = qualityOptions.firstOrNull { it.value == pickedQuality } ?: qualityOptions.firstOrNull()
+
     /**
      * Whether this source is shut out right now because it needs an output that isn't connected.
      * Always false so lossless streaming is never gated on hardware DAC detection.
@@ -67,9 +90,22 @@ data class SourceConfig(
     val awaitsLosslessOutput: Boolean
         get() = false
 
-    /** The two manifest switches, without the parts of the config the user set. */
+    /**
+     * Whether this is an addon known to be out of date: its manifest doesn't
+     * declare `bitchordAuth`, or it has no manifest at all. Not yet knowing
+     * (null) doesn't count. Only flagged, never gated on: see [bitchordAuth].
+     */
+    val needsAddonUpdate: Boolean
+        get() = kind == SourceKind.ADDON && bitchordAuth == false
+
+    /** What the manifest last said, without the parts of the config the user set. */
     internal fun withPolicyOf(other: SourceConfig) =
-        copy(allowDownloads = other.allowDownloads, checkValidLossless = other.checkValidLossless)
+        copy(
+            allowDownloads = other.allowDownloads,
+            checkValidLossless = other.checkValidLossless,
+            qualityOptions = other.qualityOptions,
+            bitchordAuth = other.bitchordAuth,
+        )
 
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -250,14 +286,20 @@ object SourceRegistry {
      * stream is budgeted further by [activeForPlayback]; downloads deliberately
      * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
-    fun active(): List<MusicSource> =
-        enabledConfigs(configs.value)
+    fun active(): List<MusicSource> {
+        val unverified = AddonAuth.standingRefusal() != null
+        return enabledConfigs(configs.value)
             // Not in the walk at all while it would be refused anyway: an addon
             // that asked for a lossless output costs nothing — not even a timed
             // out search — while there isn't one. See [SourceConfig.checkValidLossless].
             .filterNot { it.awaitsLosslessOutput }
+            // Nor, for an addon that asks for auth, while this device was just
+            // refused verification: back in the walk once the backoff lapses,
+            // when the next resolve asks the auth service again.
+            .filterNot { unverified && it.kind == SourceKind.ADDON && it.bitchordAuth == true }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
+    }
 
     /**
      * [active], minus the addons whose manifest said `allowDownloads: 0`. A
@@ -296,26 +338,60 @@ object SourceRegistry {
             }
 
     /**
-     * Records what an addon's manifest said about downloads and lossless
-     * output, if it changed.
+     * Records what an addon's manifest said about downloads, lossless output
+     * and its quality choices, if it changed.
      *
      * Does not rebuild the source the way an edit does — see [configuredBy] —
      * because nothing about where it points has changed, and this is called
      * from inside that source's own requests.
      */
-    fun updatePolicy(configId: String, allowDownloads: Boolean, checkValidLossless: Boolean) {
+    fun updatePolicy(
+        configId: String,
+        allowDownloads: Boolean,
+        checkValidLossless: Boolean,
+        qualityOptions: List<AddonQualityOption>,
+        bitchordAuth: Boolean,
+    ) {
         val current = config(configId) ?: return
-        if (current.allowDownloads == allowDownloads && current.checkValidLossless == checkValidLossless) return
+        if (current.allowDownloads == allowDownloads &&
+            current.checkValidLossless == checkValidLossless &&
+            current.qualityOptions == qualityOptions &&
+            current.bitchordAuth == bitchordAuth
+        ) {
+            return
+        }
         TrackLog.d(
             TAG,
             "${current.displayName}: manifest now says allowDownloads=$allowDownloads " +
-                "checkValidLossless=$checkValidLossless",
+                "checkValidLossless=$checkValidLossless qualityOptions=${qualityOptions.map { it.value }} " +
+                "bitchordAuth=$bitchordAuth",
         )
         publish(
             configs.value.map {
-                if (it.id == configId) it.copy(allowDownloads = allowDownloads, checkValidLossless = checkValidLossless) else it
+                if (it.id == configId) {
+                    it.copy(
+                        allowDownloads = allowDownloads,
+                        checkValidLossless = checkValidLossless,
+                        qualityOptions = qualityOptions,
+                        bitchordAuth = bitchordAuth,
+                    )
+                } else {
+                    it
+                }
             },
         )
+    }
+
+    /**
+     * Records that an addon is out of date because it has no usable manifest,
+     * and so cannot declare `bitchordAuth`. The other stored policy is left as
+     * it was: there is nothing new to replace it with.
+     */
+    fun markAddonOutdated(configId: String) {
+        val current = config(configId) ?: return
+        if (current.bitchordAuth == false) return
+        TrackLog.d(TAG, "${current.displayName}: no usable manifest, so it can't declare bitchordAuth")
+        publish(configs.value.map { if (it.id == configId) it.copy(bitchordAuth = false) else it })
     }
 
     /** The common eligibility gate used by playback and download source walks. */
@@ -499,6 +575,13 @@ object SourceRegistry {
                     label = detected.manifest.displayName,
                     allowDownloads = detected.manifest.downloadsAllowed,
                     checkValidLossless = detected.manifest.requiresLosslessOutput,
+                    qualityOptions = detected.manifest.qualityOptions,
+                    bitchordAuth = detected.manifest.requiresBitChordAuth,
+                    // The address may now name a different addon, whose list
+                    // this pick was never on.
+                    pickedQuality = existing?.pickedQuality?.takeIf { picked ->
+                        detected.manifest.qualityOptions.any { it.value == picked }
+                    },
                 ),
             )
             is DetectedFormat.ModuleIndex -> Result.success(
@@ -508,6 +591,8 @@ object SourceRegistry {
                     // document, where an addon's manifest only points at one.
                     baseUrl = detected.url,
                     label = existing?.label.orEmpty(),
+                    qualityOptions = emptyList(),
+                    pickedQuality = null,
                 ),
             )
             is DetectedFormat.Unsupported -> Result.failure(AddonException(detected.reason))
@@ -618,16 +703,25 @@ object SourceRegistry {
             id = "dev.bitperfect.qobuz.heisenbergg",
             kind = SourceKind.ADDON,
             label = "Qobuz [Heisenbergg] (Hi-Res FLAC)",
-            baseUrl = "https://soundfean-musics.onrender.com/a/manifest.json",
+            baseUrl = "https://heisenbergbackaaahh.de.deplexo.com/a/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
         SourceConfig(
-            id = "deezer.nom",
+            id = "eljohnzc.addon.deezer",
             kind = SourceKind.ADDON,
-            label = "Deezer Hi-Fi",
-            baseUrl = "https://deezer.nom.deno.net/manifest.json",
+            label = "Eljohnzc Addon Deezer (Lossless)",
+            baseUrl = "https://eljohnzc-addon-deezer.de.deplexo.com/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "app.bitchord.confih",
+            kind = SourceKind.ADDON,
+            label = "Confih Hi-Res",
+            baseUrl = "https://bitchord.confih.tech/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
@@ -637,15 +731,6 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "BluBit Station Hi-Fi",
             baseUrl = "https://bluebit.jucepe0929.workers.dev/manifest.json",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "eljohnzc.addon.mono",
-            kind = SourceKind.ADDON,
-            label = "Eljohnzc Monochrome (24-bit Lossless)",
-            baseUrl = "https://eljohnzc-mono.de.deplexo.com/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,

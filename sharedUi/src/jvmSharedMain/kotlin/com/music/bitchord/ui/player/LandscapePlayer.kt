@@ -256,7 +256,8 @@ internal fun LandscapePlayerLayout(
                     .height(5.dp)
                     .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(LocalPlayerTint.current.copy(alpha = 0.70f)),
+                    .additiveChrome(LocalPlayerChrome.current)
+                    .background(chromeWhite(0.70f)),
             )
         }
     }
@@ -428,12 +429,12 @@ internal fun LandscapeCredits(
         Crossfade(
             targetState = song.title to song.artist,
             animationSpec = tween(durationMillis = 300),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).additiveChrome(LocalPlayerChrome.current),
             label = "landscapeCredits",
         ) {
             Column {
                 var titleOverflowing by remember { mutableStateOf(false) }
-                val artistColor = LocalPlayerTint.current.copy(alpha = 0.55f)
+                val artistColor = chromeWhite(0.55f)
                 MarqueeText(
                     text = song.title,
                     style = MaterialTheme.typography.titleLarge,

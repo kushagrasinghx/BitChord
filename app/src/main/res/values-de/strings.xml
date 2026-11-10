@@ -212,6 +212,8 @@
     <string name="reduce_animation_subtitle">Friert den Farbverlauf des Hauptplayers ein, statt ihn treiben zu lassen</string>
     <string name="reduce_dynamic_blur">Dynamische Unschärfe reduzieren</string>
     <string name="reduce_dynamic_blur_subtitle">Ersetzt Milchglas-Effekte durch einfarbige Flächen in der ganzen App</string>
+    <string name="disable_blend_effects">Mischeffekte deaktivieren</string>
+    <string name="disable_blend_effects_subtitle">Zeigt Player-Symbole, Text und dunkle Menüs in reinem Weiß, statt sie mit dem Cover einzufärben</string>
     <string name="full_screen_cover_art">Vollbild-Cover</string>
     <string name="animated_cover_art">Animiertes Cover</string>
     <string name="synced_lyrics">Synchronisierte Songtexte</string>
@@ -242,6 +244,8 @@
     <string name="light">Hell</string>
     <string name="dark">Dunkel</string>
     <string name="full_screen_cover_art_subtitle">Zieht das Cover bis an die Ränder des Players statt es quadratisch darzustellen</string>
+    <string name="full_screen_detail_cover">Vollbild-Album-/Playlist-Cover</string>
+    <string name="full_screen_detail_cover_subtitle">Zieht Album- und Playlist-Cover bis an die Ränder der Seite statt sie gerahmt darzustellen</string>
     <string name="animated_cover_art_subtitle">Spielt das Endlosvideo ab, das manche Veröffentlichungen anstelle eines Standbilds mitbringen</string>
     <string name="dont_repeat_songs_subtitle">Die automatische Wiedergabe schlägt in dieser Sitzung keinen bereits gespielten oder vorgeschlagenen Song erneut vor</string>
     <string name="download_quality_subtitle">%1$s pro Track, unabhängig von der Verbindung</string>
@@ -791,7 +795,6 @@
 
     <string name="addon_url_description">Füge die URL des Add-ons ein — Stammverzeichnis oder manifest.json.</string>
 
-    <string name="advanced_options">Erweiterte Optionen</string>
 
     <string name="automix_mode_balanced">Ausgewogen</string>
 
@@ -857,9 +860,14 @@
     <string name="playlist_sync_done_title">Zu %1$s hinzugefügt: %2$d</string>
     <string name="playlist_updates_channel">Playlist-Updates</string>
 
-    <string name="legacy_mesh_gradient">Klassischer Netzverlauf</string>
+    <string name="player_theme">Player-Design</string>
+    <string name="player_theme_default">Standard</string>
+    <string name="player_theme_legacy">Klassisch</string>
+    <string name="player_theme_simple">Einfach</string>
+    <string name="player_theme_default_subtitle">Die Farben des Covers setzen sich darunter fort</string>
+    <string name="player_theme_simple_subtitle">Ein weich gezeichnetes Cover hinter dem gesamten Player</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Bringt die sanft fließenden Farbflecken aus v1.5 zurück</string>
+    <string name="player_theme_legacy_subtitle">Bringt die sanft fließenden Farbflecken aus v1.5 zurück</string>
 
     <string name="liquid_glass">Flüssiges Glas</string>
 
@@ -1067,6 +1075,16 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Intelligente Audio-Ausrichtung</string>
     <string name="smart_version_alignment_subtitle">Analysiert Wellenformen, um genau die passende Wiedergabestelle zu finden</string>
 
@@ -1255,6 +1273,8 @@
 
 
     <string name="source_needs_lossless_output">Braucht eine verlustfreie Ausgabe · nutze ein Gerät, das Lossless unterstützt</string>
+    <string name="source_needs_update">Dieses Add-on ist veraltet. Es funktioniert weiterhin, aber bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
+    <string name="source_outdated">Veraltetes Add-on</string>
     <string name="source_needs_lossless_bt_codec">Braucht eine verlustfreie Ausgabe · Bluetooth nutzt %1$s; nutze ein Gerät, das Lossless unterstützt</string>
     <string name="source_needs_lossless_bt_unknown">Braucht eine verlustfreie Ausgabe · der Bluetooth-Codec ist nicht erkennbar</string>
     <string name="source_downloads_on">Downloads erlaubt</string>
@@ -1393,6 +1413,7 @@
     <string name="direct_source_stream">Direkter Quell-Stream</string>
     <string name="find_your_mood">Finde deine Stimmung</string>
     <string name="progressive_blur">Progressive Unschärfe</string>
+    <string name="glass_performance">Bessere Leistung für Glas</string>
     <string name="remove_from_history">Aus dem Verlauf entfernen</string>
     <string name="remove_from_history_failed">Konnte nicht aus dem Verlauf entfernt werden</string>
     <string name="addon_blocked_title">Dieser Song kann nicht abgespielt werden</string>

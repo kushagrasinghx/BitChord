@@ -51,6 +51,7 @@
     <string name="shuffle">Shuffle</string>
     <string name="more">More</string>
     <string name="lyrics_offset">Lyrics offset</string>
+    <string name="automix_overview">Automix overview</string>
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
@@ -224,6 +225,13 @@
     <string name="language">Language</string>
     <string name="app_language">App language</string>
     <string name="app_language_description">Choose the language used by BitChord.</string>
+    <!-- Hidden tester-code field: tap the App language title 10 times. Not translated: testers only. -->
+    <string name="tester_code_title" translatable="false">Tester code</string>
+    <string name="tester_code_message" translatable="false">For BitChord testers. Lets addon verification work on this phone with an unlocked bootloader.</string>
+    <string name="tester_code_message_saved" translatable="false">A tester code is saved on this phone. Enter a new one to replace it, or remove it.</string>
+    <string name="tester_code_placeholder" translatable="false">XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</string>
+    <string name="tester_code_saved" translatable="false">Tester code saved</string>
+    <string name="tester_code_removed" translatable="false">Tester code removed</string>
     <string name="english">English</string>
     <string name="spanish">Spanish</string>
     <string name="french">French</string>
@@ -273,6 +281,16 @@
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Smart audio alignment</string>
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
     <string name="equalizer">Equalizer</string>
@@ -357,13 +375,21 @@
     <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>
     <string name="reduce_dynamic_blur">Reduce dynamic blur</string>
     <string name="reduce_dynamic_blur_subtitle">Swaps frosted glass for solid fills across the app</string>
+    <string name="disable_blend_effects">Disable blend effects</string>
+    <string name="disable_blend_effects_subtitle">Shows player icons, text and dark menus in plain white instead of tinting them with the artwork</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Real refracting glass on the floating nav bar. Android 12+ only; uses more GPU.</string>
     <string name="progressive_blur">Progressive Blur</string>
+    <string name="glass_performance">Better Performance for Glass</string>
     <string name="liquid_glass_unavailable">Requires Android 12 or newer</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
-    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
-    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
+    <string name="player_theme">Player theme</string>
+    <string name="player_theme_default">Default</string>
+    <string name="player_theme_legacy">Legacy</string>
+    <string name="player_theme_simple">Simple</string>
+    <string name="player_theme_default_subtitle">The cover\'s own colours carry on below it</string>
+    <string name="player_theme_simple_subtitle">A soft blur of the cover behind the whole player</string>
+    <string name="player_theme_legacy_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
     <string name="animated_cover_art">Animated cover art</string>
     <string name="artist_signatures">Artist signatures</string>
     <string name="artist_signatures_subtitle">Shows a handwritten signature when Apple Music has no title logo</string>
@@ -401,6 +427,8 @@
     <string name="light">Light</string>
     <string name="dark">Dark</string>
     <string name="full_screen_cover_art_subtitle">Runs the cover to the edges of the player instead of a square sleeve</string>
+    <string name="full_screen_detail_cover">Full-screen album/playlist cover</string>
+    <string name="full_screen_detail_cover_subtitle">Runs album and playlist covers to the edges of the page instead of a framed sleeve</string>
     <string name="animated_cover_art_subtitle">Plays the looping video some releases ship instead of a still sleeve</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
@@ -1101,7 +1129,6 @@
 
     <string name="blur_unfocused_lyrics_subtitle">Keeps the spotlight on the current line</string>
 
-    <string name="advanced_options">Advanced &amp; experimental options</string>
 
     <string name="lyrics_debug_logs">Lyrics debug logs</string>
 
@@ -1192,6 +1219,8 @@
     <string name="card_songs_format">%1$s songs</string>
 
     <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
+    <string name="source_needs_update">This addon is out of date. It still works, but ask its developer to update it by following the latest BitChord addon docs.</string>
+    <string name="source_outdated">Outdated addon</string>
     <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
     <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>
     <string name="source_downloads_on">Downloads allowed</string>
@@ -1300,4 +1329,7 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
+    <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
+    <string name="diwali_cta">Let\'s Celebrate</string>
 </resources>

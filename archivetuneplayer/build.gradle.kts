@@ -145,6 +145,11 @@ dependencies {
     implementation("androidx.sqlite:sqlite:2.5.0")
     // The Apache helpers the entities generate ids with.
     implementation("org.apache.commons:commons-lang3:3.20.0")
+    // The @Inject/@Singleton/@Qualifier/@Named annotations the copied
+    // sources carry — the real artifact, not a shim: parts of the release
+    // graph pull it in anyway (R8 refuses a module-local copy of a class
+    // that also arrives from here).
+    implementation("javax.inject:javax.inject:1")
     // Japanese lyric romanisation's tokenizer core (the language pack the
     // manager downloads carries the dictionary).
     implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")

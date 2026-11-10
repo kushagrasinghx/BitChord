@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,6 +45,33 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+
+private val queueSnapshotRefreshRevision = mutableLongStateOf(0L)
+private val queueTierOverrides = mutableStateMapOf<Pair<String, String>, QueueTier>()
+
+private class QueueSnapshotRefreshListener : MediaController.Listener {
+    var lastQueueRefreshRevision = Long.MIN_VALUE
+    var ready = false
+
+    override fun onExtrasChanged(controller: MediaController, extras: Bundle) {
+        if (!ready) return
+        val revision = extras.getLong(EXTRA_QUEUE_REFRESH_REVISION, Long.MIN_VALUE)
+        val entryId = extras.getString(EXTRA_QUEUE_REFRESH_ENTRY_ID)
+        val mediaId = extras.getString(EXTRA_QUEUE_REFRESH_MEDIA_ID)
+        val tier = extras.getString(EXTRA_QUEUE_REFRESH_TIER)
+            ?.let { runCatching { QueueTier.valueOf(it) }.getOrNull() }
+        if (revision <= lastQueueRefreshRevision || entryId == null ||
+            mediaId == null || tier == null
+        ) return
+        lastQueueRefreshRevision = revision
+        queueTierOverrides[mediaId to entryId] = tier
+        queueSnapshotRefreshRevision.longValue++
+        DebugLog.d(
+            "QueueSwipeDbg",
+            "controller retag refresh received revision=$revision media=$mediaId entry=$entryId tier=$tier",
+        )
+    }
+}
 
 /** Snapshot of playback state, driven by the MediaController. */
 data class PlayerState(
@@ -82,12 +110,23 @@ data class PlayerState(
 fun rememberMediaController(): MediaController? {
     val context = LocalContext.current
     var controller by remember { mutableStateOf<MediaController?>(null) }
+    val listener = remember(context) { QueueSnapshotRefreshListener() }
 
     DisposableEffect(context) {
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token)
+            .setListener(listener)
+            .buildAsync()
         future.addListener(
-            { controller = runCatching { future.get() }.getOrNull() },
+            {
+                val connected = runCatching { future.get() }.getOrNull()
+                if (connected != null) {
+                    listener.lastQueueRefreshRevision = connected.sessionExtras
+                        .getLong(EXTRA_QUEUE_REFRESH_REVISION, Long.MIN_VALUE)
+                    listener.ready = true
+                }
+                controller = connected
+            },
             ContextCompat.getMainExecutor(context),
         )
         onDispose {
@@ -361,8 +400,9 @@ private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: 
 fun rememberPlayerState(controller: MediaController?): PlayerState {
     val position = remember { PlaybackPosition() }
     var state by remember { mutableStateOf(PlayerState(position = position)) }
+    val queueRefreshRevision = queueSnapshotRefreshRevision.longValue
 
-    DisposableEffect(controller) {
+    DisposableEffect(controller, queueRefreshRevision) {
         val player = controller ?: return@DisposableEffect onDispose {}
 
         // A MediaController reads each item across the session boundary. Keep
@@ -382,6 +422,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
         // thousand songs out of the session for every track it loaded, on the
         // main thread, for as long as the queue kept playing.
         var queueChanged = false
+        var authoritativeQueueChange = false
         var snapshotComparisonSawDifference = false
 
         fun sync(
@@ -393,6 +434,10 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             if (rebuildQueue) {
                 queueSnapshot = (0 until player.mediaItemCount)
                     .map { player.getMediaItemAt(it).toSong() }
+                    .map { song ->
+                        val override = song.queueEntryId?.let { queueTierOverrides[song.videoId to it] }
+                        if (override == null) song else song.copy(queueTier = override)
+                    }
             } else if (refreshCurrentQueueItem && item != null) {
                 val index = player.currentMediaItemIndex
                 if (index in queueSnapshot.indices) {
@@ -428,6 +473,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     timeline.windowCount != queueSnapshot.size
                 ) {
                     queueChanged = true
+                    authoritativeQueueChange = true
                 } else if (timeline.windowCount > 0 && queueSnapshot.isNotEmpty()) {
                     val window = Timeline.Window()
                     for (i in 0 until timeline.windowCount) {
@@ -464,6 +510,8 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 if (!reanchor) position.seeks++
             }
             override fun onEvents(p: Player, events: Player.Events) {
+                if (authoritativeQueueChange) queueTierOverrides.clear()
+                authoritativeQueueChange = false
                 val rebuildQueue = queueChanged.also { queueChanged = false }
                 DebugLog.d("QueueSwipeDbg", "controller events rebuildQueue=$rebuildQueue metadata=${events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)}")
                 sync(
@@ -567,6 +615,10 @@ val MediaItem.queueEntryId: String?
 const val EXTRA_QUEUE_TIER = "bitchord.queueTier"
 const val EXTRA_QUEUE_ENTRY_ID = "bitchord.queueEntryId"
 const val EXTRA_CANONICAL_INDEX = "bitchord.canonicalIndex"
+const val EXTRA_QUEUE_REFRESH_REVISION = "bitchord.queueRefresh.revision"
+const val EXTRA_QUEUE_REFRESH_ENTRY_ID = "bitchord.queueRefresh.entryId"
+const val EXTRA_QUEUE_REFRESH_MEDIA_ID = "bitchord.queueRefresh.mediaId"
+const val EXTRA_QUEUE_REFRESH_TIER = "bitchord.queueRefresh.tier"
 
 /** Provenance index within the canonical collection (0-based). */
 val MediaItem.canonicalIndex: Int?

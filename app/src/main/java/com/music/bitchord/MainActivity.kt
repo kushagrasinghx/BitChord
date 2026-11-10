@@ -4479,7 +4479,7 @@ private fun BitChordApp(
                                 controller = controller,
                                 viewModel = viewModel,
                                 scope = scope,
-                                openArtist = { id ->
+                                onOpenArtist = { id ->
                                     viewModel.openDetail(
                                         id,
                                         "",
@@ -4488,10 +4488,10 @@ private fun BitChordApp(
                                         BrowseType.ARTIST,
                                     )
                                 },
-                                openAlbum = { id ->
+                                onOpenAlbum = { id ->
                                     viewModel.openDetail(id, "", "", null, BrowseType.ALBUM)
                                 },
-                                openSearch = { selectedTab = TAB_SEARCH },
+                                onOpenSearch = { selectedTab = TAB_SEARCH },
                             )
                         },
                     pureBlack = false,

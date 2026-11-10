@@ -26,6 +26,7 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import moe.rukamori.archivetune.R
 import moe.rukamori.archivetune.constants.DownloadSource
@@ -53,6 +54,7 @@ class DownloadUtil(
             StandaloneDatabaseProvider(context.applicationContext),
             downloadCache,
             dataSourceFactory,
+            java.util.concurrent.Executors.newFixedThreadPool(3),
         )
 
     fun getDownload(songId: String): kotlinx.coroutines.flow.Flow<Download?> = downloads.map { it[songId] }
@@ -75,6 +77,45 @@ class DownloadUtil(
         val key: String,
         val legacyIds: List<String>,
     )
+}
+
+/**
+ * BRIDGE (replaces the object inside ArchiveTune's
+ * playback/PRDownloaderDataSource.kt).
+ *
+ * ArchiveTune's PRDownloader data source publishes per-key byte progress
+ * while it fetches a stream for download; SpatialFlow's download pill reads
+ * it and takes the max against media3's own percentDownloaded. The host
+ * downloads through its own pipeline, so this map simply stays empty and
+ * the pill tracks media3's number alone.
+ */
+internal object DownloadFetchProgress {
+    data class Fetch(
+        val bytes: Long,
+        val total: Long,
+        val updatedAtMs: Long,
+    ) {
+        val percent: Int? get() = if (total > 0) ((bytes * 100) / total).coerceIn(0, 100).toInt() else null
+    }
+
+    private val _flow = MutableStateFlow<Map<String, Fetch>>(emptyMap())
+    val flow: StateFlow<Map<String, Fetch>> = _flow.asStateFlow()
+
+    fun update(
+        key: String,
+        bytes: Long,
+        total: Long,
+    ) {
+        _flow.value = _flow.value + (key to Fetch(bytes, total, android.os.SystemClock.elapsedRealtime()))
+    }
+
+    fun clear(key: String) {
+        if (_flow.value.containsKey(key)) {
+            _flow.value = _flow.value - key
+        }
+    }
+
+    fun get(key: String): Fetch? = _flow.value[key]
 }
 
 /**

@@ -136,8 +136,11 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     // The copied entities carry Room annotations; only the annotation
-    // artifact is needed — no database is built in this module.
+    // artifact is needed — no database is built in this module. room-ktx
+    // carries the androidx.room.withTransaction import SimpMusicPlayer's
+    // sources spell out (the bridge database's own member wins the call).
     implementation("androidx.room:room-common:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
     // SimpleSQLiteQuery, which the copied string extensions build.
     implementation("androidx.sqlite:sqlite:2.5.0")
     // The Apache helpers the entities generate ids with.
@@ -175,9 +178,11 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
     // Lottie icons (the animated like button, download states).
     implementation("com.airbnb.android:lottie-compose:6.6.6")
-    // Seed-grown schemes for the dynamic backgrounds. 2.1.0 is the last line
-    // built against Compose 1.7, which is what this module compiles against.
-    implementation("com.materialkolor:material-kolor:2.1.0")
+    // Seed-grown schemes for the dynamic backgrounds — ArchiveTune's own
+    // pin. The 5.0 alphas default isAmoled (the copied Theme.kt calls
+    // dynamicColorScheme without it) and are built against Compose
+    // 1.11.0-alpha03, which this module's 1.11.0-beta02 pins resolve over.
+    implementation("com.materialkolor:material-kolor:5.0.0-alpha07")
     // Logging — the copied stack logs through Timber throughout.
     implementation("com.jakewharton.timber:timber:5.0.1")
     // Direct okhttp/ktor use inside the copied providers.

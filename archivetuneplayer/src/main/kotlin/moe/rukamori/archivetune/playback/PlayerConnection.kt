@@ -93,7 +93,7 @@ class PlayerConnection(
 
     private var attachedPlayer: Player? = null
 
-    private val playbackState = MutableStateFlow(player.playbackState)
+    val playbackState = MutableStateFlow(player.playbackState)
     private val playWhenReady = MutableStateFlow(player.playWhenReady)
     val playbackParameters = MutableStateFlow(player.playbackParameters)
 

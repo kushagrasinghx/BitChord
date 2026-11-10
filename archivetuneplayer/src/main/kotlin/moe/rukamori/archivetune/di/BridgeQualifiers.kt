@@ -12,6 +12,7 @@ package moe.rukamori.archivetune.di
 
 import androidx.media3.datasource.cache.Cache
 import moe.rukamori.archivetune.bridge.ArchiveTuneCaches
+import moe.rukamori.archivetune.lyrics.LyricsHelper
 
 @javax.inject.Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -39,6 +40,12 @@ interface VideoCacheEntryPoint {
     fun videoCache(): Cache
 }
 
+@dagger.hilt.EntryPoint
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+interface LyricsHelperEntryPoint {
+    fun lyricsHelper(): LyricsHelper
+}
+
 /** Serves the entry points the copied players ask for. */
 internal object BridgeEntryPoints {
     val canvasCacheEntryPoint: CanvasCacheEntryPoint =
@@ -59,6 +66,11 @@ internal object BridgeEntryPoints {
             }
         }
 
+    val lyricsHelperEntryPoint: LyricsHelperEntryPoint =
+        object : LyricsHelperEntryPoint {
+            override fun lyricsHelper() = LyricsHelper()
+        }
+
     @Volatile
     var context: android.content.Context? = null
 }
@@ -70,6 +82,7 @@ object BridgeEntryPointRegistry {
         when (entryPoint) {
             CanvasCacheEntryPoint::class.java -> BridgeEntryPoints.canvasCacheEntryPoint
             VideoCacheEntryPoint::class.java -> BridgeEntryPoints.videoCacheEntryPoint
+            LyricsHelperEntryPoint::class.java -> BridgeEntryPoints.lyricsHelperEntryPoint
             else -> error("No bridge entry point registered for ${entryPoint.name}")
         } as T
 }

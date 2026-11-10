@@ -14,6 +14,7 @@
   <string name="details">Details</string>
   <string name="edit">Edit</string>
   <string name="export_lyrics">Export lyrics</string>
+  <string name="export_lyrics_saved">Lyrics exported</string>
   <string name="export_lyrics_failed">Couldn\'t export lyrics</string>
   <string name="export_lyrics_source">Source</string>
   <string name="export_lyrics_source_none">No lyrics loaded</string>

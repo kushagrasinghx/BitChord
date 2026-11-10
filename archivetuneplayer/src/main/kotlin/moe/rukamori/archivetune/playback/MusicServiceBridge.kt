@@ -17,8 +17,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import moe.rukamori.archivetune.constants.AudioSourceType
+import moe.rukamori.archivetune.audiosource.CurrentStreamInfo
 import moe.rukamori.archivetune.bridge.ArchiveTuneBridge
 import moe.rukamori.archivetune.models.ActiveOutputDevice
+import moe.rukamori.archivetune.models.MediaMetadata
 import moe.rukamori.archivetune.models.PlayerOutputDevice
 import moe.rukamori.archivetune.playback.EqCapabilities
 import java.lang.reflect.InvocationHandler
@@ -49,6 +51,18 @@ class MusicService(
     val crossfadeMixing: StateFlow<Boolean> = MutableStateFlow(false)
 
     val infiniteQueueLoading = MutableStateFlow(false)
+
+    // ---- Live-track facts the stats sheet (ShowMediaInfo) reads while the
+    //      song it describes is the one playing. The host bridge does not
+    //      expose ArchiveTune's stream probing, so they stay at "unknown",
+    //      which is also what the sheet shows for a song that finished
+    //      playing — the non-live rows still render from the database.
+
+    val currentMediaMetadata: StateFlow<MediaMetadata?> = MutableStateFlow(null)
+
+    val currentStreamInfo: StateFlow<CurrentStreamInfo?> = MutableStateFlow(null)
+
+    val liveNormalizeFactor: StateFlow<Float> = MutableStateFlow(1f)
 
     fun onInfiniteQueueDisabled() {}
 

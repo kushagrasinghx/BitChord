@@ -2,6 +2,7 @@ package com.music.bitchord.data
 
 import android.content.Context
 import android.util.AtomicFile
+import android.util.Log
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.PlaybackSourceType
@@ -9,6 +10,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.playlist.PlaylistIndexBuilder
 import com.music.bitchord.data.playlist.preservePlaylistAddedOrder
 import com.music.bitchord.data.playlist.comparePlaylistSnapshots
+import com.music.bitchord.data.playlist.PlaylistMetadata
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -44,7 +46,9 @@ import java.util.concurrent.atomic.AtomicLong
  * playlist or starting playback cannot invalidate a completed background scan.
  */
 object PlaylistSnapshotCache {
+    private const val TAG = "PlaylistSnapshotCache"
     const val REVALIDATE_AFTER_MS = 6L * 60 * 60 * 1000
+    private const val METADATA_PROBE_AFTER_MS = 2L * 60 * 1000
     private const val RECENT_DAYS = 7L
     private const val MAX_IDLE_MS = 30L * 24 * 60 * 60 * 1000
     private const val MAX_CACHE_BYTES = 96L * 1024 * 1024
@@ -77,6 +81,7 @@ object PlaylistSnapshotCache {
     private val locks = ConcurrentHashMap<Key, Any>()
     private val revisions = ConcurrentHashMap<Key, AtomicLong>()
     private val jobs = ConcurrentHashMap<Key, Job>()
+    private val lastMetadataProbe = ConcurrentHashMap<Key, Long>()
     private val updatesFlow = MutableSharedFlow<Update>(
         extraBufferCapacity = 128,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -137,11 +142,33 @@ object PlaylistSnapshotCache {
     ) {
         if (activeListener(context) != key.listener) return
         val cached = read(context, key.listener, key.browseId)
+        val startedRevision = revision(key).get()
+        var firstPageToScan = firstPage
+        // A short header probe can notice additions/removals before the six-hour
+        // full recheck. A matching or unavailable summary is NOT a full
+        // verification; it never advances cached.checkedAt.
         if (!force && firstPage == null && cached != null &&
             System.currentTimeMillis() - cached.checkedAt < REVALIDATE_AFTER_MS
-        ) return
-        val startedRevision = revision(key).get()
-        val first = firstPage ?: YtMusicRepository.browseSongs(key.browseId).getOrNull() ?: return
+        ) {
+            val now = System.currentTimeMillis()
+            val last = lastMetadataProbe[key] ?: 0L
+            if (now - last < METADATA_PROBE_AFTER_MS) return
+            // Record the attempt before calling the network. A failed request
+            // must not cause another request on every rapid re-open.
+            lastMetadataProbe[key] = now
+            val probe = YtMusicRepository.browseSongs(key.browseId).getOrNull()
+            if (probe == null) {
+                Log.d(TAG, "Playlist metadata probe failed; keeping complete cached songs")
+                return
+            }
+            if (!PlaylistMetadata.hasChanged(cached.songs, probe.header?.subtitle)) {
+                Log.d(TAG, "Playlist metadata unchanged or unavailable; retaining cache")
+                return
+            }
+            Log.d(TAG, "Playlist metadata differs; requesting complete refresh")
+            firstPageToScan = probe // Reuse the first page; never fetch it twice.
+        }
+        val first = firstPageToScan ?: YtMusicRepository.browseSongs(key.browseId).getOrNull() ?: return
         val builder = PlaylistIndexBuilder()
         if (!builder.addPage(first.songs, first.continuation)) return
 
@@ -195,10 +222,15 @@ object PlaylistSnapshotCache {
                 }
             }
         }
-        if (changed == true) updatesFlow.emit(Update(
-            key.listener, key.browseId, newSnapshot.songs, continuation = null,
-            complete = true, owned = newSnapshot.owned,
-        ))
+        if (changed == true) {
+            Log.d(TAG, "Complete playlist refresh changed visible content")
+            updatesFlow.emit(Update(
+                key.listener, key.browseId, newSnapshot.songs, continuation = null,
+                complete = true, owned = newSnapshot.owned,
+            ))
+        } else if (changed == false) {
+            Log.d(TAG, "Complete playlist verified; no visible changes")
+        }
     }
 
     /** Apply a confirmed local edit immediately and force the next full recheck. */
@@ -229,6 +261,7 @@ object PlaylistSnapshotCache {
     fun remove(context: Context, listener: String, browseId: String) {
         val key = Key(listener, browseId)
         revision(key).incrementAndGet()
+        lastMetadataProbe.remove(key)
         scope.launch {
             synchronized(lock(key)) {
                 memory.remove(key)

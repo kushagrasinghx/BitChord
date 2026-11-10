@@ -65,7 +65,7 @@ fun Modifier.liveMenuFrost(state: HazeState, fill: Color): Modifier =
 
 private const val LIVE_FROST_INPUT_SCALE = 0.10f
 
-/** How much of the menu panel's slab covers its frost, dark. */
+/** How much of the slab covers the frost on the player's drawers and popups. */
 const val MENU_FROST_ALPHA = 0.80f
 
 /** The menu panel's charcoal, and the player's — which is dark whatever the theme. */

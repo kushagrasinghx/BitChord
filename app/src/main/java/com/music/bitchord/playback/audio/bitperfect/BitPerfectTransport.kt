@@ -58,10 +58,16 @@ internal interface BitPerfectTransport {
     fun release()
 }
 
-internal enum class BitPerfectDriver(val label: String) {
-    ANDROID_MIXER("Android bit-perfect mixer"),
-    USB_DIRECT("Direct USB"),
-    AAUDIO_EXCLUSIVE("AAudio exclusive"),
+/**
+ * [releasesWhenIdle]: whether a long pause should hand the device back. The
+ * mixer path is an AudioTrack, which Android puts into standby by itself; the
+ * other two hold the DAC, and the USB one a worker thread, for as long as they
+ * stay open.
+ */
+internal enum class BitPerfectDriver(val label: String, val releasesWhenIdle: Boolean) {
+    ANDROID_MIXER("Android bit-perfect mixer", releasesWhenIdle = false),
+    USB_DIRECT("Direct USB", releasesWhenIdle = true),
+    AAUDIO_EXCLUSIVE("AAudio exclusive", releasesWhenIdle = true),
 }
 
 internal class BitPerfectTransportException(message: String, cause: Throwable? = null) : Exception(message, cause)

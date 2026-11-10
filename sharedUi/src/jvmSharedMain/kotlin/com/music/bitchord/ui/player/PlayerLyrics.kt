@@ -100,6 +100,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import com.music.bitchord.data.DebugLog
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.LayoutDirection
@@ -1731,6 +1732,7 @@ internal fun rememberPlayerControlsOnScroll(
             private var travel = 0f
 
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                DebugLog.d("QueueScrollDbg", "controlsOnScroll.onPreScroll available=$available source=$source enabled=$enabled")
                 if (enabled && source == NestedScrollSource.UserInput && available.y != 0f) {
                     if (travel != 0f && (travel > 0f) != (available.y > 0f)) travel = 0f
                     travel += available.y

@@ -2,7 +2,6 @@ package com.music.bitchord
 
 import android.app.Application
 import androidx.annotation.OptIn
-import androidx.compose.ui.ComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.media3.common.util.UnstableApi
 import coil3.ImageLoader
@@ -90,7 +89,24 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // minutes, two stack traces built on the main thread per frame. The app
         // asks for its refresh rate itself (MainActivity.applyPerformanceMode),
         // so those votes buy nothing — and they kept resetting that request.
-        ComposeUiFlags.isAdaptiveRefreshRateEnabled = false
+        // The switch was retired in Compose ui 1.11 (the line the ported
+        // ArchiveTune player stack rides, and now this app with it): where the
+        // flag still exists it is turned off, where it doesn't the voting went
+        // with it. Reflection, so this neither compiles against nor crashes on
+        // a version that lacks it.
+        runCatching {
+            val flags = Class.forName("androidx.compose.ui.ComposeUiFlags")
+            val instance = runCatching { flags.getDeclaredField("INSTANCE").get(null) }.getOrNull()
+            runCatching {
+                val field = flags.getDeclaredField("isAdaptiveRefreshRateEnabled")
+                field.isAccessible = true
+                field.set(instance, false)
+            }.onFailure {
+                flags
+                    .getMethod("setIsAdaptiveRefreshRateEnabled", java.lang.Boolean.TYPE)
+                    .invoke(instance, false)
+            }
+        }
         // The Spotify library and import live in the shared module; the tokens are the WebView's.
         SpotifyLibrary.auth = SpotifyLibrary.Auth {
             SpotifyToken.accessToken()?.let { SpotifyLibrary.Tokens(it, SpotifyToken.clientToken()) }

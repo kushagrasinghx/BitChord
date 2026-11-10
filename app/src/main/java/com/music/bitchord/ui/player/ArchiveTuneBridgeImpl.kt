@@ -39,9 +39,9 @@ class ArchiveTuneBridgeImpl(
     private val controller: MediaController,
     private val viewModel: MainViewModel,
     @Suppress("unused") scope: CoroutineScope,
-    private val openArtist: (String) -> Unit,
-    private val openAlbum: (String) -> Unit,
-    private val openSearch: () -> Unit,
+    private val onOpenArtist: (String) -> Unit,
+    private val onOpenAlbum: (String) -> Unit,
+    private val onOpenSearch: () -> Unit,
 ) : ArchiveTuneHostBridge {
     /** Controller commands ride the main looper, as MediaController requires. */
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -64,7 +64,7 @@ class ArchiveTuneBridgeImpl(
                             id = id,
                             lyrics = lines.toArchiveTuneLrc(),
                             source = LyricsEntity.Source.REMOTE.value,
-                            providerName = viewModel.lyricsSource.value.label,
+                            providerName = viewModel.lyricsSource.value?.label ?: "",
                         )
                     }
             }
@@ -135,7 +135,7 @@ class ArchiveTuneBridgeImpl(
             title = meta.title?.toString() ?: "",
             duration = meta.durationMs?.div(1000L)?.toInt() ?: -1,
             thumbnailUrl = meta.artworkUri?.toString(),
-            liked = viewModel.likeStatuses.value[mediaId] == LikeStatus.LIKED,
+            liked = viewModel.likeStatuses.value[mediaId] == LikeStatus.LIKE,
         )
     }
 
@@ -163,11 +163,11 @@ class ArchiveTuneBridgeImpl(
         // Downloads stay this app's own flow; nothing to hand over yet.
     }
 
-    override fun openArtist(browseId: String) = openArtist(browseId)
+    override fun openArtist(browseId: String) = onOpenArtist(browseId)
 
-    override fun openAlbum(browseId: String) = openAlbum(browseId)
+    override fun openAlbum(browseId: String) = onOpenAlbum(browseId)
 
-    override fun openSearch() = openSearch()
+    override fun openSearch() = onOpenSearch()
 }
 
 /**
@@ -185,6 +185,15 @@ private fun MediaItem.toNeiroSong(): Song {
         thumbnailUrl = meta.artworkUri?.toString(),
     )
 }
+
+/** Radio seeds the player hands over as ArchiveTune's own metadata shape. */
+private fun MediaMetadata.toNeiroSong(): Song =
+    Song(
+        videoId = id,
+        title = title,
+        artist = artists.joinToString(", ") { it.name },
+        thumbnailUrl = thumbnailUrl,
+    )
 
 /**
  * The app's lyric lines rendered into the LRC dialect ArchiveTune's player

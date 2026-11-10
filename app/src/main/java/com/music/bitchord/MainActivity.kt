@@ -166,6 +166,7 @@ import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.PlayerDesignStyle
+import com.music.bitchord.ui.player.ArchiveTuneBridgeImpl
 import moe.rukamori.archivetune.bridge.ArchiveTunePlayerHost
 import com.music.bitchord.data.settings.BackAnimationStyle
 import com.music.bitchord.data.settings.DefaultOpenTab
@@ -4930,13 +4931,18 @@ private fun BitChordApp(
                 saver = SheetState.Saver(
                     skipPartiallyExpanded = true,
                     confirmValueChange = confirmSheetValue,
-                    density = sheetDensity,
+                    // material3 1.5's Saver takes the swipe thresholds it used
+                    // to derive from the density itself — the same 56/125 dp it
+                    // built them from, so the sheet feels exactly as before.
+                    positionalThreshold = { with(sheetDensity) { 56.dp.toPx() } },
+                    velocityThreshold = { with(sheetDensity) { 125.dp.toPx() } },
                     skipHiddenState = false,
                 ),
             ) {
                 SheetState(
                     skipPartiallyExpanded = true,
-                    density = sheetDensity,
+                    positionalThreshold = { with(sheetDensity) { 56.dp.toPx() } },
+                    velocityThreshold = { with(sheetDensity) { 125.dp.toPx() } },
                     // Already open when the app is the one raising it: its
                     // content is held down, and slid up, by the motion.
                     initialValue = if (playerSheetMotion.holding) SheetValue.Expanded else SheetValue.Hidden,

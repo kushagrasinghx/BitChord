@@ -18,16 +18,17 @@ package tf.monochrome.android.ui.eq
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 
 @Composable
 fun EqualizerScreen(onBack: () -> Unit) {
-    onBack()
+    LaunchedEffect(Unit) { onBack() }
     Box(Modifier.fillMaxSize())
 }
 
 @Composable
 fun ParametricEqScreen(onBack: () -> Unit) {
-    onBack()
+    LaunchedEffect(Unit) { onBack() }
     Box(Modifier.fillMaxSize())
 }

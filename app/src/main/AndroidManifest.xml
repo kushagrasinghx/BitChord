@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- The ported ArchiveTune lyrics screens use mocharealm's accompanist
+         lyrics-ui, which declares minSdk 29 while this app ships 26 — the
+         same override ArchiveTune's own manifest carries. The karaoke view
+         renders fine on 26 (it only draws text and gradients). -->
+    <uses-sdk tools:overrideLibrary="com.mocharealm.accompanist.lyrics.ui" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Tells Wi-Fi from mobile data, so the matching quality ceiling applies. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

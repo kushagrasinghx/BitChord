@@ -40,7 +40,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.music.bitchord.data.DebugLog
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import kotlinx.coroutines.CancellationException
@@ -158,7 +157,6 @@ internal fun QueueSwipeRow(
                     offset = 0f
                     committing = false
                     settling = false
-                    DebugLog.d("QueueSwipeDbg", "row cleanup key=${track.key} releaseId=$id offset=$offset committing=$committing settling=$settling")
                 }
             }
         }

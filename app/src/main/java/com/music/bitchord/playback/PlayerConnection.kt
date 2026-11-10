@@ -25,7 +25,6 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
-import com.music.bitchord.data.DebugLog
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
@@ -66,10 +65,6 @@ private class QueueSnapshotRefreshListener : MediaController.Listener {
         lastQueueRefreshRevision = revision
         queueTierOverrides[mediaId to entryId] = tier
         queueSnapshotRefreshRevision.longValue++
-        DebugLog.d(
-            "QueueSwipeDbg",
-            "controller retag refresh received revision=$revision media=$mediaId entry=$entryId tier=$tier",
-        )
     }
 }
 
@@ -423,7 +418,6 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
         // main thread, for as long as the queue kept playing.
         var queueChanged = false
         var authoritativeQueueChange = false
-        var snapshotComparisonSawDifference = false
 
         fun sync(
             error: String? = null,
@@ -465,7 +459,6 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
 
         val listener = object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                snapshotComparisonSawDifference = false
                 // The count guard is belt and braces: a playlist change is the
                 // only reason the queue can be a different length, so if it is,
                 // this must convert it again whatever the reason claims.
@@ -485,13 +478,11 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                             (entryId != null && entryId != queueSnapshot[i].queueEntryId) ||
                             item.queueTier != queueSnapshot[i].queueTier
                         ) {
-                            snapshotComparisonSawDifference = true
                             queueChanged = true
                             break
                         }
                     }
                 }
-                DebugLog.d("QueueSwipeDbg", "controller timeline reason=$reason queueChanged=$queueChanged comparisonDifference=$snapshotComparisonSawDifference count=${timeline.windowCount} snapshot=${queueSnapshot.size}")
             }
             // Every jump the player makes — a seek, a skip, a repeat starting
             // over, a stretch of silence skipped — is announced here, ahead of
@@ -513,7 +504,6 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 if (authoritativeQueueChange) queueTierOverrides.clear()
                 authoritativeQueueChange = false
                 val rebuildQueue = queueChanged.also { queueChanged = false }
-                DebugLog.d("QueueSwipeDbg", "controller events rebuildQueue=$rebuildQueue metadata=${events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)}")
                 sync(
                     error = state.error,
                     rebuildQueue = rebuildQueue,

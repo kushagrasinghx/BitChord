@@ -48,14 +48,17 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
  * adapter can map the two apps' enum names.
  */
 object BridgedPreferences {
+    @PublishedApi
     internal class Adapter<T>(
         val read: () -> T,
         val write: (T) -> Unit,
         val changes: Flow<T>,
     )
 
+    @PublishedApi
     internal val adapters = ConcurrentHashMap<Preferences.Key<*>, Adapter<*>>()
 
+    @PublishedApi
     internal val enumAdapters = ConcurrentHashMap<Preferences.Key<String>, Adapter<*>>()
 
     fun <T> bridge(
@@ -77,11 +80,13 @@ object BridgedPreferences {
         enumAdapters[key] = Adapter(read, write, changes)
     }
 
+    @PublishedApi
     internal fun <T> adapterFor(key: Preferences.Key<T>): Adapter<T>? {
         @Suppress("UNCHECKED_CAST")
         return adapters[key] as? Adapter<T>
     }
 
+    @PublishedApi
     internal fun <T : Enum<T>> enumAdapterFor(key: Preferences.Key<String>): Adapter<T>? {
         @Suppress("UNCHECKED_CAST")
         return enumAdapters[key] as? Adapter<T>

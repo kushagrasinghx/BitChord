@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import moe.rukamori.archivetune.bridge.ArchiveTuneBridge
 import moe.rukamori.archivetune.canvas.models.CanvasArtwork
+import moe.rukamori.archivetune.db.MusicDatabase
 import moe.rukamori.archivetune.extensions.currentMetadata
 import moe.rukamori.archivetune.extensions.getCurrentQueueIndex
 import moe.rukamori.archivetune.extensions.getQueueWindows
@@ -106,11 +107,15 @@ class PlayerConnection(
         )
 
     val mediaMetadata = MutableStateFlow<MediaMetadata?>(player.currentMetadata)
+
+    /** The bridge database: same shape ArchiveTune's connection read its
+     *  song rows from, its rows fed by the host bridge. */
+    private val database = MusicDatabase()
+
     val currentSong =
         mediaMetadata
-            .flatMapLatest { metadata ->
-                flowOf(metadata?.let { host?.song(it.id) })
-            }.stateIn(connectionScope, SharingStarted.WhileSubscribed(5_000), null)
+            .flatMapLatest { metadata -> database.song(metadata?.id) }
+            .stateIn(connectionScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val currentLyrics =
         mediaMetadata
@@ -153,7 +158,8 @@ class PlayerConnection(
     internal val canvasArtworkUpdates = _canvasArtworkUpdates.asSharedFlow()
 
     private val canvasRefetchRunning = AtomicBoolean(false)
-    internal val isCanvasArtworkRefetching = MutableStateFlow(false).asStateFlow()
+    private val _isCanvasArtworkRefetching = MutableStateFlow(false)
+    internal val isCanvasArtworkRefetching = _isCanvasArtworkRefetching.asStateFlow()
 
     init {
         attachToPlayer(player)
@@ -234,7 +240,7 @@ class PlayerConnection(
         if (!canvasRefetchRunning.compareAndSet(false, true)) {
             return CanvasArtworkRefetchResult.AlreadyRunning
         }
-        isCanvasArtworkRefetching.value = true
+        _isCanvasArtworkRefetching.value = true
         return try {
             val country = Locale.getDefault().country
             val storefront = if (country.length == 2) country.lowercase(Locale.ROOT) else "us"
@@ -262,7 +268,7 @@ class PlayerConnection(
             CanvasArtworkRefetchResult.Failure
         } finally {
             canvasRefetchRunning.set(false)
-            isCanvasArtworkRefetching.value = false
+            _isCanvasArtworkRefetching.value = false
         }
     }
 

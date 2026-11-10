@@ -99,6 +99,8 @@ dependencies {
     implementation(project(":archivetune:canvas"))
     implementation(project(":archivetune:betterlyrics"))
     implementation(project(":archivetune:jiosaavn"))
+    implementation(project(":archivetune:lastfm"))
+    implementation(project(":archivetune:spotifycore"))
 
     // ---- Compose, on the app's pins ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
@@ -107,10 +109,19 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-util")
-    implementation("androidx.compose.material3:material3")
+    // ArchiveTune's own pin: the ten styles draw material3's expressive
+    // widgets (LoadingIndicator, the wavy progress indicators, ToggleButton
+    // and ButtonGroup, MaterialShapes, MotionScheme), which are public only
+    // from the 1.5 line on — and 1.5.0-alpha23's foundation requirement
+    // stays within what this app already pins.
+    implementation("androidx.compose.material3:material3:1.5.0-alpha23")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation-graphics")
     implementation("androidx.compose.runtime:runtime")
+    // The morphing shapes behind the expressive controls.
+    implementation("androidx.graphics:graphics-shapes:1.0.1")
+    // The share dialog's window breakpoints (AT's pin).
+    implementation("androidx.compose.material3.adaptive:adaptive:1.3.0-rc01")
 
     // ---- AndroidX the player stack leans on ----
     implementation("androidx.activity:activity-compose:1.9.3")
@@ -123,6 +134,13 @@ dependencies {
     // The copied entities carry Room annotations; only the annotation
     // artifact is needed — no database is built in this module.
     implementation("androidx.room:room-common:2.6.1")
+    // SimpleSQLiteQuery, which the copied string extensions build.
+    implementation("androidx.sqlite:sqlite:2.5.0")
+    // The Apache helpers the entities generate ids with.
+    implementation("org.apache.commons:commons-lang3:3.20.0")
+    // Japanese lyric romanisation's tokenizer core (the language pack the
+    // manager downloads carries the dictionary).
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
 
     // ---- Media3 (the bridge hands a MediaController to the copied player,
     //      which consumes it as a plain media3 Player) ----
@@ -161,5 +179,11 @@ dependencies {
     // Direct okhttp/ktor use inside the copied providers.
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("io.ktor:ktor-client-core:3.5.2")
+    // The ktor OkHttp engine the AI text service and the lyric providers'
+    // HTTP layer build their clients on.
+    implementation("io.ktor:ktor-client-okhttp:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    // The frost behind the ported components' glass surfaces — the app's
+    // own pin; the player closure uses only its stable core API.
+    implementation("dev.chrisbanes.haze:haze:1.3.1")
 }

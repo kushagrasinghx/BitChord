@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The inert bridge download service's notification channel (the ported
+         menus' commands land here; real downloads stay the host's own). -->
+    <string name="download_channel_name" translatable="false">Downloads</string>
+    <string name="download_channel_description" translatable="false">Download progress and status</string>
+</resources>

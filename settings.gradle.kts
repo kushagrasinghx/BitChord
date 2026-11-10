@@ -46,6 +46,8 @@ if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":archivetune:canvas")
     include(":archivetune:betterlyrics")
     include(":archivetune:jiosaavn")
+    include(":archivetune:lastfm")
+    include(":archivetune:spotifycore")
 } else {
     logger.lifecycle("No Android SDK found — building the desktop targets only.")
 }

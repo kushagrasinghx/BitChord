@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.createGraph
 import androidx.navigation.compose.composable
 import moe.rukamori.archivetune.LocalDatabase
@@ -139,10 +138,12 @@ fun ArchiveTunePlayerHost(
 }
 
 /**
- * A NavController that maps ArchiveTune's routes onto the host app's pages.
- * The player's own graph-free navigation — artist, album, search — lands in
- * the callbacks; routes this app has no answer for (ArchiveTune's settings
- * sub-pages, its login and po-token flows) are logged and dropped.
+ * A NavController whose graph carries the three routes the player stack
+ * navigates to — artist/{id}, album/{id} and search — each a composable
+ * that immediately hands the id to the host app's own page. Routes beyond
+ * those three (ArchiveTune's settings sub-pages, its login flows) have no
+ * graph entry and are logged and dropped by the listener below, so nothing
+ * the ported player can do takes the app anywhere unexpected.
  */
 private class BridgeNavController(
     context: android.content.Context,
@@ -152,28 +153,20 @@ private class BridgeNavController(
 ) : NavController(context) {
 
     init {
-        graph = createGraph(startDestination = "home", route = "home") {
-            composable("home") {}
+        addOnDestinationChangedListener { _, destination, _ ->
+            when (destination.route) {
+                "artist/{id}" -> onOpenArtist(currentBackStackEntry?.arguments?.getString("id").orEmpty())
+                "album/{id}" -> onOpenAlbum(currentBackStackEntry?.arguments?.getString("id").orEmpty())
+                "search" -> onOpenSearch()
+                else -> Timber.tag("ArchiveTuneBridge").d("route %s has no bridge — dropped", destination.route)
+            }
         }
-    }
-
-    override fun navigate(route: String) {
-        handle(route)
-    }
-
-    override fun navigate(
-        route: String,
-        builder: NavOptionsBuilder.() -> Unit,
-    ) {
-        handle(route)
-    }
-
-    private fun handle(route: String) {
-        when {
-            route.startsWith("artist/") -> onOpenArtist(route.removePrefix("artist/"))
-            route.startsWith("album/") -> onOpenAlbum(route.removePrefix("album/"))
-            route == "search" -> onOpenSearch()
-            else -> Timber.tag("ArchiveTuneBridge").d("route %s has no bridge — dropped", route)
-        }
+        graph =
+            createGraph(startDestination = "home", route = "home") {
+                composable("home") {}
+                composable("artist/{id}") {}
+                composable("album/{id}") {}
+                composable("search") {}
+            }
     }
 }

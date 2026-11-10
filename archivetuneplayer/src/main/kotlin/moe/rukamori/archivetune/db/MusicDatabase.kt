@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import moe.rukamori.archivetune.bridge.ArchiveTuneBridge
 import moe.rukamori.archivetune.db.entities.Album
 import moe.rukamori.archivetune.db.entities.AlbumWithSongs
@@ -35,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MusicDatabase {
     private val host get() = ArchiveTuneBridge.get()
     private val lock = Any()
+    private val transactionMutex = Mutex()
 
     private val lyricsById = ConcurrentHashMap<String, LyricsEntity>()
     private val formatsById = ConcurrentHashMap<String, moe.rukamori.archivetune.db.entities.FormatEntity>()
@@ -53,7 +56,7 @@ class MusicDatabase {
         synchronized(lock) { block(this) }
     }
 
-    suspend fun <R> withTransaction(block: suspend MusicDatabase.() -> R): R = synchronized(lock) { block(this) }
+    suspend fun <R> withTransaction(block: suspend MusicDatabase.() -> R): R = transactionMutex.withLock { block(this) }
 
     // ---- Reads.
 

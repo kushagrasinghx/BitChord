@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import moe.rukamori.archivetune.bridge.BridgeViewModels
 
 @Composable
@@ -34,9 +33,13 @@ internal fun <VM : ViewModel> hiltViewModelInstance(
     key: String?,
 ): VM {
     val factory = androidx.compose.runtime.remember { BridgeViewModels.asFactory() }
-    return viewModel(
-        viewModelStoreOwner = owner,
-        key = key ?: "atbridge:${clazz.name}",
-        factory = factory,
-    ) as VM
+    val provider = androidx.lifecycle.ViewModelProvider(owner, factory)
+    @Suppress("UNCHECKED_CAST")
+    return (
+        if (key != null) {
+            provider.get(key, clazz)
+        } else {
+            provider.get(clazz)
+        }
+        ) as VM
 }

@@ -20,6 +20,7 @@ import moe.rukamori.archivetune.constants.AudioSourceType
 import moe.rukamori.archivetune.bridge.ArchiveTuneBridge
 import moe.rukamori.archivetune.models.ActiveOutputDevice
 import moe.rukamori.archivetune.models.PlayerOutputDevice
+import moe.rukamori.archivetune.playback.EqCapabilities
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -69,6 +70,16 @@ class MusicService(
         MutableStateFlow(
             ActiveOutputDevice(PlayerOutputDevice.Unknown, PlayerOutputDevice.Unknown.defaultName),
         ).asStateFlow()
+
+    // ---- The equalizer hook the player's equalizer sheet observes. No
+    //      system equalizer is engaged through this port, so the
+    //      capabilities stay absent and the presets apply to nothing.
+
+    val eqCapabilities: StateFlow<EqCapabilities?> = MutableStateFlow(null)
+
+    fun applyEqFlatPreset() {}
+
+    fun applySystemEqPreset(presetIndex: Int) {}
 
     // ---- Multi-source resolution: ArchiveTune's per-song source picking.
     //      This app resolves streams its own way; the picker stays empty.

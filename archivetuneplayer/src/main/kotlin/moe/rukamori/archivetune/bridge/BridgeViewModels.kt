@@ -60,7 +60,7 @@ object BridgeViewModels {
     fun init(context: Context) {
         val app = context.applicationContext
 
-        if (LyricsMenuViewModel::class.java.name !in creators) {
+        if (!creators.containsKey(LyricsMenuViewModel::class.java.name)) {
             val database = MusicDatabase()
             register(LyricsMenuViewModel::class.java) {
                 LyricsMenuViewModel(
@@ -72,7 +72,7 @@ object BridgeViewModels {
             }
         }
 
-        if (CreatePlaylistViewModel::class.java.name !in creators) {
+        if (!creators.containsKey(CreatePlaylistViewModel::class.java.name)) {
             val repository = PlaylistCreationRepository(app, MusicDatabase())
             register(CreatePlaylistViewModel::class.java) {
                 CreatePlaylistViewModel(
@@ -82,7 +82,7 @@ object BridgeViewModels {
             }
         }
 
-        if (EqualizerViewModel::class.java.name !in creators) {
+        if (!creators.containsKey(EqualizerViewModel::class.java.name)) {
             val repository =
                 EqualizerRepository(app, moe.rukamori.archivetune.playback.EqualizerPlaybackController())
             register(EqualizerViewModel::class.java) {
@@ -95,7 +95,7 @@ object BridgeViewModels {
             }
         }
 
-        if (TrackInfoViewModel::class.java.name !in creators) {
+        if (!creators.containsKey(TrackInfoViewModel::class.java.name)) {
             register(TrackInfoViewModel::class.java) {
                 TrackInfoViewModel(
                     monitor = AudioPipelineMonitor(),

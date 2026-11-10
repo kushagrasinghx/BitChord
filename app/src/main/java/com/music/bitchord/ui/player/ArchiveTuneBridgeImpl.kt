@@ -1,8 +1,8 @@
 package com.music.bitchord.ui.player
 
-import androidx.media3.common.MediaController
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata as Media3Metadata
+import androidx.media3.session.MediaController
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song

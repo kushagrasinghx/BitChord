@@ -232,6 +232,9 @@ android {
         resources {
             // SMBJ's BouncyCastle and jspecify both ship this descriptor.
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // The ported player's tokenizer dictionary downloads on demand;
+            // the one in the kuromoji jar stays out — as the phone app does.
+            excludes += "com/atilika/kuromoji/ipadic/*.bin"
         }
     }
     buildFeatures {
@@ -294,6 +297,10 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
+    // The tv app compiles the phone app's sources (sourceSets above), so it
+    // needs the ported player stack those sources mount just as the phone
+    // app does.
+    implementation(project(":archivetuneplayer"))
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

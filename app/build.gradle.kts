@@ -221,6 +221,10 @@ android {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
             // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one licence between them.
             pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
+            // The ported player's Japanese tokenizer downloads its dictionary
+            // on demand; the one inside the kuromoji jar (tens of MB) stays out
+            // of the APK — the same cut ArchiveTune makes.
+            excludes += "com/atilika/kuromoji/ipadic/*.bin"
         }
     }
     buildFeatures {

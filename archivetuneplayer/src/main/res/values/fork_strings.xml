@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="source_deezer">Deezer</string>
+  <string name="source_jiosaavn">JioSaavn</string>
+  <string name="source_soundcloud">SoundCloud</string>
+  <string name="source_spotify">Spotify (direct)</string>
+  <string name="source_search_filter_all">All</string>
+  <string name="source_search_no_results">No results yet — type a song title to search</string>
+  <string name="source_search_searching">Searching…</string>
+  <string name="source_qobuz_backup">Qobuz Backup</string>
+  <string name="quality_badge_aac">AAC 256 kbps</string>
+  <string name="quality_badge_saavn">AAC 320 kbps</string>
+  <string name="quality_badge_mp3">MP3 320 kbps</string>
+  <string name="quality_badge_lossless">Lossless</string>
+  <string name="tiktok_feed_fullscreen">Full screen</string>
+  <string name="tiktok_feed_exit_fullscreen">Exit full screen</string>
+</resources>

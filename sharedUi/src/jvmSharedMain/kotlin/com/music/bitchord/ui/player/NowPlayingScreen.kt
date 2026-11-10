@@ -169,9 +169,6 @@ import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.LyricsBackgroundStyle
 import com.music.bitchord.data.settings.PlayerButtonsStyle
 import com.music.bitchord.data.settings.PlayerTheme
-import com.music.bitchord.data.settings.PlayerDesignStyle
-import com.music.bitchord.ui.player.designstyles.DesignStylePlayerContent
-import com.music.bitchord.ui.player.designstyles.DesignStylePlayerData
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
@@ -2014,85 +2011,12 @@ fun NowPlayingScreen(
         overlayOpen = { overlayOpen.value && !currentMenuOpen() },
         overlays = playerOverlays,
     ) {
-        // The ported design styles, when one is in force: the whole player is
-        // that style's own layout, built on the same inputs the birchord one
-        // is. Full-screen sideways video keeps priority — a turned screen is
-        // the whole window whatever the player looks like — and the birchord
-        // player itself (the default) never comes through here at all.
-        val designStyle by PlayerSettings.playerDesignStyle.collectAsStateWithLifecycle()
-        if (designStyle != PlayerDesignStyle.BITCHORD && !(landscape && videoMode)) {
-            // Built afresh each pass, without a remember: the lambdas below
-            // close over the host's callbacks, and pinning them in a cache
-            // would serve the styles a stale one whenever the host re-wires.
-            // The screen's own body does not recompose on the position tick —
-            // [position] is read through lambdas — so this runs only on the
-            // changes a new bundle would need to see anyway.
-            val designData = DesignStylePlayerData(
-                    song = song,
-                    playedBy = playedBy,
-                    isPlaying = isPlaying,
-                    isLoading = isLoading,
-                    audioVersionSwitching = audioVersionSwitching,
-                    position = position,
-                    durationMs = durationMs,
-                    shown = shown,
-                    onScrub = onScrub,
-                    onScrubFinished = onScrubFinished,
-                    onSeekFraction = onSeekFraction,
-                    onSeek = onSeek,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onPrevious = onPrevious,
-                    onBlockedControl = onBlockedControl,
-                    controlsLocked = controlsLocked,
-                    hasPrevious = hasPrevious || pastRestartPoint,
-                    hasNext = hasNext,
-                    queue = queue,
-                    queueIndex = queueIndex,
-                    onJumpTo = onJumpTo,
-                    onRemoveFromQueue = onRemoveFromQueue,
-                    onMoveInQueue = onMoveInQueue,
-                    onClearQueue = onClearQueue,
-                    onQueueDragActiveChange = onQueueDragActiveChange,
-                    shuffleEnabled = shuffleEnabled,
-                    repeatMode = repeatMode,
-                    autoplayEnabled = autoplayEnabled,
-                    onToggleShuffle = onToggleShuffle,
-                    onCycleRepeat = onCycleRepeat,
-                    onToggleAutoplay = onToggleAutoplay,
-                    likeStatus = likeStatus,
-                    onToggleLike = onToggleLike,
-                    onOpenMenu = onOpenMenu,
-                    onOpenAlbum = onOpenAlbum,
-                    onOpenArtist = onOpenArtist,
-                    onOpenOutput = openAudioOutput,
-                    onListenTogether = onListenTogether,
-                    artRequest = art.request,
-                    remoteArt = remoteArt,
-                    canvas = canvas,
-                    lyrics = lyrics,
-                    subLines = lyricsTranslation.subLines,
-                    displayedLyrics = lyricsTranslation.displayedLyrics,
-                    lyricsPlayhead = lyricsPlayhead,
-                    seekToLyric = seekToLyric,
-                    lyricsUnavailable = lyricsUnavailable,
-                    lyricsTranslation = lyricsTranslation,
-                    lyricPicker = lyricPicker,
-                    lyricsShareEnabled = lyricsShareEnabled,
-                    volumeValue = { volume.level.value },
-                    onVolumeChange = onVolumeChange,
-                    onVolumeChangeFinished = onVolumeChangeFinished,
-                    haptics = haptics,
-                    onClose = onClose,
-                    onLiveCanvasChanged = onLiveCanvasChanged,
-            )
-            DesignStylePlayerContent(
-                data = designData,
-                windowWidth = windowWidth,
-                windowHeight = windowHeight,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else if (landscape && videoMode) {
+        // Full-screen sideways video keeps priority — a turned screen is
+        // the whole window whatever the player looks like. The ported
+        // ArchiveTune styles never come through here: they mount their own
+        // player (see MainActivity's ArchiveTunePlayerHost), and this screen
+        // only composes at all while the style is BITCHORD.
+        if (landscape && videoMode) {
             val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
             val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
             Box(modifier = Modifier.fillMaxSize().then(dockHost)) {

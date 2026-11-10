@@ -37,6 +37,15 @@ if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
     include(":tv")
     include(":wearos")
+    // The vendored ArchiveTune player stack: the Android library plus the
+    // pure-JVM modules its sources import (InnerTube core, canvas providers,
+    // lyric parsers, JioSaavn). Desktop-only checkouts skip them along with
+    // the app that consumes them.
+    include(":archivetuneplayer")
+    include(":archivetune:core")
+    include(":archivetune:canvas")
+    include(":archivetune:betterlyrics")
+    include(":archivetune:jiosaavn")
 } else {
     logger.lifecycle("No Android SDK found — building the desktop targets only.")
 }

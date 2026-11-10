@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/Share.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M17,22q-1.25,0,-2.13,-0.88T14,19q0,-0.15,0.08,-0.7L7.05,14.2q-0.4,0.38,-0.93,0.59T5,15Q3.75,15,2.88,14.13T2,12T2.88,9.88T5,9Q5.6,9,6.13,9.21T7.05,9.8L14.08,5.7Q14.03,5.52,14.01,5.36T14,5Q14,3.75,14.88,2.88T17,2t2.13,0.88T20,5T19.13,7.13T17,8Q16.4,8,15.88,7.79T14.95,7.2L7.93,11.3q0.05,0.18,0.06,0.34T8,12T7.99,12.36T7.93,12.7l7.03,4.1q0.4,-0.38,0.92,-0.59T17,16q1.25,0,2.13,0.88T20,19t-0.88,2.13T17,22Z" />
+</vector>

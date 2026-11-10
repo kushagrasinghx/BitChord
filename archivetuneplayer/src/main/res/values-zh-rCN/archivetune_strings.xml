@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">无标题</string>
+  <string name="liked">我的喜爱</string>
+  <string name="offline">已下载</string>
+  <string name="cached_playlist">已缓存</string>
+  <string name="sync_playlist">同步播放列表</string>
+  <string name="sync_disabled">同步被禁用</string>
+  <string name="allows_for_sync_witch_youtube">注意：这允许与YouTube Music同步。这在之后是无法更改的。</string>
+  <string name="generating_image">生成图像</string>
+  <string name="please_wait">请稍候</string>
+  <string name="cancel">取消</string>
+  <string name="share_lyrics">分享歌词</string>
+  <string name="share_as_text">以文本形式分享</string>
+  <string name="share_as_image">以图片形式分享</string>
+  <string name="max_selection_limit">最大选择限制</string>
+  <string name="share_selected">分享已选中</string>
+  <string name="more_options">更多选项</string>
+  <string name="sort_by_last_updated">更新的日期</string>
+  <string name="link_copied">链接已复制到剪贴板</string>
+  <string name="now_playing">正在播放</string>
+  <string name="close">关闭</string>
+  <string name="minimum_volume">最小音量</string>
+  <string name="maximum_volume">最大音量</string>
+  <string name="hide_player_thumbnail">隐藏播放器缩略图</string>
+  <string name="not_logged_in_youtube">未登录YouTube</string>
+  <string name="information">信息</string>
+  <string name="description">描述</string>
+  <string name="numbers">数字</string>
+  <string name="subscribers">订阅者</string>
+  <string name="views">浏览</string>
+  <string name="likes">喜欢</string>
+  <string name="dislikes">不喜欢</string>
+  <string name="subscribe">订阅</string>
+  <string name="similar_content">类似内容</string>
+  <string name="copy">复制</string>
+  <plurals name="n_element">
+    <item quantity="other">%d 元素</item>
+  </plurals>
+  <string name="seek_forward_dynamic">快进 %1$d 秒</string>
+  <string name="seek_backward_dynamic">快退 %1$d 秒</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="lyrics_share_layout_square">正方形</string>
+</resources>

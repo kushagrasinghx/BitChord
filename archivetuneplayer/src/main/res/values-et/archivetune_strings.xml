@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Pealkirja pole</string>
+  <string name="liked">Meeldivaks märgitud</string>
+  <string name="offline">Allalaaditud</string>
+  <string name="cached_playlist">Puhverdatud</string>
+  <string name="sync_playlist">Sünkrooni esitusloend</string>
+  <string name="sync_disabled">Sünkroonimine pole kasutusel</string>
+  <string name="allows_for_sync_witch_youtube">Märkus: see võimaldab sünkroonimist YouTube Musicuga. Sa EI SAA seda seadistust hiljem muuta.</string>
+  <string name="generating_image">Loon pilti</string>
+  <string name="please_wait">Palun oota</string>
+  <string name="cancel">Katkesta</string>
+  <string name="share_lyrics">Jaga laulusõnu</string>
+  <string name="share_as_text">Jaga tekstina</string>
+  <string name="share_as_image">Jaga pildina</string>
+  <string name="max_selection_limit">Valiku ülempiir</string>
+  <string name="share_selected">Jaga valitut</string>
+  <string name="more_options">Täiendavad valikud</string>
+  <string name="copy_link">Kopeeri link</string>
+  <string name="sort_by_last_updated">Uuendamise kuupäev</string>
+  <string name="link_copied">Link on kopeeritud lõikelauale</string>
+  <string name="now_playing">Hetkel esitamisel</string>
+  <string name="close">Sulge</string>
+  <string name="minimum_volume">Minimaalne valjus</string>
+  <string name="maximum_volume">Maksimaalne valjus</string>
+  <string name="hide_player_thumbnail">Peida pleieri pisipilt</string>
+  <plurals name="n_element">
+    <item quantity="one">%d element</item>
+    <item quantity="other">%d elementi</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d sekundit edasi</string>
+  <string name="seek_backward_dynamic">+%1$d sekundit tagasi</string>
+  <string name="information">Teave</string>
+  <string name="description">Kirjeldus</string>
+  <string name="numbers">Numbrid</string>
+  <string name="subscribers">Tellijaid</string>
+  <string name="views">Vaateid</string>
+  <string name="likes">Meeldimisi</string>
+  <string name="dislikes">Mittemeeldimisi</string>
+  <string name="subscribe">Telli</string>
+  <string name="not_logged_in_youtube">Sa pole YouTube\'i sisse loginud</string>
+  <string name="similar_content">Sarnane sisu</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="copy">Kopeeri</string>
+</resources>

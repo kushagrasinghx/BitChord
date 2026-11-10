@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Ora ana judul</string>
+  <string name="liked">Disukai</string>
+  <string name="offline">Diunduh</string>
+  <string name="cached_playlist">Tersimpan di Cache</string>
+  <string name="sync_playlist">Sinkronkan playlist</string>
+  <string name="sync_disabled">Sinkronisasi dinonaktifkan</string>
+  <string name="allows_for_sync_witch_youtube">Catatan: Ini memungkinkan sinkronisasi dengan YouTube Music. Ini TIDAK dapat diubah nanti.</string>
+  <string name="generating_image">Menghasilkan gambar</string>
+  <string name="please_wait">Harap tunggu</string>
+  <string name="cancel">Wurung</string>
+  <string name="share_lyrics">Bagekake lirik</string>
+  <string name="share_as_text">Bagekake sebagai teks</string>
+  <string name="share_as_image">Bagekake sebagai gambar</string>
+  <string name="max_selection_limit">Batas pilihan maksimal</string>
+  <string name="share_selected">Bagekake yang dipilih</string>
+  <string name="lyrics_share_layout">Tata Letak</string>
+  <string name="lyrics_share_layout_square">Persegi</string>
+  <string name="lyrics_share_layout_portrait">Potret</string>
+  <string name="lyrics_share_layout_story">Cerita</string>
+  <string name="lyrics_share_background_blur">Latar belakang blur</string>
+  <string name="lyrics_share_background_blur_value">%1$d piksel</string>
+  <string name="lyrics_share_show_cover">Tampilake sampul album</string>
+  <string name="lyrics_share_show_cover_desc">Sertakan sampul di header gambar yang diekspor.</string>
+  <string name="lyrics_share_export_failed">Gagal membuat gambar: %1$s</string>
+  <string name="lyrics_share_export_not_supported">Berbagi gambar memerlukan Android 6.0 atau lebih baru</string>
+  <string name="more_options">Opsi lainnya</string>
+  <string name="sort_by_last_updated">Tanggal diperbarui</string>
+  <string name="link_copied">Tautan disalin ke papan klip</string>
+  <string name="now_playing">Lagi Dimainkan</string>
+  <string name="close">Tutup</string>
+  <string name="minimum_volume">Volume Minimal</string>
+  <string name="maximum_volume">Volume Maksimum</string>
+  <string name="hide_player_thumbnail">Delikake Thumbnail Pemutar</string>
+  <plurals name="n_element">
+    <item quantity="other">%d elemen</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d detik maju</string>
+  <string name="seek_backward_dynamic">-%1$d detik mundur</string>
+  <string name="lyrics_sync_offset">Offset lirik</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">Belum masuk ke YouTube</string>
+  <string name="information">Informasi</string>
+  <string name="description">Deskripsi</string>
+  <string name="numbers">Angka</string>
+  <string name="subscribers">Pelanggan</string>
+  <string name="views">Tampilan</string>
+  <string name="likes">Seneng</string>
+  <string name="dislikes">Ora seneng</string>
+  <string name="subscribe">Berlangganan</string>
+  <string name="similar_content">Konten serupa</string>
+  <string name="copy">Salin</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/Favorite.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M11.29,20.2Q10.93,20.08,10.65,19.8L8.93,18.23Q6.28,15.8,4.14,13.41Q2,11.02,2,8.15Q2,5.8,3.58,4.22T7.5,2.65q1.33,0,2.5,0.56t2,1.54Q12.83,3.77,14,3.21T16.5,2.65q2.35,0,3.93,1.57T22,8.15q0,2.88,-2.13,5.28t-4.82,4.83l-1.7,1.55q-0.28,0.27,-0.64,0.4T12,20.33T11.29,20.2Z" />
+</vector>

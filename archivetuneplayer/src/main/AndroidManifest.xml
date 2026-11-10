@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- No components of its own: the player stack is mounted by the hosting
+         activity (see ArchiveTunePlayerHost). The AOD screen the copied
+         sources carry is only reachable through ArchiveTune's dream service,
+         which is not part of the ported closure. -->
+    <application />
+
+</manifest>

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="home">บ้าน</string>
+  <string name="artists">ศิลปิน</string>
+  <plurals name="n_selected">
+    <item quantity="other">เลือกแล้ว %d รายการ</item>
+  </plurals>
+  <string name="mood_and_genres">อารมณ์และแนวเพลง</string>
+  <string name="search">ค้นหา</string>
+  <string name="filter_library">คลังเพลง</string>
+</resources>

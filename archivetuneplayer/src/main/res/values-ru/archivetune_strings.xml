@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Без названия</string>
+  <string name="liked">Понравившиеся</string>
+  <string name="offline">Скачанные</string>
+  <string name="cached_playlist">Кешированные</string>
+  <string name="sync_playlist">Синхронизировать плейлист</string>
+  <string name="sync_disabled">Синхронизация отключена</string>
+  <string name="allows_for_sync_witch_youtube">Заметка: Это позволяет синхронизацию с YouTube Music. Это НЕЛЬЗЯ изменить позже.</string>
+  <string name="generating_image">Генерация изображения</string>
+  <string name="please_wait">Пожалуйста подождите</string>
+  <string name="cancel">Отменить</string>
+  <string name="share_lyrics">Поделиться текстом песни</string>
+  <string name="share_as_text">Отправить как текст</string>
+  <string name="share_as_image">Отправить как изображение</string>
+  <string name="max_selection_limit">Макс. лимит выбора</string>
+  <string name="share_selected">Поделиться выбранным</string>
+  <string name="more_options">Доп. настройки</string>
+  <string name="sort_by_last_updated">Дата обновления</string>
+  <string name="link_copied">Ссылка скопирована в буфер обмена</string>
+  <string name="now_playing">Сейчас играет</string>
+  <string name="close">Закрыть</string>
+  <string name="minimum_volume">Минимальная громкость</string>
+  <string name="maximum_volume">Максимальная громкость</string>
+  <string name="hide_player_thumbnail">Скрыть миниатюру плеера</string>
+  <plurals name="n_element">
+    <item quantity="one">%d элемент</item>
+    <item quantity="few">%d элементов</item>
+    <item quantity="many">%d элементов</item>
+    <item quantity="other">%d элементов</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d секунд вперёд</string>
+  <string name="seek_backward_dynamic">-%1$d секунд назад</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">Не авторизован в YouTube</string>
+  <string name="information">Информация</string>
+  <string name="description">Описание</string>
+  <string name="numbers">Цифры</string>
+  <string name="subscribers">Подписчики</string>
+  <string name="views">Просмотры</string>
+  <string name="likes">Лайки</string>
+  <string name="dislikes">Дизлайки</string>
+  <string name="subscribe">Подписаться</string>
+  <string name="similar_content">Похожий контент</string>
+  <string name="copy">Скопировать</string>
+  <string name="lyrics_share_layout">Макет</string>
+  <string name="lyrics_share_layout_square">Квадратный</string>
+  <string name="lyrics_share_layout_portrait">Портретный</string>
+  <string name="lyrics_share_layout_story">История</string>
+  <string name="lyrics_share_background_blur">Фоновое размытие</string>
+  <string name="lyrics_share_background_blur_value">%1$d пикс</string>
+  <string name="lyrics_share_show_cover">Показать обложку альбома</string>
+  <string name="lyrics_share_show_cover_desc">Вставить обложку в заголовок экспортируемого изображения.</string>
+  <string name="lyrics_share_export_failed">Не удалось создать изображение: %1$s</string>
+  <string name="lyrics_share_export_not_supported">Для обмена изображениями требуется Android 6.0 или новее</string>
+  <string name="lyrics_sync_offset">Смещение синхронизации текста песни</string>
+</resources>

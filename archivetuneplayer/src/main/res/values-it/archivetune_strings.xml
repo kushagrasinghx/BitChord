@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Nessun titolo</string>
+  <string name="liked">Mi piace</string>
+  <string name="offline">Scaricati</string>
+  <string name="cached_playlist">Memorizzato in cache</string>
+  <string name="sync_playlist">Sincronizza playlist</string>
+  <string name="sync_disabled">Sincronizzazione disabilitata</string>
+  <string name="allows_for_sync_witch_youtube">Nota: questo consente la sincronizzazione con YouTube Music. NON è modificabile in seguito.</string>
+  <string name="generating_image">Generando immagine</string>
+  <string name="please_wait">Attendere prego</string>
+  <string name="cancel">Annulla</string>
+  <string name="share_lyrics">Condividi testo</string>
+  <string name="share_as_text">Condividi come testo</string>
+  <string name="share_as_image">Condividi come immagine</string>
+  <string name="max_selection_limit">Limite massimo di selezione</string>
+  <string name="share_selected">Condividi selezionati</string>
+  <string name="more_options">Più opzioni</string>
+  <string name="copy_link">Copia collegamento</string>
+  <string name="sort_by_last_updated">Data aggiornamento</string>
+  <string name="link_copied">Link copiato negli appunti</string>
+  <string name="now_playing">Ora in riproduzione</string>
+  <string name="close">Chiudi</string>
+  <string name="minimum_volume">Volume minimo</string>
+  <string name="maximum_volume">Volume massimo</string>
+  <string name="hide_player_thumbnail">Nascondi miniatura player</string>
+  <plurals name="n_element">
+    <item quantity="one">%d elemento</item>
+    <item quantity="many">%d elementi</item>
+    <item quantity="other">%d elementi</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d secondi avanti</string>
+  <string name="seek_backward_dynamic">-%1$d secondi indietro</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">Non hai effettuato l\'accesso a YouTube</string>
+  <string name="information">Informazioni</string>
+  <string name="description">Descrizione</string>
+  <string name="numbers">Numeri</string>
+  <string name="subscribers">Abbonati</string>
+  <string name="views">Visualizzazioni</string>
+  <string name="likes">Mi piace</string>
+  <string name="dislikes">Non mi piace</string>
+  <string name="subscribe">Iscriviti</string>
+  <string name="similar_content">Contenuti simili</string>
+  <string name="copy">Copia</string>
+  <string name="lyrics_share_layout">Layout</string>
+  <string name="lyrics_share_layout_square">Quadrato</string>
+  <string name="lyrics_share_layout_portrait">Ritratto</string>
+  <string name="lyrics_share_layout_story">Storia</string>
+  <string name="lyrics_share_background_blur">Sfocatura sfondo</string>
+  <string name="lyrics_share_background_blur_value">%1$d px</string>
+  <string name="lyrics_share_show_cover">Mostra copertina album</string>
+  <string name="lyrics_share_show_cover_desc">Includi l\'artwork nell\'header dell\'immagine esportata.</string>
+  <string name="lyrics_share_export_failed">Impossibile creare immagine: %1$s</string>
+  <string name="lyrics_share_export_not_supported">La condivisione immagine richiese Android 6.0 o superiore</string>
+  <string name="lyrics_sync_offset">Offset sincronizzazione testo</string>
+</resources>

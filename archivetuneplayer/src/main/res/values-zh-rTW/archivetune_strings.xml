@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">無標題</string>
+  <string name="liked">喜歡的歌曲</string>
+  <string name="offline">下載的歌曲</string>
+  <string name="cached_playlist">快取的歌曲</string>
+  <string name="sync_playlist">同步播放清單</string>
+  <string name="sync_disabled">同步已停用</string>
+  <string name="allows_for_sync_witch_youtube">注意：此選項支援與 YouTube Music 同步。此設定一旦確定，後續無法更改。</string>
+  <string name="generating_image">正在生成圖片</string>
+  <string name="please_wait">請稍後</string>
+  <string name="cancel">取消</string>
+  <string name="share_lyrics">分享歌詞</string>
+  <string name="share_as_text">以文字形式分享</string>
+  <string name="share_as_image">以圖像形式分享</string>
+</resources>

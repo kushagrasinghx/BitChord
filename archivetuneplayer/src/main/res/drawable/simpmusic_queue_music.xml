@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/QueueMusic.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M16,20q-1.25,0,-2.13,-0.88T13,17t0.88,-2.13T16,14q0.28,0,0.53,0.04T17,14.2V7Q17,6.57,17.29,6.29T18,6h3q0.43,0,0.71,0.29T22,7T21.71,7.71T21,8H19v9q0,1.25,-0.88,2.13T16,20ZM4,16Q3.58,16,3.29,15.71T3,15T3.29,14.29T4,14h6q0.43,0,0.71,0.29T11,15t-0.29,0.71T10,16H4ZM4,12Q3.58,12,3.29,11.71Q3,11.43,3,11T3.29,10.29T4,10H14q0.43,0,0.71,0.29T15,11t-0.29,0.71T14,12H4ZM4,8Q3.58,8,3.29,7.71Q3,7.43,3,7T3.29,6.29T4,6H14q0.43,0,0.71,0.29T15,7T14.71,7.71T14,8H4Z" />
+</vector>

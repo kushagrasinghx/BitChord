@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Başlık yok</string>
+  <string name="liked">Beğendim</string>
+  <string name="offline">İndirildi</string>
+  <string name="cached_playlist">Önbelleğe alındı</string>
+  <string name="sync_playlist">Çalma listesini senkronize et</string>
+  <string name="sync_disabled">Senkronizasyon devre dışı</string>
+  <string name="allows_for_sync_witch_youtube">Not: Bu, YouTube Music ile senkronizasyona olanak tanır. Bu daha sonra değiştirilemez.</string>
+  <string name="generating_image">Görüntü oluşturuluyor</string>
+  <string name="please_wait">Lütfen bekleyin</string>
+  <string name="cancel">İptal</string>
+  <string name="share_lyrics">Şarkı sözlerini paylaş</string>
+  <string name="share_as_text">Metin olarak paylaş</string>
+  <string name="share_as_image">Resim olarak paylaş</string>
+  <string name="max_selection_limit">Maksimum seçim sınırı</string>
+  <string name="share_selected">Seçileni paylaş</string>
+  <string name="more_options">Daha fazla seçenek</string>
+  <string name="copy_link">Bağlantıyı kopyala</string>
+  <string name="sort_by_last_updated">Tarih güncellendi</string>
+  <string name="link_copied">Bağlantı panoya kopyalandı</string>
+  <string name="now_playing">Şimdi Oynatılıyor</string>
+  <string name="close">Kapat</string>
+  <string name="minimum_volume">Minimum Ses</string>
+  <string name="maximum_volume">Maksimum Ses</string>
+  <string name="hide_player_thumbnail">Oyuncu Küçük Resmini Gizle</string>
+  <plurals name="n_element">
+    <item quantity="one">%d öğesi</item>
+    <item quantity="other">%d öğe</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d saniye ileri</string>
+  <string name="seek_backward_dynamic">-%1$d saniye geriye doğru</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">YouTube\'a giriş yapmadınız</string>
+  <string name="information">Bilgi</string>
+  <string name="description">Açıklama</string>
+  <string name="numbers">Sayılar</string>
+  <string name="subscribers">Aboneler</string>
+  <string name="views">Görünümler</string>
+  <string name="likes">Beğeniler</string>
+  <string name="dislikes">Beğenmedikleri</string>
+  <string name="subscribe">Abone ol</string>
+  <string name="similar_content">Benzer içerik</string>
+  <string name="copy">Kopyala</string>
+</resources>

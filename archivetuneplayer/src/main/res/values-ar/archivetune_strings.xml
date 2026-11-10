@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">بدون عنوان</string>
+  <string name="liked">الأغاني المفضلة</string>
+  <string name="offline">تم تنزيلها</string>
+  <string name="cached_playlist">الأغاني المخزنة مؤقتًا</string>
+  <string name="sync_playlist">مزامنة قائمة التشغيل</string>
+  <string name="sync_disabled">المزامنة غير مفعلة</string>
+  <string name="allows_for_sync_witch_youtube">ملاحظة: يسمح هذا بالمزامنة مع YouTube Music. لا يمكن تغيير هذا لاحقًا.</string>
+  <string name="generating_image">جاري إنشاء الصورة</string>
+  <string name="please_wait">انتظر من فضلك</string>
+  <string name="cancel">إلغاﺀ</string>
+  <string name="share_lyrics">شارك الكلمات</string>
+  <string name="share_as_text">المشاركة كنص</string>
+  <string name="share_as_image">المشاركة كصورة</string>
+  <string name="max_selection_limit">الحد الأقصى للاختيار</string>
+  <string name="share_selected">شارك العناصر المحدده</string>
+  <string name="more_options">خيارات أخرى</string>
+  <string name="sort_by_last_updated">تاريخ التعديل</string>
+  <string name="link_copied">تم نسخ الرابط الى الحافظة</string>
+  <string name="now_playing">يتم التشغيل..</string>
+  <string name="close">اغلاق</string>
+  <string name="minimum_volume">ادنى مستوى للصوت</string>
+  <string name="maximum_volume">اعلى مستوى للصوت</string>
+  <string name="hide_player_thumbnail">اخفاء غلاف المشغل</string>
+  <string name="seek_forward_dynamic">+%1$d ثواني تقديم</string>
+  <string name="seek_backward_dynamic">-%1$d ثواني تأخير</string>
+  <plurals name="n_element">
+    <item quantity="zero">لا توجد عناصر</item>
+    <item quantity="one">عنصر واحد</item>
+    <item quantity="two">عنصران</item>
+    <item quantity="few">%d عناصر</item>
+    <item quantity="many">%d عنصراً</item>
+    <item quantity="other">%d عنصر</item>
+  </plurals>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">لم يتم تسجيل الدخول إلى YouTube</string>
+  <string name="information">معلومات</string>
+  <string name="description">الوصف</string>
+  <string name="numbers">الأرقام</string>
+  <string name="subscribers">المشتركين</string>
+  <string name="views">المشاهدات</string>
+  <string name="likes">الإعجابات</string>
+  <string name="dislikes">عدم الإعجاب</string>
+  <string name="subscribe">اشتراك</string>
+  <string name="similar_content">محتوى مشابه</string>
+  <string name="copy">نسخ</string>
+</resources>

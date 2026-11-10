@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/Info.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M12.71,16.71Q13,16.43,13,16V12q0,-0.43,-0.29,-0.71T12,11t-0.71,0.29T11,12v4q0,0.43,0.29,0.71T12,17t0.71,-0.29Zm0,-8Q13,8.42,13,8Q13,7.57,12.71,7.29T12,7T11.29,7.29T11,8q0,0.42,0.29,0.71T12,9T12.71,8.71ZM12,22Q9.93,22,8.1,21.21Q6.28,20.43,4.93,19.08Q3.58,17.73,2.79,15.9T2,12Q2,9.92,2.79,8.1Q3.58,6.27,4.93,4.93Q6.28,3.57,8.1,2.79Q9.93,2,12,2t3.9,0.79t3.17,2.14q1.35,1.35,2.14,3.17Q22,9.92,22,12t-0.79,3.9t-2.14,3.17q-1.35,1.35,-3.17,2.14T12,22Z" />
+</vector>

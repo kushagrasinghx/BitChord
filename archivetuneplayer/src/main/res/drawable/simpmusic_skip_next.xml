@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/SkipNext.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M16.5,17V7q0,-0.43,0.29,-0.71T17.5,6t0.71,0.29T18.5,7V17q0,0.43,-0.29,0.71T17.5,18T16.79,17.71Q16.5,17.43,16.5,17ZM5.5,16.13V7.88Q5.5,7.43,5.8,7.15Q6.1,6.88,6.5,6.88q0.13,0,0.28,0.02Q6.93,6.93,7.05,7.02l6.2,4.15q0.23,0.15,0.34,0.36T13.7,12t-0.11,0.46q-0.11,0.21,-0.34,0.36l-6.2,4.15Q6.93,17.08,6.78,17.1T6.5,17.13q-0.4,0,-0.7,-0.27T5.5,16.13Z" />
+</vector>

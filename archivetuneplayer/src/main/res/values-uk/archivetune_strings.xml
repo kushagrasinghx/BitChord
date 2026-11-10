@@ -1,0 +1,57 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Без назви</string>
+  <string name="liked">Сподобалося</string>
+  <string name="offline">Завантажені</string>
+  <string name="cached_playlist">Кешовані</string>
+  <string name="sync_playlist">Синхронізувати плейліст</string>
+  <string name="sync_disabled">Синхронізація вимкнена</string>
+  <string name="allows_for_sync_witch_youtube">Примітка: Це дозволяє синхронізацію з YouTube Music. Це налаштування НЕ можна змінити пізніше.</string>
+  <string name="generating_image">Створення зображення</string>
+  <string name="please_wait">Будь ласка, зачекайте</string>
+  <string name="cancel">Скасувати</string>
+  <string name="share_lyrics">Поділитися текстом пісні</string>
+  <string name="share_as_text">Надіслати текстом</string>
+  <string name="share_as_image">Надіслати зображенням</string>
+  <string name="max_selection_limit">Максимальний ліміт вибору</string>
+  <string name="share_selected">Поділитися вибраним</string>
+  <string name="more_options">Додаткові параметри</string>
+  <string name="sort_by_last_updated">Дату оновлено</string>
+  <string name="link_copied">Посилання скопійовано в буфер обміну</string>
+  <string name="now_playing">Зараз грає</string>
+  <string name="close">Закрити</string>
+  <string name="minimum_volume">Мінімальна гучність</string>
+  <string name="maximum_volume">Максимальна гучність</string>
+  <string name="hide_player_thumbnail">Приховати мініатюру відтворювача</string>
+  <plurals name="n_element">
+    <item quantity="one">%d елемент</item>
+    <item quantity="few">%d елементи</item>
+    <item quantity="many">%d елементів</item>
+    <item quantity="other">%d елементів</item>
+  </plurals>
+  <string name="seek_forward_dynamic">+%1$d секунд вперед</string>
+  <string name="seek_backward_dynamic">-%1$d секунд назад</string>
+  <string name="percentage_format">%d%%</string>
+  <string name="not_logged_in_youtube">Ви не увійшли в YouTube</string>
+  <string name="information">Інформація</string>
+  <string name="description">Опис</string>
+  <string name="numbers">Числа</string>
+  <string name="subscribers">Підписники</string>
+  <string name="views">Перегляди</string>
+  <string name="likes">Подобається</string>
+  <string name="dislikes">Не подобається</string>
+  <string name="subscribe">Підписатися</string>
+  <string name="similar_content">Подібний контент</string>
+  <string name="copy">Копіювати</string>
+  <string name="lyrics_share_layout">Макет</string>
+  <string name="lyrics_share_layout_square">Квадрат</string>
+  <string name="lyrics_share_layout_portrait">Портрет</string>
+  <string name="lyrics_share_layout_story">Історія</string>
+  <string name="lyrics_share_background_blur">Розмиття фону</string>
+  <string name="lyrics_share_background_blur_value">%1$d пікселів</string>
+  <string name="lyrics_share_show_cover">Показувати обкладинку альбому</string>
+  <string name="lyrics_share_show_cover_desc">Включити ілюстрацію в верхню частину експортованого зображення.</string>
+  <string name="lyrics_share_export_failed">Не вдалося створити зображення: %1$s</string>
+  <string name="lyrics_share_export_not_supported">Для обміну зображеннями потрібна версія Android 6.0 або новіша</string>
+  <string name="lyrics_sync_offset">Зсув синхронізації тексту пісні</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/MoreVert.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses
+    instead of ArchiveTune's own near-misses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M12,20q-0.82,0,-1.41,-0.59T10,18t0.59,-1.41T12,16t1.41,0.59Q14,17.18,14,18t-0.59,1.41T12,20Zm0,-6q-0.82,0,-1.41,-0.59T10,12t0.59,-1.41T12,10t1.41,0.59Q14,11.18,14,12t-0.59,1.41T12,14ZM12,8Q11.18,8,10.59,7.41T10,6T10.59,4.59T12,4t1.41,0.59Q14,5.18,14,6T13.41,7.41T12,8Z" />
+</vector>

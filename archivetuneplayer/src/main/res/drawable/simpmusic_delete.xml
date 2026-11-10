@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/Delete.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M7,21 Q6.18,21,5.59,20.41 T5,19 V6 Q4.58,6,4.29,5.71 Q4,5.43,4,5 T4.29,4.29 T5,4 H9 Q9,3.57,9.29,3.29 Q9.58,3,10,3 h4 q0.43,0,0.71,0.29 T15,4 h4 q0.43,0,0.71,0.29 T20,5 T19.71,5.71 T19,6 V19 q0,0.82,-0.59,1.41 T17,21 H7 Z m3.71,-4.29 Q11,16.43,11,16 V9 Q11,8.57,10.71,8.29 T10,8 Q9.58,8,9.29,8.29 T9,9 v7 q0,0.43,0.29,0.71 Q9.58,17,10,17 t0.71,-0.29 Z m4,0 Q15,16.43,15,16 V9 Q15,8.57,14.71,8.29 T14,8 T13.29,8.29 T13,9 v7 q0,0.43,0.29,0.71 T14,17 t0.71,-0.29 Z" />
+</vector>

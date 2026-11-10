@@ -68,3 +68,80 @@ Stage Summary:
   glass tuning touched, 48 dp blur, 100% UI scale, status bar visible — the
   app renders identically until a setting is changed. Pushed to main; CI
   (Check: testDevDebugUnitTest + assembleDevDebug) to be confirmed green.
+
+---
+
+Task ID: 2
+Agent: main (Super Z)
+Task: Redo the player design styles port as a true one-to-one port. The
+first attempt (commit 33fbec3) had adapted ArchiveTune's ten styles into
+BitChord-flavoured rewrites under ui/player/designstyles/ — wrong: the user
+asked for the styles exactly as ArchiveTune ships them, icons, animations,
+queue pages, lyrics pages, transitions and everything related, with no
+adaptation. This task replaces that with a vendored, byte-for-byte port.
+
+Work Log:
+- Deleted sharedUi/.../ui/player/designstyles/ (12 files, the adapted
+  rewrites). Nothing else referenced them beyond the style enum wiring that
+  stays.
+- New Gradle module :archivetuneplayer (com.android.library, namespace
+  moe.rukamori.archivetune, minSdk 26, JDK 17, the app's own pins: Compose
+  BOM 2024.12.01 + foundation 1.10.0 + material3 1.3.1, coil 3.0.4,
+  media3 1.11.0). Libraries ArchiveTune's stack needs that the app doesn't
+  use are declared here: accompanist-lyrics, squigglyslider, backdrop,
+  compose-shimmer, reorderable 3.1.0, lottie-compose 6.6.6,
+  material-kolor 2.1.0 (last Compose-1.7 line), timber.
+- 229 Kotlin files copied byte-for-byte from ArchiveTune dev @ d08d8da94
+  under the original package moe.rukamori.archivetune: Player.kt and the
+  eleven styles (V4/V5/V7/V9/V10, flamingo=AppleMusic, tiktok, simpmusic,
+  spatialflow, looper), every queue sheet, lyrics screen, lottie icon,
+  menu and transition they draw, plus their closure (ui/component, ui/menu,
+  ui/theme, ui/utils, viewmodels, models, extensions, constants, playlist,
+  lyrics pipeline plumbing, repository, playback queues).
+- Vendored ArchiveTune's pure-JVM modules under archivetune/: core
+  (InnerTube + NewPipe/BravePipe extraction, 122 files), canvas (6),
+  betterlyrics (4), jiosaavn (1) — all byte-identical to upstream, wired as
+  Gradle projects with their own pins (ktor 3.5.2, PipePipeExtractor via
+  JitPack, protobuf-java excluded in favour of javalite as upstream does).
+- The app-service layer those files talk to is reimplemented as a thin
+  seam, marked "BRIDGE" in every file: PlayerConnection wraps the host's
+  Media3 controller (MediaController is a Player) and mirrors the queue/
+  metadata/sleep-timer surface; MusicService carries the ~20 members the
+  player reaches (multi-source pickers and Discord sync inert);
+  MusicDatabase answers from the host's data through ArchiveTuneBridge;
+  DataStore keeps ArchiveTune's preference API over a module-local
+  DataStore plus BridgedPreferences adapters; LyricsHelper serves the
+  lyrics menu (empty searches); DownloadUtil and SyncUtils forward to the
+  host. javax.inject / dagger.hilt / androidx.hilt are inert-annotation
+  shims; hiltViewModel() resolves through the bridge's own factory
+  registry. tf.monochrome, com.lastwave and the DSP chain are inert stubs
+  (the pill simply hides, as it does when no DSP runs).
+- bridge/ArchiveTunePlayerHost.kt: what the app mounts when a ported style
+  is active — installs the host bridge, builds the PlayerConnection,
+  provides every composition local (LocalPlayerConnection, LocalDatabase,
+  LocalDownloadUtil, LocalSyncUtils, LocalMenuState,
+  LocalBottomSheetPageState), and lays out ArchiveTune's own
+  BottomSheetPlayer with its own mini player, byte-for-byte its hosting in
+  ArchiveTune's activity. A BridgeNavController maps artist/album/search
+  routes onto the host's pages.
+- app/MainActivity.kt: when AppSettings.playerDesignStyle is not BITCHORD,
+  the ArchiveTunePlayerHost mounts over the page and the app's own mini
+  player, glass dock circles and full player stand down; BITCHORD keeps
+  the app's player exactly as before. ArchiveTuneBridgeImpl answers the
+  bridge: playback through the app's MediaController (playSongs,
+  beginRadioQueue, enqueue surgery), likes and playlists through
+  MainViewModel, lyrics translated from the app's LyricLine stream into
+  ArchiveTune's LRC dialect, and the design-style / slider / button-style
+  preferences bridged one source of truth.
+- The module's resources are ArchiveTune's own (229 drawables incl. every
+  style icon, 3 lottie raws, all 15 fonts, the strings the stack reads
+  across 26 locales); app_name carried in its own values file.
+- Compile verification by CI only, per the user's instruction: push,
+  monitor check.yml, fix from the logs, repeat.
+
+Stage Summary:
+- All ten ported styles now run ArchiveTune's real code — the same icons,
+  animations, queue sheets, lyrics screens and transitions the upstream
+  app ships — over BitChord's playback through a thin bridge. BITCHORD
+  stays the app's own untouched player. First push handed to CI; repair
+  loop to follow.

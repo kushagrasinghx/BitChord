@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/KeyboardArrowDown.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M11.63,14.91 Q11.45,14.85,11.3,14.7 L6.7,10.1 Q6.43,9.82,6.43,9.4 Q6.43,8.98,6.7,8.7 T7.4,8.42 T8.1,8.7 L12,12.6 L15.9,8.7 Q16.18,8.42,16.6,8.42 T17.3,8.7 t0.27,0.7 T17.3,10.1 l-4.6,4.6 q-0.15,0.15,-0.33,0.21 T12,14.98 T11.63,14.91 Z" />
+</vector>

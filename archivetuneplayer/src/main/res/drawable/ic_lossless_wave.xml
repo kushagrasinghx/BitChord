@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ArchiveTune (2026)
+  © Rukamori — github.com/rukamori
+  GPL-3.0 License | Contributors: see git history
+  Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+
+  Lossless stream glyph for the quality pill: the Apple Music-style sawtooth
+  wave (three teeth — rise, flat top, diagonal fall), the badge that marks
+  Lossless / Hi-Res Lossless playback. Monochrome + tintable.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:pathData="M2,17.5 L2,7.5 L6.4,7.5 L9,17.5 L9,7.5 L13.4,7.5 L16,17.5 L16,7.5 L20.4,7.5 L22,15.5" />
+</vector>

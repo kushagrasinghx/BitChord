@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="no_title">Tiada judul</string>
+  <string name="liked">Disukai</string>
+  <string name="offline">Dimuat turun</string>
+  <string name="cached_playlist">Simpanan sementara</string>
+  <string name="sync_playlist">Kemasa kinikan senarai main</string>
+  <string name="sync_disabled">Kemasa kinikan ditutup</string>
+  <string name="allows_for_sync_witch_youtube">Peringatan: Ini membenarkan pengemaskinian dengan YouTube Music. Ia TIDAK BOLEH ditukar kelak.</string>
+  <string name="generating_image">Menjana gambar</string>
+  <string name="please_wait">Sila tunggu</string>
+  <string name="cancel">Batal</string>
+  <string name="share_lyrics">Kongsi lirik</string>
+  <string name="share_as_text">Kongsi sebagai teks</string>
+  <string name="share_as_image">Kongsi sebagai gambar</string>
+  <string name="max_selection_limit">Had pilihan maksimum</string>
+  <string name="share_selected">Kongsi yang dipilih</string>
+  <string name="more_options">Tetapan tambahan</string>
+  <string name="copy_link">Salin pautan</string>
+  <string name="sort_by_last_updated">Tarikh dimuat naik</string>
+  <string name="link_copied">Pautan disalin ke clipboard</string>
+  <string name="now_playing">Kini memainkan</string>
+  <string name="close">Tutup</string>
+  <string name="minimum_volume">Suara Minimum</string>
+  <string name="maximum_volume">Suara Maksimum</string>
+  <string name="hide_player_thumbnail">Sorok Muka Pemain</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ported from SimpMusic (GPL-3.0, https://github.com/maxrave-dev/SimpMusic):
+    ui/icon/KeyboardDoubleArrowUp.kt, a 24x24 ImageVector. Converted verbatim - same path data, same
+    viewport - so the SimpMusic player style draws the glyphs that style actually uses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M12,13.83 L8.1,17.7 Q7.83,17.98,7.41,17.99 T6.7,17.7 Q6.43,17.43,6.43,17 T6.7,16.3 l4.6,-4.6 q0.15,-0.15,0.32,-0.21 T12,11.43 t0.38,0.06 T12.7,11.7 l4.6,4.6 q0.27,0.27,0.29,0.69 T17.3,17.7 q-0.27,0.28,-0.7,0.28 T15.9,17.7 L12,13.83 Z m0,-6 L8.1,11.7 Q7.83,11.98,7.41,11.99 T6.7,11.7 Q6.43,11.43,6.43,11 T6.7,10.3 L11.3,5.7 Q11.45,5.55,11.63,5.49 T12,5.43 t0.38,0.06 T12.7,5.7 l4.6,4.6 q0.27,0.28,0.29,0.69 T17.3,11.7 q-0.27,0.28,-0.7,0.28 T15.9,11.7 L12,7.82 Z" />
+</vector>

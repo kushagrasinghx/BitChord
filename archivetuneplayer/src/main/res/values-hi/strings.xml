@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="home">मुख्य स्क्रीन बटन</string>
+  <string name="artists">कलाकार</string>
+  <plurals name="n_selected">
+    <item quantity="one">%d चयनित</item>
+    <item quantity="other">%d चयनित</item>
+  </plurals>
+  <string name="mood_and_genres">भाव और शैलियाँ</string>
+  <string name="search">ढूंढ़े</string>
+  <string name="filter_library">लाइब्रेरी</string>
+</resources>

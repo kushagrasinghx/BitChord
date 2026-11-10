@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ArchiveTune (2026)
+  © Rukamori — github.com/rukamori
+  GPL-3.0 License | Contributors: see git history
+  Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+
+  Ported from vivizzz007/vivi-music (beta branch, Player_v2 transport set).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+  <path
+      android:fillColor="@android:color/white"
+      android:strokeColor="@android:color/white"
+      android:strokeWidth="60"
+      android:strokeLineJoin="round"
+      android:strokeLineCap="round"
+      android:pathData="M872.74,732.51L503.18,480L872.74,227.49L872.74,732.51ZM456.82,732.51L87.26,480L456.82,227.49L456.82,732.51Z"/>
+</vector>

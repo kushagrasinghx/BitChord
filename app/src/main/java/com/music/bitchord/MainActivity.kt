@@ -165,6 +165,8 @@ import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.PlayerDesignStyle
+import moe.rukamori.archivetune.bridge.ArchiveTunePlayerHost
 import com.music.bitchord.data.settings.BackAnimationStyle
 import com.music.bitchord.data.settings.DefaultOpenTab
 import com.music.bitchord.data.settings.MiniPlayerBarBehavior
@@ -596,6 +598,12 @@ private fun BitChordApp(
     // ArchiveTune's NavigationBarCompactBehavior; the other two modes hold one
     // shape, forced below whenever the mode changes.
     val miniPlayerBarBehavior by AppSettings.miniPlayerBarBehavior.collectAsStateWithLifecycle()
+    // The ported ArchiveTune player: when one of its ten styles is in force,
+    // its own mini player and full player replace this app's, mounted over
+    // the page as one bottom sheet. BITCHORD keeps the app's own player
+    // exactly as it has always been.
+    val playerDesignStyleActive by AppSettings.playerDesignStyle.collectAsStateWithLifecycle()
+    val archiveTunePlayerActive = playerDesignStyleActive != PlayerDesignStyle.BITCHORD
     val navBarScroll = rememberFloatingTabBarScrollConnection(
         inlineBehavior = if (miniPlayerBarBehavior == MiniPlayerBarBehavior.ADAPTIVE) {
             FloatingTabBarInlineBehavior.OnScrollDown
@@ -676,6 +684,9 @@ private fun BitChordApp(
      * permanent pane.
      */
     var showNowPlaying by remember { mutableStateOf(false) }
+    // Whichever floating bar is drawing reports its height here; the ported
+    // ArchiveTune player reads it to rest its mini player on the bar.
+    val floatingBarsHeight = remember { mutableIntStateOf(0) }
     // The DAC's own volume while direct USB output owns it; the full player
     // has its own bar for that, so the HUD stays out of its way.
     androidx.compose.runtime.SideEffect { VolumeHud.suppressed = showNowPlaying }
@@ -4301,7 +4312,8 @@ private fun BitChordApp(
 
                 // Whichever bar is drawing reports its height here, for the
                 // guard to read at layout — never in composition, see the guard.
-                val floatingBarsHeight = remember { mutableIntStateOf(0) }
+                // (Declared in the page's scope above so the ported player's
+                // mini can rest on the bar too.)
                 FloatingBarsTapGuard(
                     barsHeight = { floatingBarsHeight.intValue },
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -4340,7 +4352,9 @@ private fun BitChordApp(
                         selectedIndex = selectedTab,
                         onTabSelected = onTabSelected,
                         scrollConnection = navBarScroll,
-                        song = player.song,
+                        // The ported player carries its own mini player; the
+                        // glass bar's dock stands down while it is in force.
+                        song = player.song?.takeIf { !archiveTunePlayerActive },
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
                         onPlayPause = {
@@ -4381,7 +4395,9 @@ private fun BitChordApp(
                         // ArchiveTune: with the stack folded, a Home (or
                         // Library) circle and a Search circle take the ends the
                         // mini player gave up, sliding up out of the fold.
-                        player.song?.let { song ->
+                        // The ported player's own mini rides instead when one
+                        // of its styles is in force.
+                        player.song?.takeIf { !archiveTunePlayerActive }?.let { song ->
                             Box(Modifier.fillMaxWidth()) {
                                 MiniPlayer(
                                     song = song,
@@ -4442,7 +4458,53 @@ private fun BitChordApp(
 
         }
 
-        val playerRaised = showNowPlaying && playerSong != null
+        val playerRaised = showNowPlaying && playerSong != null && !archiveTunePlayerActive
+
+        // ---- The ported ArchiveTune player ----
+        // Mounted in place of this app's own player while one of the ten
+        // ported styles is in force: ArchiveTune's mini player and full
+        // player as one bottom sheet, over whatever page is showing — its
+        // icons, its animations, its queue and lyrics pages, byte for byte
+        // what ArchiveTune ships, driven by this app's playback through the
+        // bridge. The app's own player comes back the moment the style is
+        // BITCHORD again, untouched by any of this.
+        if (archiveTunePlayerActive && controller != null) {
+            val atBottomBarHeight = with(LocalDensity.current) { floatingBarsHeight.intValue.toDp() }
+            androidx.compose.runtime.key(controller) {
+                ArchiveTunePlayerHost(
+                    hostBridge =
+                        remember(controller, viewModel) {
+                            ArchiveTuneBridgeImpl(
+                                controller = controller,
+                                viewModel = viewModel,
+                                scope = scope,
+                                openArtist = { id ->
+                                    viewModel.openDetail(
+                                        id,
+                                        "",
+                                        context.getString(R.string.artist),
+                                        null,
+                                        BrowseType.ARTIST,
+                                    )
+                                },
+                                openAlbum = { id ->
+                                    viewModel.openDetail(id, "", "", null, BrowseType.ALBUM)
+                                },
+                                openSearch = { selectedTab = TAB_SEARCH },
+                            )
+                        },
+                    pureBlack = false,
+                    bottomBarHeight = atBottomBarHeight,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        // Never both players at once: switching a ported style on while this
+        // app's player is up closes it — the ported mini player is right
+        // there to take over.
+        LaunchedEffect(archiveTunePlayerActive) {
+            if (archiveTunePlayerActive) dismissPlayer()
+        }
 
         // ---- The page's still, for a menu hung over it ----
         // Taken as a ⋮ or ⋯ menu opens over a page, let go once it has played

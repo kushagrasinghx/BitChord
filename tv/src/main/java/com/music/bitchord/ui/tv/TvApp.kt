@@ -398,6 +398,9 @@ private fun TvMainShell(
             chrome.contentScrolled = false
             destination = next
         }
+        if (next == TvDestination.EXPLORE) {
+            viewModel.onExploreShown()
+        }
     }
     val openDetail: TvOpenDetail = { browseId, title, subtitle, thumb, type ->
         returnFocus.add(chrome.lastFocused)

@@ -23,10 +23,23 @@ class MonochromeSource(
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    companion object {
+        const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        const val REFERER = "https://monochrome.st"
+
+        val HEADERS = mapOf(
+            "User-Agent" to USER_AGENT,
+            "Referer" to REFERER,
+            "Accept" to "*/*",
+        )
+    }
+
     override suspend fun health(): SourceHealth = withContext(Dispatchers.IO) {
         try {
             val req = Request.Builder()
                 .url("https://tracks.monochrome.st")
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", REFERER)
                 .header("Accept", "*/*")
                 .build()
             Http.client.newCall(req).execute().use { resp ->
@@ -52,6 +65,8 @@ class MonochromeSource(
         try {
             val req = Request.Builder()
                 .url(url)
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", REFERER)
                 .header("Accept", "application/json")
                 .build()
             Http.client.newCall(req).execute().use { resp ->
@@ -96,6 +111,7 @@ class MonochromeSource(
                 bitDepth = 16,
                 sampleRateHz = 44100,
             ),
+            headers = HEADERS,
         )
     }
 

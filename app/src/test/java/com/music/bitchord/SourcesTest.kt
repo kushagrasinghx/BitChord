@@ -7,6 +7,7 @@ import com.music.bitchord.data.jiosaavn.selectBestSaavnStream
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.DeviceCodecs
+import com.music.bitchord.data.sources.MonochromeSource
 import com.music.bitchord.data.sources.ModuleSource
 import com.music.bitchord.data.sources.MusicSource
 import com.music.bitchord.data.sources.SourceConfig
@@ -2094,5 +2095,36 @@ class SourcesTest {
         assertNull(TrackMatcher.secondsOf(null))
         assertNull(TrackMatcher.secondsOf("live"))
         assertNull(TrackMatcher.secondsOf("0:00"))
+    }
+
+    @Test
+    fun `test middle name artist matching and featured track matching`() {
+        assertTrue(TrackMatcher.sharesArtist("Sasha Sloan", "Sasha Alex Sloan"))
+        assertTrue(TrackMatcher.sharesArtist("Sasha Alex Sloan", "Sasha Sloan"))
+        assertTrue(TrackMatcher.sharesArtist("Sasha Alex Sloan", "Sasha Alex Sloan, Charlie Puth"))
+
+        val target = TrackMatcher.Target(
+            title = "Is It Just Me? (feat. Charlie Puth)",
+            artist = "Sasha Alex Sloan",
+            durationSec = 154,
+        )
+        val candidate = song(
+            title = "Is It Just Me? (feat. Charlie Puth)",
+            artist = "Sasha Alex Sloan, Charlie Puth",
+            duration = "2:34",
+        )
+        val score = TrackMatcher.score(candidate, target)
+        assertTrue(score != null && score > 0)
+    }
+
+    @Test
+    fun `test monochrome matching`() = kotlinx.coroutines.runBlocking {
+        val mono = MonochromeSource(SourceConfig(id = "dev.bitperfect.qobuz.heisenbergg", kind = SourceKind.ADDON, baseUrl = "https://tracks.monochrome.st", enabled = true))
+        val results = mono.search("Love Story Indila", 5, false, null)
+        if (results.isNotEmpty()) {
+            val target = TrackMatcher.Target(title = "Love Story", artist = "Indila", durationSec = 316)
+            val ranked = TrackMatcher.ranked(results, target)
+            assertTrue(ranked.isNotEmpty())
+        }
     }
 }

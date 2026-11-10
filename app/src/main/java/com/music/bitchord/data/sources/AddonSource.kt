@@ -96,8 +96,17 @@ class AddonSource(
      */
     private suspend fun admitted(what: String): Boolean {
         if (shutOut(what)) return false
-        refreshPolicy()
+        val declared = refreshPolicy()
         if (shutOut(what)) return false
+        if ((declared ?: live.bitchordAuth) != true) return true
+        AddonAuth.standingRefusal()?.let { reason ->
+            if (reason != loggedRefusal) {
+                loggedRefusal = reason
+                TrackLog.d(TAG, "${config.displayName}: skipped until verification is retried — $reason")
+            }
+            return false
+        }
+        loggedRefusal = null
         return true
     }
 

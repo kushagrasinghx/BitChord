@@ -711,7 +711,23 @@ object TrackMatcher {
         .filter { it.isNotEmpty() }
         .toSet()
 
-    private fun sameArtist(a: List<String>, b: List<String>) = runOf(a, b) || runOf(b, a)
+    private fun sameArtist(a: List<String>, b: List<String>): Boolean {
+        if (runOf(a, b) || runOf(b, a)) return true
+        if (isSubsequence(a, b) || isSubsequence(b, a)) return true
+        return false
+    }
+
+    private fun isSubsequence(shortList: List<String>, longList: List<String>): Boolean {
+        if (shortList.size < 2 || shortList.size >= longList.size) return false
+        var j = 0
+        for (word in longList) {
+            if (word == shortList[j]) {
+                j++
+                if (j == shortList.size) return true
+            }
+        }
+        return false
+    }
 
     /** Whether [outer] contains [inner] as a run of whole words. */
     private fun runOf(outer: List<String>, inner: List<String>): Boolean {

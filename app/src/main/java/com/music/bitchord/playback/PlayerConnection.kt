@@ -433,7 +433,8 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                         val entryId = item.mediaMetadata.extras?.getString(EXTRA_QUEUE_ENTRY_ID)
                             ?: mediaItemEntryIds[item]
                         if (item.mediaId != queueSnapshot[i].videoId ||
-                            (entryId != null && entryId != queueSnapshot[i].queueEntryId)
+                            (entryId != null && entryId != queueSnapshot[i].queueEntryId) ||
+                            item.queueTier != queueSnapshot[i].queueTier
                         ) {
                             queueChanged = true
                             break

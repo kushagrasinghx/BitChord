@@ -122,8 +122,10 @@ dependencies {
     implementation("androidx.compose.runtime:runtime")
     // The morphing shapes behind the expressive controls.
     implementation("androidx.graphics:graphics-shapes:1.0.1")
-    // The share dialog's window breakpoints (AT's pin).
-    implementation("androidx.compose.material3.adaptive:adaptive:1.3.0-rc01")
+    // The share dialog's window breakpoints. Upstream's 1.3.0-rc01 demands
+    // AGP 9.1; 1.2.0 carries the same currentWindowAdaptiveInfo() surface
+    // and accepts this app's AGP.
+    implementation("androidx.compose.material3.adaptive:adaptive:1.2.0")
 
     // ---- AndroidX the player stack leans on ----
     implementation("androidx.activity:activity-compose:1.9.3")

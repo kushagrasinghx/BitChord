@@ -235,7 +235,7 @@ internal fun TvNowPlayingStage(
                 !appleArt?.artworkUrl.isNullOrBlank() -> appleArt?.artworkUrl
                 else -> song.thumbnailUrl
             }
-            TvArtwork(url = coverUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
+            TvArtwork(url = coverUrl, px = 480, shape = RectangleShape, modifier = Modifier.fillMaxSize())
             canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
         }
 

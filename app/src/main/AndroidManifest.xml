@@ -51,6 +51,8 @@
         android:name=".BitChordApplication"
         android:allowBackup="true"
         android:appCategory="audio"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

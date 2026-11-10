@@ -62,6 +62,8 @@
         android:allowBackup="true"
         android:appCategory="audio"
         android:banner="@drawable/tv_banner"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

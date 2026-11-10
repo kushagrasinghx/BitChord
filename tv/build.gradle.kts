@@ -232,6 +232,11 @@ android {
         resources {
             // SMBJ's BouncyCastle and jspecify both ship this descriptor.
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one
+            // licence between them — and kuromoji's two jars carry the same
+            // Apache licence file into the mix now that the ported player
+            // rides along. As the phone app does.
+            pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
             // The ported player's tokenizer dictionary downloads on demand;
             // the one in the kuromoji jar stays out — as the phone app does.
             excludes += "com/atilika/kuromoji/ipadic/*.bin"

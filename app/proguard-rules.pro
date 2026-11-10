@@ -37,6 +37,10 @@
 -keep class com.metrolist.** { *; }
 -keep class com.dokar.quickjs.** { *; }
 
+# Optional MusicKit SDKs use JNI/reflection and bundle the pre-Media3 ExoPlayer namespace.
+-keep class com.apple.android.** { *; }
+-dontwarn com.google.android.exoplayer2.**
+
 # ---- Native and crypto --------------------------------------------------------
 # ONNX Runtime and QuickJS are called from JNI, which R8 cannot see. SMBJ picks
 # its BouncyCastle providers and event bus handlers reflectively.

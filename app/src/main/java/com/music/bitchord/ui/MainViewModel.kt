@@ -37,8 +37,15 @@ import com.music.bitchord.data.spotify.SpotifyTrack
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.applemusic.AppleMusicLibrary
+import com.music.bitchord.data.applemusic.AppleMusicTokens
+import com.music.bitchord.data.applemusic.AppleMusicTrackMapper
+import com.music.bitchord.data.applemusic.AppleMusicTrackOrigin
+import com.music.bitchord.data.applemusic.AppleMusicTrackMatchStatus
+import com.music.bitchord.playback.applemusic.AppleMusicPlayback
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.PlaybackProvider
 import com.music.bitchord.ui.navigation.AppNavigator
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
@@ -1103,6 +1110,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         privacy: PlaylistPrivacy,
         videoIds: List<String>,
         songs: List<Song> = emptyList(),
+        /** Apple imports have already saved their complete catalog rows locally. */
+        localFallbackPlaylist: com.music.bitchord.data.spotify.LocalPlaylist? = null,
         /** [savedLocally] is true when the playlist went to this device, not YouTube Music. */
         onResult: ((browseId: String?, title: String, savedLocally: Boolean) -> Unit)? = null,
     ) {
@@ -1117,8 +1126,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 ).fold(
                     onSuccess = { playlistId ->
                         if (videoIds.size > 50) {
-                            videoIds.drop(50).chunked(50).forEach { chunk ->
-                                YtMusicRepository.addToPlaylist(playlistId, chunk)
+                            for (chunk in videoIds.drop(50).chunked(50)) {
+                                val added = YtMusicRepository.addToPlaylist(playlistId, chunk)
+                                if (added.isFailure && localFallbackPlaylist != null) {
+                                    // Do not report a partial Apple import as a complete YouTube playlist.
+                                    YtMusicRepository.deletePlaylist(playlistId)
+                                    libraryStale = true
+                                    onResult?.invoke(localFallbackPlaylist.browseId, localFallbackPlaylist.title, true)
+                                    return@fold
+                                }
                             }
                         }
                         setPlaylistOwned("VL$playlistId", true)
@@ -1145,12 +1161,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         onResult?.invoke(created.browseId, created.title, false)
                     },
                     onFailure = {
-                        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                        val local = localFallbackPlaylist ?: com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
                         onResult?.invoke(local.browseId, local.title, true)
                     },
                 )
             } else {
-                val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                val local = localFallbackPlaylist ?: com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
                 onResult?.invoke(local.browseId, local.title, true)
             }
         }
@@ -2119,6 +2135,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onQueryChange(newValue: String) {
         _query.value = newValue
         if (newValue.isBlank()) {
+            newestRequestId.incrementAndGet()
+            appleSearchRows = emptyList()
             searchSubmitted = false
             _suggestions.value = emptyList()
             _typeaheadResults.value = emptyList()
@@ -2274,6 +2292,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun runSearch(anonymous: Boolean = true) {
+        appleSearchRows = emptyList()
         val query = _query.value
         if (query.isBlank()) {
             // Nothing in flight can still be waiting to overwrite this: the
@@ -2313,6 +2332,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun startSearchPipeline() = viewModelScope.launch {
         searchRequests
             .collectLatest { request ->
+                val apple = async(Dispatchers.IO) { searchAppleMusic(request.query, request.filter) }
                 val key = cacheKey(request.query, request.filter)
                 // Something to look at immediately: the exact answer if this
                 // query has been run before, otherwise the closest earlier
@@ -2325,6 +2345,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // records it in the account's history.
                 if (exact != null && request.anonymous) {
                     searchSession = SearchSession(key, request.requestId, request.filter, exact.continuation)
+                    appendAppleSearch(request.requestId, apple.await())
                     return@collectLatest
                 }
 
@@ -2345,7 +2366,43 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     onSuccess = { page -> published(page, key, request.requestId) },
                     onFailure = { failure -> UiState.Error(failure.friendly()) },
                 )
+                appendAppleSearch(request.requestId, apple.await())
             }
+    }
+
+    /** Apple supplies extra catalog rows only; YouTube still owns discovery and pagination. */
+    private suspend fun searchAppleMusic(query: String, filter: SearchFilter): List<SearchResult> {
+        if (filter != SearchFilter.SONGS || !AppleMusicTokens.connected.value) return emptyList()
+        val token = AppleMusicTokens.userToken() ?: return emptyList()
+        val storefront = AppleMusicTokens.storefront() ?: return emptyList()
+        return try {
+            withTimeoutOrNull(5_000) {
+                val tracks = AppleMusicLibrary.searchSongs(storefront, query)
+                val mapper = AppleMusicTrackMapper(AppleMusicPlayback.matcher(getApplication()))
+                val rows = mapper.matchAll(tracks, AppleMusicTrackOrigin.CATALOG, storefront,
+                    checkCurrent = {
+                        if (token != AppleMusicTokens.userToken() || storefront != AppleMusicTokens.storefront()) {
+                            throw CancellationException("Apple Music account changed")
+                        }
+                    })
+                rows.filter { it.status == AppleMusicTrackMatchStatus.YOUTUBE ||
+                    it.status == AppleMusicTrackMatchStatus.APPLE_ONLY }.map { SearchResult.Track(it.song) }
+            }.orEmpty()
+        } catch (cancelled: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private var appleSearchRows: List<SearchResult> = emptyList()
+
+    private fun appendAppleSearch(requestId: Long, appleRows: List<SearchResult>) {
+        if (requestId != newestRequestId.get() || appleRows.isEmpty() || !AppleMusicTokens.connected.value) return
+        appleSearchRows = appleRows
+        val rows = ((_results.value as? UiState.Success)?.data.orEmpty() + appleRows).distinctBy(::searchResultKey)
+        _results.value = UiState.Success(rows)
     }
 
     /**
@@ -2363,11 +2420,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val stillCurrent = searchSession == session && session.requestId == newestRequestId.get()
             if (stillCurrent) {
                 next.onSuccess { page ->
-                    val current = (_results.value as? UiState.Success)?.data.orEmpty()
+                    // Cache YouTube pages independently from account-bound Apple search results.
+                    val current = searchCache.get(session.key)?.rows.orEmpty()
                     val merged = (current + page.rows).distinctBy(::searchResultKey)
                     searchCache.put(session.key, SearchCacheEntry(merged, page.continuation))
                     searchSession = session.copy(continuation = page.continuation)
-                    _results.value = UiState.Success(merged)
+                    _results.value = UiState.Success((merged + appleSearchRows).distinctBy(::searchResultKey))
                 }
                 _searchLoadingMore.value = false
             }
@@ -2525,6 +2583,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * own audio by default; catalogue matching is only requested manually.
      */
     private fun prefetchTopResult(rows: List<SearchResult>) {
+        if (AppSettings.playbackProvider.value == PlaybackProvider.APPLE_MUSIC && AppleMusicTokens.connected.value) return
         val song = rows.firstNotNullOfOrNull {
             when (it) {
                 is SearchResult.TopTrack -> it.song

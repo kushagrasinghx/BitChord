@@ -4,6 +4,7 @@ name: TV
 # a change under app/, shared/, sharedUi/ or native/ can break it as easily as
 # one under tv/.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:

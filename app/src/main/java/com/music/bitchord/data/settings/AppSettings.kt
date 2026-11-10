@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.SpotifyToken
+import com.music.bitchord.data.applemusic.AppleMusicTokens
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
@@ -761,6 +762,10 @@ object AppSettings {
     val listenBrainzPrimaryArtistOnly = MutableStateFlow(false)
     val spotifySpdcToken = MutableStateFlow("")
 
+    val playbackProvider = MutableStateFlow(PlaybackProvider.YOUTUBE_MUSIC)
+    val appleMusicFallbackToYouTube = MutableStateFlow(true)
+    val appleMusicStorefront = MutableStateFlow("")
+
     // ── Discord Rich Presence ───────────────────────────────────────────
 
     /**
@@ -1097,6 +1102,13 @@ object AppSettings {
         listenBrainzToken.value = prefs.getString(KEY_LISTENBRAINZ_TOKEN, "").orEmpty()
         listenBrainzPrimaryArtistOnly.value = prefs.getBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, false)
         spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
+        playbackProvider.value = availablePlaybackProvider(
+            prefs.getString(KEY_PLAYBACK_PROVIDER, null),
+            BuildConfig.APPLE_MUSIC_AVAILABLE,
+            AppleMusicTokens.connected.value,
+        )
+        appleMusicFallbackToYouTube.value = prefs.getBoolean(KEY_APPLE_MUSIC_FALLBACK, true)
+        appleMusicStorefront.value = AppleMusicTokens.storefront().orEmpty()
         replayGenres.value = prefs.getBoolean(KEY_REPLAY_GENRES, true)
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
@@ -1777,6 +1789,26 @@ object AppSettings {
         SpotifyToken.invalidate()
     }
 
+    fun setPlaybackProvider(value: PlaybackProvider) {
+        val provider = availablePlaybackProvider(
+            value.name, BuildConfig.APPLE_MUSIC_AVAILABLE, AppleMusicTokens.connected.value,
+        )
+        playbackProvider.value = provider
+        prefs.edit().putString(KEY_PLAYBACK_PROVIDER, provider.name).apply()
+    }
+
+    fun setAppleMusicFallbackToYouTube(value: Boolean) {
+        appleMusicFallbackToYouTube.value = value
+        prefs.edit().putBoolean(KEY_APPLE_MUSIC_FALLBACK, value).apply()
+    }
+
+    /** Credentials and storefront are removed together; the next play uses existing sources. */
+    fun disconnectAppleMusic() {
+        AppleMusicTokens.clear()
+        appleMusicStorefront.value = ""
+        setPlaybackProvider(PlaybackProvider.YOUTUBE_MUSIC)
+    }
+
     fun setLastfmScrobbleEnabled(value: Boolean) {
         lastfmScrobbleEnabled.value = value
         if (!value) lastfmNowPlaying.value = false
@@ -2363,6 +2395,8 @@ object AppSettings {
     private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
     private const val KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY = "listenbrainz_primary_artist_only"
     private const val KEY_SPOTIFY_SPDC_TOKEN = "spotify_spdc_token"
+    private const val KEY_PLAYBACK_PROVIDER = "playback_provider"
+    private const val KEY_APPLE_MUSIC_FALLBACK = "apple_music_fallback_to_youtube"
 
     private const val KEY_DISCORD_USERNAME = "discord_username"
     private const val KEY_DISCORD_NAME = "discord_name"
@@ -2381,6 +2415,3 @@ object AppSettings {
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
-
-
-

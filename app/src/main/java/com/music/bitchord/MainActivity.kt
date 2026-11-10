@@ -140,11 +140,14 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.applemusic.canPlayAppleMusicRow
+import com.music.bitchord.data.applemusic.AppleMusicTokens
+import com.music.bitchord.data.settings.PlaybackProvider
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.withoutVideos
 import com.music.bitchord.data.model.UserPlaylist
@@ -179,6 +182,13 @@ import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
+import com.music.bitchord.data.applemusic.AppleMusicAuth
+import com.music.bitchord.data.applemusic.AppleMusicAuthController
+import com.music.bitchord.data.applemusic.AppleMusicAuthState
+import com.music.bitchord.data.applemusic.AppleMusicPlaylist
+import com.music.bitchord.ui.components.AppleMusicImportAlert
+import com.music.bitchord.ui.screens.APPLE_MUSIC_BROWSE_ID
+import com.music.bitchord.ui.screens.AppleMusicLibraryScreen
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
 import com.music.bitchord.ui.screens.libraryLinks
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
@@ -391,8 +401,14 @@ internal fun shouldSkipAfterDislike(
 
 
 class MainActivity : AppCompatActivity() {
+    internal var appleMusicAuthController: AppleMusicAuthController? = null
+        private set
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Lifecycle-aware Activity result registration must happen before STARTED,
+        // which is earlier than Compose's first frame on many devices.
+        appleMusicAuthController = AppleMusicAuth.create(this, this)
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
@@ -461,6 +477,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        appleMusicAuthController?.close()
+        appleMusicAuthController = null
+        super.onDestroy()
     }
 
     /**
@@ -744,6 +766,8 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var showAppleMusicImport by remember { mutableStateOf(false) }
+    var appleMusicImportPlaylist by remember { mutableStateOf<AppleMusicPlaylist?>(null) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -1532,11 +1556,12 @@ private fun BitChordApp(
         boundedContext: Boolean = false,
         continuationToken: String? = null,
     ) {
-        // A Spotify page lists songs it has not found on YouTube Music yet (or
-        // never will); those can't be queued, so play the rest in their order.
-        if (allSongs.getOrNull(allIndex)?.isUnresolvedSpotify == true) return
-        val songs = allSongs.filterNot { it.isUnresolvedSpotify }
-        val index = songs.indexOf(allSongs.getOrNull(allIndex)).coerceAtLeast(0)
+        val appleConnected = AppleMusicTokens.connected.value
+        val appleSelected = AppSettings.playbackProvider.value == PlaybackProvider.APPLE_MUSIC
+        if (allSongs.getOrNull(allIndex)?.canPlayAppleMusicRow(appleConnected, appleSelected) != true) return
+        val songs = allSongs.filter { it.canPlayAppleMusicRow(appleConnected, appleSelected) }
+        // Preserve the tapped occurrence when a playlist contains duplicates.
+        val index = allSongs.take(allIndex).count { it.canPlayAppleMusicRow(appleConnected, appleSelected) }
         playRequestGeneration++
         activeRadioSeed = null
         scope.launch {
@@ -1601,6 +1626,37 @@ private fun BitChordApp(
         )
         playFrom(songs, index, source)
     }
+    // The Activity registered MusicKit's result launcher in onCreate, before STARTED.
+    val appleMusicAuth = remember(context) {
+        (context as? MainActivity)?.appleMusicAuthController
+    }
+    // The native sign-in screen is Apple's, so its outcome comes back as a
+    // state rather than a return value. Only the redacted problem is shown.
+    val onAppleMusicConnect: () -> Unit = {
+        val controller = appleMusicAuth
+        if (controller == null) {
+            Toast.makeText(context, context.getString(R.string.apple_music_unavailable), Toast.LENGTH_LONG).show()
+        } else {
+            scope.launch {
+                controller.connect()
+                when (val result = controller.state.value) {
+                    is AppleMusicAuthState.Connected -> Toast.makeText(
+                        context,
+                        context.getString(R.string.apple_music_connected_storefront, result.storefront.uppercase()),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    is AppleMusicAuthState.Failed -> {
+                        Toast.makeText(context, result.problem.message, Toast.LENGTH_LONG).show()
+                        result.problem.actionUrl?.let { url ->
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        }
+    }
+    val onAppleMusicDisconnect: () -> Unit = { appleMusicAuth?.disconnect() }
     LaunchedEffect(player.song?.videoId) {
         if (optimisticVersionSong?.videoId == player.song?.videoId ||
             (optimisticVersionSong != null && player.song?.videoId != convertedAudioId && player.song?.videoId != convertedVideoId && player.song?.videoId != keepVideoId)
@@ -2243,6 +2299,10 @@ private fun BitChordApp(
         item.browseId?.let { id ->
             if (id == SPOTIFY_BROWSE_ID) {
                 navigator.push(AppRoute.Spotify)
+                return@let
+            }
+            if (id == APPLE_MUSIC_BROWSE_ID) {
+                navigator.push(AppRoute.AppleMusic)
                 return@let
             }
             if ((id == "local:all" || id == "local:downloads") && !LocalMediaRepository.hasStoragePermission(context)) {
@@ -3029,6 +3089,25 @@ private fun BitChordApp(
                                 onOpenTokenSetup = { showSpotifyCanvasAuth = true },
                                 contentPadding = listPadding,
                             )
+                        } else if (pageRoute == AppRoute.AppleMusic) {
+                            AppleMusicLibraryScreen(
+                                contentPadding = listPadding,
+                                onConnect = onAppleMusicConnect,
+                                onOpenImport = { playlist ->
+                                    appleMusicImportPlaylist = playlist
+                                    showAppleMusicImport = true
+                                },
+                                // Rows are ordinary songs by the time they get
+                                // here: matched ones carry a YouTube id, Apple-
+                                // only ones an am-miss: catalog id.
+                                onPlay = { songs, index, title ->
+                                    playFrom(
+                                        songs,
+                                        index,
+                                        QueueSource(title, PlaybackSourceType.BROWSE, APPLE_MUSIC_BROWSE_ID),
+                                    )
+                                },
+                            )
                         } else if (pageRoute == AppRoute.Discord) {
                             DiscordScreen(
                                 song = player.song,
@@ -3056,6 +3135,8 @@ private fun BitChordApp(
                                 onOpenLastfmLogin = { showLastfmLogin = true },
                                 onOpenDiscord = { navigator.push(AppRoute.Discord) },
                                 onOpenSpotify = { navigator.push(AppRoute.Spotify) },
+                                onOpenAppleMusic = { navigator.push(AppRoute.AppleMusic) },
+                                onAppleMusicDisconnect = onAppleMusicDisconnect,
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute == AppRoute.Sources) {
@@ -3067,6 +3148,8 @@ private fun BitChordApp(
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
+                                onAppleMusicConnect = onAppleMusicConnect,
+                                onAppleMusicDisconnect = onAppleMusicDisconnect,
                             )
                         } else if (pageRoute == AppRoute.Downloads) {
                             DownloadManagerPage(
@@ -3786,6 +3869,7 @@ private fun BitChordApp(
                 FrostedTopBar(
                     title = when (route) {
                         AppRoute.Spotify -> stringResource(R.string.spotify)
+                        AppRoute.AppleMusic -> stringResource(R.string.apple_music)
                         AppRoute.Downloads -> stringResource(R.string.downloads)
                         AppRoute.Discord -> "Discord"
                         AppRoute.History -> stringResource(R.string.history)
@@ -5028,6 +5112,42 @@ private fun BitChordApp(
                     }
                 },
                 onDismiss = { showSpotifyImportDialog = false },
+            )
+        }
+
+        if (showAppleMusicImport) {
+            BackHandler { showAppleMusicImport = false }
+            AppleMusicImportAlert(
+                hazeState = hazeState,
+                playlist = appleMusicImportPlaylist,
+                youtubeConnected = signedIn,
+                onExportToYouTube = { result ->
+                    val local = result.playlist
+                    val songs = result.tracks.filter {
+                        it.status == com.music.bitchord.data.applemusic.AppleMusicTrackMatchStatus.YOUTUBE
+                    }.map { it.song }
+                    if (local != null && songs.isNotEmpty()) {
+                        viewModel.createPlaylistWithVideoIds(
+                            title = local.title,
+                            privacy = PlaylistPrivacy.PRIVATE,
+                            videoIds = songs.map { it.videoId },
+                            songs = songs,
+                            localFallbackPlaylist = local,
+                        ) { _, _, savedLocally ->
+                            showQueueNotice(context.getString(if (savedLocally)
+                                R.string.apple_music_import_youtube_fallback else R.string.apple_music_import_youtube_done))
+                        }
+                    }
+                },
+                onImported = { _, matched, total, appleOnly ->
+                    showQueueNotice(
+                        context.getString(R.string.apple_music_import_done, matched, total, appleOnly),
+                    )
+                },
+                onDismiss = {
+                    showAppleMusicImport = false
+                    appleMusicImportPlaylist = null
+                },
             )
         }
 

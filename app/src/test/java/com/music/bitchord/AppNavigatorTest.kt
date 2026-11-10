@@ -66,6 +66,18 @@ class AppNavigatorTest {
     }
 
     @Test
+    fun backReturnsFromAppleMusicToAccountSettings() {
+        navigator.push(AppRoute.Settings)
+        navigator.push(AppRoute.AccountScrobbling)
+        navigator.push(AppRoute.AppleMusic)
+        assertEquals(AppRoute.AppleMusic, navigator.visibleRoute())
+        assertTrue(navigator.pop())
+        assertEquals(AppRoute.AccountScrobbling, navigator.visibleRoute())
+        assertTrue(navigator.pop())
+        assertEquals(AppRoute.Settings, navigator.visibleRoute())
+    }
+
+    @Test
     fun settingsOverAReleaseComesBackToIt() {
         releases += "album"
         navigator.push(AppRoute.Settings)

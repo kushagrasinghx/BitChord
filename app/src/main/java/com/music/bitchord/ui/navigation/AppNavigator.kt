@@ -26,6 +26,7 @@ sealed interface AppRoute {
     data object History : AppRoute
     data object Discord : AppRoute
     data object Spotify : AppRoute
+    data object AppleMusic : AppRoute
     data object Downloads : AppRoute
 
     /** A Library shelf's "Show all" — its own cards laid out again as a grid. */

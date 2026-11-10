@@ -9,6 +9,8 @@
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />
         <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_apple_music.xml" />
+        <exclude domain="sharedpref" path="bitchord_apple_music_plain.xml" />
         <!-- Tester code: a credential for this phone's owner (see AddonAuth). -->
         <exclude domain="sharedpref" path="bitchord_tester.xml" />
         <!-- Playback queues are local session state; do not resurrect them after reinstall. -->
@@ -21,6 +23,8 @@
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />
         <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_apple_music.xml" />
+        <exclude domain="sharedpref" path="bitchord_apple_music_plain.xml" />
         <!-- Tester code: a credential for this phone's owner (see AddonAuth). -->
         <exclude domain="sharedpref" path="bitchord_tester.xml" />
         <!-- Playback queues are local session state; do not resurrect them after reinstall. -->

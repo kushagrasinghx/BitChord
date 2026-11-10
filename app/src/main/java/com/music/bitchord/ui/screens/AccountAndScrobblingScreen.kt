@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
@@ -31,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.applemusic.AppleMusicTokens
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import kotlin.math.roundToInt
@@ -47,6 +50,8 @@ fun AccountAndScrobblingScreen(
     onOpenLastfmLogin: () -> Unit,
     onOpenDiscord: () -> Unit,
     onOpenSpotify: () -> Unit,
+    onOpenAppleMusic: () -> Unit,
+    onAppleMusicDisconnect: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -66,6 +71,8 @@ fun AccountAndScrobblingScreen(
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val appleMusicConnected by AppleMusicTokens.connected.collectAsStateWithLifecycle()
+    val appleMusicStorefront by AppSettings.appleMusicStorefront.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -121,6 +128,32 @@ fun AccountAndScrobblingScreen(
                         clearSpotifyWebSession()
                         AppSettings.setSpotifySpdcToken("")
                     },
+                )
+            }
+        }
+
+        SettingsGroup(
+            header = stringResource(R.string.apple_music),
+            footer = stringResource(R.string.apple_music_connect_subtitle),
+        ) {
+            SettingsRow(
+                icon = Icons.Rounded.MusicNote,
+                title = stringResource(R.string.apple_music),
+                subtitle = when {
+                    !appleMusicConnected -> stringResource(R.string.tap_to_connect)
+                    appleMusicStorefront.isNotBlank() -> stringResource(
+                        R.string.apple_music_connected_storefront,
+                        appleMusicStorefront.uppercase(),
+                    )
+                    else -> stringResource(R.string.connected)
+                },
+                onClick = onOpenAppleMusic,
+            )
+            if (appleMusicConnected) {
+                FullWidthDivider()
+                DestructiveRow(
+                    label = stringResource(R.string.apple_music_disconnect),
+                    onClick = onAppleMusicDisconnect,
                 )
             }
         }

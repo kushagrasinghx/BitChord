@@ -95,6 +95,11 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+        // TV reuses phone sources but never enables the phone-only MusicKit integration.
+        buildConfigField("boolean", "APPLE_MUSIC_SDK_PRESENT", "false")
+        buildConfigField("boolean", "APPLE_MUSIC_AUTH_AVAILABLE", "false")
+        buildConfigField("boolean", "APPLE_MUSIC_AVAILABLE", "false")
+        buildConfigField("String", "APPLE_MUSIC_TOKEN_URL", "\"\"")
         // TV has no addons; AddonAuth only reaches the compiler through the
         // shared phone sources, so it gets no server.
         buildConfigField("String", "ADDON_AUTH_URL", "\"\"")
@@ -127,6 +132,7 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir("../app/src/main/java")
+            java.srcDir("../app/src/appleMusicStub/java")
             res.srcDir("../app/src/main/res")
             assets.srcDir("../app/src/main/assets")
             jniLibs.srcDir("../app/src/main/jniLibs")

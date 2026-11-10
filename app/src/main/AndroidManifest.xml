@@ -60,6 +60,10 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <queries>
+        <package android:name="com.apple.android.music" />
+    </queries>
+
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"

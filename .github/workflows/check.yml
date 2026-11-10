@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: check-${{ github.workflow }}-${{ github.ref }}
@@ -43,7 +44,7 @@ jobs:
       - run: chmod +x gradlew
 
       - name: Tests
-        run: ./gradlew testDevDebugUnitTest
+        run: ./gradlew :shared:jvmTest testDevDebugUnitTest
 
       - name: Build the dev APK
         run: ./gradlew assembleDevDebug

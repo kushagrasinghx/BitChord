@@ -35,6 +35,14 @@ keystore.properties
 *.jks
 *.keystore
 
+# MusicKit SDKs are supplied locally under Apple's license; keys belong only on the server.
+/app/libs/applemusic/
+/AndroidMusicKitSDK*.zip
+/Android-MusicKit-SDK*/
+__MACOSX/
+._*
+*.p8
+
 # Project scratch / debug artifacts
 .shots/
 .tmp_verify/

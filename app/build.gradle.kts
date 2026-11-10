@@ -53,6 +53,20 @@ val listenTogetherServer: String = (
         ?: "https://bitchord-listen-together.onrender.com"
     ).trim().trimEnd('/')
 
+// Optional proprietary SDKs stay local. Accept Apple's official filename casing.
+val appleMusicAars = fileTree("libs/applemusic") { include("*.aar") }.files
+val appleMusicAuthAars = appleMusicAars.filter { it.name.lowercase().startsWith("musickitauth-release-") }
+val appleMusicPlaybackAars = appleMusicAars.filter { it.name.lowercase().startsWith("mediaplayback-release-") }
+require(appleMusicAuthAars.size <= 1 && appleMusicPlaybackAars.size <= 1) {
+    "Keep exactly one version of each MusicKit AAR in app/libs/applemusic."
+}
+require(appleMusicAuthAars.isEmpty() == appleMusicPlaybackAars.isEmpty()) {
+    "MusicKit requires both musickitauth-release-*.aar and mediaplayback-release-*.aar."
+}
+val appleMusicSdkPresent = appleMusicAuthAars.isNotEmpty() && appleMusicPlaybackAars.isNotEmpty()
+val appleMusicTokenUrl = (localProps.getProperty("APPLE_MUSIC_TOKEN_URL")
+    ?: System.getenv("APPLE_MUSIC_TOKEN_URL") ?: "").trim()
+
 /*
  * The service that checks this app's hardware key attestation and issues addon
  * tokens. See AddonAuth. Overridable for a staging deployment. A fork that
@@ -92,6 +106,15 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+        buildConfigField("boolean", "APPLE_MUSIC_SDK_PRESENT", appleMusicSdkPresent.toString())
+        // A compiled adapter is not proof of working MusicKit authorization or native playback.
+        // Enable auth only after compiling the official AAR pair and validating on a device.
+        buildConfigField("boolean", "APPLE_MUSIC_AUTH_AVAILABLE", "false")
+        buildConfigField("boolean", "APPLE_MUSIC_AVAILABLE", "false")
+        buildConfigField(
+            "String", "APPLE_MUSIC_TOKEN_URL",
+            "\"${appleMusicTokenUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
         buildConfigField(
             "String",
             "ADDON_AUTH_URL",
@@ -115,7 +138,13 @@ android {
     // The phone <-> watch protocol, one file shared with the watch app so the
     // two cannot drift. See wearos/protocol/.../WearProtocol.kt.
     sourceSets {
-        getByName("main") { java.srcDir("../wearos/protocol") }
+        getByName("main") {
+            java.srcDir("../wearos/protocol")
+            java.srcDir(if (appleMusicSdkPresent) "src/appleMusic/java" else "src/appleMusicStub/java")
+        }
+        getByName("androidTest") {
+            if (appleMusicSdkPresent) java.srcDir("src/appleMusicAndroidTest/java")
+        }
     }
 
     externalNativeBuild {
@@ -134,6 +163,10 @@ android {
             dimension = "env"
             applicationId = "com.dev.bitchord"
             resValue("string", "app_name", "BitChord Dev")
+            // Native integration is available for device testing; production stays
+            // gated until real account/subscription/playback QA is complete.
+            buildConfigField("boolean", "APPLE_MUSIC_AUTH_AVAILABLE", appleMusicSdkPresent.toString())
+            buildConfigField("boolean", "APPLE_MUSIC_AVAILABLE", appleMusicSdkPresent.toString())
         }
         create("prod") {
             dimension = "env"
@@ -276,6 +309,9 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 }
 
 dependencies {
+    if (appleMusicSdkPresent) {
+        implementation(files(appleMusicAuthAars + appleMusicPlaybackAars))
+    }
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
 

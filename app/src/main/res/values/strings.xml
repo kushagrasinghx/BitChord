@@ -1329,6 +1329,63 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+
+    <!-- Apple Music (MusicKit) -->
+    <string name="apple_music" translatable="false">Apple Music</string>
+    <string name="apple_music_default_service" translatable="false">Default streaming service</string>
+    <string name="apple_music_service_footer" translatable="false">Recommendations, radio and autoplay still come from YouTube Music.</string>
+    <string name="apple_music_youtube_music" translatable="false">YouTube Music</string>
+    <string name="apple_music_youtube_subtitle" translatable="false">Audio from YouTube Music and the sources below</string>
+    <string name="apple_music_connected_storefront" translatable="false">Connected · %1$s</string>
+    <string name="apple_music_connect" translatable="false">Connect Apple Music</string>
+    <string name="apple_music_connect_subtitle" translatable="false">Sign in through the Apple Music app to stream your subscription.</string>
+    <string name="apple_music_connect_first" translatable="false">Connect Apple Music first</string>
+    <string name="apple_music_disconnect" translatable="false">Disconnect Apple Music</string>
+    <string name="apple_music_fallback" translatable="false">Fall back to YouTube Music</string>
+    <string name="apple_music_fallback_subtitle" translatable="false">Play anything missing from Apple Music from the sources below</string>
+    <string name="apple_music_library_subtitle" translatable="false">Your Apple Music library</string>
+    <string name="apple_music_playlists" translatable="false">Playlists</string>
+    <string name="apple_music_library_songs" translatable="false">Library songs</string>
+    <string name="apple_music_favorite_songs" translatable="false">Favorite songs</string>
+    <string name="apple_music_albums" translatable="false">Albums</string>
+    <string name="apple_music_artists" translatable="false">Artists</string>
+    <string name="apple_music_artist" translatable="false">Library artist</string>
+    <string name="apple_music_playback_fallback" translatable="false">Apple Music unavailable for this track; using configured sources</string>
+    <string name="apple_music_playback_failed" translatable="false">Apple Music unavailable for this track</string>
+    <string name="apple_music_audio_hint" translatable="false">Apple Music audio plays through MusicKit. Crossfade, Automix, equalizer, loudness normalization, spatial effects and silence skipping apply to other sources.</string>
+    <string name="apple_music_test_failed" translatable="false">Apple Music account check failed. Check your connection and reconnect if needed.</string>
+    <string name="apple_music_recently_added" translatable="false">Recently added</string>
+    <string name="apple_music_search" translatable="false">Search</string>
+    <string name="apple_music_search_hint" translatable="false">Search Apple Music</string>
+    <string name="apple_music_back" translatable="false">Back</string>
+    <string name="apple_music_empty" translatable="false">Nothing here yet</string>
+    <string name="apple_music_matching" translatable="false">Matching %1$d of %2$d on YouTube Music</string>
+    <string name="apple_music_matching_one" translatable="false">Matching…</string>
+    <string name="apple_music_only" translatable="false">Apple Music only</string>
+    <string name="apple_music_not_connected" translatable="false">Connect Apple Music to browse this library</string>
+    <string name="apple_music_storefront_required" translatable="false">Apple Music did not report a storefront for this account</string>
+    <string name="apple_music_favorites_unavailable" translatable="false">Apple did not identify Favorite Songs. Choose your Favorite Songs playlist from the library below.</string>
+    <string name="apple_music_unavailable" translatable="false">Apple Music is not available in this build</string>
+    <string name="apple_music_import" translatable="false">Import</string>
+    <string name="apple_music_import_title" translatable="false">Import Apple Music playlist</string>
+    <string name="apple_music_import_description" translatable="false">Paste a music.apple.com playlist link, or import every song in your library.</string>
+    <string name="apple_music_import_playlist_description" translatable="false">Keep “%1$s” as a playlist on this device. Songs that only exist on Apple Music stay playable there.</string>
+    <string name="apple_music_import_hint" translatable="false">https://music.apple.com/…/playlist/pl.…</string>
+    <string name="apple_music_import_library_hint" translatable="false">Leave the link empty to import your whole library.</string>
+    <string name="apple_music_import_library" translatable="false">Import library</string>
+    <string name="apple_music_import_button" translatable="false">Import</string>
+    <string name="apple_music_import_to_youtube" translatable="false">Import to YouTube Music</string>
+    <string name="apple_music_import_to_device" translatable="false">Save on this device</string>
+    <string name="apple_music_import_export_hint" translatable="false">YouTube Music imports matching songs into a private playlist. A device copy keeps every playable song, including Apple Music only tracks.</string>
+    <string name="apple_music_import_youtube_fallback" translatable="false">YouTube Music import failed; your complete playlist is saved on this device.</string>
+    <string name="apple_music_import_youtube_done" translatable="false">Imported matching songs to YouTube Music. Your complete playlist is also saved on this device.</string>
+    <string name="apple_music_import_matching" translatable="false">Matching %1$d songs on YouTube Music…</string>
+    <string name="apple_music_import_none" translatable="false">Nothing in that playlist could be kept</string>
+    <string name="apple_music_import_invalid" translatable="false">That isn’t a music.apple.com playlist link</string>
+    <string name="apple_music_import_missing" translatable="false">Apple Music could not find that playlist</string>
+    <string name="apple_music_import_save_failed" translatable="false">Couldn’t save the playlist on this device</string>
+    <string name="apple_music_import_failed" translatable="false">Couldn’t read that playlist from Apple Music</string>
+    <string name="apple_music_import_done" translatable="false">Imported %1$d of %2$d songs · %3$d Apple Music only</string>
     <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
     <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta">Let\'s Celebrate</string>

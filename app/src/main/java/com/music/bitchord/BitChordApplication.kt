@@ -27,6 +27,8 @@ import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.spotify.SpotifyLibrary
+import com.music.bitchord.data.applemusic.AppleMusicLibrary
+import com.music.bitchord.data.applemusic.AppleMusicTokens
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.BoundedContextPersistence
@@ -140,6 +142,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             restoredSession.profiles.firstOrNull { it.profileId == restoredSession.activeProfileId }
                 ?.let { Innertube.selectChannel(it.pageId, it.dataSyncId, it.authUser) }
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
+        }
+        AppleMusicTokens.init(this)
+        AppleMusicLibrary.auth = object : AppleMusicLibrary.Auth {
+            override suspend fun developerToken(): String = AppleMusicTokens.developerToken()
+            override suspend fun userToken(): String? = AppleMusicTokens.userToken()
         }
         AppSettings.init(this, authStore)
         // Restores the addon token, so the first search after a process restart

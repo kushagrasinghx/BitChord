@@ -24,6 +24,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
+import com.music.bitchord.data.DebugLog
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
@@ -381,6 +382,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
         // thousand songs out of the session for every track it loaded, on the
         // main thread, for as long as the queue kept playing.
         var queueChanged = false
+        var snapshotComparisonSawDifference = false
 
         fun sync(
             error: String? = null,
@@ -418,6 +420,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
 
         val listener = object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                snapshotComparisonSawDifference = false
                 // The count guard is belt and braces: a playlist change is the
                 // only reason the queue can be a different length, so if it is,
                 // this must convert it again whatever the reason claims.
@@ -436,11 +439,13 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                             (entryId != null && entryId != queueSnapshot[i].queueEntryId) ||
                             item.queueTier != queueSnapshot[i].queueTier
                         ) {
+                            snapshotComparisonSawDifference = true
                             queueChanged = true
                             break
                         }
                     }
                 }
+                DebugLog.d("QueueSwipeDbg", "controller timeline reason=$reason queueChanged=$queueChanged comparisonDifference=$snapshotComparisonSawDifference count=${timeline.windowCount} snapshot=${queueSnapshot.size}")
             }
             // Every jump the player makes — a seek, a skip, a repeat starting
             // over, a stretch of silence skipped — is announced here, ahead of
@@ -458,11 +463,15 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     newPosition.positionMs > oldPosition.positionMs
                 if (!reanchor) position.seeks++
             }
-            override fun onEvents(p: Player, events: Player.Events) = sync(
-                error = state.error,
-                rebuildQueue = queueChanged.also { queueChanged = false },
-                refreshCurrentQueueItem = events.contains(Player.EVENT_MEDIA_METADATA_CHANGED),
-            )
+            override fun onEvents(p: Player, events: Player.Events) {
+                val rebuildQueue = queueChanged.also { queueChanged = false }
+                DebugLog.d("QueueSwipeDbg", "controller events rebuildQueue=$rebuildQueue metadata=${events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)}")
+                sync(
+                    error = state.error,
+                    rebuildQueue = rebuildQueue,
+                    refreshCurrentQueueItem = events.contains(Player.EVENT_MEDIA_METADATA_CHANGED),
+                )
+            }
             override fun onPlayerErrorChanged(error: androidx.media3.common.PlaybackException?) {
                 sync(error?.let { "Playback failed: ${it.errorCodeName}" })
             }

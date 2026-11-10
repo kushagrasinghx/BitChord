@@ -125,6 +125,7 @@ import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.DebugLog
 import com.music.bitchord.data.discord.DiscordRPC
 import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.innertube.PlaybackTracker
@@ -3151,6 +3152,7 @@ class PlaybackService : MediaLibraryService() {
         val requestedIndex = args.getInt(EXTRA_QUEUE_MOVE_INDEX, -1)
         val entryId = args.getString(EXTRA_QUEUE_MOVE_ENTRY)
         val mediaId = args.getString(EXTRA_QUEUE_MOVE_MEDIA)
+        DebugLog.d("QueueSwipeDbg", "service entry requestedIndex=$requestedIndex media=$mediaId entry=$entryId count=${before.mediaItemCount} current=${before.currentMediaItemIndex}")
         val candidates = (0 until before.mediaItemCount).filter { index ->
             val candidate = before.getMediaItemAt(index)
             candidate.mediaId == mediaId && candidate.queueEntryId == entryId
@@ -3158,7 +3160,10 @@ class PlaybackService : MediaLibraryService() {
         val originalIndex = if (entryId != null) {
             candidates.singleOrNull() ?: candidates.firstOrNull { it == requestedIndex }
         } else candidates.firstOrNull { it == requestedIndex }
-        if (originalIndex == null || originalIndex == before.currentMediaItemIndex) return false
+        if (originalIndex == null || originalIndex == before.currentMediaItemIndex) {
+            DebugLog.d("QueueSwipeDbg", "service resolve failed index=$originalIndex current=${before.currentMediaItemIndex}")
+            return false
+        }
         val original = before.getMediaItemAt(originalIndex)
         val wasHistory = originalIndex < before.currentMediaItemIndex
         val contextGeneration = boundedEditState.contextGeneration
@@ -3188,8 +3193,19 @@ class PlaybackService : MediaLibraryService() {
             isNext = AppSettings.swipeToPlayNext.value,
         )
         val target = if (from < insertion) insertion - 1 else insertion
-        if (item.queueTier == QueueTier.USER_QUEUE && from == target) return false
+        DebugLog.d("QueueSwipeDbg", "service resolved index=$from target=$target tier=${item.queueTier} insertion=$insertion current=${activePlayer.currentMediaItemIndex}")
+        if (item.queueTier == QueueTier.USER_QUEUE && from == target) {
+            DebugLog.d("QueueSwipeDbg", "service no-op already user tier index=$from")
+            return false
+        }
         val window = boundedContextWindow
+        var exclusionOutcome = when {
+            wasHistory -> "skipped:history"
+            item.queueTier != QueueTier.CONTEXT -> "skipped:not-context"
+            window == null -> "skipped:no-window"
+            ListenTogether.state.value.inParty -> "skipped:party"
+            else -> "pending"
+        }
         if (!wasHistory && item.queueTier == QueueTier.CONTEXT && window != null &&
             !ListenTogether.state.value.inParty
         ) {
@@ -3209,12 +3225,22 @@ class PlaybackService : MediaLibraryService() {
             // Materialization and commit admit only the immediately following
             // cycle. Retain its last source occurrence rather than strand refill;
             // the move still succeeds, so this one occurrence can appear twice.
-            if (!lastPlannedOccurrence && !window.exclude(QueueWindowEntry(canonicalIndex, cycleId))) return false
+            if (lastPlannedOccurrence) {
+                exclusionOutcome = "skipped:last-planned-occurrence"
+            } else {
+                val excludedNow = window.exclude(QueueWindowEntry(canonicalIndex, cycleId))
+                exclusionOutcome = if (excludedNow) "applied:index=$canonicalIndex cycle=$cycleId" else "rejected:index=$canonicalIndex cycle=$cycleId"
+                if (!excludedNow) {
+                    DebugLog.d("QueueSwipeDbg", "service decision index=$from target=$target move=false exclusion=$exclusionOutcome result=false")
+                    return false
+                }
+            }
         }
         // This is the session's native player, not a controller round-trip through
         // resolveMediaItems: retain canonical metadata, URI, and occurrence identity.
         activePlayer.replaceMediaItem(from, QueueShuffle.withQueueMetadata(item, newTier = QueueTier.USER_QUEUE))
         if (from != target) activePlayer.moveMediaItem(from, target)
+        DebugLog.d("QueueSwipeDbg", "service decision index=$from target=$target move=${from != target} onlyRetag=${from == target} exclusion=$exclusionOutcome")
         // Retiering the first context row can leave its index unchanged; that
         // still counts as an explicit queue edit for a listening party.
         partySync?.onLocalIntent()

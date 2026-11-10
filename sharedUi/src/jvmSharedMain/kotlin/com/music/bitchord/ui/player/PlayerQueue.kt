@@ -103,6 +103,7 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.DebugLog
 import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.ui.AppUi
 import dev.chrisbanes.haze.HazeState
@@ -254,6 +255,7 @@ internal fun splitQueue(queue: List<Song>, currentIndex: Int, showHistory: Boole
             QueueTier.AUTOPLAY -> autoplay += track(index, "autoplay")
         }
     }
+    DebugLog.d("QueueSwipeDbg", "split now=${queue[currentIndex].videoId} user=${user.size} context=${context.size} autoplay=${autoplay.size}")
     val history = if (showHistory) (0 until currentIndex).map { track(it, "history") } else emptyList()
     return QueueTracks(track(currentIndex, "np"), user, context, autoplay, history)
 }
@@ -380,17 +382,30 @@ internal fun InlineQueue(
                 }
                 QueueSwipeAction.QUEUE -> {
                     val moveToHead = swipeToPlayNext
+                    val expectedTarget = if (moveToHead) 0 else tracks.user.size
+                    val section = when {
+                        tracks.context.any { it.key == live.key } -> "context"
+                        tracks.user.any { it.key == live.key } -> "user"
+                        tracks.autoplay.any { it.key == live.key } -> "autoplay"
+                        else -> "other"
+                    }
+                    DebugLog.d("QueueSwipeDbg", "commit start key=${live.key} media=${live.song.videoId} entry=${live.song.queueEntryId} section=$section expectedTarget=$expectedTarget manualSize=${tracks.user.size}")
                     if (onSwipeToQueue(live.timelineIndex, live.song)) {
                         // Native acknowledgement can precede the UI snapshot.
                         // A same-key manual row stays hidden until arrival is real.
-                        withTimeoutOrNull(2_000) {
+                        val arrived = withTimeoutOrNull(2_000) {
                             snapshotFlow {
                                 val rows = latestTracks.user
                                 val destination = if (moveToHead) rows.firstOrNull() else rows.lastOrNull()
                                 destination != null && destination.sameEntryAs(live)
                             }.first { it }
                         } == true
-                    } else false
+                        DebugLog.d("QueueSwipeDbg", "commit ${if (arrived) "arrival" else "timeout"} key=${live.key} expectedTarget=$expectedTarget manualSize=${latestTracks.user.size}")
+                        arrived
+                    } else {
+                        DebugLog.d("QueueSwipeDbg", "commit rejected key=${live.key} expectedTarget=$expectedTarget manualSize=${latestTracks.user.size}")
+                        false
+                    }
                 }
             }
         } else false

@@ -17,6 +17,8 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.MediaTagger
+import android.content.ContentValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -590,5 +592,51 @@ object LocalMediaRepository {
         val minutes = totalSecs / 60
         val secs = totalSecs % 60
         return String.format(Locale.ROOT, "%d:%02d", minutes, secs)
+    }
+
+    /**
+     * Updates track metadata across downloads records, MediaStore, and file tags.
+     */
+    suspend fun updateTrackMetadata(
+        context: Context,
+        song: Song,
+        title: String,
+        artist: String,
+        albumName: String?,
+    ): Result<Song> = withContext(Dispatchers.IO) {
+        runCatching {
+            val uriStr = song.localUri ?: error("No local URI")
+            val uri = Uri.parse(uriStr)
+
+            // Update in-app Downloads store if applicable
+            Downloads.updateMetadata(uriStr, title, artist, albumName)
+
+            // Update MediaStore content resolver if it is a content URI
+            if (uri.scheme == "content") {
+                val values = ContentValues().apply {
+                    put(MediaStore.Audio.Media.TITLE, title)
+                    put(MediaStore.Audio.Media.ARTIST, artist)
+                    if (!albumName.isNullOrBlank()) {
+                        put(MediaStore.Audio.Media.ALBUM, albumName)
+                    }
+                }
+                runCatching {
+                    context.contentResolver.update(uri, values, null, null)
+                }
+            }
+
+            // Retag container file if supported
+            val ext = uri.lastPathSegment?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
+                ?: song.localPath?.substringAfterLast('.', "")?.lowercase(Locale.ROOT)
+                ?: ""
+            if (MediaTagger.carriesTags(ext)) {
+                val updatedTrack = song.copy(title = title, artist = artist, albumName = albumName)
+                runCatching {
+                    MediaTagger.embed(context, uri, updatedTrack, ext, lyrics = null)
+                }
+            }
+
+            song.copy(title = title, artist = artist, albumName = albumName)
+        }
     }
 }

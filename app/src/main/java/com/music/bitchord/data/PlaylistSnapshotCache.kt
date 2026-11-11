@@ -49,6 +49,7 @@ object PlaylistSnapshotCache {
     private const val TAG = "PlaylistSnapshotCache"
     const val REVALIDATE_AFTER_MS = 6L * 60 * 60 * 1000
     private const val METADATA_PROBE_AFTER_MS = 2L * 60 * 1000
+    private const val RETURN_FULL_CHECK_COOLDOWN_MS = 15L * 1000
     private const val RECENT_DAYS = 7L
     private const val MAX_IDLE_MS = 30L * 24 * 60 * 60 * 1000
     private const val MAX_CACHE_BYTES = 96L * 1024 * 1024
@@ -73,6 +74,10 @@ object PlaylistSnapshotCache {
         val continuation: String?,
         val complete: Boolean,
         val owned: Boolean?,
+        // Metadata is only authoritative after a complete successful scan.
+        val title: String? = null,
+        val subtitle: String? = null,
+        val thumbnailUrl: String? = null,
     )
     private data class Key(val listener: String, val browseId: String)
 
@@ -82,6 +87,7 @@ object PlaylistSnapshotCache {
     private val revisions = ConcurrentHashMap<Key, AtomicLong>()
     private val jobs = ConcurrentHashMap<Key, Job>()
     private val lastMetadataProbe = ConcurrentHashMap<Key, Long>()
+    private val lastReturnFullCheck = ConcurrentHashMap<Key, Long>()
     private val updatesFlow = MutableSharedFlow<Update>(
         extraBufferCapacity = 128,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -119,13 +125,22 @@ object PlaylistSnapshotCache {
         browseId: String,
         firstPage: YtMusicRepository.SongPage? = null,
         force: Boolean = false,
+        checkOnReturn: Boolean = false,
     ): Job {
         val key = Key(listener, browseId)
         synchronized(jobs) {
             jobs[key]?.takeIf { it.isActive }?.let { return it }
             val appContext = context.applicationContext
             val job = scope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
-                sync(appContext, key, firstPage, force)
+                try {
+                    sync(appContext, key, firstPage, force, checkOnReturn)
+                } catch (cancel: kotlinx.coroutines.CancellationException) {
+                    throw cancel // Cancellation is cooperative, never an error to swallow.
+                } catch (error: Exception) {
+                    // Keep the last complete snapshot and avoid an uncaught
+                    // exception from a fire-and-forget synchronization job.
+                    Log.w(TAG, "Playlist sync failed; keeping existing cache", error)
+                }
             }
             jobs[key] = job
             job.invokeOnCompletion { jobs.remove(key, job) }
@@ -139,9 +154,23 @@ object PlaylistSnapshotCache {
         key: Key,
         firstPage: YtMusicRepository.SongPage?,
         force: Boolean,
+        checkOnReturn: Boolean,
     ) {
         if (activeListener(context) != key.listener) return
         val cached = read(context, key.listener, key.browseId)
+        // Only throttle the costly app-return full scan. The Library feed,
+        // ordinary metadata probes, manual refresh and six-hour verification
+        // remain independent. Same-playlist active jobs already deduplicate.
+        val now = System.currentTimeMillis()
+        if (checkOnReturn && !force && cached != null &&
+            now - cached.checkedAt in 0L until REVALIDATE_AFTER_MS
+        ) {
+            if (!PlaylistMetadata.shouldRunReturnCheck(
+                    now, lastReturnFullCheck[key], RETURN_FULL_CHECK_COOLDOWN_MS
+                )
+            ) return
+            lastReturnFullCheck[key] = now
+        }
         val startedRevision = revision(key).get()
         var firstPageToScan = firstPage
         // A short header probe can notice additions/removals before the six-hour
@@ -152,7 +181,7 @@ object PlaylistSnapshotCache {
         ) {
             val now = System.currentTimeMillis()
             val last = lastMetadataProbe[key] ?: 0L
-            if (now - last < METADATA_PROBE_AFTER_MS) return
+            if (!checkOnReturn && now - last < METADATA_PROBE_AFTER_MS) return
             // Record the attempt before calling the network. A failed request
             // must not cause another request on every rapid re-open.
             lastMetadataProbe[key] = now
@@ -161,11 +190,22 @@ object PlaylistSnapshotCache {
                 Log.d(TAG, "Playlist metadata probe failed; keeping complete cached songs")
                 return
             }
-            if (!PlaylistMetadata.hasChanged(cached.songs, probe.header?.subtitle)) {
+            val metadataChanged = PlaylistMetadata.hasChanged(cached.songs, probe.header?.subtitle)
+            val firstPageChanged = checkOnReturn &&
+                PlaylistMetadata.firstPageChanged(cached.songs, probe.songs)
+            if (!checkOnReturn && !metadataChanged) {
                 Log.d(TAG, "Playlist metadata unchanged or unavailable; retaining cache")
                 return
             }
-            Log.d(TAG, "Playlist metadata differs; requesting complete refresh")
+            // On a genuine app return, a removal can be anywhere in a large
+            // playlist, not just in its header or first page. Verify the entire
+            // list instead of assuming no change. The cache remains visible
+            // until all continuations succeed; incomplete scans are discarded.
+            if (checkOnReturn && !metadataChanged && !firstPageChanged) {
+                Log.d(TAG, "External return: verifying complete playlist for deeper edits")
+            } else {
+                Log.d(TAG, "Playlist change detected; requesting complete refresh")
+            }
             firstPageToScan = probe // Reuse the first page; never fetch it twice.
         }
         val first = firstPageToScan ?: YtMusicRepository.browseSongs(key.browseId).getOrNull() ?: return
@@ -222,11 +262,17 @@ object PlaylistSnapshotCache {
                 }
             }
         }
+        // Use the time of successful verification, not only its start:
+        // long playlists should not trigger another full scan immediately.
+        if (changed != null && checkOnReturn) lastReturnFullCheck[key] = System.currentTimeMillis()
         if (changed == true) {
             Log.d(TAG, "Complete playlist refresh changed visible content")
             updatesFlow.emit(Update(
                 key.listener, key.browseId, newSnapshot.songs, continuation = null,
                 complete = true, owned = newSnapshot.owned,
+                title = newSnapshot.title,
+                subtitle = newSnapshot.subtitle,
+                thumbnailUrl = newSnapshot.thumbnailUrl,
             ))
         } else if (changed == false) {
             Log.d(TAG, "Complete playlist verified; no visible changes")
@@ -239,10 +285,10 @@ object PlaylistSnapshotCache {
         listener: String,
         browseId: String,
         transform: (List<Song>) -> List<Song>,
-    ) {
+    ): Job {
         val key = Key(listener, browseId)
         revision(key).incrementAndGet()
-        scope.launch {
+        return scope.launch {
             if (activeListener(context) != key.listener) return@launch
             val current: Snapshot
             val updated: Snapshot
@@ -262,6 +308,7 @@ object PlaylistSnapshotCache {
         val key = Key(listener, browseId)
         revision(key).incrementAndGet()
         lastMetadataProbe.remove(key)
+        lastReturnFullCheck.remove(key)
         scope.launch {
             synchronized(lock(key)) {
                 memory.remove(key)

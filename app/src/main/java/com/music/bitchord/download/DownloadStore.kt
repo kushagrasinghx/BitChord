@@ -404,6 +404,80 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
      * then failed during the transfer. The copy that never leaves app storage
      * does live under filesDir, and that is what is measured for it.
      */
+    /** Where offline HLS and DASH packages live — one directory each. */
+    private fun packageRoot(context: Context): File = File(context.filesDir, "offline-hls")
+
+    /**
+     * A package directory younger than this is assumed to be a download that is
+     * still running.
+     *
+     * The only way a package directory exists without a record pointing at it is
+     * that its download has not finished yet — [Downloads.remember] is what
+     * writes the record, and it runs after the bytes. A day is far longer than
+     * any download takes and far shorter than a user would notice storage
+     * disappearing, so it separates "in flight" from "abandoned" without asking
+     * anything that can rage.
+     */
+    internal const val ORPHAN_MIN_AGE_MS = 24L * 60 * 60 * 1000L
+
+    /**
+     * Package directories that no record points at and that are too old to be a
+     * download in progress.
+     *
+     * Both conditions are necessary. Referenced-only would never delete anything,
+     * which is the state this finding describes; age-only would delete the
+     * package a download is currently filling. Takes the directory listing and
+     * the clock rather than reading them so the rule can be tested on a folder
+     * it built itself.
+     */
+    internal fun orphanedPackages(
+        root: File,
+        referenced: Set<String>,
+        nowMillis: Long,
+        minAgeMillis: Long = ORPHAN_MIN_AGE_MS,
+    ): List<File> {
+        val entries = root.listFiles() ?: return emptyList()
+        return entries.filter { entry ->
+            entry.isDirectory &&
+                entry.name !in referenced &&
+                nowMillis - entry.lastModified() >= minAgeMillis
+        }
+    }
+
+    /**
+     * Delete [packages] and everything inside them.
+     *
+     * Separate from the sweep so the rule and the deleting can be tested without
+     * a `Context`, and so nothing here needs a logger: this is called with
+     * directories a test built itself.
+     *
+     * @return how many directories were removed.
+     */
+    internal fun removePackages(packages: List<File>): Int =
+        packages.count { it.deleteRecursively() }
+
+    /**
+     * Remove the packages [orphanedPackages] names, and everything inside them.
+     *
+     * Covers the sidecars as well as the audio: a package holds `playlist.m3u8`,
+     * its segments, `lyrics.lrc` and `cover.jpg`, so reclaiming the directory is
+     * what reclaims the artwork too — including the covers that belong to a
+     * package whose record was lost.
+     *
+     * @return how many directories were removed.
+     */
+    fun reclaimOrphanedPackages(
+        context: Context,
+        referenced: Set<String>,
+        nowMillis: Long = System.currentTimeMillis(),
+        minAgeMillis: Long = ORPHAN_MIN_AGE_MS,
+    ): Int {
+        val orphans = orphanedPackages(packageRoot(context), referenced, nowMillis, minAgeMillis)
+        val removed = removePackages(orphans)
+        if (removed > 0) Log.d(TAG, "reclaimed $removed orphaned offline packages")
+        return removed
+    }
+
     private fun freeSpacePath(context: Context): String =
         if (AppSettings.exportDownloads.value) {
             @Suppress("DEPRECATION")

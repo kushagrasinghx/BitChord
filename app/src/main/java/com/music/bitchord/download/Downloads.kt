@@ -876,6 +876,36 @@ object Downloads {
             }
         }
 
+    /**
+     * The offline package directories the records point at.
+     *
+     * A saved uri for an HLS or DASH download is `…/offline-hls/<name>/playlist.m3u8`,
+     * and its `<name>` is what must survive reclamation. Extracted from the
+     * record rather than from the manifests, because the record is the only
+     * thing that says a package is still wanted.
+     */
+    internal fun referencedPackageNames(saved: Map<String, String> = _saved.value): Set<String> {
+        val names = HashSet<String>()
+        for (uri in saved.values) {
+            if (!uri.endsWith("/playlist.m3u8")) continue
+            val name = uri.substringBeforeLast('/').substringAfterLast('/')
+            if (name.isNotEmpty()) names += name
+        }
+        return names
+    }
+
+    /**
+     * Delete packages nothing points at; see [DownloadStore.orphanedPackages].
+     *
+     * Touches the filesystem, so it is called from a background thread at
+     * startup rather than from [init], which runs on the main thread.
+     */
+    internal suspend fun reclaimOrphanedPackages(context: Context) = withContext(Dispatchers.IO) {
+        runCatching { DownloadStore.reclaimOrphanedPackages(context, referencedPackageNames()) }
+            .onFailure { Log.w(TAG, "could not reclaim orphaned download packages: ${it.message}") }
+        Unit
+    }
+
     private fun String.toUri(): Uri = Uri.parse(this)
 
     // ---- Driven by DownloadService -----------------------------------------

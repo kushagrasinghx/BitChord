@@ -202,6 +202,14 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // Offline packages no record points at are reclaimed away from the
+        // startup path: a save interrupted by process death, or a re-download
+        // whose directory moved, leaves the whole package — segments, lyrics
+        // and cover — with nothing that will ever read it. Deliberately after
+        // [Downloads.init] (the record is the reference) and off the joined
+        // thread, because deleting files is not something the first frame should
+        // wait for, and the age guard means nothing in flight can match.
+        CoroutineScope(Dispatchers.IO).launch { Downloads.reclaimOrphanedPackages(this@BitChordApplication) }
     }
 
     /**

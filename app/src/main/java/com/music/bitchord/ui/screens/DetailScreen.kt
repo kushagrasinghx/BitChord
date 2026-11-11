@@ -463,6 +463,9 @@ fun DetailScreen(
     // list. When no filter is active, matches contains the full running order
     // and plays the complete release/playlist from the tapped position.
     val queue = remember(matches) { matches.map { it.value } }
+    // Resolve the highlighted track only when the queue or current song changes,
+    // not whenever the lazy list recomposes while scrolling.
+    val currentQueueRow = remember(queue, currentSong) { playingRowMatcher(queue, currentSong) }
     val suggested = remember(page.suggestedSongs, query) {
         page.suggestedSongs.matching(query).map { it.value }
     }
@@ -764,7 +767,7 @@ fun DetailScreen(
                     // already the largest thing on the page — Apple Music
                     // numbers those rows instead, and so does this.
                     val numbered = page.type == BrowseType.ALBUM
-                    val isCurrentRow = playingRowMatcher(matches.map { it.value }, currentSong)
+                    val isCurrentRow = currentQueueRow
                     if (matches.isEmpty() && state.data.isNotEmpty()) {
                         item(key = "no-matches") {
                             MessageState(stringResource(R.string.nothing_matches, query))
@@ -772,16 +775,19 @@ fun DetailScreen(
                     }
                     itemsIndexed(
                         items = matches,
-                        key = { _, entry -> "${entry.index}_${entry.value.videoId}" },
+                        key = { _, entry -> entry.value.setVideoId ?: "${entry.index}_${entry.value.videoId}" },
+                        contentType = { _, _ -> "track" },
                     ) { position, entry ->
                         val song = entry.value
                         val isCurrent = isCurrentRow(song)
+                        // Artwork fallback is identical for every scroll frame;
+                        // don't create another Song object on each recomposition.
+                        val displaySong = remember(song, numbered, page.thumbnailUrl) {
+                            if (numbered || song.thumbnailUrl != null || page.thumbnailUrl == null) song
+                            else song.copy(thumbnailUrl = page.thumbnailUrl)
+                        }
                         SongRow(
-                            song = if (numbered) {
-                                song
-                            } else {
-                                song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
-                            },
+                            song = displaySong,
                             onClick = {
                                 onSongClick(queue, position)
                             },
@@ -1273,28 +1279,30 @@ private fun DetailSearchField(
     }
 }
 
+/**
+ * Date added uses our cached entry insertion sequence when known. YouTube does
+ * not expose reliable historical add timestamps; unindexed rows use the remote
+ * playlist's current order as the initial baseline (front = newest).
+ */
+/** Preserve per-playlist order while its page exits through AnimatedContent. */
+internal fun songSortForBrowseId(
+    browseId: String,
+    preferences: Map<String, SongSort>,
+): SongSort = preferences[browseId] ?: SongSort.DEFAULT
+
 internal fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort) {
     SongSort.DEFAULT -> this
     SongSort.TITLE_ASC -> sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
     SongSort.TITLE_DESC -> sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
-    // A catalogue row carries no added date, so its place in the running
-    // order stands in for one: a playlist is appended to as songs are added,
-    // and reversed that puts the most recent addition on top. Rows that do
-    // carry a MediaStore timestamp — device tracks, downloads — are dated
-    // properly, with the position order left to break the ties.
     SongSort.DATE_ADDED_ASC -> withIndex()
-        .sortedWith(
-            compareBy<IndexedValue<Song>> { (_, song) ->
-                song.localDateAddedSeconds ?: Long.MAX_VALUE
-            }.thenBy { (position, _) -> position },
-        )
+        .sortedWith(compareBy<IndexedValue<Song>> { (position, song) ->
+            song.playlistAddedOrdinal ?: song.localDateAddedSeconds ?: (size - position).toLong()
+        }.thenByDescending { it.index })
         .map { it.value }
     SongSort.DATE_ADDED_DESC -> withIndex()
-        .sortedWith(
-            compareByDescending<IndexedValue<Song>> { (_, song) ->
-                song.localDateAddedSeconds ?: Long.MIN_VALUE
-            }.thenByDescending { (position, _) -> position },
-        )
+        .sortedWith(compareByDescending<IndexedValue<Song>> { (position, song) ->
+            song.playlistAddedOrdinal ?: song.localDateAddedSeconds ?: (size - position).toLong()
+        }.thenBy { it.index })
         .map { it.value }
 }
 

@@ -16,6 +16,7 @@ import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.playlistMoves
+import com.music.bitchord.data.playlist.playlistEntryKey
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
@@ -888,24 +889,34 @@ object YtMusicRepository {
      * anything a screen is waiting on, use [browseSongs] and [moreSongs].
      */
     private suspend fun songsPaged(browseId: String): List<Song> {
+        val isPlaylist = browseId.startsWith("VL")
         val out = LinkedHashMap<String, Song>()
+        val seenTokens = HashSet<String>()
         var response = Innertube.browse(browseId)
         if (browseId.startsWith("MPREb")) {
             val albumRows = InnertubeParser.collectSongsDeep(response).size
             albumPlaylistOf(response, albumRows)?.let { response = it }
         }
         var page = 1
-        // Named by the first page alone; see [InnertubeParser.podcastShow].
         val show = InnertubeParser.podcastShow(response)
         while (true) {
-            // Same shelf-scoping as pageOf: a playlist (Liked Music and the
-            // Library Songs auto-playlist included) is read from its own
-            // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
-            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response, show)).forEach { out[it.videoId] = it }
+            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response, show)).forEach { song ->
+                out[if (isPlaylist) playlistEntryKey(song) else song.videoId] = song
+            }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
-            if (token == null || page++ >= MAX_PAGES) break
-            response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            if (token == null) break
+            if (!seenTokens.add(token) ||
+                page++ >= (if (isPlaylist) MAX_PLAYLIST_PAGES else MAX_PAGES)) {
+                if (isPlaylist) error("playlist scan incomplete or looping")
+                break
+            }
+            val next = runCatching { Innertube.browseContinuation(token) }.getOrNull()
+            if (next == null) {
+                if (isPlaylist) error("playlist scan failed before completion")
+                break
+            }
+            response = next
         }
         return out.values.toList()
     }
@@ -939,6 +950,7 @@ object YtMusicRepository {
     private suspend fun libraryItemsPaged(browseId: String): List<ShelfItem> = itemsPaged(browseId, null)
 
     const val MAX_PAGES = 10
+    private const val MAX_PLAYLIST_PAGES = 200
 
     /**
      * Liked Music: the `LM` auto-playlist, addressed as a playlist browse id.
@@ -1078,10 +1090,12 @@ object YtMusicRepository {
      */
     suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries:$browseId") {
         val out = LinkedHashMap<String, Song>()
+        val seenTokens = HashSet<String>()
         var response = Innertube.browse(browseId)
         var page = 1
         while (true) {
-            val shelf = InnertubeParser.parsePlaylistShelf(response) ?: break
+            val shelf = InnertubeParser.parsePlaylistShelf(response)
+                ?: error("playlist entries unavailable")
             shelf.songs.forEach { song ->
                 val setVideoId = song.setVideoId ?: error("playlist entry without an id")
                 out.putIfAbsent(setVideoId, song)
@@ -1089,7 +1103,8 @@ object YtMusicRepository {
             val token = shelf.continuation ?: break
             // Same cap as [songsPaged] — a playlist past it can't be listed
             // whole, and a partial list can't be reordered safely.
-            if (page++ >= MAX_PAGES) error("playlist too long to reorder")
+            if (page++ >= MAX_PLAYLIST_PAGES || !seenTokens.add(token))
+                error("playlist too long or continuation loop")
             response = Innertube.browseContinuation(token)
         }
         out.values.toList()

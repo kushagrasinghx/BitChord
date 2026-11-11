@@ -1,6 +1,7 @@
 package com.music.bitchord.ui
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.R
@@ -15,6 +16,8 @@ import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.PlaylistSnapshotCache
+import com.music.bitchord.data.playlist.playlistEntryKey
 import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.AppleArtistPhotos
 import com.music.bitchord.data.model.ArtistRef
@@ -1028,6 +1031,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
         val known = openSongs
+            ?: playlistCacheListener()?.let { listener ->
+                PlaylistSnapshotCache.read(getApplication(), listener, playlist.browseId)?.songs
+            }
             ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
         if (known?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
         return YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
@@ -1039,7 +1045,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
                 AddOutcome.ADDED
             },
-            onFailure = { AddOutcome.FAILED },
+            onFailure = {
+                // A request can time out *after* YouTube accepted the edit.
+                // Verify an ambiguous failure against a complete fresh listing,
+                // never the existing (possibly stale) playlist cache. This is
+                // deliberately the slow path only; the normal success path is
+                // unchanged. A truncated/failed listing cannot confirm an add.
+                val confirmed = YtMusicRepository.allSongs(playlist.browseId)
+                    .getOrNull()?.firstOrNull { it.videoId == song.videoId }
+                if (confirmed != null) {
+                    libraryStale = true
+                    appendToOpenPlaylist(playlist.browseId, confirmed, confirmed.setVideoId)
+                    AddOutcome.ADDED
+                } else {
+                    AddOutcome.FAILED
+                }
+            },
         )
     }
 
@@ -1048,6 +1069,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * track's menu — one request, so it can't half-succeed into an empty
      * playlist the user has to add to again.
      */
+    /** A failed edit keeps local data unchanged and gives a retry hint. */
+    private fun showPlaylistEditFailure() {
+        Toast.makeText(getApplication(), R.string.playlist_edit_failed, Toast.LENGTH_SHORT).show()
+    }
+
     fun createPlaylist(title: String, privacy: PlaylistPrivacy, song: Song? = null) {
         if (!requireSignIn()) return
         val name = title.trim().ifBlank { text(R.string.new_playlist) }
@@ -1093,7 +1119,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         ) + items.filterNot { it.browseId == created.browseId }
                     }
                 },
-                onFailure = {},
+                onFailure = { showPlaylistEditFailure() },
             )
         }
     }
@@ -1171,6 +1197,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ).fold(
                 onSuccess = {
                     libraryStale = true
+                    playlistCacheListener()?.let { listener ->
+                        val mutation = PlaylistSnapshotCache.mutate(getApplication(), listener, browseId) { rows ->
+                            rows.filterNot { it.setVideoId == setVideoId }
+                        }
+                        // Only after the local cache edit completes: avoid a
+                        // race where the server scan overwrites the removed row.
+                        // Failure keeps the existing art and complete cache.
+                        viewModelScope.launch {
+                            mutation.join()
+                            PlaylistSnapshotCache.requestSync(
+                                getApplication(), listener, browseId, force = true,
+                            ).join()
+                        }
+                    }
                     _detailStack.value = _detailStack.value.map { page ->
                         val songs = (page.songs as? UiState.Success)?.data
                         if (page.browseId != browseId || songs == null) {
@@ -1184,7 +1224,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 },
-                onFailure = {},
+                onFailure = { showPlaylistEditFailure() },
             )
         }
     }
@@ -1225,7 +1265,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     appendToOpenPlaylist(browseId, song, added[song.videoId])
                 },
-                onFailure = {},
+                onFailure = { showPlaylistEditFailure() },
             )
         }
     }
@@ -1244,7 +1284,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * flight is newer than this and will land with the addition already in it.
      */
     private fun appendToOpenPlaylist(browseId: String, song: Song, setVideoId: String?) {
-        val added = song.copy(setVideoId = setVideoId)
+        val currentRows = (_detailStack.value.firstOrNull { it.browseId == browseId }?.songs as? UiState.Success)?.data
+        val newestRank = currentRows?.mapIndexed { i, entry ->
+            entry.playlistAddedOrdinal ?: (currentRows.size - i).toLong()
+        }?.maxOrNull() ?: 0L
+        val added = song.copy(
+            setVideoId = setVideoId,
+            playlistAddedOrdinal = newestRank + 1L,
+        )
+        playlistCacheListener()?.let { listener ->
+            PlaylistSnapshotCache.mutate(getApplication(), listener, browseId) { rows ->
+                if (rows.any { playlistEntryKey(it) == playlistEntryKey(added) }) rows
+                else rows + added
+            }
+        }
         _detailStack.value = _detailStack.value.map { page ->
             if (page.browseId != browseId) return@map page
             val songs = when (val state = page.songs) {
@@ -1282,7 +1335,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     setPlaylistTitle(playlist, name)
                     libraryStale = true
                 },
-                onFailure = {},
+                onFailure = { showPlaylistEditFailure() },
             )
         }
     }
@@ -1319,6 +1372,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ).fold(
                 onSuccess = {
                     libraryStale = true
+                    playlistCacheListener()?.let { listener ->
+                        PlaylistSnapshotCache.mutate(getApplication(), listener, playlist.browseId) { rows ->
+                            if (rows.size == reordered.size &&
+                                rows.map(::playlistEntryKey).toSet() == reordered.map(::playlistEntryKey).toSet()
+                            ) reordered else rows
+                        }
+                    }
                     _detailStack.value = _detailStack.value.map { page ->
                         if (page.browseId != playlist.browseId || page.songs !is UiState.Success) {
                             page
@@ -1338,6 +1398,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             YtMusicRepository.deletePlaylist(playlist.playlistId).fold(
                 onSuccess = {
+                    playlistCacheListener()?.let { listener ->
+                        PlaylistSnapshotCache.remove(getApplication(), listener, playlist.browseId)
+                    }
                     _playlists.value = _playlists.value
                         .filterNot { it.playlistId == playlist.playlistId }
                     // The card in the library tab, which is the surface the
@@ -1354,7 +1417,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     navigator.onDetailStackShrunk(_detailStack.value.size)
                     libraryStale = true
                 },
-                onFailure = {},
+                onFailure = { showPlaylistEditFailure() },
             )
         }
     }
@@ -1456,6 +1519,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        PlaylistSnapshotCache.schedule(app)
+        viewModelScope.launch {
+            PlaylistSnapshotCache.updates.collectLatest { update ->
+                if (update.listener != playlistCacheListener()) return@collectLatest
+                update.owned?.let { setPlaylistOwned(update.browseId, it) }
+                _detailStack.value = _detailStack.value.map { page ->
+                    if (page.browseId != update.browseId || page.type != BrowseType.PLAYLIST) {
+                        page
+                    } else {
+                        val existing = (page.songs as? UiState.Success)?.data.orEmpty()
+                        if (!update.complete && existing.size > update.songs.size) page
+                        else {
+                            // YouTube Music can change a playlist's collage
+                            // after a song is removed. The snapshot already
+                            // saves the new URL; it must also reach the page.
+                            // Missing server metadata is never a reason to
+                            // erase a valid cover or title.
+                            val art = if (update.complete) {
+                                update.thumbnailUrl?.takeIf(String::isNotBlank) ?: page.thumbnailUrl
+                            } else page.thumbnailUrl
+                            val title = if (update.complete) {
+                                update.title?.takeIf(String::isNotBlank) ?: page.title
+                            } else page.title
+                            val subtitle = if (update.complete) {
+                                update.subtitle?.takeIf(String::isNotBlank) ?: page.subtitle
+                            } else page.subtitle
+                            if (update.complete && page.continuation == null &&
+                                existing == update.songs && art == page.thumbnailUrl &&
+                                title == page.title && subtitle == page.subtitle) page
+                            else page.copy(
+                                songs = if (update.songs.isEmpty()) UiState.Error(text(R.string.no_tracks_here))
+                                    else UiState.Success(update.songs.withArtwork(art)),
+                                continuation = update.continuation,
+                                thumbnailUrl = art,
+                                title = title,
+                                subtitle = subtitle,
+                            )
+                        }
+                    }
+                }
+            }
+        }
         startSearchPipeline()
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
@@ -2781,6 +2886,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // may be a "Playing from" label from before a rename.
             OfflinePlaylists.get(browseId)?.let { name = it.title }
             val local = localPageState(browseId)
+            val playlistListener = playlistCacheListener()
+                ?.takeIf { local == null && resolved == BrowseType.PLAYLIST && PlaylistSnapshotCache.isPlaylist(browseId) }
+            val cachedPlaylist = playlistListener?.let {
+                PlaylistSnapshotCache.read(getApplication(), it, browseId)
+            }
+            if (cachedPlaylist != null) {
+                cachedPlaylist.owned?.let { setPlaylistOwned(browseId, it) }
+                _detailStack.value = _detailStack.value.map { current ->
+                    if (current.browseId != browseId || current.songs !is UiState.Loading) current
+                    else current.copy(
+                        songs = if (cachedPlaylist.songs.isEmpty()) UiState.Error(text(R.string.no_tracks_here))
+                            else UiState.Success(cachedPlaylist.songs.withArtwork(current.thumbnailUrl)),
+                        title = if (current.title.isBlank()) cachedPlaylist.title ?: current.title else current.title,
+                        subtitle = if (current.subtitle.isBlank()) cachedPlaylist.subtitle ?: current.subtitle else current.subtitle,
+                        thumbnailUrl = cachedPlaylist.thumbnailUrl?.takeIf(String::isNotBlank) ?: current.thumbnailUrl,
+                        continuation = null,
+                    )
+                }
+                PlaylistSnapshotCache.requestSync(getApplication(), playlistListener, browseId)
+                return@launch
+            }
+            var firstPlaylistPage: YtMusicRepository.SongPage? = null
             // Reopened by id alone — the player's "Playing from" — a page off
             // the device arrives with only its title, and offline nothing from
             // YouTube or Apple ever lends it a cover. It takes the cover and
@@ -2815,6 +2942,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 else -> {
                     YtMusicRepository.browseSongs(browseId).fold(
                         onSuccess = { page ->
+                            if (playlistListener != null) firstPlaylistPage = page
                             // Free here — the page that returned these rows is
                             // the one thing that states who made the playlist,
                             // so its own menu never has to go and ask. Recorded
@@ -2877,8 +3005,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             // Only once the first page is on screen: [fillIn] appends to it,
             // and has nothing to append to before this.
-            more?.let { fillIn(browseId, it, thumbnailUrl ?: artwork) }
+            if (playlistListener != null && firstPlaylistPage != null) {
+                PlaylistSnapshotCache.requestSync(
+                    getApplication(), playlistListener, browseId, firstPage = firstPlaylistPage,
+                )
+            } else {
+                more?.let { fillIn(browseId, it, thumbnailUrl ?: artwork) }
+            }
         }
+    }
+
+    /** Check for external edits after returning to an already open playlist.
+     * A failed check never replaces cached rows or modifies playback.
+     */
+    fun checkPlaylistAfterExternalReturn(browseId: String) {
+        if (!PlaylistSnapshotCache.isPlaylist(browseId)) return
+        val listener = playlistCacheListener() ?: return
+        PlaylistSnapshotCache.requestSync(
+            getApplication(), listener, browseId, checkOnReturn = true,
+        )
+    }
+
+    /** Force a fresh server comparison while retaining the current playable rows. */
+    fun refreshPlaylist(browseId: String) {
+        if (!PlaylistSnapshotCache.isPlaylist(browseId)) return
+        val listener = playlistCacheListener() ?: return
+        PlaylistSnapshotCache.requestSync(
+            getApplication(), listener, browseId, force = true,
+        )
     }
 
     /**
@@ -3266,7 +3420,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 is UiState.Success -> Result.success(local.data)
                 is UiState.Error -> Result.failure(IllegalStateException(local.message))
                 UiState.Loading -> Result.failure(IllegalStateException(text(R.string.no_tracks_here)))
-                null -> YtMusicRepository.allSongs(browseId)
+                null -> {
+                    val listener = playlistCacheListener()
+                    val cached = if (listener != null && PlaylistSnapshotCache.isPlaylist(browseId)) {
+                        PlaylistSnapshotCache.read(getApplication(), listener, browseId)
+                    } else null
+                    if (cached != null) Result.success(cached.songs)
+                    else YtMusicRepository.allSongs(browseId)
+                }
             }
             onResult(result.map { it.withArtwork(artworkFallback) })
         }
@@ -3535,6 +3696,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _account.value, _library.value, _history.value, _playlists.value, _playlistOwned.value,
         )
     }
+
+    private fun playlistCacheListener(): String? =
+        listenerKey() ?: if (!_signedIn.value) "anonymous" else null
 
     private fun listenerKey(): String? = _activeAccountId.value?.let { accountId ->
         _activeProfileId.value?.let { profileId -> "$accountId:$profileId" }

@@ -141,6 +141,12 @@ data class Song(
      * non-history rows (e.g. search results, library).
      */
     val feedbackToken: String? = null,
+    /**
+     * Cache-local insertion sequence for YouTube playlist entries. Not a real
+     * timestamp: YouTube Music's playlist renderer doesn't expose one. Higher
+     * means seen/added more recently. Null on non-playlist sources.
+     */
+    val playlistAddedOrdinal: Long? = null,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY

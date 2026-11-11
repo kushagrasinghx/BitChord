@@ -66,6 +66,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
@@ -330,6 +331,7 @@ import com.music.bitchord.ui.player.LocalPlayerDock
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.screens.DetailScreen
 import com.music.bitchord.ui.screens.sortedForDetail
+import com.music.bitchord.ui.screens.songSortForBrowseId
 import com.music.bitchord.ui.screens.ExploreScreen
 import com.music.bitchord.ui.screens.LocalFolder
 import com.music.bitchord.ui.screens.LocalFolderState
@@ -838,6 +840,18 @@ private fun BitChordApp(
     val topDetail = detailStack.lastOrNull()
     /** The release page on screen, or null when a route or a tab is. */
     val detail = topDetail?.takeIf { visibleEntry == null }
+    // A background-to-foreground return may follow an external playlist edit.
+    // Keep the cached UI and audio uninterrupted while checking the first page.
+    var leftForeground by remember { mutableStateOf(false) }
+    LaunchedEffect(appForeground) {
+        if (!appForeground) {
+            leftForeground = true
+        } else if (leftForeground) {
+            leftForeground = false
+            detail?.browseId?.let(viewModel::checkPlaylistAfterExternalReturn)
+        }
+    }
+
     // The reorder list lives on its playlist's page; leaving that page by any
     // route — Back, a tab, another page over it — puts the list away with it.
     LaunchedEffect(detail?.browseId) {
@@ -966,7 +980,7 @@ private fun BitChordApp(
     // order never imposes itself on another, and every page keeps its own
     // across visits.
     val detailSongSorts by AppSettings.detailSongSorts.collectAsStateWithLifecycle()
-    val songSort = topDetail?.browseId?.let { detailSongSorts[it] } ?: SongSort.DEFAULT
+    val songSort = topDetail?.browseId?.let { songSortForBrowseId(it, detailSongSorts) } ?: SongSort.DEFAULT
     var songSortMenuOpen by remember { mutableStateOf(false) }
     // A device folder's equivalents — its sort and whether it is a grid —
     // kept apart for Downloads and shared by every other folder, as they
@@ -3342,7 +3356,9 @@ private fun BitChordApp(
                                 } else {
                                     null
                                 },
-                                songSort = songSort,
+                                // AnimatedContent keeps the exiting release composed after Back.
+                                // Resolve each page's own preference, not the new top page's.
+                                songSort = songSortForBrowseId(page.browseId, detailSongSorts),
                                 folder = folder,
                                 contentPadding = listPadding,
                                 reorder = if (reordering != null) {
@@ -5999,11 +6015,9 @@ private fun FrostedSortMenu(
     onDismiss: () -> Unit,
 ) {
     FrostedMenuPanel(hazeState = hazeState, onDismiss = onDismiss) {
-        // Date added is one row, Spotify-style: the arrow on it shows
-        // the direction — up for newest first, down for oldest — and
-        // tapping flips it, the rotation animating the flip. Up is
-        // also where a fresh activation lands, newest first being the
-        // point of the feature.
+        // Date added is one row: down means newest first, up means
+        // oldest first. Tapping flips the direction with an animated arrow.
+        // Fresh activation starts newest first (descending).
         val dateActive = selected == SongSort.DATE_ADDED_ASC ||
             selected == SongSort.DATE_ADDED_DESC
         val arrowRotation by animateFloatAsState(
@@ -6026,7 +6040,7 @@ private fun FrostedSortMenu(
             )
             if (dateActive) {
                 Icon(
-                    Icons.Rounded.ArrowUpward,
+                    Icons.Rounded.ArrowDownward,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.rotate(arrowRotation),

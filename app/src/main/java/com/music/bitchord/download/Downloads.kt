@@ -919,9 +919,28 @@ object Downloads {
      * This is the whole drain going away at once — every claim in [running] is
      * void, and leaving one behind would have [enqueue] refuse that track
      * forever as already in flight.
+     *
+     * The queue goes with it, for the same reason in the other direction:
+     * nothing is left to drain it, so a track left in [pending] would sit on
+     * "Queued" for the rest of the process *and* make [enqueue] treat a retry
+     * as a duplicate. Both are told they were interrupted instead — visible,
+     * and one tap from being asked for again.
      */
     internal fun onStopped() {
-        synchronized(lock) { running.clear() }
+        val abandoned = synchronized(lock) {
+            val ids = LinkedHashSet(pending.keys)
+            ids += running.keys
+            pending.clear()
+            running.clear()
+            ids
+        }
+        if (abandoned.isEmpty()) return
+        // A track still claiming to be queued with nothing left to drain it
+        // would sit on "Queued" for the rest of the process, and [enqueue]
+        // would refuse that id for ever after because it was still in the
+        // queue. Saying it was interrupted is both true and recoverable.
+        Log.d(TAG, "the download service stopped with ${abandoned.size} unfinished")
+        abandoned.forEach { id -> fail(id, "Download stopped — tap to retry") }
     }
 
     /**

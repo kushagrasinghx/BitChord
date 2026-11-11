@@ -182,6 +182,9 @@ object Downloads {
      */
     fun enqueue(context: Context, song: Song, from: String? = null) {
         val id = song.videoId
+        // A track already on disk is never re-queued: re-tapping Download is a
+        // no-op, not a second file with a second format or a second row.
+        if (alreadyDownloaded(_saved.value, id) { DownloadStore.exists(context, it.toUri()) }) return
         // A copy straight out of the song cache spends no data, so the Wi-Fi
         // rule has nothing to say about it.
         if (!AppSettings.downloadsAllowedNow && !servableFromCache(id)) {
@@ -1614,6 +1617,10 @@ object Downloads {
 
     private const val KEY_SAVED = "downloaded_tracks"
 }
+
+/** True when the id has a saved record whose file still exists. */
+internal fun alreadyDownloaded(saved: Map<String, String>, id: String, exists: (String) -> Boolean): Boolean =
+    saved[id]?.let(exists) == true
 
 @kotlinx.serialization.Serializable
 internal data class SavedSongMetadata(

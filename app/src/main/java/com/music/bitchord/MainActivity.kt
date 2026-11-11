@@ -4655,6 +4655,7 @@ private fun BitChordApp(
         }
         // ---- Now Playing ----
         if (playerRaised) {
+            val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
             // What rememberModalBottomSheetState builds, but able to start open,
             // and with every hide routed through [playerSheetMotion] — a drag
             // released low, a back press, a tap on the scrim. Refused here and
@@ -4727,6 +4728,11 @@ private fun BitChordApp(
                 // exit animation with the artwork still drawn in it.
                 properties = ModalBottomSheetProperties(shouldDismissOnBackPress = reducePlayerMotion),
             ) {
+                val playerView = LocalView.current
+                DisposableEffect(playerView, keepScreenOn) {
+                    playerView.keepScreenOn = keepScreenOn
+                    onDispose { playerView.keepScreenOn = false }
+                }
                 // With M3's own back off, the dialog's dispatcher ends here.
                 // Composed ahead of the player, so the player's own handlers —
                 // the lyrics and the queue putting themselves away first — are

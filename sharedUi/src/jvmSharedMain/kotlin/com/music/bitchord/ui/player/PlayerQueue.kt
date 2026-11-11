@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -75,6 +76,7 @@ import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -96,6 +98,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
 import coil3.compose.AsyncImage
@@ -167,27 +170,30 @@ internal fun keepScrollInList(listState: LazyListState) = object : NestedScrollC
 private val QUEUE_ROW_MOTION = tween<IntOffset>(durationMillis = 200, easing = FastOutSlowInEasing)
 
 /** Softens the list where it meets the header and the scrubber. */
-internal fun Modifier.fadingEdges(): Modifier = this
+internal fun Modifier.fadingEdges(bottomInset: Dp = 0.dp): Modifier = this
     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
     .drawWithContent {
-        drawContent()
-        val fade = 28.dp.toPx()
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(Color.Transparent, Color.Black),
-                startY = 0f,
-                endY = fade,
-            ),
-            blendMode = BlendMode.DstIn,
-        )
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(Color.Black, Color.Transparent),
-                startY = size.height - fade,
-                endY = size.height,
-            ),
-            blendMode = BlendMode.DstIn,
-        )
+        val bottom = (size.height - bottomInset.toPx()).coerceAtLeast(0f)
+        clipRect(bottom = bottom) {
+            this@drawWithContent.drawContent()
+            val fade = 28.dp.toPx()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color.Black),
+                    startY = 0f,
+                    endY = fade,
+                ),
+                blendMode = BlendMode.DstIn,
+            )
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Black, Color.Transparent),
+                    startY = bottom - fade,
+                    endY = bottom,
+                ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
     }
 
 /** One track in [InlineQueue], and where it sits in the player's timeline. */
@@ -333,6 +339,8 @@ internal fun InlineQueue(
     gesturesEnabled: Boolean = true,
     onScrollingChange: (Boolean) -> Unit = {},
     onDragActiveChange: (Boolean) -> Unit = {},
+    /** Space occupied by the phone deck over the stable, full-height viewport. */
+    playerDeckInset: Dp = 0.dp,
     /** Phone only: let queue scrolling dismiss/restore the lower half player. */
     collapsePlayerOnScroll: Boolean = false,
     onRevealPlayer: () -> Unit = {},
@@ -497,14 +505,14 @@ internal fun InlineQueue(
         Spacer(Modifier.height(4.dp))
         Box(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
                 .bleedHorizontally(PLAYER_GUTTER),
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fadingEdges()
+                modifier = (if (collapsePlayerOnScroll) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
+                    .fadingEdges(bottomInset = playerDeckInset)
                     .then(
                         if (!reduceDynamicBlur) {
                             // Composite queue rows above the sibling player artwork.
@@ -515,7 +523,7 @@ internal fun InlineQueue(
                     // drag on itself and slides the whole player away.
                     .nestedScroll(keepScroll)
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
-                contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = footerHeight),
+                contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = footerHeight + playerDeckInset),
             ) {
                 queueHeadingItem("header-history", tracks.history.isNotEmpty(), reduceAnimation) {
                     QueueHeading(
@@ -631,6 +639,7 @@ internal fun InlineQueue(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .padding(horizontal = PLAYER_GUTTER)
+                    .padding(bottom = playerDeckInset)
                     .onSizeChanged { footerHeight = with(density) { it.height.toDp() } },
             ) {
                 undoNotice(hazeState)
@@ -1023,7 +1032,8 @@ private class QueueDrag(private val listState: LazyListState) {
         heldCenter = center
         val top = center - half
         val minTop = info.viewportStartOffset.toFloat()
-        heldTop = top.coerceIn(minTop, (info.viewportEndOffset - heldSize).toFloat().coerceAtLeast(minTop))
+        val viewportEnd = info.viewportEndOffset - info.afterContentPadding
+        heldTop = top.coerceIn(minTop, (viewportEnd - heldSize).toFloat().coerceAtLeast(minTop))
 
         // Its slot is out of view: nothing to swap against until the list brings it back.
         val dragged = items.firstOrNull { it.key == key } ?: return setAutoScroll(0f)
@@ -1060,7 +1070,7 @@ private class QueueDrag(private val listState: LazyListState) {
             top = top,
             bottom = top + heldSize,
             viewportStart = info.viewportStartOffset,
-            viewportEnd = info.viewportEndOffset,
+            viewportEnd = info.viewportEndOffset - info.afterContentPadding,
             zone = edgeZone,
             speed = edgeSpeed,
         )

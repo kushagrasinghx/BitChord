@@ -1067,6 +1067,7 @@ fun NowPlayingScreen(
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
     var queueControlsOpen by remember { mutableStateOf(true) }
+    var queuePaneMounted by remember { mutableStateOf(false) }
     LaunchedEffect(queueSelection.active) {
         // Leave it hidden on exit; the normal scroll-up reveal resumes then.
         if (queueSelection.active) queueControlsOpen = false
@@ -2777,10 +2778,13 @@ fun NowPlayingScreen(
                         }
                     }
 
+                    // The queue measures against this host, not the shrinking space
+                    // above SlidingPlayerDeck. The deck still lays out and animates normally.
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                        val queueHostHeight = maxHeight
                     Column(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxSize()
                             // Swallow vertical drags before the sheet can read them as
                             // "dismiss me". Children that scroll consume first, so the
                             // lists are unaffected. This sits outside the side padding
@@ -3990,12 +3994,28 @@ fun NowPlayingScreen(
                         // Gone with [queueOpen], as the lyrics are with theirs, rather
                         // than a frame later when the sleeve first moves: listening
                         // for that frame was a recomposition on it.
+                        val queueContentHeight = (queueHostHeight - ART_BOX_TOP_PAD - 18.dp)
+                            .coerceAtLeast(0.dp)
+                        val queueDeckInset = (queueContentHeight - maxHeight).coerceAtLeast(0.dp)
                         val queuePanelVisible = !lyricsOpen &&
                             (queueDragging || (queueOpen && queueShowing && collapseDone))
-                        if (queuePanelVisible || playerPrewarmStage >= 3) {
+                        if (queuePanelVisible || playerPrewarmStage >= 3 || queuePaneMounted) {
+                            // Retain the list's state even if it was opened before prewarm.
+                            SideEffect { queuePaneMounted = true }
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .layout { measurable, constraints ->
+                                        val height = queueContentHeight.roundToPx()
+                                        val placeable = measurable.measure(
+                                            constraints.copy(minHeight = height, maxHeight = height),
+                                        )
+                                        // Keep the parent's allocation for deck placement, but
+                                        // never resize the queue's measured viewport mid-fling.
+                                        layout(placeable.width, constraints.maxHeight) {
+                                            placeable.placeRelative(0, 0)
+                                        }
+                                    }
                                     .padding(top = HEADER_HEIGHT)
                                     .offset {
                                         if (queuePanelVisible) IntOffset.Zero else IntOffset(100_000, 0)
@@ -4035,6 +4055,7 @@ fun NowPlayingScreen(
                                     onRemoveSelected = onQueueRemoveEntries,
                                     onDragActiveChange = onQueueDragActiveChange,
                                     onAddAllToPlaylist = onQueueAddAllToPlaylist,
+                                    playerDeckInset = queueDeckInset,
                                     collapsePlayerOnScroll = true,
                                     onRevealPlayer = { if (!queueSelection.active) queueControlsOpen = true },
                                     onHidePlayer = { queueControlsOpen = false },
@@ -4216,6 +4237,7 @@ fun NowPlayingScreen(
 
                     playerActions()
                     Spacer(Modifier.height(18.dp))
+                    }
                     }
                     }
                     }

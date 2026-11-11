@@ -6859,8 +6859,14 @@ class PlaybackService : MediaLibraryService() {
      * play right up to the moment it is released.
      */
     private fun publishWidgetState(playing: Boolean? = null) {
-        val exoPlayer = player ?: return
-        val song = exoPlayer.currentMediaItem?.toSong() ?: return
+        val exoPlayer = player
+        val song = exoPlayer?.currentMediaItem?.toSong()
+        if (song == null) {
+            // Clearing the queue is a real state: do not leave the launcher
+            // and the watch showing the last track's controls forever.
+            MediaWidgetSnapshot.save(this, MediaWidgetSnapshot.EMPTY)
+            return
+        }
         // LikeState only knows ratings this process has seen: a fresh service
         // started from the widget or a restart has none until something seeds
         // it. Unknown is not "not liked", so keep what was last published for

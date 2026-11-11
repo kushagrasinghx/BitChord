@@ -133,6 +133,18 @@ interface PlayerHost {
     /** Make the watch the speaker. */
     fun selectWatchOutput() = Unit
 
+    /**
+     * DLNA / UPnP renderers on the Wi-Fi as outputs, each played to the way a
+     * Cast receiver is. Empty, and so never drawn, where the platform has none.
+     */
+    val networkSpeakers: StateFlow<List<NetworkSpeakerUi>> get() = NoNetworkSpeakers
+
+    /** The output drawer opening: look for network speakers again. */
+    fun refreshNetworkSpeakers() = Unit
+
+    /** Make the network speaker [id] the speaker. */
+    fun selectNetworkSpeaker(id: String) = Unit
+
     /** The device picker the output drawer's Cast row opens, in the pipeline dialog's card. */
     @Composable
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
@@ -200,6 +212,17 @@ internal fun MusicVideoSurface(
 ) = PlayerPlatform.host.MusicVideo(videoId, fit, onRenderedChanged, modifier)
 
 private val NoWatch = MutableStateFlow(WatchOutputUi())
+
+private val NoNetworkSpeakers = MutableStateFlow(emptyList<NetworkSpeakerUi>())
+
+/** A network (DLNA / UPnP) speaker, as a row in the output drawer. */
+data class NetworkSpeakerUi(
+    val id: String,
+    /** What the speaker calls itself. */
+    val name: String,
+    /** It is the speaker. */
+    val active: Boolean = false,
+)
 
 /** What the output drawer needs to draw the watch's row. */
 data class WatchOutputUi(

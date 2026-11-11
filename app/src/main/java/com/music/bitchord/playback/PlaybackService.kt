@@ -80,6 +80,7 @@ import com.music.bitchord.playback.cast.CastPlayback
 import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
+import com.music.bitchord.playback.dlna.DlnaOutput
 import com.music.bitchord.playback.cast.CastStream
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
@@ -766,8 +767,22 @@ class PlaybackService : MediaLibraryService() {
         WearBridge.createSpeaker(this, scope, localPlayer = { player }, onChanged = { publishWidgetState() })
     }
 
+    /**
+     * A DLNA / UPnP renderer on the Wi-Fi as the speaker — the same model again,
+     * with the stream resolved here as for Cast. See [DlnaSpeaker].
+     */
+    private val dlnaSpeaker by lazy {
+        DlnaOutput.createSpeaker(
+            scope = scope,
+            localPlayer = { player },
+            resolve = ::resolveForCast,
+            say = { message -> Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show() },
+            onChanged = { publishWidgetState() },
+        )
+    }
+
     /** Every remote speaker, as the one the session player reports. */
-    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker)) }
+    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker, dlnaSpeaker)) }
 
     /**
      * Binds playback to a Listen Together party, when there is one.
@@ -7823,6 +7838,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onDestroy() {
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
+        DlnaOutput.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a
         // service that idles out while casting is not the listener choosing to
         // stop, and the next one picks the session up where it was.

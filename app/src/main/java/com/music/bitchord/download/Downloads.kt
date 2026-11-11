@@ -1342,7 +1342,7 @@ object Downloads {
                         extension = "m3u8",
                         mimeType = "application/vnd.apple.mpegurl",
                         describe = stream.format.summary,
-                        downloadFormat = stream.format.downloadBadge(),
+                        downloadFormat = offlinePackageBadge(dash),
                         offlineHls = Manifest(stream.url, stream.headers, dash = dash),
                         write = { sink, onProgress ->
                             Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
@@ -1624,6 +1624,9 @@ object Downloads {
 
     private const val KEY_SAVED = "downloaded_tracks"
 }
+
+/** The badge of the stored offline package, not of the codec it was fetched as. */
+internal fun offlinePackageBadge(dash: Boolean): String = if (dash) "DASH" else "HLS"
 
 /** True when the id has a saved record whose file still exists. */
 internal fun alreadyDownloaded(saved: Map<String, String>, id: String, exists: (String) -> Boolean): Boolean =

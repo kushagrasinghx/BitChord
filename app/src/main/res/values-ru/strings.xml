@@ -1305,6 +1305,8 @@
 
 
     <string name="source_needs_lossless_output">Нужен выход без потерь · используйте устройство с поддержкой звука без потерь</string>
+    <string name="source_needs_update">Это дополнение устарело. Оно продолжает работать, но попросите разработчика обновить его по актуальной документации для дополнений BitChord.</string>
+    <string name="source_outdated">Устаревшее дополнение</string>
     <string name="source_needs_lossless_bt_codec">Нужен выход без потерь · Bluetooth работает на %1$s; используйте устройство с поддержкой звука без потерь</string>
     <string name="source_needs_lossless_bt_unknown">Нужен выход без потерь · не удаётся определить используемый Bluetooth-кодек</string>
     <string name="source_downloads_on">Загрузки разрешены</string>

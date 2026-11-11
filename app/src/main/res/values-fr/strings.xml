@@ -1274,6 +1274,8 @@
 
 
     <string name="source_needs_lossless_output">Nécessite une sortie sans perte · utilisez un appareil compatible sans perte</string>
+    <string name="source_needs_update">Cet add-on n\'est plus à jour. Il fonctionne toujours, mais demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
+    <string name="source_outdated">Add-on obsolète</string>
     <string name="source_needs_lossless_bt_codec">Nécessite une sortie sans perte · le Bluetooth utilise %1$s ; utilisez un appareil compatible sans perte</string>
     <string name="source_needs_lossless_bt_unknown">Nécessite une sortie sans perte · impossible de savoir quel codec Bluetooth est utilisé</string>
     <string name="source_downloads_on">Téléchargements autorisés</string>

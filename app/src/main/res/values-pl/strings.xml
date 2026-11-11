@@ -1313,6 +1313,8 @@
 
 
     <string name="source_needs_lossless_output">Wymaga wyjścia bezstratnego · użyj urządzenia obsługującego dźwięk bezstratny</string>
+    <string name="source_needs_update">Ten dodatek jest nieaktualny. Nadal działa, ale poproś jego twórcę o aktualizację zgodnie z najnowszą dokumentacją dodatków BitChord.</string>
+    <string name="source_outdated">Nieaktualny dodatek</string>
     <string name="source_needs_lossless_bt_codec">Wymaga wyjścia bezstratnego · Bluetooth używa %1$s; użyj urządzenia obsługującego dźwięk bezstratny</string>
     <string name="source_needs_lossless_bt_unknown">Wymaga wyjścia bezstratnego · nie można ustalić, jaki kodek Bluetooth jest używany</string>
     <string name="source_downloads_on">Pobieranie dozwolone</string>

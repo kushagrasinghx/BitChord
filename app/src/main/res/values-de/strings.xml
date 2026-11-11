@@ -1273,6 +1273,8 @@
 
 
     <string name="source_needs_lossless_output">Braucht eine verlustfreie Ausgabe · nutze ein Gerät, das Lossless unterstützt</string>
+    <string name="source_needs_update">Dieses Add-on ist veraltet. Es funktioniert weiterhin, aber bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
+    <string name="source_outdated">Veraltetes Add-on</string>
     <string name="source_needs_lossless_bt_codec">Braucht eine verlustfreie Ausgabe · Bluetooth nutzt %1$s; nutze ein Gerät, das Lossless unterstützt</string>
     <string name="source_needs_lossless_bt_unknown">Braucht eine verlustfreie Ausgabe · der Bluetooth-Codec ist nicht erkennbar</string>
     <string name="source_downloads_on">Downloads erlaubt</string>

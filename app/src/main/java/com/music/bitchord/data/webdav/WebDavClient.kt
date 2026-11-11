@@ -18,6 +18,7 @@ import java.io.InputStream
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Locale
+import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
@@ -235,8 +236,7 @@ object WebDavClient {
     fun parseMultistatus(xml: String, dirUrl: String): List<Entry> {
         if (xml.isBlank()) return emptyList()
         val doc = runCatching {
-            val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
-            factory.newDocumentBuilder().parse(xml.byteInputStream(Charsets.UTF_8))
+            xmlFactory().newDocumentBuilder().parse(xml.byteInputStream(Charsets.UTF_8))
         }.getOrNull() ?: return emptyList()
         val responses = doc.getElementsByTagNameNS("*", "response")
         val out = ArrayList<Entry>(responses.length)
@@ -257,6 +257,42 @@ object WebDavClient {
             out.add(Entry(url = url, displayName = displayName, isCollection = isCollection, contentType = contentType))
         }
         return out
+    }
+
+    /**
+     * The parser PROPFIND responses are read with.
+     *
+     * The XML in one of these is chosen by the server, not by us — a WebDAV
+     * endpoint the user configured, reached over whatever network is in front of
+     * it — so it is untrusted input by definition. An unhardened
+     * [DocumentBuilderFactory] resolves `<!ENTITY xxe SYSTEM "file:///…">`
+     * against the *device*, which turns a listing response into a read of any
+     * file this app can open (and returns the contents in a displayname), and
+     * expands nested internal entities until the heap is gone.
+     *
+     * Nothing legitimate here needs a DOCTYPE, an external entity or an
+     * XInclude: a multistatus response is elements and text. So they are all
+     * turned off rather than filtered, and a document that carries a DOCTYPE is
+     * refused outright by [parseMultistatus]'s `runCatching` — a listing that
+     * cannot be trusted is an empty listing, not a crash.
+     *
+     * Features are set through [harden] because they are not all recognised by
+     * every parser; where one is unsupported the rest still apply, and the
+     * entity-resolution ones below are the ones that matter.
+     */
+    private fun xmlFactory(): DocumentBuilderFactory = DocumentBuilderFactory.newInstance().apply {
+        isNamespaceAware = true
+        isXIncludeAware = false
+        isExpandEntityReferences = false
+        harden(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+        harden("http://apache.org/xml/features/disallow-doctype-decl", true)
+        harden("http://xml.org/sax/features/external-general-entities", false)
+        harden("http://xml.org/sax/features/external-parameter-entities", false)
+        harden("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+    }
+
+    private fun DocumentBuilderFactory.harden(feature: String, value: Boolean) {
+        runCatching { setFeature(feature, value) }
     }
 
     fun resolveHref(baseUrl: String, href: String): String {

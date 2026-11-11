@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * An offline copy of an unencrypted HLS media playlist.  This deliberately
@@ -27,7 +28,7 @@ internal object OfflineHls {
         lyrics: LyricsTag.Embeddable?,
         artwork: MediaTagger.Artwork?,
     ): Uri = withContext(Dispatchers.IO) {
-        val root = File(File(context.filesDir, "offline-hls"), id.hashCode().toUInt().toString(16))
+        val root = File(File(context.filesDir, "offline-hls"), offlinePackageDirName(id))
         root.deleteRecursively()
         if (!root.mkdirs()) error("Could not create offline HLS package")
         try {
@@ -78,3 +79,9 @@ internal object OfflineHls {
         }
     }
 }
+
+/** Collision-resistant offline package directory name, unlike a 32-bit hashCode. */
+internal fun offlinePackageDirName(id: String): String = MessageDigest.getInstance("SHA-256")
+    .digest(id.toByteArray(Charsets.UTF_8))
+    .joinToString("") { "%02x".format(it) }
+    .take(16)

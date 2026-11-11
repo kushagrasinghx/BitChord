@@ -18,7 +18,9 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -147,6 +149,18 @@ object Downloads {
      */
     private val running = LinkedHashMap<String, Job?>()
 
+    /**
+     * Where the decision to accept a download is made.
+     *
+     * Deliberately not the caller's thread, which is the UI thread for every
+     * tap. Accepting a track asks the saved record whether the file is still
+     * there, and that question is a `stat()` for a file URI or a MediaStore
+     * round trip for a content URI — per track, in a loop of forty when an
+     * album is downloaded. Doing that between the tap and the frame that
+     * acknowledges it is what made a batch feel like a freeze.
+     */
+    private val enqueueScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         _saved.value = runCatching {
@@ -181,10 +195,19 @@ object Downloads {
      *   only thing that has to say *why* forty tracks are in the queue.
      */
     fun enqueue(context: Context, song: Song, from: String? = null) {
+        // Returns before anything is decided, so a tap can never wait on the
+        // disk. Everything that decides is below, on [enqueueScope]; the queue
+        // itself is still mutated under [lock], so two fast taps for one track
+        // still resolve to one download.
+        val app = context.applicationContext
+        enqueueScope.launch { enqueueNow(app, song, from) }
+    }
+
+    private fun enqueueNow(app: Context, song: Song, from: String?) {
         val id = song.videoId
         // A track already on disk is never re-queued: re-tapping Download is a
         // no-op, not a second file with a second format or a second row.
-        if (alreadyDownloaded(_saved.value, id) { DownloadStore.exists(context, it.toUri()) }) return
+        if (alreadyDownloaded(_saved.value, id) { DownloadStore.exists(app, it.toUri()) }) return
         // A copy straight out of the song cache spends no data, so the Wi-Fi
         // rule has nothing to say about it.
         if (!AppSettings.downloadsAllowedNow && !servableFromCache(id)) {
@@ -206,7 +229,6 @@ object Downloads {
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
 
-        val app = context.applicationContext
         runCatching {
             ContextCompat.startForegroundService(app, Intent(app, DownloadService::class.java))
         }.onFailure {

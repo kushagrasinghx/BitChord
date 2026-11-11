@@ -2,6 +2,14 @@ package com.music.bitchord.ui.player
 
 import kotlin.math.abs
 
+/** One reading and its transport state, consumed identically by the observer and the frame loop. */
+internal data class LyricClockReading(
+    val positionMs: Long,
+    val sampledAtMs: Double,
+    val discontinuity: Long,
+    val isPlaying: Boolean,
+)
+
 /**
  * The lyric playhead: a clock that runs on its own frames and is *steered* by
  * the player's readings rather than set by them.
@@ -50,6 +58,7 @@ internal class LyricClock(startMs: Long) {
 
     /** When playback was last seen stopped; a reading taken before then was taken standing still. */
     private var heldAtMs = Double.NEGATIVE_INFINITY
+    private var heldDiscontinuity: Long? = null
 
     private var lastDiscontinuity: Long? = null
     private var jumpPending = false
@@ -95,10 +104,35 @@ internal class LyricClock(startMs: Long) {
      * Called again for every reading that arrives while stopped, which is how a
      * seek made while paused still moves the words.
      */
-    fun hold(positionMs: Long, nowMs: Double) {
+    fun hold(positionMs: Long, nowMs: Double, discontinuity: Long? = lastDiscontinuity) {
         restart()
         displayedMs = positionMs.toDouble()
         heldAtMs = nowMs
+        heldDiscontinuity = discontinuity
+    }
+
+    /**
+     * Follow stopped readings immediately, including seeks. A running reading is never paused truth,
+     * even if the observer was started before the UI learned playback had resumed.
+     * Hidden running panels still follow reports, but must extrapolate normally when shown again.
+     */
+    fun observe(reading: LyricClockReading, nowMs: Double, active: Boolean = true): Long? {
+        if (reading.isPlaying) {
+            if (active) return null
+            restart()
+            displayedMs = reading.positionMs.toDouble()
+            heldAtMs = Double.NEGATIVE_INFINITY
+            heldDiscontinuity = null
+        } else {
+            hold(reading.positionMs, nowMs, reading.discontinuity)
+        }
+        return displayedMs.toLong()
+    }
+
+    /** An obsolete running effect must also stop as soon as a stopped transport sample arrives. */
+    fun frame(nowMs: Double, reading: LyricClockReading): Long {
+        observe(reading, nowMs)?.let { return it }
+        return frame(nowMs, reading.positionMs, reading.sampledAtMs, reading.discontinuity)
     }
 
     /**
@@ -123,6 +157,8 @@ internal class LyricClock(startMs: Long) {
 
         if (firstOfRun) {
             lastNowMs = nowMs
+            val resuming = heldDiscontinuity == discontinuity
+            heldDiscontinuity = null
             // Taken while playback stood still — the last reading before a
             // pause, or one made during it — it is where the song still is now,
             // however long ago it was taken. Taken while playing, the song has
@@ -132,7 +168,11 @@ internal class LyricClock(startMs: Long) {
                 else -> minOf(sampledAtMs, nowMs)
             }
             anchor(takenAt, reportedMs)
-            displayedMs = targetAt(nowMs)
+            val target = targetAt(nowMs)
+            // A newer resume estimate can be behind the stopped position without a seek. Keep the
+            // held display for this handoff; subsequent frames steer towards the new anchor using
+            // the normal correction path. A changed discontinuity still lands at its actual target.
+            if (!resuming || target >= displayedMs) displayedMs = target
             return displayedMs.toLong()
         }
 

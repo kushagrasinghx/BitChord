@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 
 /**
  * The playhead, deliberately kept out of [PlayerState].
@@ -43,6 +44,14 @@ class PlaybackPosition {
     var sampledAtNanos by mutableLongStateOf(0L)
         private set
 
+    /** Transport state captured with this reading; null for producers using the UI-state fallback. */
+    var isPlaying by mutableStateOf<Boolean?>(null)
+        private set
+
+    /** Only publish a new seek identity together with its landing position, never the old reading. */
+    internal var sampledSeeks by mutableIntStateOf(0)
+        private set
+
     /**
      * Bumped by the owner every time the playhead jumps on purpose — a seek, a
      * skip, a repeat starting over — so the lyrics can tell a real jump from a
@@ -66,8 +75,13 @@ class PlaybackPosition {
      * — the desktop's audio thread — so it carries the moment it was true and
      * not the moment it arrived.
      */
-    fun report(positionMs: Long, sampledAtNanos: Long = System.nanoTime()) {
-        this.positionMs = positionMs
-        this.sampledAtNanos = sampledAtNanos
+    fun report(positionMs: Long, sampledAtNanos: Long = System.nanoTime(), isPlaying: Boolean? = null) {
+        // An observer still running in paused UI state must see that a new sample is already playing.
+        Snapshot.withMutableSnapshot {
+            this.positionMs = positionMs
+            this.sampledAtNanos = sampledAtNanos
+            this.isPlaying = isPlaying
+            sampledSeeks = seeks
+        }
     }
 }

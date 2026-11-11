@@ -63,6 +63,10 @@ internal object OfflineHls {
                 }
                 localNames[remote] = local
                 onProgress((index + 1).toLong(), references.distinct().size.toLong())
+                // Segment lengths are not known ahead of the fetch, so this can
+                // only ask for the headroom — but a package that has filled the
+                // device should stop here rather than after the last segment.
+                DownloadStore.requireTransferSpace(context, null)
             }
             val localPlaylist = playlist
                 .replace(Regex("""(URI=\")([^\"]+)(\")""")) { match ->

@@ -88,6 +88,54 @@ object DownloadStore {
         }
     }
 
+    /**
+     * Extra room a transfer must leave beside the bytes it still has to write.
+     *
+     * Tagging rewrites the finished file with the cover and lyrics embedded, so
+     * the last thing a download does needs somewhere to put a second copy of
+     * itself. Eight megabytes covers a full-size cover and a long lyric sheet;
+     * anything larger would start refusing downloads that would in fact have
+     * finished.
+     */
+    internal const val TRANSFER_HEADROOM_BYTES = 8L * 1024 * 1024
+
+    /**
+     * Whether a transfer with [remainingBytes] still to write fits in
+     * [availableBytes].
+     *
+     * A null or negative remainder means the length is not known — a chunked
+     * response, or a manifest being fetched segment by segment — and only the
+     * headroom is required. That is deliberately the conservative choice in the
+     * other direction: refusing a download because of a guess is worse than
+     * letting it run and failing at ENOSPC, which [Downloads] now reports as a
+     * storage fault rather than a network one.
+     */
+    internal fun transferFits(availableBytes: Long, remainingBytes: Long?): Boolean {
+        val remaining = (remainingBytes ?: 0L).coerceAtLeast(0L)
+        return availableBytes >= remaining + TRANSFER_HEADROOM_BYTES
+    }
+
+    /** Free space on the volume downloads are currently being written to. */
+    fun availableBytes(context: Context): Long = StatFs(freeSpacePath(context)).availableBytes
+
+    /**
+     * Fail a transfer that cannot finish, before it writes the bytes it would
+     * have to throw away.
+     *
+     * The check at [begin] is a snapshot taken before the first byte; a queue of
+     * four lossless albums can fill the device long before the last one starts.
+     * This is the same question asked again mid-flight, which is the only way a
+     * download that is *already* doomed stops early enough to say why.
+     */
+    fun requireTransferSpace(context: Context, remainingBytes: Long?) {
+        val available = availableBytes(context)
+        if (transferFits(available, remainingBytes)) return
+        val needed = ((remainingBytes ?: 0L).coerceAtLeast(0L) + TRANSFER_HEADROOM_BYTES) / (1024 * 1024)
+        throw InsufficientSpaceException(
+            "Not enough free storage to finish this download — $needed MB still to write",
+        )
+    }
+
     // ---- Naming -------------------------------------------------------------
 
     /**

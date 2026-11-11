@@ -104,6 +104,7 @@ internal object OfflineDash {
                     body.use { input -> File(root, localName(index)).outputStream().use(input::copyTo) }
                 }
                 onProgress((index + 1).toLong(), remotes.size.toLong())
+                DownloadStore.requireTransferSpace(context, null)
             }
 
             File(root, "playlist.m3u8").writeText(playlist(plan))

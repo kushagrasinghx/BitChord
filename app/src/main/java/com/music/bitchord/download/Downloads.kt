@@ -1093,6 +1093,15 @@ object Downloads {
      * commits or aborts, so a caller is free to call it a second time with a
      * freshly resolved plan without the first attempt leaving anything behind.
      */
+    /**
+     * How many bytes apart the mid-transfer storage check runs.
+     *
+     * Frequent enough that a doomed album fails after megabytes rather than
+     * gigabytes, rare enough that a `StatFs` per write chunk is not the cost of
+     * the download.
+     */
+    private const val SPACE_RECHECK_BYTES = 8L * 1024 * 1024
+
     private suspend fun transfer(context: Context, song: Song, plan: Prepared) {
         val id = song.videoId
         val track = plan.track
@@ -1187,10 +1196,21 @@ object Downloads {
                 val destination = DownloadStore.begin(context, destinationName, route.mimeType)
                 pending = destination
                 destination.openStream().use { sink ->
+                    var checkedAt = 0L
                     route.write(sink) { written, total ->
                         val fraction = written.toFloat() / total
                         _active.update { it + (id to DownloadState.Running(fraction)) }
                         DownloadSession.running(id, fraction)
+                        // The length is known here, so the remainder is exact
+                        // rather than estimated: this is the one place a doomed
+                        // transfer can be stopped with a real number to report.
+                        if (written - checkedAt >= SPACE_RECHECK_BYTES) {
+                            checkedAt = written
+                            DownloadStore.requireTransferSpace(
+                                context,
+                                (total - written).takeIf { it > 0 },
+                            )
+                        }
                     }
                 }
                 val words = lyrics?.await()

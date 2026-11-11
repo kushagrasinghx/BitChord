@@ -4084,6 +4084,9 @@ class PlaybackService : MediaLibraryService() {
             reason = Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
             alreadyAudible = true,
         )
+        // A blended advance never reaches the listener-driven prune above: do
+        // it here so consumed USER_QUEUE rows cannot be replayed by repeat-all.
+        QueueCoordinator.consumePlayedUserQueue(incoming)
 
         // A crossfade starts the incoming item on the player that was idle, so
         // it never delivers onMediaItemTransition to playbackListener. Keep

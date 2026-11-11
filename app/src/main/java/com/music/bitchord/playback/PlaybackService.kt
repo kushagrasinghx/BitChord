@@ -6690,7 +6690,7 @@ class PlaybackService : MediaLibraryService() {
         val context = boundedContextRegistry.snapshot() ?: return
         val source = boundedContextSource ?: return
         if (context.contextToken != boundedContextToken || context.songs.isEmpty()) return
-        val currentIndex = player.currentMediaItemIndex.coerceIn(0, player.mediaItemCount - 1)
+        val currentIndex = safeCurrentIndex(player.currentMediaItemIndex, player.mediaItemCount)
         val range = LastPlayed.window(player.mediaItemCount, currentIndex)
         if (range.isEmpty()) return
         val entries = range.map { index ->
@@ -10702,6 +10702,10 @@ internal fun lyricsSettingChanges(
 
 /** The session wrapper when present, because it routes pause to the active speaker. */
 internal fun sleepPauseTarget(sessionPlayer: Player?, localPlayer: Player?): Player? = sessionPlayer ?: localPlayer
+
+/** A valid index even when the player is empty. */
+internal fun safeCurrentIndex(current: Int, count: Int): Int =
+    if (count <= 0) 0 else current.coerceIn(0, count - 1)
 
 /** Releases old focus owners before starting the replacement player. */
 internal fun retireThenStart(oldActive: ExoPlayer, oldSpare: ExoPlayer, newActive: ExoPlayer, playWhenReady: Boolean) {

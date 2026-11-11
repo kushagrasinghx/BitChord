@@ -840,6 +840,18 @@ private fun BitChordApp(
     val topDetail = detailStack.lastOrNull()
     /** The release page on screen, or null when a route or a tab is. */
     val detail = topDetail?.takeIf { visibleEntry == null }
+    // A background-to-foreground return may follow an external playlist edit.
+    // Keep the cached UI and audio uninterrupted while checking the first page.
+    var leftForeground by remember { mutableStateOf(false) }
+    LaunchedEffect(appForeground) {
+        if (!appForeground) {
+            leftForeground = true
+        } else if (leftForeground) {
+            leftForeground = false
+            detail?.browseId?.let(viewModel::checkPlaylistAfterExternalReturn)
+        }
+    }
+
     // The reorder list lives on its playlist's page; leaving that page by any
     // route — Back, a tab, another page over it — puts the list away with it.
     LaunchedEffect(detail?.browseId) {

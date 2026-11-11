@@ -1020,6 +1020,9 @@ class CrossfadeController(
         }
 
         if (configuredFadeMs() <= 0L) return
+        // Repeat-all over a one-item queue resolves "next" to the current item:
+        // blending it would be the same recording played against itself.
+        if (isSelfTransition(player.currentMediaItemIndex, player.nextMediaItemIndex)) return
         val fade = fadeFor(duration)
         if (fade <= 0L) return
 
@@ -1063,6 +1066,8 @@ class CrossfadeController(
         val currentItem = player.currentMediaItem ?: return
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
+        // One-item repeat-all: "next" is the song already playing, never a pair.
+        if (isSelfTransition(player.currentMediaItemIndex, nextIndex)) return
         val nextItem = player.getMediaItemAt(nextIndex)
         // Even a manual catalogue match is still video-origin. AutoMix's
         // analysis and cueing are deliberately never applied to either side
@@ -4301,3 +4306,6 @@ class CrossfadeController(
         const val LOOP_RENDERER_CLOSE_DELAY_MS = 1_500L
     }
 }
+
+/** True when the transition would pair the current item with itself. */
+internal fun isSelfTransition(currentIndex: Int, nextIndex: Int): Boolean = currentIndex == nextIndex

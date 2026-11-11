@@ -142,7 +142,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The Recently played shelf's title, once it's in: the daylist goes straight after it. */
     private var homeRecentTitle: String? = null
     /** How many of the library's playlists the Home row shows; the Library tab has the rest. */
-    private val HOME_PLAYLISTS_LIMIT = 12
+    private val homePlaylistsLimit = 12
 
     private val _homeLoadingMore = MutableStateFlow(false)
 
@@ -1800,8 +1800,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                 }
             }
-            launch { loadDaylistShelf(identity) { isCurrentHomeLoad(identity, generation) } }
-            launch { loadPlaylistsShelf(identity) { isCurrentHomeLoad(identity, generation) } }
+            launch { loadOwnShelf(identity) { isCurrentHomeLoad(identity, generation) } }
             YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
                 launch {
                     try {
@@ -1951,77 +1950,64 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         recent?.await()?.onSuccess { shelf ->
             if (identity == listenerKey()) shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
         }
-        loadDaylistShelf(identity) { identity == listenerKey() }
-        loadPlaylistsShelf(identity) { identity == listenerKey() }
+        loadOwnShelf(identity) { identity == listenerKey() }
     }
 
     /**
-     * Spotify's daylist, as a Home row of its own right after Recently played,
-     * once Spotify is connected and has made one for this listener. Opening it
-     * is an ordinary Spotify playlist page. Quiet when Spotify isn't connected,
-     * hasn't made a daylist yet, or can't be reached.
+     * The "Your playlists" row Home leads with after Recently played, as
+     * Spotify's Home does: Spotify's daylist first (once Spotify is connected
+     * and has made one), then the library's playlists (signed in only). One
+     * row rather than two, so the daylist's single card doesn't sit alone.
+     * Both are fetched at once; either one missing just leaves it out.
      */
-    private suspend fun loadDaylistShelf(identity: String?, stillCurrent: () -> Boolean) {
-        if (AppSettings.spotifySpdcToken.value.isBlank()) return
-        val daylist = runCatching { SpotifyLibrary.daylist() }.getOrNull() ?: return
-        if (!stillCurrent() || identity != listenerKey()) return
-        val shelf = HomeShelf(
-            title = text(R.string.home_daylist),
-            items = listOf(
+    private suspend fun loadOwnShelf(identity: String?, stillCurrent: () -> Boolean) = coroutineScope {
+        val daylist = async {
+            if (AppSettings.spotifySpdcToken.value.isBlank()) null
+            else runCatching { SpotifyLibrary.daylist() }.getOrNull()
+        }
+        val playlists = if (_signedIn.value) YtMusicRepository.userPlaylists().getOrNull().orEmpty() else emptyList()
+        val day = daylist.await()
+        if (!stillCurrent() || identity != listenerKey()) return@coroutineScope
+        if (playlists.isNotEmpty()) _playlists.value = playlists
+        val items = listOfNotNull(
+            day?.let {
                 ShelfItem(
-                    title = daylist.name,
-                    subtitle = text(R.string.spotify),
-                    thumbnailUrl = daylist.imageUrl,
+                    title = it.name,
+                    subtitle = text(R.string.home_daylist),
+                    thumbnailUrl = it.imageUrl,
                     videoId = null,
-                    browseId = SPOTIFY_PAGE_PREFIX + daylist.id,
-                ),
-            ),
-            leading = true,
-        )
-        placeOwnShelf(shelf)
-    }
-
-    /**
-     * The library's playlists as a Home row, after Recently played and the
-     * daylist, as Spotify's Home leads with yours: signed in only. Opening one
-     * is its ordinary page.
-     */
-    private suspend fun loadPlaylistsShelf(identity: String?, stillCurrent: () -> Boolean) {
-        if (!_signedIn.value) return
-        val playlists = YtMusicRepository.userPlaylists().getOrNull()?.takeIf { it.isNotEmpty() } ?: return
-        if (!stillCurrent() || identity != listenerKey()) return
-        _playlists.value = playlists
+                    browseId = SPOTIFY_PAGE_PREFIX + it.id,
+                )
+            },
+        ) + playlists.take(homePlaylistsLimit).map { playlist ->
+            ShelfItem(
+                title = playlist.title,
+                subtitle = playlist.subtitle,
+                thumbnailUrl = playlist.thumbnailUrl,
+                videoId = null,
+                browseId = playlist.browseId,
+            )
+        }
+        if (items.isEmpty()) return@coroutineScope
         placeOwnShelf(
             HomeShelf(
                 title = text(R.string.home_your_playlists),
-                items = playlists.take(HOME_PLAYLISTS_LIMIT).map { playlist ->
-                    ShelfItem(
-                        title = playlist.title,
-                        subtitle = playlist.subtitle,
-                        thumbnailUrl = playlist.thumbnailUrl,
-                        videoId = null,
-                        browseId = playlist.browseId,
-                    )
-                },
+                items = items,
                 leading = true,
-                showAll = true,
+                showAll = playlists.isNotEmpty(),
             ),
         )
     }
 
     /**
-     * Puts one of the rows this app adds to Home (the daylist, your
-     * playlists) in its place: after Recently played and any of these that
-     * come before it, whichever request answered first. Replaces an older
+     * Puts the row this app adds to Home ([loadOwnShelf]) straight after
+     * Recently played, or first while that isn't in yet. Replaces an older
      * copy of itself.
      */
     private fun placeOwnShelf(shelf: HomeShelf) {
-        val leading = listOf(homeRecentTitle, text(R.string.home_daylist), text(R.string.home_your_playlists))
-        val rank = leading.indexOf(shelf.title)
         val existing = (_home.value as? UiState.Success)?.data.orEmpty()
             .filterNot { it.title == shelf.title }
-        // After every leading row that ranks before this one and is already there.
-        val after = existing.indexOfLast { it.title in leading.take(rank) } + 1
+        val after = existing.indexOfFirst { it.title == homeRecentTitle } + 1
         _home.value = UiState.Success(existing.take(after) + shelf + existing.drop(after))
     }
 

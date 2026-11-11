@@ -128,8 +128,8 @@
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
     <string name="spotify">Spotify</string>
-    <!-- Home row holding Spotify's daylist (the playlist it renames through the day). -->
-    <string name="home_daylist">Your daylist</string>
+    <!-- Subtitle of the daylist card (the Spotify playlist it renames through the day) in Your playlists on Home. -->
+    <string name="home_daylist">Daylist · Spotify</string>
     <!-- Home row of the library's own playlists. -->
     <string name="home_your_playlists">Your playlists</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>

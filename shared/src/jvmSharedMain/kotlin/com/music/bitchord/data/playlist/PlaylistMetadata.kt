@@ -31,6 +31,24 @@ object PlaylistMetadata {
         return Summary(count, duration)
     }
 
+    /**
+     * Compare the fetched first page against the beginning of a complete cached
+     * snapshot. Detects newly inserted songs and reordering even when headers
+     * omit the count. Not a substitute for the six-hour complete verification:
+     * edits beyond the first page may remain invisible.
+     */
+    fun firstPageChanged(cached: List<Song>, fetched: List<Song>): Boolean {
+        if (fetched.isEmpty()) return false // Empty/ambiguous page is not proof of deletion.
+        if (cached.size < fetched.size) return true
+        return fetched.indices.any { index ->
+            playlistEntryKey(cached[index]) != playlistEntryKey(fetched[index])
+        }
+    }
+
+    /** Avoid consecutive full scans after a quick app switch; tolerate clock resets. */
+    fun shouldRunReturnCheck(now: Long, previous: Long?, cooldownMs: Long): Boolean =
+        previous == null || now < previous || now - previous >= cooldownMs
+
     fun hasChanged(songs: List<Song>, headerSubtitle: String?): Boolean {
         val summary = fromHeader(headerSubtitle)
         if (summary.count != null && summary.count != songs.size) return true

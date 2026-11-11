@@ -36,6 +36,7 @@ import com.music.bitchord.playback.smart.echoTailSeconds
 import com.music.bitchord.playback.smart.planTransition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -2843,10 +2844,7 @@ class CrossfadeController(
 
     /** Frees the renderer once the retired sink is certain to have stopped calling it. */
     private fun closeLater(renderer: LoopMixRenderer) {
-        scope.launch {
-            delay(LOOP_RENDERER_CLOSE_DELAY_MS)
-            renderer.close()
-        }
+        closeLoopRendererLater(scope, LOOP_RENDERER_CLOSE_DELAY_MS, renderer)
     }
 
     // ---- Stats for nerds ----------------------------------------------------
@@ -4309,3 +4307,14 @@ class CrossfadeController(
 
 /** True when the transition would pair the current item with itself. */
 internal fun isSelfTransition(currentIndex: Int, nextIndex: Int): Boolean = currentIndex == nextIndex
+
+/**
+ * Closes a native renderer after a delay even when the service scope that
+ * scheduled it is cancelled: otherwise nativeDestroy never runs on teardown.
+ */
+internal fun closeLoopRendererLater(scope: CoroutineScope, delayMs: Long, renderer: AutoCloseable) {
+    CoroutineScope(scope.coroutineContext + NonCancellable).launch {
+        delay(delayMs)
+        renderer.close()
+    }
+}

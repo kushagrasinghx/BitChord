@@ -7801,10 +7801,8 @@ class PlaybackService : MediaLibraryService() {
         mediaSession?.player = newSessionPlayer(newActive, newCrossfade)
         applyOutputRoute()
         if (items.isNotEmpty()) newActive.prepare()
-        newActive.playWhenReady = playWhenReady
-
-        oldActive.release()
-        oldSpare.release()
+        // Retire both old focus owners before the new one starts playing.
+        retireThenStart(oldActive, oldSpare, newActive, playWhenReady)
         TrackLog.i(
             "AUDIO_OUT",
             "live output switch: ${if (enableFloat) "PCM_FLOAT" else "PCM_16BIT"}",
@@ -10698,3 +10696,10 @@ internal fun lyricsSettingChanges(
 
 /** The session wrapper when present, because it routes pause to the active speaker. */
 internal fun sleepPauseTarget(sessionPlayer: Player?, localPlayer: Player?): Player? = sessionPlayer ?: localPlayer
+
+/** Releases old focus owners before starting the replacement player. */
+internal fun retireThenStart(oldActive: ExoPlayer, oldSpare: ExoPlayer, newActive: ExoPlayer, playWhenReady: Boolean) {
+    oldActive.release()
+    oldSpare.release()
+    newActive.playWhenReady = playWhenReady
+}

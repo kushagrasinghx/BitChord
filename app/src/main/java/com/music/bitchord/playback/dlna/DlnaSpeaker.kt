@@ -203,11 +203,15 @@ internal class DlnaSpeaker(
         }
         // A track is on its way and not on the renderer yet: its load sends Play itself.
         if (loading && !loadSent) {
+            sink?.onRemotePlaybackChanged()
             changed()
             return
         }
         if (transportState == PAUSED) transportState = PLAYING
         send("Play", listOf("Speed" to "1"))
+        // tell the session now (as CastPlayback does): otherwise the controller's masked state is
+        // replaced by the session's stale one when the command is acknowledged — the icon flickers
+        sink?.onRemotePlaybackChanged()
         changed()
     }
 
@@ -216,6 +220,7 @@ internal class DlnaSpeaker(
         wantsPlay = false
         if (transportState == PLAYING) transportState = PAUSED
         send("Pause")
+        sink?.onRemotePlaybackChanged()
         changed()
     }
 
@@ -224,6 +229,7 @@ internal class DlnaSpeaker(
         requestedPositionMs = positionMs.coerceAtLeast(0L)
         requestedAt = SystemClock.elapsedRealtime()
         send("Seek", listOf("Unit" to "REL_TIME", "Target" to Upnp.formatTime(requestedPositionMs)))
+        sink?.onRemotePlaybackChanged()
         changed()
     }
 

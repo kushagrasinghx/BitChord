@@ -87,6 +87,7 @@ internal class LyricClock(startMs: Long) {
 
     private var glideStartMs = Double.NaN
     private var glideOffsetMs = 0.0
+    private var correctionGlide = false
 
     /**
      * Forget the run so far: frames stopped arriving — playback paused, or the
@@ -100,19 +101,24 @@ internal class LyricClock(startMs: Long) {
     }
 
     /**
-     * Playback is not moving: settle on [positionMs] outright, as of [nowMs].
-     * Called again for every reading that arrives while stopped, which is how a
-     * seek made while paused still moves the words.
+     * Playback is not moving as of [nowMs]. [preserveDisplay] freezes the active visual baseline;
+     * initialization and announced jumps instead settle on [positionMs] outright.
      */
-    fun hold(positionMs: Long, nowMs: Double, discontinuity: Long? = lastDiscontinuity) {
+    fun hold(
+        positionMs: Long,
+        nowMs: Double,
+        discontinuity: Long? = lastDiscontinuity,
+        preserveDisplay: Boolean = false,
+    ) {
         restart()
-        displayedMs = positionMs.toDouble()
+        if (!preserveDisplay) displayedMs = positionMs.toDouble()
         heldAtMs = nowMs
         heldDiscontinuity = discontinuity
     }
 
     /**
-     * Follow stopped readings immediately, including seeks. A running reading is never paused truth,
+     * Freeze an active stopped display, except for initialization and announced jumps.
+     * A running reading is never paused truth,
      * even if the observer was started before the UI learned playback had resumed.
      * Hidden running panels still follow reports, but must extrapolate normally when shown again.
      */
@@ -124,7 +130,8 @@ internal class LyricClock(startMs: Long) {
             heldAtMs = Double.NEGATIVE_INFINITY
             heldDiscontinuity = null
         } else {
-            hold(reading.positionMs, nowMs, reading.discontinuity)
+            val sameDiscontinuity = (heldDiscontinuity ?: lastDiscontinuity) == reading.discontinuity
+            hold(reading.positionMs, nowMs, reading.discontinuity, preserveDisplay = active && sameDiscontinuity)
         }
         return displayedMs.toLong()
     }
@@ -188,7 +195,14 @@ internal class LyricClock(startMs: Long) {
             // the reading; one from before the anchor is out of order, and says
             // nothing the anchor does not.
             val takenAt = if (sampledAtMs.isNaN()) nowMs else minOf(sampledAtMs, nowMs)
+            val previousTarget = targetAt(nowMs)
             if (takenAt >= anchorAtMs || jumpPending) take(nowMs, takenAt, reportedMs)
+            if (correctionGlide && !glideStartMs.isNaN() && targetAt(nowMs) < previousTarget) {
+                // An automatic forward glide's offset belongs to its old target. A lower anchor
+                // would pull the next frame back; return to steering without replacing the display.
+                // Announced seek glides are deliberate position changes and retain their timing.
+                glideStartMs = Double.NaN
+            }
         }
         return displayedMs.toLong()
     }
@@ -321,7 +335,7 @@ internal class LyricClock(startMs: Long) {
             // entirely and no amount of slowing down will get there.
             error <= -LOST_MS || error >= LOST_MS -> displayedMs = target
             error >= GLIDE_FROM_MS -> {
-                startGlide(nowMs - dt, displayedMs - (target - step))
+                startGlide(nowMs - dt, displayedMs - (target - step), correction = true)
                 displayedMs = target + glideOffsetMs * (1.0 - smoothstep(dt / GLIDE_MS))
             }
             else -> {
@@ -346,9 +360,10 @@ internal class LyricClock(startMs: Long) {
         }
     }
 
-    private fun startGlide(startMs: Double, offsetMs: Double) {
+    private fun startGlide(startMs: Double, offsetMs: Double, correction: Boolean = false) {
         glideStartMs = startMs
         glideOffsetMs = offsetMs
+        correctionGlide = correction
     }
 
     /** Where the song is at [atMs]: the newest reading believed, carried forward. */

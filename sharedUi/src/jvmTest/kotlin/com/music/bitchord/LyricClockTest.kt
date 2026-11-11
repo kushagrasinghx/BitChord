@@ -1,6 +1,8 @@
 package com.music.bitchord
 
 import androidx.compose.runtime.mutableStateOf
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricWord
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.ui.player.LyricClock
 import com.music.bitchord.ui.player.LyricPlayhead
@@ -193,6 +195,41 @@ class LyricClockTest {
         assertTrue("never met the song: $last", abs(last - (22_000 - 800)) < 40)
     }
 
+    @Test fun laterResumeAnchorCannotReverseAnAutomaticCatchUpGlide() {
+        val clock = LyricClock(10_000)
+        clock.hold(10_000, 0.0, discontinuity = 0)
+        clock.restart()
+        assertEquals(10_000L, clock.frame(1_000.0, 9_900, 1_000.0, 0))
+        // Two agreeing forward samples establish a new anchor, then a frame starts catch-up.
+        clock.frame(1_016.0, 10_800, 1_016.0, 0)
+        clock.frame(1_032.0, 10_816, 1_032.0, 0)
+        clock.frame(1_048.0, 10_816, 1_032.0, 0)
+        // Ordinary noise lowers the target while that automatic glide is still active.
+        var previous = clock.frame(1_064.0, 10_700, 1_064.0, 0)
+        val after = clock.frame(1_080.0, 10_700, 1_064.0, 0)
+        assertTrue("later resumed frame reused an obsolete glide offset", after >= previous)
+        previous = after
+        for (step in 6..40) {
+            val now = 1_000.0 + step * 16.0
+            val next = clock.frame(now, 10_700 + (step - 4) * 16L, now, 0)
+            assertTrue("catch-up regressed at $now", next >= previous)
+            previous = next
+        }
+        assertTrue("catch-up did not converge", abs(previous - (10_700 + 36 * 16L)) < 40)
+    }
+
+    @Test fun announcedNearSeeksKeepTheirGlideWhenANormalSampleLowersTheTarget() {
+        for (landing in listOf(9_000L, 11_000L)) {
+            val clock = LyricClock(10_000)
+            clock.frame(0.0, 10_000, 0.0, 0)
+            clock.frame(16.0, landing, 16.0, 1)
+            clock.frame(32.0, landing, 16.0, 1)
+            clock.frame(48.0, landing - 20, 48.0, 1)
+            // Both directions must still land within the existing 260 ms seek glide.
+            assertEquals(landing - 20 + 252, clock.frame(300.0, landing - 20, 48.0, 1))
+        }
+    }
+
     @Test fun unannouncedFarJumpIsFollowed() {
         val last = steady(
             until = 8_000.0,
@@ -318,7 +355,7 @@ class LyricClockTest {
         assertTrue(landed.discontinuity != before.discontinuity)
     }
 
-    @Test fun stoppedSampleStopsAnObsoleteRunningFrame() {
+    @Test fun stoppedSampleStopsAnObsoleteRunningFrameWithoutReplacingItsDisplay() {
         val position = PlaybackPosition()
         val playhead = LyricPlayhead(position, mutableStateOf(0))
         val clock = LyricClock(30_867)
@@ -327,8 +364,73 @@ class LyricClockTest {
 
         // Both pause and Media3 buffering publish isPlaying=false, before the UI effect stops.
         position.report(30_880, sampledAtNanos = 1_100_000_000L, isPlaying = false)
-        assertEquals(30_880L, clock.frame(1_116.0, playhead.reading(isPlaying = true)))
-        assertEquals(30_880L, clock.frame(1_132.0, playhead.reading(isPlaying = true)))
+        assertEquals(30_867L, clock.frame(1_116.0, playhead.reading(isPlaying = true)))
+        assertEquals(30_867L, clock.frame(1_132.0, playhead.reading(isPlaying = true)))
+    }
+
+    @Test fun stoppedReportsFreezeRenderedProgressUntilASeekOrResume() {
+        val position = PlaybackPosition()
+        val playhead = LyricPlayhead(position, mutableStateOf(0))
+        val clock = LyricClock(30_000)
+        val line = LyricLine(30_000, "abcdefghij", listOf(LyricWord(30_000, 50_000, "abcdefghij")))
+        position.report(30_000, sampledAtNanos = 1_000_000_000L, isPlaying = true)
+        clock.frame(1_000.0, playhead.reading(isPlaying = true))
+        val beforePause = clock.frame(1_200.5, playhead.reading(isPlaying = true))
+        val frozen = clock.displayedMs
+        val revealed = line.revealedChars(beforePause)
+
+        position.report(30_170, sampledAtNanos = 1_210_000_000L, isPlaying = false)
+        assertEquals(beforePause, clock.observe(playhead.reading(isPlaying = true), 1_210.0))
+        position.report(30_150, sampledAtNanos = 1_500_000_000L, isPlaying = false)
+        assertEquals(beforePause, clock.observe(playhead.reading(isPlaying = false), 1_500.0))
+        assertEquals(frozen, clock.displayedMs, 0.0)
+        assertEquals(revealed, line.revealedChars(clock.displayedMs.toLong()), 0f)
+
+        position.report(30_100, sampledAtNanos = 5_000_000_000L, isPlaying = true)
+        assertTrue(clock.observe(playhead.reading(isPlaying = false), 5_000.0) == null)
+        clock.restart()
+        assertEquals(beforePause, clock.frame(5_000.0, playhead.reading(isPlaying = true)))
+        var previous = beforePause
+        for (step in 1..600) {
+            val elapsed = step * frameMs
+            val now = 5_000.0 + elapsed
+            position.report(30_100 + elapsed.toLong(), sampledAtNanos = (now * 1_000_000).toLong(), isPlaying = true)
+            val next = clock.frame(now, playhead.reading(isPlaying = true))
+            assertTrue("regressed after a frozen pause at $now", next >= previous)
+            previous = next
+        }
+        assertTrue("kept a permanent resume offset", abs(previous - position.positionMs) < 40)
+    }
+
+    @Test fun bufferingAfterTheFirstResumedFrameCannotLowerTheHeldDisplay() {
+        val position = PlaybackPosition()
+        val playhead = LyricPlayhead(position, mutableStateOf(0))
+        val clock = LyricClock(30_867)
+        position.report(30_867, sampledAtNanos = 1_000_000_000L, isPlaying = false)
+        clock.observe(playhead.reading(isPlaying = false), 1_000.0)
+        position.report(30_746, sampledAtNanos = 5_000_000_000L, isPlaying = true)
+        clock.restart()
+        assertEquals(30_867L, clock.frame(5_000.0, playhead.reading(isPlaying = true)))
+        val resumed = clock.frame(5_016.0, playhead.reading(isPlaying = true))
+
+        // A real subsequent stopped sample is not the stale-UI race fixed by 8302fec2.
+        position.report(30_762, sampledAtNanos = 5_020_000_000L, isPlaying = false)
+        assertEquals(resumed, clock.frame(5_032.0, playhead.reading(isPlaying = true)))
+        assertEquals(resumed, clock.observe(playhead.reading(isPlaying = true), 5_033.0))
+        position.report(30_992, sampledAtNanos = 5_048_000_000L, isPlaying = true)
+        clock.restart()
+        assertTrue(clock.frame(5_048.0, playhead.reading(isPlaying = true)) >= resumed)
+    }
+
+    @Test fun stoppedHiddenClockStillFollowsTheActualPosition() {
+        val position = PlaybackPosition()
+        val playhead = LyricPlayhead(position, mutableStateOf(0))
+        val clock = LyricClock(30_000)
+        position.report(30_000, sampledAtNanos = 1_000_000_000L, isPlaying = true)
+        clock.frame(1_000.0, playhead.reading(isPlaying = true))
+        clock.frame(1_200.0, playhead.reading(isPlaying = true))
+        position.report(30_170, sampledAtNanos = 1_210_000_000L, isPlaying = false)
+        assertEquals(30_170L, clock.observe(playhead.reading(isPlaying = false), 1_210.0, active = false))
     }
 
     @Test fun hiddenRunningClockExtrapolatesWhenShownAgain() {
@@ -378,6 +480,8 @@ class LyricClockTest {
         for (cycle in 1..5) {
             val stopped = 30_867L + cycle * 1_000L
             val stoppedAt = cycle * 60_000_000_000L
+            // Each cycle starts at a new landing, not an unannounced change to a frozen clock.
+            position.seeks++
             position.report(stopped, sampledAtNanos = stoppedAt, isPlaying = false)
             clock.observe(playhead.reading(isPlaying = true), stoppedAt / 1_000_000.0)
             val resumedAt = stoppedAt + 30_000_000_000L

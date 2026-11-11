@@ -76,6 +76,9 @@ object DownloadStore {
      */
     fun needsLegacyPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
+    /** First `Name (n).ext` not already present in the download folder. */
+    fun nextAvailableName(context: Context, name: String): String = nextAvailableName(name) { existing(context, it) != null }
+
     /** Distinct from a network failure: a full device must say so. */
     internal fun requireFreeSpace(availableBytes: Long, minimumBytes: Long) {
         if (availableBytes < minimumBytes) {
@@ -121,7 +124,20 @@ object DownloadStore {
     /** Long enough for anything real, short of the 255-byte filename ceiling. */
     private const val MAX_STEM_CHARS = 120
 
-    /** Free space required before starting a new download. */
+    /** Name allocation that never overwrites an unrelated recording. */
+internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String {
+    val dot = name.lastIndexOf('.')
+    val stem = if (dot > 0) name.substring(0, dot) else name
+    val extension = if (dot > 0) name.substring(dot) else ""
+    var suffix = 2
+    while (true) {
+        val candidate = "$stem ($suffix)$extension"
+        if (!taken(candidate)) return candidate
+        suffix++
+    }
+}
+
+/** Free space required before starting a new download. */
     private const val MIN_FREE_BYTES = 64L * 1024 * 1024
 
     class InsufficientSpaceException(message: String) : IllegalStateException(message)

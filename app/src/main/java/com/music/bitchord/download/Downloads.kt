@@ -1115,12 +1115,19 @@ object Downloads {
 
                 val name = DownloadStore.fileNameFor(track, route.extension)
                 val alreadyThere = DownloadStore.existing(context, name)
-                if (alreadyThere != null) {
+                if (alreadyThere != null && _saved.value[id]?.toUri() == alreadyThere) {
+                    // Only this song's own earlier file may be adopted. Two
+                    // different recordings can sanitise to the same name.
                     Log.d(TAG, "$name is already in Music; adopting it")
                     remember(song, track, alreadyThere)
                     DownloadSession.done(id)
                     clear(id)
                     return@coroutineScope
+                }
+                val destinationName = if (alreadyThere != null) {
+                    DownloadStore.nextAvailableName(context, name)
+                } else {
+                    name
                 }
 
                 val manifest = route.offlineHls
@@ -1158,7 +1165,7 @@ object Downloads {
                     return@coroutineScope
                 }
 
-                val destination = DownloadStore.begin(context, name, route.mimeType)
+                val destination = DownloadStore.begin(context, destinationName, route.mimeType)
                 pending = destination
                 destination.openStream().use { sink ->
                     route.write(sink) { written, total ->

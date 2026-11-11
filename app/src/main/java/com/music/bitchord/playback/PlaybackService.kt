@@ -2759,6 +2759,9 @@ class PlaybackService : MediaLibraryService() {
         adoptFormatOf(incoming)
 
         mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
+        // The version swap installs a new live player; the controller must not
+        // keep listening to the retired one for seeks/errors/end-of-media.
+        crossfade?.listenTo(incoming)
 
         incoming.volume = 1f
         outgoing.stop()

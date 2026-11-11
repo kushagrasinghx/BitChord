@@ -759,7 +759,7 @@ class CrossfadeController(
      * attached there would read that as the queue being replaced out from under
      * the very transition it is setting up.
      */
-    private fun listenTo(target: ExoPlayer) {
+    internal fun listenTo(target: ExoPlayer) {
         if (listeningTo === target) return
         listeningTo?.removeListener(listener)
         target.addListener(listener)

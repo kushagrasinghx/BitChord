@@ -96,6 +96,16 @@ internal object QuickJsExecutor {
         var started = 0
         /** Engines actually made, for closing them on unload. Guarded by [lock]. */
         val made = mutableListOf<QuickJs>()
+
+        /**
+         * Callers inside one of [made] right now.
+         *
+         * Read by eviction before anything is closed. An interpreter in the
+         * middle of a call is running somebody's track: closing it under them
+         * is a native crash at best and another track's answer at worst, so a
+         * busy module is never a candidate.
+         */
+        val inUse = java.util.concurrent.atomic.AtomicInteger()
     }
 
     /** Whether [moduleId] still has a live pool, i.e. hasn't been evicted. */
@@ -111,6 +121,24 @@ internal object QuickJsExecutor {
 
     private val engineLock = Any()
 
+    /**
+     * Which modules may be closed to make room, oldest used first.
+     *
+     * A busy module is skipped rather than waited for: the caller asking for
+     * room is itself a search, and blocking it until another module's request
+     * comes back would turn parallel lookups into a queue — the exact latency
+     * the pool exists to remove. [excess] is how many slots are wanted; fewer
+     * are returned when fewer are idle, including none.
+     */
+    internal fun evictionVictims(
+        lruOrder: List<String>,
+        inUse: (String) -> Int,
+        excess: Int,
+    ): List<String> {
+        if (excess <= 0) return emptyList()
+        return lruOrder.filter { inUse(it) == 0 }.take(excess)
+    }
+
     /** LRU map: access-ordered so the oldest-used entry is first. */
     private val pools = LinkedHashMap<String, Pool>(16, 0.75f, true)
 
@@ -123,10 +151,20 @@ internal object QuickJsExecutor {
                 return Result.success(Unit)
             }
             buildList {
-                while (pools.size >= MAX_MODULES) {
-                    val lruId = pools.keys.firstOrNull() ?: break
-                    TrackLog.d(TAG, "  Evicting LRU module engine: $lruId")
-                    pools.remove(lruId)?.let { addAll(it.made) }
+                // Only a pool nobody is inside may be closed. When every one
+                // is busy the cap is briefly exceeded instead of violated: the
+                // work in flight is what bounds it, and it drains. Evicting
+                // blindly is what closed an interpreter mid-call.
+                if (pools.size >= MAX_MODULES) {
+                    val victims = evictionVictims(
+                        lruOrder = pools.keys.toList(),
+                        inUse = { id -> pools[id]?.inUse?.get() ?: 0 },
+                        excess = pools.size - MAX_MODULES + 1,
+                    )
+                    victims.forEach { id ->
+                        TrackLog.d(TAG, "  Evicting LRU module engine: $id")
+                        pools.remove(id)?.let { addAll(it.made) }
+                    }
                 }
             }
         }
@@ -240,9 +278,13 @@ internal object QuickJsExecutor {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 return@withContext Result.failure(e)
             }
+            // Marked busy for as long as the engine is out, so eviction can
+            // see that this module is not a candidate for closing.
+            pool.inUse.incrementAndGet()
             try {
                 callOn(qjs, moduleId, functionName, args)
             } finally {
+                pool.inUse.decrementAndGet()
                 // Back into circulation on every path, including a throw: an
                 // engine that is never returned is a slot the pool can never
                 // hand out again, and three of those would deadlock the module.

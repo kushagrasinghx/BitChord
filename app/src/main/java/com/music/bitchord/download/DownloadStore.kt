@@ -6,6 +6,7 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.StatFs
 import android.provider.MediaStore
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
@@ -75,6 +76,15 @@ object DownloadStore {
      */
     fun needsLegacyPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
+    /** Distinct from a network failure: a full device must say so. */
+    internal fun requireFreeSpace(availableBytes: Long, minimumBytes: Long) {
+        if (availableBytes < minimumBytes) {
+            throw InsufficientSpaceException(
+                "Not enough free storage — ${minimumBytes / (1024 * 1024)} MB is required before downloading",
+            )
+        }
+    }
+
     // ---- Naming -------------------------------------------------------------
 
     /**
@@ -110,6 +120,11 @@ object DownloadStore {
 
     /** Long enough for anything real, short of the 255-byte filename ceiling. */
     private const val MAX_STEM_CHARS = 120
+
+    /** Free space required before starting a new download. */
+    private const val MIN_FREE_BYTES = 64L * 1024 * 1024
+
+    class InsufficientSpaceException(message: String) : IllegalStateException(message)
 
     /** What a file of some codec is called and what the store is told it is. */
     class Storable(val extension: String, val mimeType: String)
@@ -269,6 +284,7 @@ object DownloadStore {
      *   download cannot start rather than that it might not finish.
      */
     fun begin(context: Context, name: String, mimeType: String): Pending {
+        requireFreeSpace(StatFs(context.filesDir.path).availableBytes, MIN_FREE_BYTES)
         if (!AppSettings.exportDownloads.value) {
             val target = privateFile(context, name)
             val folder = target.parentFile ?: error("No download folder")

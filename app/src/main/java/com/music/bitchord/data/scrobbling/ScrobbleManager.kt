@@ -117,19 +117,22 @@ class ScrobbleManager(
     private fun scrobbleSong(song: Song, durationSeconds: Int) {
         val scrobbleArtist = song.artist.forScrobble()
         scope.launch {
-            LastFM
-                .scrobble(
+            // The listen is written to a durable queue before anything is sent:
+            // a failed request used to mean a lost scrobble, so a commute with
+            // no signal lost the whole commute. Delivery, retry and backoff are
+            // ScrobbleRetry's problem now, and playback never waits on them.
+            runCatching {
+                ScrobbleRetry.submitLastFm(
                     artist = scrobbleArtist,
                     track = song.title,
-                    duration = durationSeconds,
-                    timestamp = songStartedAt,
                     album = song.albumName,
-                ).onSuccess {
-                    Log.d(TAG, "Scrobbled: ${song.title} by ${song.artist}")
-                }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
-                    Log.e(TAG, "Failed to scrobble: ${song.title}", throwable)
-                }
+                    durationSeconds = durationSeconds,
+                    timestampSeconds = songStartedAt,
+                )
+            }.onFailure { throwable ->
+                if (throwable is CancellationException) throw throwable
+                Log.e(TAG, "Failed to queue scrobble: ${song.title}", throwable)
+            }
         }
     }
 

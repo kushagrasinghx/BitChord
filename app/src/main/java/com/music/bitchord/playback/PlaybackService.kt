@@ -138,6 +138,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
+import com.music.bitchord.data.scrobbling.ScrobbleRetry
 import com.music.bitchord.data.scrobbling.ScrobbleManager
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
@@ -8403,7 +8404,14 @@ class PlaybackService : MediaLibraryService() {
         if (!lbEnabled || lbToken.isBlank()) return
         val endMs = System.currentTimeMillis()
         scope.launch {
-            ListenBrainzManager.submitFinished(lbToken, song, startMs, endMs, durationMs, AppSettings.listenBrainzPrimaryArtistOnly.value)
+            // Queued first, sent second: the listen survives the process now.
+            ScrobbleRetry.submitListenBrainz(
+                song = song,
+                startMs = startMs,
+                endMs = endMs,
+                durationMs = durationMs,
+                primaryArtistOnly = AppSettings.listenBrainzPrimaryArtistOnly.value,
+            )
         }
     }
 
@@ -8497,9 +8505,12 @@ class PlaybackService : MediaLibraryService() {
                 val lastStart = listenBrainzStartMs
                 val lastDuration = player?.duration?.takeIf { it > 0 }
                 CoroutineScope(Dispatchers.IO).launch {
-                    ListenBrainzManager.submitFinished(
-                        lbToken, lastSong, lastStart, System.currentTimeMillis(), lastDuration,
-                        AppSettings.listenBrainzPrimaryArtistOnly.value,
+                    ScrobbleRetry.submitListenBrainz(
+                        song = lastSong,
+                        startMs = lastStart,
+                        endMs = System.currentTimeMillis(),
+                        durationMs = lastDuration,
+                        primaryArtistOnly = AppSettings.listenBrainzPrimaryArtistOnly.value,
                     )
                 }
             }

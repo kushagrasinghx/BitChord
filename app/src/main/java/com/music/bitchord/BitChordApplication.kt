@@ -36,6 +36,7 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.AndroidStreamHooks
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
+import com.music.bitchord.data.scrobbling.ScrobbleRetry
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
@@ -143,6 +144,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // The durable scrobble queue: it has to be open before the first listen
+        // can be accepted, and delivery starts from the flush below.
+        ScrobbleRetry.install(this)
         // Restores the addon token, so the first search after a process restart
         // doesn't have to attest the device again.
         com.music.bitchord.data.sources.addon.AddonAuth.init(this)
@@ -210,6 +214,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // thread, because deleting files is not something the first frame should
         // wait for, and the age guard means nothing in flight can match.
         CoroutineScope(Dispatchers.IO).launch { Downloads.reclaimOrphanedPackages(this@BitChordApplication) }
+        // Listens queued before the app was killed go out now rather than
+        // waiting for the next play to trigger a flush. Off the joined thread:
+        // a service that is slow to answer must not delay the first frame.
+        ScrobbleRetry.flushAsync()
     }
 
     /**

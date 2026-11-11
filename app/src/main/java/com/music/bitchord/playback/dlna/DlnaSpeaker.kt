@@ -71,6 +71,9 @@ internal class DlnaSpeaker(
 
     // What the phone asked for.
     private var wantsPlay = false
+
+    /** The current load's SetAVTransportURI has gone out (a play() after this must send Play itself). */
+    private var loadSent = false
     private var loading = false
     private var loadStartedAt = 0L
     private var finished = false
@@ -189,9 +192,18 @@ internal class DlnaSpeaker(
     override fun play() {
         if (!active) return
         wantsPlay = true
-        if (finished) {
+        // Picking another track calls play() before the transition reaches onLocalTransition: the phone's
+        // player already has the new item while the renderer still holds the old one, paused. A bare Play
+        // here would resume the old song for as long as the new stream takes to resolve. Load instead.
+        val current = localPlayer()?.currentMediaItem
+        if (finished || (current != null && current.mediaId != currentId)) {
             finished = false
-            localPlayer()?.currentMediaItem?.let { load(it, 0L, play = true) }
+            current?.let { load(it, 0L, play = true) }
+            return
+        }
+        // A track is on its way and not on the renderer yet: its load sends Play itself.
+        if (loading && !loadSent) {
+            changed()
             return
         }
         send("Play", listOf("Speed" to "1"))
@@ -233,9 +245,10 @@ internal class DlnaSpeaker(
 
     override fun onLocalTransition(item: MediaItem?, reason: Int) {
         if (!active || item == null) return
-        if (item.mediaId == currentId && !loading) {
-            // Already there: the renderer moved first and this is the phone catching up.
-            queueNext()
+        if (item.mediaId == currentId) {
+            // Already there (the renderer moved first and this is the phone catching up), or
+            // already being loaded (play() saw the new item first): nothing to send again.
+            if (!loading) queueNext()
             return
         }
         load(item, 0L, play = wantsPlay || reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
@@ -265,6 +278,7 @@ internal class DlnaSpeaker(
         val gen = ++generation
         wantsPlay = play
         loading = true
+        loadSent = false
         loadStartedAt = SystemClock.elapsedRealtime()
         finished = false
         sawPlaying = false
@@ -300,13 +314,15 @@ internal class DlnaSpeaker(
                 return@launch
             }
             currentUrl = stream.url
+            // Whatever the listener wants by now: play() or pause() may have come in while resolving.
+            val playNow = wantsPlay
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     Upnp.soap(
                         target.avTransportUrl, Upnp.AV_TRANSPORT, "SetAVTransportURI",
                         INSTANCE + listOf("CurrentURI" to stream.url, "CurrentURIMetaData" to didl(item, stream)),
                     )
-                    if (play) Upnp.soap(target.avTransportUrl, Upnp.AV_TRANSPORT, "Play", INSTANCE + listOf("Speed" to "1"))
+                    if (playNow) Upnp.soap(target.avTransportUrl, Upnp.AV_TRANSPORT, "Play", INSTANCE + listOf("Speed" to "1"))
                 }
             }
             if (gen != generation || !active) return@launch
@@ -319,6 +335,9 @@ internal class DlnaSpeaker(
                 changed()
                 return@launch
             }
+            loadSent = true
+            // play() arrived while the URI was being sent: it left the Play to us
+            if (!playNow && wantsPlay) send("Play", listOf("Speed" to "1"))
             // [loading] clears when the renderer reports this track (see onStatus).
             queueNext()
         }

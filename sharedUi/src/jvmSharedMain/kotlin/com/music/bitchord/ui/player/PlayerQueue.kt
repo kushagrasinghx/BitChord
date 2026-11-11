@@ -497,7 +497,6 @@ internal fun InlineQueue(
         Spacer(Modifier.height(4.dp))
         Box(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
                 .bleedHorizontally(PLAYER_GUTTER),
         ) {

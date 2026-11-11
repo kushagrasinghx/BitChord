@@ -206,6 +206,7 @@ internal class DlnaSpeaker(
             changed()
             return
         }
+        if (transportState == PAUSED) transportState = PLAYING
         send("Play", listOf("Speed" to "1"))
         changed()
     }
@@ -213,6 +214,7 @@ internal class DlnaSpeaker(
     override fun pause() {
         if (!active) return
         wantsPlay = false
+        if (transportState == PLAYING) transportState = PAUSED
         send("Pause")
         changed()
     }
@@ -238,8 +240,20 @@ internal class DlnaSpeaker(
 
     private fun send(action: String, args: List<Pair<String, String>> = emptyList()) {
         val target = device ?: return
-        DlnaOutput.background { Upnp.soap(target.avTransportUrl, Upnp.AV_TRANSPORT, action, INSTANCE + args) }
+        commandsInFlight.incrementAndGet()
+        DlnaOutput.background {
+            try {
+                Upnp.soap(target.avTransportUrl, Upnp.AV_TRANSPORT, action, INSTANCE + args)
+            } finally {
+                lastCommandDoneAt = SystemClock.elapsedRealtime()
+                commandsInFlight.decrementAndGet()
+            }
+        }
     }
+
+    /** Transport commands on their way, and when the last one finished: see [onStatus]. */
+    private val commandsInFlight = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile private var lastCommandDoneAt = 0L
 
     // ---- the phone's player moved ---------------------------------------------
 
@@ -391,6 +405,7 @@ internal class DlnaSpeaker(
             var tick = 0
             while (isActive && active) {
                 val target = device ?: break
+                val polledAt = SystemClock.elapsedRealtime()
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
                         val transport = Upnp.soap(target.avTransportUrl, Upnp.AV_TRANSPORT, "GetTransportInfo", INSTANCE)
@@ -401,7 +416,7 @@ internal class DlnaSpeaker(
                 if (!active || device !== target) break
                 result.onSuccess { (transport, position) ->
                     failures = 0
-                    onStatus(transport["CurrentTransportState"].orEmpty(), position)
+                    onStatus(transport["CurrentTransportState"].orEmpty(), position, polledAt)
                 }.onFailure {
                     // The renderer went away (switched off, Wi-Fi dropped): after
                     // ~10 s of silence the music comes back to the phone, paused.
@@ -417,8 +432,11 @@ internal class DlnaSpeaker(
         }
     }
 
-    private fun onStatus(state: String, position: Map<String, String>) {
+    private fun onStatus(state: String, position: Map<String, String>, polledAt: Long) {
         if (!active) return
+        // Asked before our last Play/Pause reached the renderer: its state is from before that.
+        // Taking it would flip the button back for a moment (pause → play icon → pause icon → play icon).
+        if (commandsInFlight.get() > 0 || polledAt < lastCommandDoneAt) return
         val uri = position["TrackURI"].orEmpty()
         transportState = state
         statusPositionMs = Upnp.parseTime(position["RelTime"])
@@ -445,7 +463,10 @@ internal class DlnaSpeaker(
 
         val ours = uri.isEmpty() || currentUrl == null || uri == currentUrl
         if (loading) {
-            val settled = ours && (state == PLAYING || state == PAUSED || (state == STOPPED && !wantsPlay))
+            // Until our SetAVTransportURI has gone out, the renderer is still reporting the previous
+            // track (often paused): that must not settle the load nor overwrite what the listener wants.
+            val mine = loadSent && (uri.isEmpty() || uri == currentUrl)
+            val settled = mine && (state == PLAYING || state == PAUSED || (state == STOPPED && !wantsPlay))
             if (settled || SystemClock.elapsedRealtime() - loadStartedAt > LOAD_TIMEOUT_MS) loading = false
         }
 

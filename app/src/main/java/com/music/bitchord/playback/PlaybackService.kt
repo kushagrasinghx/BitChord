@@ -6670,6 +6670,8 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun reportProgress() {
         scope.launch {
+            // Whether the last tick counted listening on a remote speaker: see below.
+            var remoteSampling = false
             while (isActive) {
                 // Re-read every tick rather than captured once: the session
                 // moves between two players, and a sampler pinned to the one
@@ -6703,6 +6705,27 @@ class PlaybackService : MediaLibraryService() {
                     // repeat: it returns immediately unless the track is
                     // pending and nothing is already looking.
                     lookForBetterCopy(player)
+                } else if (speakers.active) {
+                    // On a speaker (Cast, the watch) the phone's player is held paused on
+                    // purpose and the receiver owns the clock, so the branch above never runs and
+                    // none of that listening reached the listening record. The receiver's own
+                    // isPlaying is the tick here; the phone's current item is the receiver's track
+                    // (it follows the receiver), and the receiver knows the real length.
+                    val playingRemotely = speakers.isPlaying
+                    if (playingRemotely) {
+                        player?.currentMediaItem?.toSong()?.let {
+                            val length = speakers.durationMs.takeIf { d -> d != C.TIME_UNSET && d > 0 }
+                                ?: (player?.duration ?: 0L)
+                            ListeningRecorder.onSample(it, length)
+                        }
+                    } else if (remoteSampling) {
+                        // Paused on the speaker: close the gap like a local pause does.
+                        ListeningRecorder.onStopped()
+                    }
+                    remoteSampling = playingRemotely
+                } else if (remoteSampling) {
+                    remoteSampling = false
+                    ListeningRecorder.onStopped()
                 }
                 delay(PROGRESS_SAMPLE_MS)
             }

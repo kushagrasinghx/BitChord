@@ -650,6 +650,10 @@
         <item quantity="one">שיר %1$d נוסף לתור</item>
         <item quantity="other">%1$d שירים נוספו לתור</item>
     </plurals>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d שיר הוסר</item>
+        <item quantity="other">%1$d שירים הוסרו</item>
+    </plurals>
     <plurals name="log_copied_line_count">
         <item quantity="one">יומן הועתק · שורה %1$d</item>
         <item quantity="other">יומן הועתק · %1$d שורות</item>
@@ -1462,4 +1466,12 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="queue_removed_song">הוסר %1$s</string>
+    <string name="queue_undo_action">ביטול</string>
+    <string name="queue_cleared_section">נוקה %1$s</string>
+    <string name="next_in_queue">הבא בתור</string>
+    <string name="queue_selected_count">%1$d נבחרו</string>
+    <string name="queue_playlist_added">נוספו %1$d מתוך %2$d שירים</string>
+    <string name="queue_playlist_partial">%1$s (%2$d לא תואמים, %3$d כבר קיימים, %4$d נכשלו)</string>
+    <string name="queue_like_sign_in">יש להתחבר כדי לסמן לייק לשירים מקוונים</string>
 </resources>

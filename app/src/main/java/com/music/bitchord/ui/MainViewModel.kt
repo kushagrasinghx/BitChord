@@ -698,13 +698,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * on a round trip before the heart fills reads as the tap not having
      * registered, and people tap again.
      */
-    fun setLike(videoId: String, status: LikeStatus) {
-        if (!requireSignIn()) return
+    fun setLike(videoId: String, status: LikeStatus) = setLike(videoId, status) {}
+
+    /** The same rating action, acknowledged after its request and any rollback finish. */
+    fun setLike(videoId: String, status: LikeStatus, onResult: (Boolean) -> Unit) {
+        if (!requireSignIn()) {
+            onResult(false)
+            return
+        }
         val previous = likeStatusOf(videoId)
-        if (previous == status) return
+        if (previous == status) {
+            onResult(true)
+            return
+        }
         LikeState.set(videoId, status)
         viewModelScope.launch {
-            YtMusicRepository.rate(videoId, status).fold(
+            val result = YtMusicRepository.rate(videoId, status)
+            result.fold(
                 onSuccess = {
                     // Liked Music is now out of date either way.
                     libraryStale = true
@@ -719,6 +729,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     LikeState.set(videoId, previous)
                 },
             )
+            onResult(result.isSuccess)
         }
     }
 
@@ -1022,6 +1033,58 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Batch counterpart of the single-song picker. Counts selected rows, not
+     * destinations. A song added to one destination but refused by another is
+     * counted in both added and failed, so partial destination failures remain
+     * visible. Already-there means every destination already held that row.
+     */
+    fun addToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit,
+    ) {
+        if (songs.isEmpty()) {
+            onResult(0, 0, 0)
+            return
+        }
+        if (!requireSignIn() || playlists.isEmpty()) {
+            onResult(0, 0, songs.size)
+            return
+        }
+        val destinations = playlists.distinctBy { it.playlistId }
+        viewModelScope.launch {
+            val previous = destinations.associate { it.playlistId to mutableMapOf<String, AddOutcome>() }
+            var added = 0
+            var alreadyThere = 0
+            var failed = 0
+            songs.forEach { song ->
+                val outcomes = destinations.map { playlist ->
+                    val known = previous.getValue(playlist.playlistId)
+                    when (val cached = known[song.videoId]) {
+                        AddOutcome.ADDED -> AddOutcome.ALREADY_THERE
+                        null -> {
+                            val outcome = try {
+                                addOne(playlist, song)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                AddOutcome.FAILED
+                            }
+                            known[song.videoId] = outcome
+                            outcome
+                        }
+                        else -> cached
+                    }
+                }
+                if (AddOutcome.ADDED in outcomes) added++
+                if (outcomes.all { it == AddOutcome.ALREADY_THERE }) alreadyThere++
+                if (AddOutcome.FAILED in outcomes) failed++
+            }
+            onResult(added, alreadyThere, failed)
+        }
+    }
+
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {
@@ -1058,43 +1121,105 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 videoIds = listOfNotNull(song?.videoId),
             ).fold(
                 onSuccess = { playlistId ->
-                    // Nothing to look up for a playlist this account has just
-                    // made: it is the owner by construction, so its card is
-                    // editable the moment it appears rather than one request
-                    // after someone holds it.
-                    setPlaylistOwned("VL$playlistId", true)
-                    libraryStale = true
-                    val created = UserPlaylist(
+                    publishCreatedPlaylist(
                         playlistId = playlistId,
                         title = name,
-                        // Only what this request itself establishes. Both
-                        // surfaces that draw it leave a blank one out, so an
-                        // unseeded playlist gets a card of just its name rather
-                        // than a guess at what the feed will call it.
                         subtitle = if (song != null) "1 song" else "",
                         thumbnailUrl = song?.thumbnailUrl,
                     )
-                    // Drawn from what was just sent rather than waited for: the
-                    // library feed does not have this playlist yet, and the
-                    // fetch that used to run here answered without it — see
-                    // [editPlaylistShelf]. Leads the shelf because it is the
-                    // newest, which is the order the feed itself comes in.
-                    _playlists.value = listOf(created) +
-                        _playlists.value.filterNot { it.playlistId == created.playlistId }
-                    editPlaylistShelf { items ->
-                        listOf(
-                            ShelfItem(
-                                title = created.title,
-                                subtitle = created.subtitle,
-                                thumbnailUrl = created.thumbnailUrl,
-                                videoId = null,
-                                browseId = created.browseId,
-                            ),
-                        ) + items.filterNot { it.browseId == created.browseId }
-                    }
                 },
                 onFailure = {},
             )
+        }
+    }
+
+    /** Account-only batch create; never falls back to a different destination. */
+    fun createPlaylist(
+        title: String,
+        privacy: PlaylistPrivacy,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit,
+    ) {
+        if (songs.isEmpty()) {
+            onResult(0, 0, 0)
+            return
+        }
+        if (!requireSignIn()) {
+            onResult(0, 0, songs.size)
+            return
+        }
+        val name = title.trim().ifBlank { text(R.string.new_playlist) }
+        val uniqueSongs = songs.distinctBy { it.videoId }
+        viewModelScope.launch {
+            val initial = uniqueSongs.take(50)
+            val playlistId = YtMusicRepository.createPlaylist(
+                title = name,
+                privacy = privacy,
+                videoIds = initial.map { it.videoId },
+            ).getOrNull()
+            if (playlistId == null) {
+                onResult(0, 0, songs.size)
+                return@launch
+            }
+            val accepted = initial.mapTo(HashSet()) { it.videoId }
+            // Each later chunk has its own acknowledgement; a rejected chunk
+            // cannot be counted merely because the initial create succeeded.
+            uniqueSongs.drop(50).chunked(50).forEach { chunk ->
+                if (YtMusicRepository.addToPlaylist(playlistId, chunk.map { it.videoId }).isSuccess) {
+                    accepted.addAll(chunk.map { it.videoId })
+                }
+            }
+            publishCreatedPlaylist(
+                playlistId = playlistId,
+                title = name,
+                subtitle = getApplication<Application>().resources.getQuantityString(
+                    R.plurals.song_count_plural, accepted.size, accepted.size,
+                ),
+                thumbnailUrl = uniqueSongs.firstOrNull { it.videoId in accepted }?.thumbnailUrl,
+            )
+            val counted = HashSet<String>()
+            var added = 0
+            var alreadyThere = 0
+            var failed = 0
+            songs.forEach { song ->
+                when {
+                    song.videoId !in accepted -> failed++
+                    counted.add(song.videoId) -> added++
+                    else -> alreadyThere++
+                }
+            }
+            onResult(added, alreadyThere, failed)
+        }
+    }
+
+    /** Publish only metadata established by an acknowledged account create. */
+    private fun publishCreatedPlaylist(
+        playlistId: String,
+        title: String,
+        subtitle: String,
+        thumbnailUrl: String?,
+    ) {
+        // The account owns a playlist it has just created; no lookup needed.
+        setPlaylistOwned("VL$playlistId", true)
+        libraryStale = true
+        val created = UserPlaylist(
+            playlistId = playlistId,
+            title = title,
+            subtitle = subtitle,
+            thumbnailUrl = thumbnailUrl,
+        )
+        _playlists.value = listOf(created) +
+            _playlists.value.filterNot { it.playlistId == created.playlistId }
+        editPlaylistShelf { items ->
+            listOf(
+                ShelfItem(
+                    title = created.title,
+                    subtitle = created.subtitle,
+                    thumbnailUrl = created.thumbnailUrl,
+                    videoId = null,
+                    browseId = created.browseId,
+                ),
+            ) + items.filterNot { it.browseId == created.browseId }
         }
     }
 

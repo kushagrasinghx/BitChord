@@ -620,6 +620,10 @@
         <item quantity="one">Added %1$d song to the queue</item>
         <item quantity="other">Added %1$d songs to the queue</item>
     </plurals>
+    <plurals name="queue_removed_count">
+        <item quantity="one">Removed %1$d song</item>
+        <item quantity="other">Removed %1$d songs</item>
+    </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>
@@ -1329,6 +1333,14 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="queue_removed_song">Removed %1$s</string>
+    <string name="queue_undo_action">Undo</string>
+    <string name="queue_cleared_section">Cleared %1$s</string>
+    <string name="next_in_queue">Next in queue</string>
+    <string name="queue_selected_count">%1$d selected</string>
+    <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
+    <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
+    <string name="queue_like_sign_in">Sign in to like online songs</string>
     <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
     <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta">Let\'s Celebrate</string>

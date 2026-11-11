@@ -152,6 +152,7 @@ fun QueueSidePanel(
         currentIndex = queueIndex,
         autoplayEnabled = autoplayEnabled,
         controlsLocked = rememberControlsLocked(),
+        hazeState = remember { HazeState() },
         onJumpTo = onJumpTo,
         onRemove = onRemove,
         onMove = onMove,

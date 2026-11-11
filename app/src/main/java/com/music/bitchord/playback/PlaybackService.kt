@@ -4381,7 +4381,7 @@ class PlaybackService : MediaLibraryService() {
         // moment the track the user meant has finished. REPEAT counts
         // too, or the timer would never fire with repeat-one on.
         if (ended && SleepTimer.afterTrack.value) {
-            exoPlayer.pause()
+            pauseActiveForSleep()
             SleepTimer.cancel()
         }
         if (exoPlayer.isPlaying) registerCurrentPlay()
@@ -7310,6 +7310,14 @@ class PlaybackService : MediaLibraryService() {
      * `collectLatest` is what makes re-setting the timer work: the pending wait
      * is cancelled and restarted on the new deadline instead of both firing.
      */
+    /**
+     * Pauses through the session wrapper, so a sleep timer stops whichever
+     * destination is actually sounding: the phone, Cast, or the watch.
+     */
+    private fun pauseActiveForSleep() {
+        sleepPauseTarget(mediaSession?.player, player)?.pause()
+    }
+
     private fun watchSleepTimer() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
@@ -7341,7 +7349,7 @@ class PlaybackService : MediaLibraryService() {
                         }
                     }
 
-                    player?.pause()
+                    pauseActiveForSleep()
                     SleepTimer.cancel()
                 } finally {
                     faded?.volume = 1f
@@ -10678,3 +10686,6 @@ internal fun lyricsSettingChanges(
 ): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
     listOf(s, src, o, p)
 }.distinctUntilChanged()
+
+/** The session wrapper when present, because it routes pause to the active speaker. */
+internal fun sleepPauseTarget(sessionPlayer: Player?, localPlayer: Player?): Player? = sessionPlayer ?: localPlayer

@@ -300,7 +300,7 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
      *   download cannot start rather than that it might not finish.
      */
     fun begin(context: Context, name: String, mimeType: String): Pending {
-        requireFreeSpace(StatFs(context.filesDir.path).availableBytes, MIN_FREE_BYTES)
+        requireFreeSpace(StatFs(freeSpacePath(context)).availableBytes, MIN_FREE_BYTES)
         if (!AppSettings.exportDownloads.value) {
             val target = privateFile(context, name)
             val folder = target.parentFile ?: error("No download folder")
@@ -345,6 +345,24 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), FOLDER),
         name,
     )
+
+    /**
+     * The volume a download is about to be written to.
+     *
+     * Not always [Context.getFilesDir]. An exported download lands in the shared
+     * Music folder, which on many phones is a different volume — and the only
+     * one a full card affects — so measuring internal storage there answered the
+     * wrong question: a device with no room left in Music passed the check and
+     * then failed during the transfer. The copy that never leaves app storage
+     * does live under filesDir, and that is what is measured for it.
+     */
+    private fun freeSpacePath(context: Context): String =
+        if (AppSettings.exportDownloads.value) {
+            @Suppress("DEPRECATION")
+            Environment.getExternalStorageDirectory().path
+        } else {
+            context.filesDir.path
+        }
 
     private fun privateFile(context: Context, name: String) =
         File(File(context.filesDir, "downloads"), name)

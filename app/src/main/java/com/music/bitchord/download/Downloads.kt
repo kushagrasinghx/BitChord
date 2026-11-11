@@ -1560,7 +1560,7 @@ object Downloads {
      * `Unsupported MIME type audio/webm` at least sends someone looking in the
      * right direction.
      */
-    private fun Exception.friendly(): String = when {
+    private fun Exception.friendly(): String = storageFailureMessage(this) ?: when {
         (this is IllegalStateException || this is IllegalArgumentException) &&
             !message.isNullOrBlank() -> message!!
         else -> "Download failed — check your connection"
@@ -1775,3 +1775,35 @@ data class DownloadedCollection(
     val playlist: Boolean,
     val songs: List<Song>,
 )
+
+
+/**
+ * Whether [this], or anything it was caused by, is the filesystem saying the
+ * destination is full.
+ *
+ * Worth telling apart from every other download failure: a full device is not a
+ * connection problem, and reporting it as one sends the listener to check their
+ * Wi-Fi while the answer is a storage setting. The message text is the only
+ * signal that survives the layers between `write` and here — `IOException` does
+ * not carry the errno — so the cause chain is walked looking for the forms
+ * Linux and Android actually produce.
+ */
+internal fun Throwable.isOutOfSpace(): Boolean {
+    var cause: Throwable? = this
+    val seen = HashSet<Throwable>()
+    while (cause != null && seen.add(cause)) {
+        val message = cause.message?.lowercase(Locale.ROOT).orEmpty()
+        if (message.contains("enospc") ||
+            message.contains("no space left") ||
+            message.contains("not enough space")
+        ) {
+            return true
+        }
+        cause = cause.cause
+    }
+    return false
+}
+
+/** What to tell the listener about [failure], or null when it is not a storage fault. */
+internal fun storageFailureMessage(failure: Throwable): String? =
+    if (failure.isOutOfSpace()) "Not enough free storage to finish this download" else null

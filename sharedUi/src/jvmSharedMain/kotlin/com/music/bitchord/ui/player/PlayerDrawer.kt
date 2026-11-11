@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.music.bitchord.data.DebugLog
 import com.music.bitchord.ui.components.MENU_FROST_ALPHA
 import com.music.bitchord.ui.components.MenuFrostDark
 import com.music.bitchord.ui.components.liveMenuFrost
@@ -120,9 +119,6 @@ fun PlayerDrawer(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "playerDrawerOffset",
     )
-    LaunchedEffect(offset) {
-        DebugLog.d("QueueScrollDbg", "PlayerDrawer offset=$offset drag=$drag height=$height")
-    }
     // Fades with the drawer rather than staying at full strength under a sheet
     // halfway off the screen, which is what makes the drag feel connected.
     val scrimAlpha = if (height > 0) (1f - offset / height).coerceIn(0f, 1f) else 1f
@@ -149,7 +145,6 @@ fun PlayerDrawer(
     val drawerScroll = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                DebugLog.d("QueueScrollDbg", "PlayerDrawer.onPreScroll available=$available source=$source drag=$drag")
                 if (drag <= 0f || available.y >= 0f) return Offset.Zero
                 val used = available.y.coerceAtLeast(-drag)
                 drag += used
@@ -157,7 +152,6 @@ fun PlayerDrawer(
             }
 
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                DebugLog.d("QueueScrollDbg", "PlayerDrawer.onPostScroll consumed=$consumed available=$available source=$source drag=$drag")
                 if (source == NestedScrollSource.UserInput && available.y > 0f) drag += available.y
                 // Upward leftover is taken only as far as the drawer has already
                 // been dragged. Returning all of it would hand the player sheet
@@ -175,16 +169,12 @@ fun PlayerDrawer(
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                DebugLog.d("QueueScrollDbg", "PlayerDrawer.onPreFling available=$available drag=$drag")
                 if (drag <= 0f) return Velocity.Zero
                 dismissOnRelease()
                 return available
             }
 
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                DebugLog.d("QueueScrollDbg", "PlayerDrawer.onPostFling consumed=$consumed available=$available drag=$drag")
-                return available
-            }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity) = available
         }
     }
 

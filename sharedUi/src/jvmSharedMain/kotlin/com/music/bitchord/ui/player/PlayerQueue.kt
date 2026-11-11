@@ -97,7 +97,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
@@ -105,7 +104,6 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.model.QueueEntryIdentity
-import com.music.bitchord.data.DebugLog
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.autoplaySectionStart
@@ -125,29 +123,16 @@ import kotlin.math.roundToInt
  * it, but only at the top of the list — otherwise the queue could never fling.
  */
 internal fun keepScrollInList(listState: LazyListState) = object : NestedScrollConnection {
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        DebugLog.d("QueueScrollDbg", "keepScroll.onPreScroll available=$available source=$source")
-        return Offset.Zero
-    }
-
     override fun onPostScroll(
         consumed: Offset,
         available: Offset,
         source: NestedScrollSource,
-    ): Offset {
-        DebugLog.d("QueueScrollDbg", "keepScroll.onPostScroll consumed=$consumed available=$available source=$source")
-        return available
-    }
+    ): Offset = available
 
-    override suspend fun onPreFling(available: Velocity): Velocity {
-        DebugLog.d("QueueScrollDbg", "keepScroll.onPreFling available=$available")
-        return if (available.y > 0f && !listState.canScrollBackward) available else Velocity.Zero
-    }
+    override suspend fun onPreFling(available: Velocity): Velocity =
+        if (available.y > 0f && !listState.canScrollBackward) available else Velocity.Zero
 
-    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        DebugLog.d("QueueScrollDbg", "keepScroll.onPostFling consumed=$consumed available=$available")
-        return available
-    }
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
 }
 
 /**
@@ -350,30 +335,6 @@ internal fun InlineQueue(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     var footerHeight by remember { mutableStateOf(0.dp) }
-    LaunchedEffect(listState) {
-        var wasScrolling = false
-        var priorCount = -1
-        var priorViewport = IntSize.Zero
-        snapshotFlow {
-            val info = listState.layoutInfo
-            Triple(listState.isScrollInProgress, info.totalItemsCount, info.viewportSize)
-        }.collect { (scrolling, count, viewport) ->
-            val info = listState.layoutInfo
-            if (scrolling != wasScrolling || count != priorCount || viewport != priorViewport) {
-                val visibleContent = info.visibleItemsInfo.sumOf { it.size }
-                DebugLog.d(
-                    "QueueScrollDbg",
-                    "${if (scrolling != wasScrolling) if (scrolling) "scroll-start" else "scroll-stop" else "layout-change"} first=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset} canScrollForward=${listState.canScrollForward} totalItems=$count viewport=$viewport visibleContentPx=$visibleContent",
-                )
-            }
-            wasScrolling = scrolling
-            priorCount = count
-            priorViewport = viewport
-        }
-    }
-    LaunchedEffect(footerHeight) {
-        DebugLog.d("QueueScrollDbg", "footerHeight/contentPaddingBottom changed footerHeight=$footerHeight bottomPadding=$footerHeight")
-    }
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect(onScrollingChange)
@@ -453,7 +414,6 @@ internal fun InlineQueue(
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
-        DebugLog.d("QueueScrollDbg", "current-item-scroll keys currentIndex=$currentIndex key=${nowPlaying?.key} showHistory=$showHistory historyCount=${tracks.history.size} first=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
         // The history heading has a stable slot even while its height is zero.
         val nowPlayingRow = tracks.history.size + 1
         val scrolledAway = listState.firstVisibleItemIndex != nowPlayingRow || listState.firstVisibleItemScrollOffset != 0

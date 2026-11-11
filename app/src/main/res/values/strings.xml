@@ -1058,6 +1058,9 @@
 
     <string name="vietnamese">Vietnamese</string>
 
+    <string name="keep_screen_on">Keep screen on</string>
+    <string name="keep_screen_on_subtitle">Keeps the screen awake while Now Playing is open; your device timeout stays unchanged</string>
+
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
 
     <string name="export_compatible_downloads">Export compatible downloads</string>

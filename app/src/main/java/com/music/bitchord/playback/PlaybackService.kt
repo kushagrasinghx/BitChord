@@ -9720,8 +9720,14 @@ class PlaybackService : MediaLibraryService() {
             // 1. If player currently holds items in its queue, resume from it
             val activePlayer = player
             if (activePlayer != null && activePlayer.mediaItemCount > 0) {
-                val currentItems = (0 until activePlayer.mediaItemCount).map { activePlayer.getMediaItemAt(it) }
-                val startIndex = activePlayer.currentMediaItemIndex.coerceIn(0, currentItems.size - 1)
+                // A head unit gets the same bounded window used for queue
+                // restoration, not a multi-megabyte Binder payload of thousands
+                // of fully-described MediaItems.
+                val count = activePlayer.mediaItemCount
+                val currentIndex = activePlayer.currentMediaItemIndex.coerceIn(0, count - 1)
+                val window = LastPlayed.window(count, currentIndex)
+                val currentItems = window.map { activePlayer.getMediaItemAt(it) }
+                val startIndex = currentIndex - window.first
                 val startPositionMs = activePlayer.currentPosition.coerceAtLeast(0L)
                 return@future MediaSession.MediaItemsWithStartPosition(
                     ImmutableList.copyOf(currentItems),

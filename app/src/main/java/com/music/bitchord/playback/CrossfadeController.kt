@@ -2004,6 +2004,9 @@ class CrossfadeController(
         wantOut: Boolean = true,
         wantIn: Boolean = true,
     ) {
+        // Waveforms exist only for the mix view/preview. Decoding both decks
+        // for a popup nobody opens wastes two cache reads on every boundary.
+        if (!shouldPrefetchMixWaves(AppSettings.smartMixView.value, AppSettings.smartMixPreview.value)) return
         val span = (outEnd - outStart).coerceAtLeast(0.5)
         val pad = span * MIX_VIEW_CONTEXT + MIX_PREFETCH_PAD_SECONDS
         val outFrom = (outStart - pad).coerceAtLeast(0.0)
@@ -4307,6 +4310,9 @@ class CrossfadeController(
 
 /** True when the transition would pair the current item with itself. */
 internal fun isSelfTransition(currentIndex: Int, nextIndex: Int): Boolean = currentIndex == nextIndex
+
+/** Whether any surface can show a mix waveform, making prefetch worthwhile. */
+internal fun shouldPrefetchMixWaves(view: Any?, preview: Any?): Boolean = view != null || preview != null
 
 /**
  * Closes a native renderer after a delay even when the service scope that

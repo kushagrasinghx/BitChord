@@ -150,6 +150,15 @@ class DownloadService : Service() {
     private fun shutdown(stopWork: Boolean) {
         if (stopWork) drain?.cancel()
         notifier?.cancel()
+        if (!stopWork && shouldKeepDraining(Downloads.busy())) {
+            // A track arrived after the final empty poll but before stopSelf:
+            // restart the drain instead of stranding it in "Queued" forever.
+            drain = scope.launch {
+                drainQueue()
+                shutdown(stopWork = false)
+            }
+            return
+        }
         drain = null
         notifier = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -286,3 +295,6 @@ class DownloadService : Service() {
         const val IDLE_POLL_MS = 100L
     }
 }
+
+/** True when work arrived after the drain's last empty check. */
+internal fun shouldKeepDraining(busy: Boolean): Boolean = busy

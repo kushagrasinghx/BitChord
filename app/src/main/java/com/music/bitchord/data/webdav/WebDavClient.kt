@@ -1,5 +1,6 @@
 package com.music.bitchord.data.webdav
 
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.Http
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,6 +55,7 @@ object WebDavClient {
             runCatching {
                 val target = WebDavConfig.normalizeUrl(url)
                 require(WebDavConfig.isConfigured(target)) { "Enter a http(s) server URL" }
+                WebDavConfig.cleartextRefusal(target, cleartextAllowed = BuildConfig.DEBUG)?.let { error(it) }
                 val request = propfindRequest(target, depth = "0", username, password)
                 Http.client.newCall(request).execute().use { response ->
                     if (response.code !in 200..299 && response.code != 207) {
@@ -81,6 +83,7 @@ object WebDavClient {
         runCatching {
             val root = WebDavConfig.normalizeUrl(baseUrl)
             require(WebDavConfig.isConfigured(root)) { "WebDAV is not configured" }
+            WebDavConfig.cleartextRefusal(root, cleartextAllowed = BuildConfig.DEBUG)?.let { error(it) }
             val foundAudio = LinkedHashMap<String, Entry>()
             val foundImages = LinkedHashMap<String, Entry>()
             val dirs = ArrayDeque<String>()

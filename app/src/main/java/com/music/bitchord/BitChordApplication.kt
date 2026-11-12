@@ -213,7 +213,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // [Downloads.init] (the record is the reference) and off the joined
         // thread, because deleting files is not something the first frame should
         // wait for, and the age guard means nothing in flight can match.
-        CoroutineScope(Dispatchers.IO).launch { Downloads.reclaimOrphanedPackages(this@BitChordApplication) }
+        CoroutineScope(Dispatchers.IO).launch {
+            Downloads.reclaimOrphanedPackages(this@BitChordApplication)
+            Downloads.reclaimOrphanedArtwork(this@BitChordApplication)
+        }
         // Listens queued before the app was killed go out now rather than
         // waiting for the next play to trigger a flush. Off the joined thread:
         // a service that is slow to answer must not delay the first frame.

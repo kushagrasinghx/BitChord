@@ -173,6 +173,43 @@ object MediaTagger {
             ?.let { Artwork(it, "image/jpeg") }
     }.getOrNull()
 
+    /**
+     * Sidecars no download record points at, older than a download could still
+     * be running. Deleting a track forgets its metadata but not the shared
+     * cover file, so without this sweep every cover ever downloaded is kept
+     * forever.
+     */
+    internal fun orphanedArtwork(
+        root: File,
+        referencedNames: Set<String>,
+        nowMillis: Long,
+        minAgeMillis: Long = DownloadStore.ORPHAN_MIN_AGE_MS,
+    ): List<File> {
+        val entries = root.listFiles() ?: return emptyList()
+        return entries.filter { entry ->
+            entry.isFile &&
+                entry.name.endsWith(".jpg", ignoreCase = true) &&
+                entry.name !in referencedNames &&
+                nowMillis - entry.lastModified() >= minAgeMillis
+        }
+    }
+
+    internal fun reclaimOrphanedArtwork(
+        context: Context,
+        referencedNames: Set<String>,
+        nowMillis: Long = System.currentTimeMillis(),
+        minAgeMillis: Long = DownloadStore.ORPHAN_MIN_AGE_MS,
+    ): Int {
+        val removed = orphanedArtwork(
+            File(context.filesDir, "download-artwork"),
+            referencedNames,
+            nowMillis,
+            minAgeMillis,
+        ).count { it.delete() }
+        if (removed > 0) Log.d(TAG, "reclaimed $removed orphaned artwork sidecars")
+        return removed
+    }
+
     private fun artworkFile(context: Context, sourceUrl: String?, artwork: Artwork? = null): File {
         val name: String
         if (sourceUrl.isNullOrBlank()) {

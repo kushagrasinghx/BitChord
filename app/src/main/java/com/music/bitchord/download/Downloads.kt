@@ -928,6 +928,24 @@ object Downloads {
         Unit
     }
 
+    /** Artwork sidecars the track and collection records still name. */
+    internal fun referencedArtworkNames(
+        metadata: Map<String, SavedSongMetadata> = _savedMetadata.value,
+        collections: Map<String, SavedCollection> = _collections.value,
+    ): Set<String> = (metadata.values.mapNotNull { it.thumbnailUrl } +
+        collections.values.mapNotNull { it.thumbnailUrl })
+        .asSequence()
+        .filter { it.startsWith("file:") }
+        .map { it.substringAfterLast('/') }
+        .filter { it.isNotBlank() }
+        .toSet()
+
+    internal suspend fun reclaimOrphanedArtwork(context: Context) = withContext(Dispatchers.IO) {
+        runCatching { MediaTagger.reclaimOrphanedArtwork(context, referencedArtworkNames()) }
+            .onFailure { Log.w(TAG, "could not reclaim orphaned artwork: ${it.message}") }
+        Unit
+    }
+
     private fun String.toUri(): Uri = Uri.parse(this)
 
     // ---- Driven by DownloadService -----------------------------------------

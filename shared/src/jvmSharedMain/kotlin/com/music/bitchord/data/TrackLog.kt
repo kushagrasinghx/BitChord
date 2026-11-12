@@ -55,6 +55,24 @@ import kotlin.coroutines.CoroutineContext
  * Call [d], [w] and [e] exactly where `Log.d`/`w`/`e` would go; they forward
  * to logcat as well, so `adb logcat -s BitChord` is unchanged.
  */
+/**
+ * Copy Log is shared, pasted into issue reports and sent to maintainers.
+ * Signed media URLs and auth headers must not travel with it.
+ */
+internal fun redactSensitive(message: String): String = message
+    .replace(
+        Regex("""(?i)([?&](?:token|sig|signature|key|auth|proof|cookie|pot|session|secret|code)=)[^&\s]+"""),
+        "$1<redacted>",
+    )
+    .replace(
+        Regex("""(?i)(authorization:\s*(?:bearer|token)\s+)[^\s,]+"""),
+        "$1<redacted>",
+    )
+    .replace(
+        Regex("""(?i)(x-bitchord-(?:token|proof):\s*)[^\s,]+"""),
+        "$1<redacted>",
+    )
+
 object TrackLog {
     /**
      * Where each line is echoed as it is logged — logcat on the phone's debug
@@ -79,33 +97,39 @@ object TrackLog {
     // record(), which is what Copy Log actually depends on.
 
     fun d(tag: String, message: String, about: String? = working.get()) {
-        echo?.invoke('D', tag, message, null)
-        record('D', message, about)
+        val safe = redactSensitive(message)
+        echo?.invoke('D', tag, safe, null)
+        record('D', safe, about)
     }
 
     fun i(tag: String, message: String, about: String? = working.get()) {
-        echo?.invoke('I', tag, message, null)
-        record('I', message, about)
+        val safe = redactSensitive(message)
+        echo?.invoke('I', tag, safe, null)
+        record('I', safe, about)
     }
 
     fun w(tag: String, message: String, about: String? = working.get()) {
-        echo?.invoke('W', tag, message, null)
-        record('W', message, about)
+        val safe = redactSensitive(message)
+        echo?.invoke('W', tag, safe, null)
+        record('W', safe, about)
     }
 
     fun w(tag: String, message: String, error: Throwable, about: String? = working.get()) {
-        echo?.invoke('W', tag, message, error)
-        record('W', "$message\n${error.stackTraceToString()}", about)
+        val safe = redactSensitive(message)
+        echo?.invoke('W', tag, safe, error)
+        record('W', "$safe\n${error.stackTraceToString()}", about)
     }
 
     fun e(tag: String, message: String, about: String? = working.get()) {
-        echo?.invoke('E', tag, message, null)
-        record('E', message, about)
+        val safe = redactSensitive(message)
+        echo?.invoke('E', tag, safe, null)
+        record('E', safe, about)
     }
 
     fun e(tag: String, message: String, error: Throwable, about: String? = working.get()) {
-        echo?.invoke('E', tag, message, error)
-        record('E', "$message\n${error.stackTraceToString()}", about)
+        val safe = redactSensitive(message)
+        echo?.invoke('E', tag, safe, error)
+        record('E', "$safe\n${error.stackTraceToString()}", about)
     }
 
     // ── Whose line is it ────────────────────────────────────────────────────

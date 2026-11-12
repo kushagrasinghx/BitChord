@@ -24,15 +24,75 @@ function requirePartyServer(mode: string): void {
   }
 }
 
+function unwrapCssLayers(css: string): string {
+  css = css.replace(/@layer\s+[^;{]+;/g, '');
+  let changed = true;
+  while (changed) {
+    changed = false;
+    let i = 0;
+    let result = '';
+    while (i < css.length) {
+      const idx = css.indexOf('@layer', i);
+      if (idx === -1) {
+        result += css.slice(i);
+        break;
+      }
+      result += css.slice(i, idx);
+      const open = css.indexOf('{', idx);
+      if (open === -1) {
+        result += css.slice(idx);
+        break;
+      }
+      let depth = 1;
+      let j = open + 1;
+      while (j < css.length && depth > 0) {
+        if (css[j] === '{') depth++;
+        else if (css[j] === '}') depth--;
+        j++;
+      }
+      if (depth === 0) {
+        changed = true;
+        const inner = css.slice(open + 1, j - 1);
+        result += inner;
+        i = j;
+      } else {
+        result += css.slice(idx);
+        break;
+      }
+    }
+    css = result;
+  }
+  return css;
+}
+
 function tizenClassicScript() {
   return {
     name: 'tizen-classic-script',
     transformIndexHtml(html: string) {
       return html
-        .replace('<head>', '<head>\n    <script src="./tizen-polyfills.js"></script>')
+        .replace('<head>', '<head>\n    <script src="./tizen-polyfills.js"></script>\n    <link rel="stylesheet" href="./assets/style.css" />')
+        .replace(/<meta name="viewport"[^>]*>/, '<meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, user-scalable=no" />\n    <style>html, body { width: 100vw !important; height: 100vh !important; min-width: 100% !important; min-height: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; } #root { width: 100% !important; height: 100% !important; overflow: hidden !important; }</style>')
         .replace(/<script type="module" crossorigin/g, '<script defer')
         .replace(/<script type="module"/g, '<script defer')
         .replace(/<script>\s*\/\/ The extension trusts[\s\S]*?<\/script>/, '');
+    },
+    generateBundle(this: any, _options: unknown, bundle: Record<string, any>) {
+      for (const file of Object.values(bundle)) {
+        if (file.type === 'chunk' && file.code) {
+          file.code = file.code.replace(/(e\.textContent=\`)([\s\S]*?)(\`;)/, (_m: string, p1: string, css: string, p3: string) => {
+            const unwrapped = unwrapCssLayers(css);
+            file.unwrappedCss = unwrapped;
+            return p1 + unwrapped + p3;
+          });
+          if (file.unwrappedCss) {
+            this.emitFile({
+              type: 'asset',
+              fileName: 'assets/style.css',
+              source: file.unwrappedCss,
+            });
+          }
+        }
+      }
     },
   };
 }

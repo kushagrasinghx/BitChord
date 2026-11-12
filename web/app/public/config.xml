@@ -11,6 +11,10 @@
     <icon src="icon.png"/>
     <content src="index.html"/>
     <feature name="http://tizen.org/feature/screen.size.all"/>
+    <feature name="http://tizen.org/feature/screen.size.normal"/>
+    <accessibility>
+        <expected-screen-size>1920x1080</expected-screen-size>
+    </accessibility>
     <feature name="http://tizen.org/feature/network.internet"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>

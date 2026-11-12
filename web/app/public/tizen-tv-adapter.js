@@ -132,9 +132,29 @@
     }
   });
 
-  // Visual focus outline styling for TV remote navigation
+  // Automatically dismiss desktop extension prompt on TV
+  try {
+    sessionStorage.setItem('bitchord:install-banner-dismissed', '1');
+    localStorage.setItem('bitchord:install-banner-dismissed', '1');
+  } catch (e) {}
+
+  // Visual focus outline styling for TV remote navigation and full-screen TV layout
   var style = document.createElement('style');
   style.textContent = `
+    html, body {
+      width: 100vw !important;
+      height: 100vh !important;
+      min-width: 100% !important;
+      min-height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+    #root {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
     :focus-visible, [data-focused="true"] {
       outline: 3px solid rgba(255, 255, 255, 0.9) !important;
       outline-offset: 4px !important;

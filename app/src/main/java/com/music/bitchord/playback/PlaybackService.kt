@@ -2351,6 +2351,12 @@ class PlaybackService : MediaLibraryService() {
             TrackLog.d("BitChord", "version swap deferred: Automix is mid-transition", about = currentItem.mediaId)
             return
         }
+        // A receiver or watch owns the audio path; swapping the local player
+        // underneath it would restart/desync the remote stream.
+        if (shouldDeferVersionSwap(remoteSpeakerActive = speakers.active)) {
+            TrackLog.d("BitChord", "version swap deferred: remote speaker is active", about = currentItem.mediaId)
+            return
+        }
 
         val sourceSong = currentItem.toSong()
         val targetSong = targetMediaItem.toSong()
@@ -10706,6 +10712,9 @@ internal fun sleepPauseTarget(sessionPlayer: Player?, localPlayer: Player?): Pla
 /** A valid index even when the player is empty. */
 internal fun safeCurrentIndex(current: Int, count: Int): Int =
     if (count <= 0) 0 else current.coerceIn(0, count - 1)
+
+/** Version swaps are local-only; a remote speaker would be left playing the old cut. */
+internal fun shouldDeferVersionSwap(remoteSpeakerActive: Boolean): Boolean = remoteSpeakerActive
 
 /** Releases old focus owners before starting the replacement player. */
 internal fun retireThenStart(oldActive: ExoPlayer, oldSpare: ExoPlayer, newActive: ExoPlayer, playWhenReady: Boolean) {

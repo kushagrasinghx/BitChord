@@ -98,17 +98,17 @@ Grab the latest signed APK from the [Releases](https://github.com/kushagrasinghx
 
 This fork ([mandy321/BitChord](https://github.com/mandy321/BitChord)) adds exclusive features to BitChord TV and the core playback engine that are not available in the upstream release:
 
-#### 1. Live Addon Health Check & Quality Tier Ranking
-- **Concurrent Addon Probing ("Test / Refresh")**: Concurrently pings `/manifest.json` across all configured community and custom addons with a 4-second timeout, immediately displaying reachability, HTTP response codes, and round-trip network latency in milliseconds.
-- **Intelligent Quality Tier Detection**: Inspects manifest headers and categorizes providers into weighted quality ranks:
-  - **Rank 4**: Dolby Atmos / Hi-Res FLAC (Tidal E-AC3 JOC / 24-bit masters)
+#### 1. Live Source Health Check & Quality Tier Ranking
+- **Concurrent Source Probing ("Test / Refresh")**: Concurrently tests configured audio sources with a 4-second timeout, immediately displaying reachability, response latency, and connection status.
+- **Intelligent Quality Tier Detection**: Automatically classifies streams into weighted quality ranks:
+  - **Rank 4**: Dolby Atmos / Hi-Res FLAC (multichannel / 24-bit masters)
   - **Rank 3**: Hi-Res FLAC (24-bit 96–192kHz uncompressed studio masters)
   - **Rank 2**: Lossless FLAC (16-bit 44.1kHz CD quality)
-  - **Rank 1**: High Quality (320kbps MP3/AAC)
-- **One-Click Auto-Prioritize**: Sorts active addons by quality tier rank first, then by lowest latency (fastest ping first), while pushing rate-limited or offline endpoints to the bottom of the failover chain.
+  - **Rank 1**: High Quality (320kbps audio)
+- **One-Click Auto-Prioritize**: Sorts active sources by quality tier rank first, then by lowest latency (fastest response first), maintaining optimal audio fidelity.
 
 #### 2. Music Video to Studio Lossless Master Upgrade
-- **Autonomous Video-to-Studio Resolution**: Removed the restriction that forced official music videos to play in lossy Opus format. YouTube Music video rows (e.g., `Because Of You (Official HD Video)`) automatically match against community lossless sources and stream the 24-bit uncompressed studio master.
+- **Autonomous Video-to-Studio Resolution**: Removed the restriction that forced official music videos to play in lossy Opus format. YouTube Music video rows (e.g., `Because Of You (Official HD Video)`) automatically match against lossless studio audio and stream the uncompressed master.
 - **Intro/Outro Duration Slack (90s)**: Accounts for video-exclusive storytelling, spoken dialogue, and end credits while maintaining strict artist, title, and version integrity.
 
 #### 3. Advanced Metadata & Fuzzy Matching Engine
@@ -145,7 +145,7 @@ This fork ([mandy321/BitChord](https://github.com/mandy321/BitChord)) adds exclu
 ### BitChord TV & Lossless Audio Upgrade
 BitChord TV is optimized for Android TV and Fire TV devices with Leanback navigation and autonomous lossless playback:
 - **BitChord Connect Server:** Built-in embedded control server and mDNS broadcaster for wireless phone-to-TV streaming control.
-- **Zero-Configuration Lossless Audio:** Prebuilt integration with lossless providers (Lossless Bridge, Qobuz, Deezer) out-of-the-box.
+- **High-Fidelity Lossless Playback:** Seamless streaming of studio-quality uncompressed audio up to 24-bit / 192 kHz.
 - **Smart Video-to-Audio Drift Compensation:** Automatic handling of video intro/outro duration drift (up to 90 seconds) for music videos such as Rihanna's *Diamonds* and Justin Bieber's *Love Yourself*.
 - **Sub-15ms Cold-Load Home Feed:** Instant disk caching for all Home feed rows.
 - **Targeted Architecture Builds:**

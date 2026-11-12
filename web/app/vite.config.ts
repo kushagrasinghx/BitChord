@@ -24,16 +24,37 @@ function requirePartyServer(mode: string): void {
   }
 }
 
+function tizenClassicScript() {
+  return {
+    name: 'tizen-classic-script',
+    transformIndexHtml(html: string) {
+      return html
+        .replace(/<script type="module" crossorigin/g, '<script defer')
+        .replace(/<script type="module"/g, '<script defer')
+        .replace(/<script>\s*\/\/ The extension trusts[\s\S]*?<\/script>/, '');
+    },
+  };
+}
+
 export default defineConfig(({ command, mode }) => {
   if (command === 'build') requirePartyServer(mode);
   return {
     base: './',
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), tizenClassicScript()],
     define: {
       DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),
     },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          format: 'iife',
+          name: 'BitChord',
+          inlineDynamicImports: true,
+        },
+      },
     },
     // AutoMix's analysis worker (playback/automix): essentia.js's 2021-era
     // Emscripten glue breaks under dep pre-bundling, and the worker is a module.

@@ -5,7 +5,7 @@ BitChord's Android app provides a stateless MCP Streamable HTTP endpoint at `htt
 ## Setup
 
 1. Install the **dev** APK from the **MCP Debug APK** GitHub Actions artifact. It installs as `com.dev.bitchord`, alongside the production app. Its library/settings are separate.
-2. Open Settings → Miscellaneous → MCP · AI access.
+2. Open Settings → Miscellaneous → MCP.
 3. Enable MCP, explicitly enable the required permissions, and select the local playlists the agent may access.
 4. Copy the bearer token into your MCP client's custom `Authorization` header. Configure **Streamable HTTP**, URL `http://127.0.0.1:8765/mcp` and `Authorization: Bearer <token>`.
 5. Keep BitChord running. This initial implementation lives in the app process, not a dedicated foreground service; Android may terminate it in the background. Reopen the app if disconnected.
@@ -56,4 +56,6 @@ Test checklist:
 
 ## Build
 
-The `MCP Debug APK` workflow builds `:app:testDevDebugUnitTest` and `:app:assembleDevDebug` on branch `feat/android-mcp` or manual dispatch. Artifacts are named `bitchord-mcp-dev-<run-number>`. No release-signing secrets are needed. Fresh GitHub runners use a fresh debug signing key unless a stable debug keystore is configured; a later APK may require uninstalling an earlier dev build, which removes its app data. Never uninstall your production app to test this dev build.
+The `MCP Debug APK` workflow builds `:app:testDevDebugUnitTest` and `:app:assembleDevDebug` on branch `feat/android-mcp` or manual dispatch. Artifacts are named `bitchord-mcp-arm64-dev-<run-number>`. No release-signing secrets are needed. Fresh GitHub runners use a fresh debug signing key unless a stable debug keystore is configured; a later APK may require uninstalling an earlier dev build, which removes its app data. Never uninstall your production app to test this dev build.
+
+MCP test CI builds only `arm64-v8a` and disables the bundled Wear OS installer (`-Pbitchord.arm64Only=true -Pbitchord.bundleWear=false`), reducing download size. Normal builds retain all ABIs.

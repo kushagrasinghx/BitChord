@@ -1400,4 +1400,36 @@
     <string name="diwali_title">BitChord ti augura un felice Diwali</string>
     <string name="diwali_subtitle">Che questa festa delle luci riempia la tua casa di gioia e le tue giornate di musica.</string>
     <string name="diwali_cta">Festeggiamo</string>
+    <!-- TODO translation: MCP labels below use English fallback until localized. -->
+    <string name="mcp_intro">Phone-local AI uses loopback by default. All permissions start denied.</string>
+    <string name="mcp_enable">Enable MCP</string>
+    <string name="mcp_server">Server status</string>
+    <string name="mcp_address">Server address</string>
+    <string name="mcp_lan">Allow LAN connections</string>
+    <string name="mcp_lan_warning">LAN uses unencrypted HTTP. Never expose this port to the internet or an untrusted network.</string>
+    <string name="mcp_token">Bearer token</string>
+    <string name="mcp_hide">Hide</string>
+    <string name="mcp_reveal">Reveal</string>
+    <string name="mcp_copy">Copy</string>
+    <string name="mcp_rotate_token">Rotate token</string>
+    <string name="mcp_permissions">Permissions</string>
+    <string name="mcp_now_playing">Read now playing</string>
+    <string name="mcp_history">Read listening history</string>
+    <string name="mcp_queue">Access queue</string>
+    <string name="mcp_playback">Control playback</string>
+    <string name="mcp_seek">Seek within track</string>
+    <string name="mcp_search">Search music</string>
+    <string name="mcp_playlist_read">Read playlists</string>
+    <string name="mcp_playlist_create">Create playlists</string>
+    <string name="mcp_playlist_write">Edit playlists</string>
+    <string name="mcp_playlists">Allowed local playlists</string>
+    <string name="mcp_playlist_hint">Reading and editing also require the matching permission above. New playlists are not automatically allowed.</string>
+    <string name="mcp_no_playlists">No local playlists available.</string>
+    <string name="mcp_lan_title">Allow cleartext LAN access?</string>
+    <string name="mcp_lan_body">The token and music data travel over unencrypted HTTP. Use only a trusted private network. Never forward port 8765 to the internet. Phone-local AI needs no LAN access.</string>
+    <string name="mcp_allow_lan">Allow LAN</string>
+    <string name="mcp_cancel">Cancel</string>
+    <string name="mcp_rotate_title">Rotate bearer token?</string>
+    <string name="mcp_rotate_body">Existing clients lose access until configured with the new token.</string>
+    <string name="mcp_rotate">Rotate</string>
 </resources>

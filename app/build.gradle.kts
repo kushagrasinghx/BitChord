@@ -68,6 +68,9 @@ val addonAuthServer: String = (
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 
+// Optional CI-only restriction; normal builds retain all supported ABIs.
+val arm64Only = providers.gradleProperty("bitchord.arm64Only").orNull == "true"
+
 android {
     namespace = "com.music.bitchord"
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
@@ -107,8 +110,9 @@ android {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = true
+            if (arm64Only) include("arm64-v8a")
+            else include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = !arm64Only
         }
     }
 

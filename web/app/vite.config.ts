@@ -48,6 +48,7 @@ export default defineConfig(({ command, mode }) => {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     build: {
+      target: 'chrome56',
       rollupOptions: {
         output: {
           format: 'iife',

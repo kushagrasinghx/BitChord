@@ -63,3 +63,11 @@ MCP test CI builds only `arm64-v8a` and disables the bundled Wear OS installer (
 Playlist access supports allowlist (only selected entries) and blocklist (all except selected entries, including future playlists). The default remains allowlist. Selections are stored separately for each mode. Switching to blocklist requires confirmation. MCP-created playlists are added to the allowlist and removed from the blocklist; the owner can revoke access afterwards. Address and token rows copy on tap.
 
 Resilience: HTTP dispatch waits at most 16 seconds for backend work and returns 503 when timed out or saturated. Catalogue metadata uses known queue/allowed playlist/download/history/cache entries before network resolution. New searches still require a working network/DNS; cached-query fallback is marked explicitly.
+
+## Final debug stability checks
+
+Playlist settings provide locale-aware name filtering and a tri-state select-all row. Bulk selection always applies to all current playlists, even with a search filter, and affects the selected allowlist/blocklist mode only. Clear selection is not equivalent to deny-all in blocklist mode.
+
+The enable row shows actual listening/start/error status below its label. Lifecycle operations are serialized and obsolete start/stop requests are discarded. Backend worker count is shared across server restarts to avoid accumulating stuck threads. RPC ping/initialize do not require a backend worker, but HTTP saturation can still delay requests. Absolute socket lifetime is bounded to 20 seconds; backend wait is bounded to 16 seconds.
+
+Before production release, verify on-device: rapid disable/enable, token rotation, process death/reopen, notification denial, screen-off/Doze and vendor battery restrictions, filtered bulk selection in both permission modes, LAN isolation, and denied direct tool calls. Local JVM tests do not certify Android service behavior or audible playback latency. LAN remains cleartext; per-agent tokens/TLS are not implemented. This debug build is not a production certification.

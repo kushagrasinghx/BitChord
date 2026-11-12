@@ -1544,4 +1544,14 @@
     <string name="mcp_blocklist_title">Enable blocklist mode?</string>
     <string name="mcp_blocklist_warning">All playlists not selected in the blocklist will be accessible, including playlists created in the future. The matching read/write permissions are still required. Enable only if you accept this broader access.</string>
     <string name="mcp_enable_blocklist">Enable blocklist</string>
+    <!-- TODO translation: MCP search and selection labels use English fallback. -->
+    <string name="mcp_status_on">On</string>
+    <string name="mcp_status_off">Off</string>
+    <string name="mcp_status_starting">Starting…</string>
+    <string name="mcp_status_error">Unable to start</string>
+    <string name="mcp_playlist_search">Search playlist names</string>
+    <string name="mcp_select_all">Select all</string>
+    <string name="mcp_deselect_all">Deselect all</string>
+    <string name="mcp_select_all_hint">Applies to all playlists in this mode, not only search results.</string>
+    <string name="mcp_playlist_no_matches">No matching playlists.</string>
 </resources>

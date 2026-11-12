@@ -45,6 +45,54 @@ class McpTransportTest {
         } finally { server.stop() }
     }
 
+    @Test fun pingSurvivesSaturatedBackendAndRevocationBlocksResponse() {
+        val backend = McpRequestExecutor(50)
+        val release = CountDownLatch(1)
+        repeat(4) {
+            try { backend.execute { while (release.count > 0) {
+                try { release.await() } catch (_: InterruptedException) { }
+            } } } catch (_: TimeoutException) { }
+        }
+        var allowed = true
+        val server = McpServer.HttpServer(ContextWrapper(null), 0, false, "x".repeat(43), backend, { allowed })
+        server.start(1000, true)
+        fun request(): String = Socket("127.0.0.1", server.listeningPort).use { socket ->
+            socket.soTimeout = 1500
+            val body = """{"jsonrpc":"2.0","id":1,"method":"ping"}"""
+            socket.getOutputStream().write(("POST /mcp HTTP/1.1\r\nHost: localhost:${server.listeningPort}\r\n" +
+                "Authorization: Bearer ${"x".repeat(43)}\r\nContent-Type: application/json\r\n" +
+                "Accept: application/json, text/event-stream\r\nContent-Length: ${body.length}\r\n\r\n" + body).toByteArray())
+            socket.getInputStream().readBytes().toString(Charsets.UTF_8)
+        }
+        try {
+            repeat(24) { assertTrue(request().startsWith("HTTP/1.1 200")) }
+            allowed = false
+            assertTrue(request().startsWith("HTTP/1.1 401"))
+        } finally { release.countDown(); server.stop(); backend.close() }
+    }
+
+    @Test fun absoluteDeadlineClosesDrippingBody() {
+        val backend = McpRequestExecutor()
+        val server = McpServer.HttpServer(ContextWrapper(null), 0, false, "x".repeat(43),
+            backend, { true }, 200)
+        server.start(2000, true)
+        try {
+            Socket("127.0.0.1", server.listeningPort).use { socket ->
+                socket.soTimeout = 1500
+                socket.getOutputStream().write(("POST /mcp HTTP/1.1\r\nHost: localhost:${server.listeningPort}\r\n" +
+                    "Authorization: Bearer ${"x".repeat(43)}\r\nContent-Type: application/json\r\n" +
+                    "Accept: application/json, text/event-stream\r\nContent-Length: 100\r\n\r\n{").toByteArray())
+                Thread.sleep(80)
+                socket.getOutputStream().write(' '.code)
+                Thread.sleep(80)
+                socket.getOutputStream().write(' '.code)
+                val before = System.nanoTime()
+                assertEquals(-1, socket.getInputStream().read())
+                assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - before) < 1000)
+            }
+        } finally { server.stop(); backend.close() }
+    }
+
     @Test fun nonCooperativeBackendCannotPinCallerForever() {
         val executor = McpRequestExecutor(100)
         val release = CountDownLatch(1)

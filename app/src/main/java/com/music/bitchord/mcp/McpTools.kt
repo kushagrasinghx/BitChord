@@ -16,6 +16,8 @@ import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.PlaybackService
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toSong
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +30,7 @@ import kotlinx.serialization.json.*
 /** Deliberately accepts catalogue IDs, never stream URLs, paths or client metadata. */
 object McpTools {
     private val songCache = CatalogueCache<String, Song>(200, 15 * 60_000L)
+    private val historyCache = CatalogueCache<String, JsonObject>(4, 5_000L)
     private val searchCache = CatalogueCache<String, List<Song>>(20, 5 * 60_000L)
 
     private data class Tool(val name: String, val permission: String, val description: String,
@@ -101,8 +104,8 @@ object McpTools {
         // Never rely on discovery filtering: permissions can change while a client stays connected.
         if (!McpSettings.allowed(tool.permission)) return error("permission_denied", "Permission disabled: ${tool.permission}")
         return try {
-            require(args.keys.all { it in tool.fields }) { "Unexpected argument" }
-            tool.required.forEach { require(args.containsKey(it)) { "Missing argument: $it" } }
+            validateToolArguments(args, tool.fields, tool.required)
+            currentCoroutineContext().ensureActive()
             withTimeout(20_000) {
                 withContext(Dispatchers.IO) {
                     when (name) {
@@ -113,6 +116,8 @@ object McpTools {
                             val songs = try {
                                 YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
                                     .filterIsInstance<SearchResult.Track>().map { it.song }.take(200).also { rows ->
+                                        currentCoroutineContext().ensureActive()
+                                        checkPermission(tool.permission)
                                         searchCache.put(query, rows)
                                         rows.forEach { songCache.put(it.videoId, it) }
                                     }
@@ -124,6 +129,7 @@ object McpTools {
                             buildJsonObject { put("songs", songsJson(songs.take(limit))); put("cached", cached) }
                         }
                         "listening_history" -> {
+                            historyCache.get("local:${args.limit()}")?.let { return@withContext it }
                             val tracks = ListeningStats.exportAll().flatMap { it.tracks }.groupBy { it.id }
                                 .values.sortedByDescending { entries -> entries.maxOf { it.last } }
                                 .take(args.limit())
@@ -142,6 +148,10 @@ object McpTools {
                                         })
                                     }
                                 })
+                            }.also {
+                                currentCoroutineContext().ensureActive()
+                                checkPermission(tool.permission)
+                                historyCache.put("local:${args.limit()}", it)
                             }
                         }
                         "account_history" -> buildJsonObject {
@@ -158,10 +168,13 @@ object McpTools {
                             })
                         }
                         "playlist_create" -> {
-                            checkPermission(tool.permission)
-                            val p = LocalPlaylistStore.savePlaylist(args.text("title", 200), emptyList())
-                            McpSettings.grantPlaylist(p.id)
-                            buildJsonObject { put("created_id", p.id); put("requires_user_approval", false) }
+                            withContext(Dispatchers.Main) {
+                                currentCoroutineContext().ensureActive()
+                                checkPermission(tool.permission)
+                                val p = LocalPlaylistStore.savePlaylist(args.text("title", 200), emptyList())
+                                McpSettings.grantPlaylist(p.id)
+                                buildJsonObject { put("created_id", p.id); put("requires_user_approval", false) }
+                            }
                         }
                         "playlist_read", "playlist_add", "playlist_remove" -> {
                             val id = args.text("playlist_id", 200)
@@ -176,16 +189,22 @@ object McpTools {
                                 }
                                 "playlist_add" -> {
                                     val song = catalogueSong(context, args.text("video_id", 11))
-                                    checkPermission(tool.permission); requirePlaylist(id)
-                                    check(LocalPlaylistStore.addSong(p.id, song)) { "Playlist no longer exists" }
-                                    ok()
+                                    withContext(Dispatchers.Main) {
+                                        currentCoroutineContext().ensureActive()
+                                        checkPermission(tool.permission); requirePlaylist(id)
+                                        check(LocalPlaylistStore.addSong(p.id, song)) { "Playlist no longer exists" }
+                                        ok()
+                                    }
                                 }
                                 else -> {
                                     val index = args.integer("index")
                                     require(index in p.songs.indices) { "Index outside playlist" }
-                                    checkPermission(tool.permission); requirePlaylist(id)
-                                    check(LocalPlaylistStore.removeSong(p.id, index, p.songs)) { "Playlist changed; read it again" }
-                                    ok()
+                                    withContext(Dispatchers.Main) {
+                                        currentCoroutineContext().ensureActive()
+                                        checkPermission(tool.permission); requirePlaylist(id)
+                                        check(LocalPlaylistStore.removeSong(p.id, index, p.songs)) { "Playlist changed; read it again" }
+                                        ok()
+                                    }
                                 }
                             }
                         }
@@ -193,6 +212,7 @@ object McpTools {
                             val song = if (name == "play" && "video_id" in args)
                                 catalogueSong(context, args.text("video_id", 11)) else null
                             controller(context) { c ->
+                                currentCoroutineContext().ensureActive()
                                 checkPermission(tool.permission)
                                 when (name) {
                                     "now_playing" -> buildJsonObject {
@@ -239,6 +259,7 @@ object McpTools {
                 }
             }
         } catch (e: TimeoutCancellationException) {
+            currentCoroutineContext().ensureActive() // Never swallow the transport's cancellation.
             error("timeout", "Music operation timed out")
         } catch (e: CancellationException) {
             throw e
@@ -270,40 +291,33 @@ object McpTools {
     private suspend fun catalogueSong(context: Context, id: String): Song {
         require(Regex("[A-Za-z0-9_-]{11}").matches(id)) { "Expected an 11-character YouTube video ID, not a URL or path" }
         // Only trusted app-owned metadata. Never accept playback URIs or metadata from the client.
-        val queued = try {
+        val queued = if (McpSettings.allowed("queue") || McpSettings.allowed("now_playing")) try {
             withTimeoutOrNull(1_000) {
                 controller(context) { c ->
                     c.currentMediaItem?.takeIf { it.mediaId == id }?.toSong()
-                        ?: (0 until minOf(c.mediaItemCount, 500)).firstOrNull {
+                        ?: (0 until (if (McpSettings.allowed("queue")) minOf(c.mediaItemCount, 500) else 0)).firstOrNull {
                             c.getMediaItemAt(it).mediaId == id
                         }?.let { c.getMediaItemAt(it).toSong() }
                 }
             }
         } catch (e: CancellationException) { throw e }
-          catch (_: Exception) { null }
+          catch (_: Exception) { null } else null
+        currentCoroutineContext().ensureActive()
         if (queued != null) return queued
         // Do not use a non-allowed playlist as a metadata oracle.
         LocalPlaylistStore.playlists.value.asSequence()
-            .filter { McpSettings.playlistAllowed(it.id) }
+            .filter { McpSettings.allowed("playlist_read") && McpSettings.playlistAllowed(it.id) }
             .flatMap { it.songs.asSequence() }.firstOrNull { it.videoId == id }?.let { return it }
-        songCache.get(id)?.let { return it }
+        if (McpSettings.allowed("search")) songCache.get(id)?.let { return it }
         val downloaded = try {
             withTimeoutOrNull(1_500) { Downloads.getDownloadedSongs(context).firstOrNull { it.videoId == id } }
         } catch (e: CancellationException) { throw e }
           catch (_: Exception) { null }
         if (downloaded != null) return downloaded
-        val listened = try {
-            withTimeoutOrNull(1_500) {
-                ListeningStats.exportAll().asSequence().flatMap { it.tracks.asSequence() }
-                    .filter { it.id == id }.maxByOrNull { it.last }
-            }
-        } catch (e: CancellationException) { throw e }
-          catch (_: Exception) { null }
-        if (listened != null) return Song(id, listened.title, listened.artist, null,
-            albumName = listened.album, albumId = listened.albumId, artistId = listened.artistId)
         return YtMusicRepository.trackLinks(id).getOrThrow().also {
             require(it.videoId == id) { "Catalogue returned a different track" }
-            songCache.put(id, it)
+            currentCoroutineContext().ensureActive()
+            if (McpSettings.allowed("search")) songCache.put(id, it)
         }
     }
     private fun JsonObject.text(key: String, max: Int): String {

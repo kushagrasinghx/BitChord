@@ -19,12 +19,19 @@ import com.music.bitchord.R
 /** User-enabled MCP lifetime owner; no wake lock, boot receiver or background FGS launch. */
 class McpForegroundService : Service() {
     // McpServer no longer installs onChanged; this service is its sole lifecycle owner.
-    private val settingsChanged: () -> Unit = {
-        if (McpSettings.enabled) McpServer.start(this) else {
-            McpServer.stop()
-            stopSelf()
+    private val settingsChanged: () -> Unit = { onSettingsChanged() }
+    private fun onSettingsChanged() {
+        // Preferences may notify off-main; serialize Android service lifecycle on main.
+        android.os.Handler(mainLooper).post {
+            if (McpSettings.onChanged === settingsChanged) {
+                if (McpSettings.enabled) McpServer.start(this) else {
+                    McpServer.stop()
+                    stopSelf()
+                }
+            }
         }
     }
+
 
     override fun onCreate() {
         super.onCreate()
@@ -63,7 +70,7 @@ class McpForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!McpSettings.enabled) stopSelf()
+        if (!McpSettings.enabled) stopSelf(startId) else McpServer.start(this)
         // No unattended restart: the next visible activity can retry safely.
         return START_NOT_STICKY
     }

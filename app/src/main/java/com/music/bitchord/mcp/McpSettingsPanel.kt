@@ -9,6 +9,11 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.R
@@ -26,6 +31,8 @@ fun McpSettingsPanel() {
     remember(context) { McpSettings.init(context); true }
     val status by McpServer.status.collectAsStateWithLifecycle()
     val playlists by LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
+    var playlistQuery by rememberSaveable { mutableStateOf("") }
+    val locale = LocalConfiguration.current.locales[0]
     var revision by remember { mutableIntStateOf(0) }
     var warnLan by remember { mutableStateOf(false) }
     var rotate by remember { mutableStateOf(false) }
@@ -41,13 +48,30 @@ fun McpSettingsPanel() {
         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
         Toast.makeText(context, context.getString(R.string.mcp_copied), Toast.LENGTH_SHORT).show()
     }
-    // Revision invalidates preference-backed reads after an explicit edit.
-    key(revision) {
+    // Invalidate only preference snapshots, never the UI subtree or text-field focus.
+    val enabled = remember(revision) { McpSettings.enabled }
+    val lanEnabled = remember(revision) { McpSettings.lanEnabled }
+    val token = remember(revision) { McpSettings.token }
+    val blocklist = remember(revision) { McpSettings.playlistMode == "blocklist" }
+    val permissions = remember(revision) { McpSettings.permissions.associateWith { McpSettings.allowed(it) } }
+    val selection = remember(revision, playlists) {
+        PlaylistSelectionModel(playlists.map { it.id }, playlists.filter { McpSettings.playlistSelected(it.id) }.map { it.id }.toSet())
+    }
+    val filteredPlaylists = remember(playlists, playlistQuery, locale) {
+        PlaylistSelectionModel.filterAndSort(playlists, playlistQuery, locale) { it.title }
+    }
         Column(Modifier.fillMaxWidth()) {
             SettingsGroup(footer = stringResource(R.string.mcp_intro)) {
-                McpToggle(stringResource(R.string.mcp_enable), McpSettings.enabled) { McpSettings.enabled = it; McpForegroundService.syncFromForeground(context); revision++ }
-                RowDivider()
-                SettingsRow(title = stringResource(R.string.mcp_server), subtitle = status.toString())
+                val statusLabel = when {
+                    status.startsWith("Listening on ") -> R.string.mcp_status_on
+                    status == "Unable to start server" || status == "Invalid server settings" -> R.string.mcp_status_error
+                    enabled -> R.string.mcp_status_starting
+                    else -> R.string.mcp_status_off
+                }
+                McpToggle(
+                    stringResource(R.string.mcp_enable), enabled,
+                    subtitle = stringResource(statusLabel),
+                ) { McpSettings.enabled = it; McpForegroundService.syncFromForeground(context); revision++ }
                 RowDivider()
                 SettingsRow(
                     title = stringResource(R.string.mcp_address),
@@ -60,16 +84,16 @@ fun McpSettingsPanel() {
                     onClick = { copy("http://localhost:${McpSettings.port}/mcp") },
                 )
                 RowDivider()
-                McpToggle(stringResource(R.string.mcp_lan), McpSettings.lanEnabled) {
+                McpToggle(stringResource(R.string.mcp_lan), lanEnabled) {
                     if (it) warnLan = true else { McpSettings.lanEnabled = false; revision++ }
                 }
             }
-            SettingsGroup(header = stringResource(R.string.mcp_token), footer = if (McpSettings.lanEnabled) stringResource(R.string.mcp_lan_warning) else null) {
+            SettingsGroup(header = stringResource(R.string.mcp_token), footer = if (lanEnabled) stringResource(R.string.mcp_lan_warning) else null) {
                 SettingsRow(
                     title = stringResource(R.string.mcp_token),
                     subtitleContent = {
                         Column {
-                            Text(if (showToken) McpSettings.token else "••••••••••••••••", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                            Text(if (showToken) token else "••••••••••••••••", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                             Text(stringResource(R.string.mcp_tap_copy), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
@@ -94,12 +118,11 @@ fun McpSettingsPanel() {
                         "playlist_create" -> R.string.mcp_playlist_create
                         else -> R.string.mcp_playlist_write
                     }
-                    McpToggle(stringResource(label), McpSettings.allowed(permission)) {
+                    McpToggle(stringResource(label), permissions[permission] == true) {
                         McpSettings.setAllowed(permission, it); revision++
                     }
                 }
             }
-            val blocklist = McpSettings.playlistMode == "blocklist"
             SettingsGroup(header = stringResource(R.string.mcp_playlist_mode)) {
                 SettingsRow(
                     title = stringResource(R.string.mcp_allowlist),
@@ -117,16 +140,65 @@ fun McpSettingsPanel() {
                 header = stringResource(if (blocklist) R.string.mcp_blocked_playlists else R.string.mcp_playlists),
                 footer = stringResource(if (blocklist) R.string.mcp_blocklist_hint else R.string.mcp_playlist_hint),
             ) {
-                if (playlists.isEmpty()) SettingsRow(title = stringResource(R.string.mcp_no_playlists))
-                playlists.forEachIndexed { index, playlist ->
-                    if (index > 0) RowDivider()
-                    McpToggle(playlist.title, McpSettings.playlistSelected(playlist.id)) {
+                OutlinedTextField(
+                    value = playlistQuery,
+                    onValueChange = { playlistQuery = it },
+                    label = { Text(stringResource(R.string.mcp_playlist_search), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                val allSelected = selection.allSelected
+                val selectionState = when {
+                    allSelected -> ToggleableState.On
+                    !selection.partiallySelected -> ToggleableState.Off
+                    else -> ToggleableState.Indeterminate
+                }
+                val toggleAll = {
+                    val (ids, selected) = selection.bulkSelection()
+                    McpSettings.setPlaylistsSelected(ids, selected)
+                    revision++
+                }
+                SettingsRow(
+                    title = stringResource(if (allSelected) R.string.mcp_deselect_all else R.string.mcp_select_all),
+                    subtitle = stringResource(R.string.mcp_select_all_hint),
+                    enabled = playlists.isNotEmpty(),
+                    onClick = { toggleAll() },
+                    trailing = {
+                        TriStateCheckbox(
+                            state = selectionState,
+                            enabled = playlists.isNotEmpty(),
+                            onClick = { toggleAll() },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.primary,
+                                uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                        )
+                    },
+                )
+                if (playlists.isEmpty()) {
+                    RowDivider()
+                    SettingsRow(title = stringResource(R.string.mcp_no_playlists))
+                } else if (filteredPlaylists.isEmpty()) {
+                    RowDivider()
+                    SettingsRow(title = stringResource(R.string.mcp_playlist_no_matches))
+                }
+                filteredPlaylists.forEach { playlist ->
+                    RowDivider()
+                    McpToggle(playlist.title, playlist.id in selection.selectedIds) {
                         McpSettings.setPlaylistSelected(playlist.id, it); revision++
                     }
                 }
             }
         }
-    }
     if (warnBlocklist) AlertDialog(
         onDismissRequest = { warnBlocklist = false },
         title = { Text(stringResource(R.string.mcp_blocklist_title), color = MaterialTheme.colorScheme.onSurface) },
@@ -159,9 +231,10 @@ fun McpSettingsPanel() {
 }
 
 @Composable
-private fun McpToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun McpToggle(label: String, checked: Boolean, subtitle: String? = null, onChange: (Boolean) -> Unit) {
     SettingsRow(
         title = label,
+        subtitle = subtitle,
         onClick = { onChange(!checked) },
         trailing = { IosSwitch(checked = checked, onCheckedChange = onChange) },
     )

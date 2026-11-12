@@ -1459,4 +1459,13 @@
     <string name="mcp_blocklist_title">Engel listesi modu etkinleştirilsin mi?</string>
     <string name="mcp_blocklist_warning">Engel listesinde seçili olmayan tüm listelere, gelecekte oluşturulacaklar dahil, erişilebilecek. İlgili okuma/yazma izinleri yine gereklidir. Yalnızca bu geniş erişimi kabul ediyorsanız etkinleştirin.</string>
     <string name="mcp_enable_blocklist">Engel listesini etkinleştir</string>
+    <string name="mcp_status_on">Açık</string>
+    <string name="mcp_status_off">Kapalı</string>
+    <string name="mcp_status_starting">Başlatılıyor…</string>
+    <string name="mcp_status_error">Başlatılamadı</string>
+    <string name="mcp_playlist_search">Çalma listesi adı ara</string>
+    <string name="mcp_select_all">Tümünü seç</string>
+    <string name="mcp_deselect_all">Tümünün seçimini kaldır</string>
+    <string name="mcp_select_all_hint">Bu moddaki tüm çalma listelerine uygulanır; yalnızca arama sonuçlarına değil.</string>
+    <string name="mcp_playlist_no_matches">Aramayla eşleşen çalma listesi yok.</string>
 </resources>

@@ -8,24 +8,35 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.*
 
-/** Opt-in, process-lifetime server. Android may kill it; intentionally no foreground service. */
+/** Opt-in server; lifecycle is owned by McpForegroundService. */
 object McpServer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Any()
+    private val revision = AtomicLong()
+    private val lifecycle = Channel<() -> Unit>(Channel.CONFLATED)
+    private val backend = McpRequestExecutor()
+    init { scope.launch { for (operation in lifecycle) {
+        try { operation() } catch (_: Exception) { mutableStatus.value = "Server lifecycle failed" }
+    } } }
     private var server: HttpServer? = null
     private val mutableStatus = MutableStateFlow("Stopped")
     val status: StateFlow<String> = mutableStatus.asStateFlow()
 
     fun start(context: Context) {
         val app = context.applicationContext
-        scope.launch {
+        val generation = revision.incrementAndGet()
+        lifecycle.trySend {
             synchronized(lock) {
+                if (generation != revision.get()) return@synchronized
                 McpSettings.init(app)
                 server?.stop()
                 server = null
@@ -33,8 +44,10 @@ object McpServer {
                 if (McpSettings.port !in 1024..65535 || McpSettings.token.length < 32) {
                     mutableStatus.value = "Invalid server settings"; return@synchronized
                 }
+                val tokenSnapshot = McpSettings.token
                 try {
-                    val instance = HttpServer(app, McpSettings.port, McpSettings.lanEnabled, McpSettings.token)
+                    val instance = HttpServer(app, McpSettings.port, McpSettings.lanEnabled, McpSettings.token, backend,
+                        { generation == revision.get() && McpSettings.enabled && McpSettings.token == tokenSnapshot })
                     server = instance
                     instance.start(10_000, true)
                     mutableStatus.value = "Listening on ${if (McpSettings.lanEnabled) "LAN" else "localhost"}:${McpSettings.port}/mcp"
@@ -47,20 +60,23 @@ object McpServer {
     }
 
     fun stop() {
-        scope.launch { synchronized(lock) {
+        val generation = revision.incrementAndGet()
+        lifecycle.trySend { synchronized(lock) {
+            if (generation != revision.get()) return@synchronized
             server?.stop(); server = null; mutableStatus.value = "Stopped"
         } }
     }
 
-    internal class HttpServer(val context: Context, port: Int, val lan: Boolean, val token: String) :
+    internal class HttpServer(val context: Context, port: Int, val lan: Boolean, val token: String,
+                              private val dispatch: McpRequestExecutor = McpRequestExecutor(),
+                              private val authorized: () -> Boolean = { true },
+                              socketDeadlineMillis: Long = 20_000) :
         NanoHTTPD(if (lan) "0.0.0.0" else "127.0.0.1", port) {
         private val calls = SupervisorJob()
-        private val runner = BoundedRunner()
-        private val dispatch = McpRequestExecutor()
+        private val runner = BoundedRunner(socketDeadlineMillis)
         init { setAsyncRunner(runner) }
         override fun stop() {
             calls.cancel()
-            dispatch.close()
             super.stop()
             runner.closeAll()
         }
@@ -73,6 +89,7 @@ object McpServer {
             }
 
         override fun serve(session: IHTTPSession): Response {
+            if (!authorized()) return reply(Response.Status.UNAUTHORIZED)
             val h = session.headers
             if (h.containsKey("origin")) return reply(Response.Status.FORBIDDEN)
             if (!validHost(h["host"])) return reply(Response.Status.FORBIDDEN)
@@ -107,19 +124,25 @@ object McpServer {
                     if (count <= 0) return reply(Response.Status.BAD_REQUEST)
                     offset += count
                 }
-                val result = dispatch.execute { runBlocking(calls) {
+                val result = runBlocking(calls) {
                     withTimeout(15_000) {
                         McpProtocol.dispatch(bytes.toString(Charsets.UTF_8), { McpTools.listTools(context) }) { name, args ->
                             try {
-                                withTimeout(12_000) { McpTools.call(context, name, args) }
+                                if (!authorized()) throw CancellationException("Access revoked")
+                                dispatch.execute {
+                                    if (!authorized()) throw CancellationException("Access revoked")
+                                    runBlocking(calls) { withTimeout(12_000) { McpTools.call(context, name, args) } }
+                                }
                             } catch (e: TimeoutCancellationException) {
                                 toolError("Tool execution timed out")
                             } catch (e: CancellationException) { throw e }
+                            catch (e: java.util.concurrent.TimeoutException) { throw e }
+                            catch (e: java.util.concurrent.RejectedExecutionException) { throw e }
                             catch (_: Exception) { toolError("Tool execution failed") }
                         }
                     }
                 }
-                }
+                if (!authorized()) return reply(Response.Status.UNAUTHORIZED)
                 if (result == null) reply(Response.Status.ACCEPTED)
                 else reply(Response.Status.OK, result.toString())
             } catch (_: java.util.concurrent.TimeoutException) {
@@ -157,18 +180,22 @@ object McpServer {
     }
 
     /** Caps sockets, worker threads and queued work, including slow unauthenticated peers. */
-    private class BoundedRunner : NanoHTTPD.AsyncRunner {
+    private class BoundedRunner(private val deadlineMillis: Long) : NanoHTTPD.AsyncRunner {
+        private val deadlines = Executors.newSingleThreadScheduledExecutor { task ->
+            Thread(task, "mcp-socket-deadline").apply { isDaemon = true }
+        }
         private val clients = ConcurrentHashMap.newKeySet<NanoHTTPD.ClientHandler>()
         private val executor = ThreadPoolExecutor(4, 4, 10, TimeUnit.SECONDS, ArrayBlockingQueue(4),
             { task -> Thread(task, "mcp-http").apply { isDaemon = true } })
         override fun exec(handler: NanoHTTPD.ClientHandler) {
             clients.add(handler)
-            try { executor.execute { try { handler.run() } finally { clients.remove(handler) } } }
-            catch (_: java.util.concurrent.RejectedExecutionException) { clients.remove(handler); handler.close() }
+            val deadline = deadlines.schedule({ handler.close() }, deadlineMillis, TimeUnit.MILLISECONDS)
+            try { executor.execute { try { handler.run() } finally { deadline.cancel(false); clients.remove(handler) } } }
+            catch (_: java.util.concurrent.RejectedExecutionException) { deadline.cancel(false); clients.remove(handler); handler.close() }
         }
         override fun closed(handler: NanoHTTPD.ClientHandler) { clients.remove(handler) }
         override fun closeAll() {
-            clients.forEach { it.close() }; clients.clear(); executor.shutdownNow()
+            clients.forEach { it.close() }; clients.clear(); executor.shutdownNow(); deadlines.shutdownNow()
         }
     }
 }

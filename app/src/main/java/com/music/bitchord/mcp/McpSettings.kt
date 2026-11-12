@@ -43,23 +43,25 @@ object McpSettings {
     }
     private fun canonicalId(id: String) = id.removePrefix("local:playlist:")
     var playlistMode: String
-        get() = if (::prefs.isInitialized && prefs.getString("playlist_mode", "allowlist") == "blocklist") "blocklist" else "allowlist"
-        set(value) {
+        @Synchronized get() = if (::prefs.isInitialized && prefs.getString("playlist_mode", "allowlist") == "blocklist") "blocklist" else "allowlist"
+        @Synchronized set(value) {
             require(value in setOf("allowlist", "blocklist"))
             prefs.edit().putString("playlist_mode", value).apply()
         }
     private fun selectionKey() = if (playlistMode == "blocklist") "blocked_playlists" else "playlists"
-    fun playlistSelected(id: String): Boolean = ::prefs.isInitialized &&
+    @Synchronized fun playlistSelected(id: String): Boolean = ::prefs.isInitialized &&
         canonicalId(id) in prefs.getStringSet(selectionKey(), emptySet()).orEmpty()
-    fun playlistAllowed(id: String): Boolean = ::prefs.isInitialized &&
+    @Synchronized fun playlistAllowed(id: String): Boolean = ::prefs.isInitialized &&
         McpPlaylistPolicy.allowed(playlistMode, playlistSelected(id))
-    @Synchronized fun setPlaylistSelected(id: String, selected: Boolean) {
-        val key = canonicalId(id)
-        require(key.isNotBlank())
+    fun setPlaylistSelected(id: String, selected: Boolean) = setPlaylistsSelected(listOf(id), selected)
+    /** One preference transaction; bulk selection never changes the other mode. */
+    @Synchronized fun setPlaylistsSelected(ids: Collection<String>, selected: Boolean) {
+        val keys = ids.map(::canonicalId)
+        require(keys.all { it.isNotBlank() })
         val field = selectionKey()
-        val ids = prefs.getStringSet(field, emptySet()).orEmpty().toMutableSet()
-        if (selected) ids.add(key) else ids.remove(key)
-        prefs.edit().putStringSet(field, ids).apply()
+        val current = prefs.getStringSet(field, emptySet()).orEmpty().toMutableSet()
+        if (selected) current.addAll(keys) else current.removeAll(keys.toSet())
+        prefs.edit().putStringSet(field, current).apply()
     }
     /** Explicit owner request: MCP-created playlists become accessible in both modes. */
     @Synchronized fun grantPlaylist(id: String) {

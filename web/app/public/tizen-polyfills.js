@@ -250,5 +250,18 @@
     window.AudioContext = window.webkitAudioContext;
   }
 
+  // 13. Patch fetch to strip keepalive on Chromium < 81 (prevents preflight + keepalive error)
+  if (typeof window !== 'undefined' && window.fetch) {
+    var origFetch = window.fetch;
+    window.fetch = function (resource, init) {
+      if (init && init.keepalive) {
+        var newInit = Object.assign({}, init);
+        delete newInit.keepalive;
+        return origFetch.call(this, resource, newInit);
+      }
+      return origFetch.call(this, resource, init);
+    };
+  }
+
   console.log('[BitChord Tizen] Complete polyfills initialized.');
 })();

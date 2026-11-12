@@ -1429,4 +1429,8 @@
     <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
     <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
     <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
+    <string name="automix_overview">Vista general de Automix</string>
+    <string name="diwali_title">BitChord te desea un feliz Diwali</string>
+    <string name="diwali_subtitle">Que este festival de luces llene tu hogar de alegría y tus días de música.</string>
+    <string name="diwali_cta">Vamos a celebrar</string>
 </resources>

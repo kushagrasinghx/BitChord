@@ -1497,4 +1497,8 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
+    <string name="automix_overview">Przegląd Automix</string>
+    <string name="diwali_title">BitChord życzy wesołego Diwali</string>
+    <string name="diwali_subtitle">Niech to święto światła napełni Twój dom radością, a dni muzyką.</string>
+    <string name="diwali_cta">Świętujmy</string>
 </resources>

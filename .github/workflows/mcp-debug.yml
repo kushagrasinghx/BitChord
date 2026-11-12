@@ -42,10 +42,14 @@ jobs:
           # Keep the official platform intact and provide the compatible lookup path.
           ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
       - name: Run phone unit tests
+        id: unit_tests
         run: ./gradlew :app:testDevDebugUnitTest --stacktrace
       - name: Build installable development APK
+        id: build_apk
+        if: ${{ !cancelled() && steps.unit_tests.outcome != 'skipped' }}
         run: ./gradlew :app:assembleDevDebug --stacktrace
       - name: Upload APKs
+        if: ${{ !cancelled() && steps.build_apk.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: bitchord-mcp-dev-${{ github.run_number }}

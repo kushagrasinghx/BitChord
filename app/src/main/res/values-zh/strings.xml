@@ -1434,4 +1434,8 @@
     <string name="bit_perfect_status_inexact">%1$s · 不精确：此音源不是无损 PCM</string>
     <string name="bit_perfect_status_waiting">正在等待受支持输出上的无损曲目</string>
     <string name="bit_perfect_status_unavailable">此曲目不可用（%1$s）</string>
+    <string name="automix_overview">Automix 概览</string>
+    <string name="diwali_title">BitChord 祝您排灯节快乐</string>
+    <string name="diwali_subtitle">愿这光明节为您的家带来欢乐，让音乐充满您的每一天。</string>
+    <string name="diwali_cta">一起庆祝</string>
 </resources>

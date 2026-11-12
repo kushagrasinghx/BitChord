@@ -1489,4 +1489,8 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="automix_overview">Обзор Automix</string>
+    <string name="diwali_title">BitChord поздравляет вас с Дивали</string>
+    <string name="diwali_subtitle">Пусть этот праздник огней наполнит ваш дом радостью, а дни — музыкой.</string>
+    <string name="diwali_cta">Давайте праздновать</string>
 </resources>

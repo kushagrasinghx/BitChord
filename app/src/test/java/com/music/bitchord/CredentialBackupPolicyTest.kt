@@ -18,6 +18,7 @@ class CredentialBackupPolicyTest {
             "bitchord_addon_auth_plain.xml",
             "bitchord_settings.xml",
         ).forEach { name -> assertTrue("$name missing from backup_rules", backup.contains(name)) }
+        assertTrue("listening history is missing from backup_rules", backup.contains("path=\"listening\""))
     }
 
     @Test

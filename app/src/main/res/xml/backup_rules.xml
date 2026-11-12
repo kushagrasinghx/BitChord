@@ -26,4 +26,6 @@
     <exclude domain="sharedpref" path="bitchord_last_played.xml" />
     <exclude domain="sharedpref" path="bitchord_bounded_context.xml" />
     <exclude domain="sharedpref" path="bitchord_party_queue_stash.xml" />
+    <!-- Listening history is sensitive behavioural data and device-local. -->
+    <exclude domain="file" path="listening" />
 </full-backup-content>

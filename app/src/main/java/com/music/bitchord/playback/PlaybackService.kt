@@ -9282,6 +9282,16 @@ class PlaybackService : MediaLibraryService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
         ): MediaSession.ConnectionResult {
+            if (!isControllerAllowed(
+                    packageName = controller.packageName,
+                    ownPackage = packageName,
+                    trusted = controller.isTrusted,
+                    automotive = session.isAutomotiveController(controller),
+                    autoCompanion = session.isAutoCompanionController(controller),
+                )
+            ) {
+                return MediaSession.ConnectionResult.reject()
+            }
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
                 .buildUpon()
                 .add(favoriteCommand)
@@ -10675,3 +10685,32 @@ internal fun lyricsSettingChanges(
 ): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
     listOf(s, src, o, p)
 }.distinctUntilChanged()
+
+/** System/companion controllers that legitimately drive the media session. */
+private val TRUSTED_CONTROLLER_PACKAGES = setOf(
+    "android",
+    "com.android.systemui",
+    "com.android.bluetooth",
+    "com.google.android.gms",
+    "com.google.android.googlequicksearchbox",
+    "com.google.android.projection.gearhead",
+    "com.google.android.wearable.app",
+)
+
+/**
+ * Only this app, its system media surfaces, and the automotive/assistant
+ * controllers may connect. A random installed app must not be able to browse
+ * the library or send transport/custom commands.
+ */
+internal fun isControllerAllowed(
+    packageName: String,
+    ownPackage: String,
+    trusted: Boolean,
+    automotive: Boolean,
+    autoCompanion: Boolean,
+): Boolean = packageName == ownPackage ||
+    trusted ||
+    automotive ||
+    autoCompanion ||
+    packageName in TRUSTED_CONTROLLER_PACKAGES
+

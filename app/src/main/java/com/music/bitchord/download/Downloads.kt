@@ -1716,8 +1716,18 @@ object Downloads {
     private const val KEY_SAVED = "downloaded_tracks"
 }
 
-/** The badge of the stored offline package, not of the codec it was fetched as. */
-internal fun offlinePackageBadge(dash: Boolean): String = if (dash) "DASH" else "HLS"
+/**
+ * The badge of the stored offline package, not of the manifest it was fetched as.
+ *
+ * DASH is rewritten into the same `playlist.m3u8` + fMP4 package as HLS (see
+ * [OfflineDash]), so calling that row "DASH" describes the origin rather than
+ * the bytes on disk and contradicts what the app can actually open.
+ */
+internal fun offlinePackageBadge(dash: Boolean): String {
+    @Suppress("UNUSED_PARAMETER")
+    val sourceWasDash = dash
+    return "HLS"
+}
 
 /** True when the id has a saved record whose file still exists. */
 internal fun alreadyDownloaded(saved: Map<String, String>, id: String, exists: (String) -> Boolean): Boolean =

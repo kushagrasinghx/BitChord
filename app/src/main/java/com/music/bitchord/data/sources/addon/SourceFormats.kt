@@ -3,6 +3,7 @@ package com.music.bitchord.data.sources.addon
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -236,9 +237,8 @@ object SourceFormats {
                 if (response.code >= 500) throw AddonUnavailable("HTTP ${response.code}")
                 throw AddonException("HTTP ${response.code}")
             }
-            val bytes = response.body?.source()?.readByteArray(MAX_INDEX_BYTES + 1)
-                ?: throw AddonException("Empty response")
-            if (bytes.size > MAX_INDEX_BYTES) throw AddonException("Index response is too large")
+            val body = response.body ?: throw AddonException("Empty response")
+            val bytes = body.byteStream().use { readBounded(it, MAX_INDEX_BYTES) }
             bytes.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
                 ?: throw AddonException("Empty response")
         }

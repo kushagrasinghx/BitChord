@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources.module
 
 import android.util.Log
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import com.music.bitchord.data.Http
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -227,11 +228,8 @@ class ModuleManager {
                 if (!resp.isSuccessful) {
                     throw Exception("HTTP ${resp.code} downloading module ${module.id}")
                 }
-                val bytes = resp.body?.source()?.readByteArray(ModuleSandboxPolicy.MAX_MODULE_BYTES + 1)
-                    ?: throw Exception("Empty body for module ${module.id}")
-                if (bytes.size > ModuleSandboxPolicy.MAX_MODULE_BYTES) {
-                    throw Exception("Module ${module.id} exceeds the ${ModuleSandboxPolicy.MAX_MODULE_BYTES} byte limit")
-                }
+                val body = resp.body ?: throw Exception("Empty body for module ${module.id}")
+                val bytes = body.byteStream().use { readBounded(it, ModuleSandboxPolicy.MAX_MODULE_BYTES) }
                 bytes.toString(Charsets.UTF_8)
             }
             val baseUrl = downloadUrl.substringBeforeLast("/")

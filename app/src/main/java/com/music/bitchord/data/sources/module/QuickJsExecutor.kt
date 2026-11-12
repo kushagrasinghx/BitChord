@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources.module
 
 import android.util.Log
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.AsyncFunctionBinding
 import com.dokar.quickjs.binding.FunctionBinding
@@ -565,16 +566,11 @@ internal object QuickJsExecutor {
                     currentUrl = next
                     return@repeat
                 }
-                val contentLength = response.body?.contentLength() ?: -1L
-                if (contentLength > ModuleSandboxPolicy.MAX_RESPONSE_BYTES) {
+                val body = response.body ?: return response.code to ""
+                if (body.contentLength() > ModuleSandboxPolicy.MAX_RESPONSE_BYTES) {
                     throw IllegalStateException("Module response exceeded the size limit")
                 }
-                val bytes = response.body?.source()
-                    ?.readByteArray(ModuleSandboxPolicy.MAX_RESPONSE_BYTES + 1)
-                    ?: ByteArray(0)
-                if (bytes.size > ModuleSandboxPolicy.MAX_RESPONSE_BYTES) {
-                    throw IllegalStateException("Module response exceeded the size limit")
-                }
+                val bytes = body.byteStream().use { readBounded(it, ModuleSandboxPolicy.MAX_RESPONSE_BYTES) }
                 return response.code to bytes.toString(Charsets.UTF_8)
             }
         }

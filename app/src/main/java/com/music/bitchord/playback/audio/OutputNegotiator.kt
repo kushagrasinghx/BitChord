@@ -341,7 +341,7 @@ object OutputNegotiator {
             isSourceHighRes && requestedMode == OutputPcmMode.PCM_16 -> {
                 Pair(
                     FallbackReason.USER_PREFERENCE,
-                    "${source.bitDepth ?: "High-res"} source reduced to 16-bit by the output setting",
+                    "${source.bitDepth ?: "High-res"}-bit source reduced to 16-bit by the output setting",
                 )
             }
             routeKind == AudioRouting.Kind.USB ->

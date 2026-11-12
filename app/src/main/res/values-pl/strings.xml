@@ -1533,4 +1533,15 @@
     <string name="mcp_rotate_title">Rotate bearer token?</string>
     <string name="mcp_rotate_body">Existing clients lose access until configured with the new token.</string>
     <string name="mcp_rotate">Rotate</string>
+    <!-- TODO translation: MCP playlist mode and copy labels use English fallback. -->
+    <string name="mcp_tap_copy">Tap to copy</string>
+    <string name="mcp_copied">Copied to clipboard</string>
+    <string name="mcp_playlist_mode">Playlist access mode</string>
+    <string name="mcp_allowlist">Allowlist</string>
+    <string name="mcp_blocklist">Blocklist</string>
+    <string name="mcp_blocked_playlists">Blocked local playlists</string>
+    <string name="mcp_blocklist_hint">Selected playlists are blocked. All other playlists, including future playlists, are accessible with the matching permissions above. Each mode keeps its own selections.</string>
+    <string name="mcp_blocklist_title">Enable blocklist mode?</string>
+    <string name="mcp_blocklist_warning">All playlists not selected in the blocklist will be accessible, including playlists created in the future. The matching read/write permissions are still required. Enable only if you accept this broader access.</string>
+    <string name="mcp_enable_blocklist">Enable blocklist</string>
 </resources>

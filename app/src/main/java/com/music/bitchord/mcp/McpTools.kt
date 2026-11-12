@@ -39,7 +39,7 @@ object McpTools {
         Tool("search", "search", "Search YouTube Music songs", mapOf("query" to "string", "limit" to "integer"), listOf("query")),
         Tool("playlist_list", "playlist_read", "List only explicitly allowed local playlists"),
         Tool("playlist_read", "playlist_read", "Read an explicitly allowed local playlist", mapOf("playlist_id" to "string", "offset" to "integer", "limit" to "integer"), listOf("playlist_id")),
-        Tool("playlist_create", "playlist_create", "Create an empty local playlist; user must explicitly allow it before reading or editing", mapOf("title" to "string"), listOf("title")),
+        Tool("playlist_create", "playlist_create", "Create an empty local playlist and automatically grant playlist access; global read/write permissions still apply", mapOf("title" to "string"), listOf("title")),
         Tool("playlist_add", "playlist_write", "Append a YouTube catalogue track to an allowed local playlist", mapOf("playlist_id" to "string", "video_id" to "string"), listOf("playlist_id", "video_id")),
         Tool("playlist_remove", "playlist_write", "Remove one occurrence by zero-based index from an allowed local playlist", mapOf("playlist_id" to "string", "index" to "integer"), listOf("playlist_id", "index")),
     )
@@ -144,8 +144,8 @@ object McpTools {
                         "playlist_create" -> {
                             checkPermission(tool.permission)
                             val p = LocalPlaylistStore.savePlaylist(args.text("title", 200), emptyList())
-                            // Creation does not confer read/write access, nor disclose existing playlists.
-                            buildJsonObject { put("created_id", p.id); put("requires_user_approval", true) }
+                            McpSettings.grantPlaylist(p.id)
+                            buildJsonObject { put("created_id", p.id); put("requires_user_approval", false) }
                         }
                         "playlist_read", "playlist_add", "playlist_remove" -> {
                             val id = args.text("playlist_id", 200)

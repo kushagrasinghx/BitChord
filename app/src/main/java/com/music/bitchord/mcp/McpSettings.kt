@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import android.util.Base64
 import java.security.SecureRandom
 
-/** Private, deny-by-default policy. Creating a playlist never grants access to it. */
+/** Private, deny-by-default policy. MCP-created playlists receive access; global permissions still apply. */
 object McpSettings {
     private lateinit var prefs: SharedPreferences
     val permissions = listOf("now_playing", "history", "queue", "playback", "seek", "search", "playlist_read", "playlist_create", "playlist_write")
@@ -42,15 +42,33 @@ object McpSettings {
         prefs.edit().putBoolean("permission_$permission", allowed).apply()
     }
     private fun canonicalId(id: String) = id.removePrefix("local:playlist:")
+    var playlistMode: String
+        get() = if (::prefs.isInitialized && prefs.getString("playlist_mode", "allowlist") == "blocklist") "blocklist" else "allowlist"
+        set(value) {
+            require(value in setOf("allowlist", "blocklist"))
+            prefs.edit().putString("playlist_mode", value).apply()
+        }
+    private fun selectionKey() = if (playlistMode == "blocklist") "blocked_playlists" else "playlists"
+    fun playlistSelected(id: String): Boolean = ::prefs.isInitialized &&
+        canonicalId(id) in prefs.getStringSet(selectionKey(), emptySet()).orEmpty()
     fun playlistAllowed(id: String): Boolean = ::prefs.isInitialized &&
-        canonicalId(id) in prefs.getStringSet("playlists", emptySet()).orEmpty()
-    /** Call only after explicit user selection, never from a create tool. */
-    fun grantPlaylist(id: String) = setPlaylistAllowed(id, true)
-    fun setPlaylistAllowed(id: String, allowed: Boolean) {
+        McpPlaylistPolicy.allowed(playlistMode, playlistSelected(id))
+    @Synchronized fun setPlaylistSelected(id: String, selected: Boolean) {
         val key = canonicalId(id)
         require(key.isNotBlank())
-        val ids = prefs.getStringSet("playlists", emptySet()).orEmpty().toMutableSet()
-        if (allowed) ids.add(key) else ids.remove(key)
-        prefs.edit().putStringSet("playlists", ids).apply()
+        val field = selectionKey()
+        val ids = prefs.getStringSet(field, emptySet()).orEmpty().toMutableSet()
+        if (selected) ids.add(key) else ids.remove(key)
+        prefs.edit().putStringSet(field, ids).apply()
     }
+    /** Explicit owner request: MCP-created playlists become accessible in both modes. */
+    @Synchronized fun grantPlaylist(id: String) {
+        val key = canonicalId(id)
+        require(key.isNotBlank())
+        val allowed = prefs.getStringSet("playlists", emptySet()).orEmpty().toMutableSet().apply { add(key) }
+        val blocked = prefs.getStringSet("blocked_playlists", emptySet()).orEmpty().toMutableSet().apply { remove(key) }
+        prefs.edit().putStringSet("playlists", allowed).putStringSet("blocked_playlists", blocked).apply()
+    }
+    fun setPlaylistAllowed(id: String, allowed: Boolean) =
+        setPlaylistSelected(id, if (playlistMode == "blocklist") !allowed else allowed)
 }

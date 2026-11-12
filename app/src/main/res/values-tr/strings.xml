@@ -1449,4 +1449,14 @@
     <string name="mcp_rotate_title">Erişim anahtarı yenilensin mi?</string>
     <string name="mcp_rotate_body">Mevcut istemciler yeni anahtarla yapılandırılana kadar erişimi kaybeder.</string>
     <string name="mcp_rotate">Yenile</string>
+    <string name="mcp_tap_copy">Kopyalamak için üzerine bas</string>
+    <string name="mcp_copied">Panoya kopyalandı</string>
+    <string name="mcp_playlist_mode">Çalma listesi erişim modu</string>
+    <string name="mcp_allowlist">İzin listesi</string>
+    <string name="mcp_blocklist">Engel listesi</string>
+    <string name="mcp_blocked_playlists">Engellenen yerel çalma listeleri</string>
+    <string name="mcp_blocklist_hint">Seçili listeler engellenir. Gelecekte oluşturulanlar dahil diğer tüm listelere yukarıdaki ilgili izinlerle erişilebilir. Her mod kendi seçimlerini korur.</string>
+    <string name="mcp_blocklist_title">Engel listesi modu etkinleştirilsin mi?</string>
+    <string name="mcp_blocklist_warning">Engel listesinde seçili olmayan tüm listelere, gelecekte oluşturulacaklar dahil, erişilebilecek. İlgili okuma/yazma izinleri yine gereklidir. Yalnızca bu geniş erişimi kabul ediyorsanız etkinleştirin.</string>
+    <string name="mcp_enable_blocklist">Engel listesini etkinleştir</string>
 </resources>

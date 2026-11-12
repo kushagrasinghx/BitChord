@@ -249,7 +249,24 @@ object McpTools {
                                         require(position >= 0) { "Position must be nonnegative" }
                                         check(c.currentMediaItem != null) { "No current track" }
                                         require(c.duration == C.TIME_UNSET || position <= c.duration) { "Position exceeds duration" }
-                                        c.seekTo(position); ok()
+                                        // A restored IDLE queue has not prepared its timeline yet.
+                                        // Prepare without starting playback, then submit Media3's pending seek.
+                                        // Controller position is optimistic, not proof the service applied it.
+                                        val wasPlayWhenReady = c.playWhenReady
+                                        val wasIdle = c.playbackState == Player.STATE_IDLE
+                                        if (wasIdle) {
+                                            c.prepare()
+                                            c.playWhenReady = wasPlayWhenReady
+                                        }
+                                        c.seekTo(position)
+                                        buildJsonObject {
+                                            put("ok", true)
+                                            put("status", "pending")
+                                            put("requested_position_ms", position)
+                                            put("prepared_from_idle", wasIdle)
+                                            put("play_when_ready", wasPlayWhenReady)
+                                            put("verification", "Read now_playing after the player has prepared")
+                                        }
                                     }
                                     else -> error("unknown_tool", "Unknown tool")
                                 }

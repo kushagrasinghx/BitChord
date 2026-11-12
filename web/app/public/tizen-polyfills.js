@@ -15,7 +15,40 @@
     }
   }
 
-  // 2. queueMicrotask polyfill (Chromium < 71)
+  // 2. crypto.randomUUID polyfill (Chromium < 92)
+  if (typeof window !== 'undefined') {
+    if (!window.crypto) {
+      window.crypto = {};
+    }
+    if (!window.crypto.randomUUID) {
+      window.crypto.randomUUID = function () {
+        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, function (c) {
+          return (c ^ (window.crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16);
+        });
+      };
+    }
+  }
+
+  // 3. String.prototype.matchAll polyfill (Chromium < 73)
+  if (!String.prototype.matchAll) {
+    String.prototype.matchAll = function (regexp) {
+      var str = String(this);
+      var flags = regexp.flags || '';
+      if (flags.indexOf('g') === -1) {
+        flags += 'g';
+      }
+      var rx = new RegExp(regexp.source, flags);
+      var matches = [];
+      var match;
+      while ((match = rx.exec(str)) !== null) {
+        matches.push(match);
+        if (!rx.global) break;
+      }
+      return matches[Symbol.iterator]();
+    };
+  }
+
+  // 4. queueMicrotask polyfill (Chromium < 71)
   if (typeof queueMicrotask !== 'function') {
     globalThis.queueMicrotask = function (callback) {
       Promise.resolve().then(callback).catch(function (err) {
@@ -24,7 +57,7 @@
     };
   }
 
-  // 3. Object.fromEntries polyfill (Chromium < 73)
+  // 5. Object.fromEntries polyfill (Chromium < 73)
   if (!Object.fromEntries) {
     Object.fromEntries = function (entries) {
       if (!entries) return {};
@@ -37,7 +70,7 @@
     };
   }
 
-  // 4. Promise.allSettled polyfill (Chromium < 76)
+  // 6. Promise.allSettled polyfill (Chromium < 76)
   if (!Promise.allSettled) {
     Promise.allSettled = function (promises) {
       return Promise.all(
@@ -51,7 +84,7 @@
     };
   }
 
-  // 5. Promise.any polyfill (Chromium < 85)
+  // 7. Promise.any polyfill (Chromium < 85)
   if (!Promise.any) {
     Promise.any = function (promises) {
       return new Promise(function (resolve, reject) {
@@ -76,7 +109,7 @@
     };
   }
 
-  // 6. String.prototype.replaceAll polyfill (Chromium < 85)
+  // 8. String.prototype.replaceAll polyfill (Chromium < 85)
   if (!String.prototype.replaceAll) {
     String.prototype.replaceAll = function (search, replacement) {
       if (search instanceof RegExp) {
@@ -89,7 +122,7 @@
     };
   }
 
-  // 7. Array.prototype.at & String.prototype.at polyfill (Chromium < 92)
+  // 9. Array.prototype.at & String.prototype.at polyfill (Chromium < 92)
   function at(n) {
     n = Math.trunc(n) || 0;
     if (n < 0) n += this.length;
@@ -118,7 +151,7 @@
     }
   });
 
-  // 8. Array.prototype.flat & flatMap polyfill (Chromium < 69)
+  // 10. Array.prototype.flat & flatMap polyfill (Chromium < 69)
   if (!Array.prototype.flat) {
     Array.prototype.flat = function (depth) {
       var d = depth === undefined ? 1 : Math.floor(depth);
@@ -145,7 +178,7 @@
     };
   }
 
-  // 9. structuredClone polyfill (Chromium < 98)
+  // 11. structuredClone polyfill (Chromium < 98)
   if (typeof structuredClone !== 'function') {
     globalThis.structuredClone = function (obj) {
       if (obj === undefined) return undefined;
@@ -157,5 +190,10 @@
     };
   }
 
-  console.log('[BitChord Tizen] Polyfills loaded.');
+  // 12. AudioContext webkit prefix fallback
+  if (typeof window !== 'undefined' && !window.AudioContext && window.webkitAudioContext) {
+    window.AudioContext = window.webkitAudioContext;
+  }
+
+  console.log('[BitChord Tizen] All Chromium 56-69 polyfills loaded.');
 })();

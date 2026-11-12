@@ -3821,10 +3821,8 @@ class CrossfadeController(
     }
 
     /** See [onBlendHeadroom]. */
-    private fun headroomFor(incomingGain: Float, outgoingGain: Float): Float {
-        val sum = incomingGain + outgoingGain
-        return if (sum <= 1f) 1f else 1f / kotlin.math.sqrt(sum)
-    }
+    private fun headroomFor(incomingGain: Float, outgoingGain: Float): Float =
+        crossfadeHeadroom(incomingGain, outgoingGain)
 
     // There is deliberately no second, equal-gain pair here any more. It existed
     // for the handoff of a track from one player to the other, where the two
@@ -4306,6 +4304,20 @@ class CrossfadeController(
         /** A retired sink has long stopped rendering by then. */
         const val LOOP_RENDERER_CLOSE_DELAY_MS = 1_500L
     }
+}
+
+/**
+ * Shared trim for two tracks overlapping.
+ *
+ * Equal-power faders assume uncorrelated material. DJ bass-swap curves can
+ * hold both faders at 1.0, and correlated bass then sums coherently, so
+ * `1/sqrt(sum)` still permits ~1.19 full scale and hard clipping. Dividing by
+ * the gain sum guarantees the pair cannot exceed full scale for any
+ * correlation; it costs at most the extra trim at the overlap.
+ */
+internal fun crossfadeHeadroom(incomingGain: Float, outgoingGain: Float): Float {
+    val sum = incomingGain.coerceAtLeast(0f) + outgoingGain.coerceAtLeast(0f)
+    return if (sum <= 1f) 1f else 1f / sum
 }
 
 /** True when the transition would pair the current item with itself. */

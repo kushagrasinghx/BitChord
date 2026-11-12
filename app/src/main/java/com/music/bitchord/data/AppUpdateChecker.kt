@@ -18,6 +18,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * BitChord ships as a sideloaded APK off GitHub Releases rather than through
@@ -36,8 +37,18 @@ object AppUpdateChecker {
         val version: String,
         val releaseUrl: String,
         val apkUrl: String?,
+        /** SHA-256 GitHub published for the asset, without the `sha256:` prefix. */
+        val apkSha256: String? = null,
+        val apkSize: Long? = null,
         /** The release's own Markdown body, shown as this update's "what's new". */
         val notes: String?,
+    )
+
+    internal data class UpdateAsset(
+        val name: String,
+        val url: String,
+        val sha256: String?,
+        val size: Long?,
     )
 
     private const val CACHE_SUBDIR = "updates"
@@ -74,11 +85,18 @@ object AppUpdateChecker {
             val release = json.parseToJsonElement(body) as? JsonObject ?: return@runCatching
             val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
             val url = release["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val apkUrl = apkAssetUrl(release)
+            val asset = selectUpdateApk(release, Build.SUPPORTED_ABIS.toList(), BuildConfig.UPDATE_APK_PREFIX)
             val notes = release["body"]?.jsonPrimitive?.contentOrNull
             val latest = tag.removePrefix("v")
             if (isNewer(latest, BuildConfig.VERSION_NAME)) {
-                _available.value = UpdateInfo(latest, url, apkUrl, notes)
+                _available.value = UpdateInfo(
+                    version = latest,
+                    releaseUrl = url,
+                    apkUrl = asset?.url,
+                    apkSha256 = asset?.sha256,
+                    apkSize = asset?.size,
+                    notes = notes,
+                )
             }
         }
     }
@@ -108,23 +126,41 @@ object AppUpdateChecker {
      * [UpdateInfo.apkUrl] null and the UI falls back to opening the releases
      * page.
      */
-    private fun apkAssetUrl(release: JsonObject): String? = runCatching {
+    /**
+     * Pick this device's APK: its own ABI split first, then the universal file.
+     * Every asset's published digest and size travel with it so the download
+     * can be verified before the installer sees it.
+     */
+    internal fun selectUpdateApk(
+        release: JsonObject,
+        supportedAbis: List<String>,
+        prefix: String,
+    ): UpdateAsset? {
         val apks = release["assets"]?.jsonArray
             ?.mapNotNull { it as? JsonObject }
             ?.mapNotNull { asset ->
                 val name = asset["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
                 val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val ours = name.startsWith(BuildConfig.UPDATE_APK_PREFIX, ignoreCase = true) &&
+                val ours = name.startsWith(prefix, ignoreCase = true) &&
                     name.endsWith(".apk", ignoreCase = true) &&
                     asset["state"]?.jsonPrimitive?.contentOrNull == "uploaded"
-                if (ours) name.removeSuffix(".apk").removeSuffix(".APK") to url else null
+                if (!ours) return@mapNotNull null
+                val digest = asset["digest"]?.jsonPrimitive?.contentOrNull
+                    ?.removePrefix("sha256:")
+                    ?.takeIf { it.length == 64 }
+                val size = asset["size"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                UpdateAsset(name, url, digest, size)
             }
             .orEmpty()
-        apks.firstOrNull { (name, _) -> '_' !in name }?.second
-            ?: Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
-                apks.firstOrNull { (name, _) -> name.endsWith("_$abi") }?.second
-            }
-    }.getOrNull()
+
+        supportedAbis.forEach { abi ->
+            apks.firstOrNull { it.name.substringBeforeLast('.').endsWith("_$abi", ignoreCase = true) }
+                ?.let { return it }
+        }
+        return apks.firstOrNull { asset ->
+            asset.name.substringBeforeLast('.').substringAfter(prefix).none { it == '_' }
+        }
+    }
 
     /**
      * Streams the current update's APK into the app cache, reporting progress
@@ -145,6 +181,8 @@ object AppUpdateChecker {
             val target = File(dir, "bitchord-${info.version}.apk")
 
             val request = Request.Builder().url(url).build()
+            val digest = MessageDigest.getInstance("SHA-256")
+            var readTotal = 0L
             Http.client.newCall(request).execute().use { response ->
                 check(response.isSuccessful) { "Download failed: HTTP ${response.code}" }
                 val body = response.body ?: error("Empty download body")
@@ -153,15 +191,16 @@ object AppUpdateChecker {
                 body.byteStream().use { input ->
                     target.outputStream().use { output ->
                         val buffer = ByteArray(64 * 1024)
-                        var readTotal = 0L
                         while (true) {
                             if (downloadCancelled) {
+                                target.delete()
                                 _download.value = DownloadState.Idle
                                 return@withContext
                             }
                             val read = input.read(buffer)
                             if (read == -1) break
                             output.write(buffer, 0, read)
+                            digest.update(buffer, 0, read)
                             readTotal += read
                             total?.let {
                                 _download.value =
@@ -170,6 +209,14 @@ object AppUpdateChecker {
                         }
                     }
                 }
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            val expectedSize = info.apkSize
+            check(expectedSize == null || readTotal == expectedSize) {
+                "Downloaded APK size does not match the release"
+            }
+            check(info.apkSha256 == null || info.apkSha256.equals(actual, ignoreCase = true)) {
+                "Downloaded APK failed its SHA-256 check"
             }
             _download.value = DownloadState.Ready(target)
         }.onFailure { error ->
@@ -212,6 +259,13 @@ object AppUpdateChecker {
                 )
             }.isSuccess
             if (opened) return
+        }
+        // Digest and size are checked before this point; also refuse an APK
+        // that is a different package, which would otherwise hand the user a
+        // silent failed install after a 100 MB download.
+        val archive = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+        require(archive?.packageName == context.packageName) {
+            "Downloaded APK is not ${context.packageName}"
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         context.startActivity(

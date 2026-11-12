@@ -101,7 +101,9 @@ object LosslessOutput {
             .toSet()
         val telemetry = tracker?.telemetry?.value
         val named = telemetry?.takeIf { it.hasNamedCodec }
-        val next = decide(outputs, named?.codecName, named?.sampleRateHz)
+        @Suppress("DEPRECATION")
+        val bluetoothActive = audioManager?.isBluetoothA2dpOn == true
+        val next = decide(outputs, named?.codecName, named?.sampleRateHz, bluetoothActive)
         if (next != _state.value) {
             // The rate is here for codecs we have never seen a phone name —
             // Wi-Fi earbuds, vendor codecs — so a pasted log shows what to match.
@@ -115,7 +117,24 @@ object LosslessOutput {
      * codec Android named (null if it named none), with the sample rate that
      * codec is configured for. Pure, for tests.
      */
-    internal fun decide(outputTypes: Set<Int>, bluetoothCodec: String?, bluetoothSampleRateHz: Int? = null): State {
+    internal fun decide(
+        outputTypes: Set<Int>,
+        bluetoothCodec: String?,
+        bluetoothSampleRateHz: Int? = null,
+        bluetoothActive: Boolean = false,
+    ): State {
+        // A connected DAC does not make A2DP lossless. When Android says A2DP
+        // is the active route, only the Bluetooth codec decides.
+        if (bluetoothActive) {
+            if (AudioDeviceInfo.TYPE_BLUETOOTH_A2DP !in outputTypes) return State()
+            if (bluetoothCodec == null) return State(bluetoothCodecUnknown = true)
+            val lossless = isLosslessBluetoothCodec(bluetoothCodec, bluetoothSampleRateHz)
+            return State(
+                capable = lossless,
+                via = Kind.BLUETOOTH.takeIf { lossless },
+                bluetoothCodec = bluetoothCodec,
+            )
+        }
         val cabled = when {
             outputTypes.any { it in WIRED } -> Kind.WIRED
             outputTypes.any { it in USB } -> Kind.USB
@@ -124,14 +143,7 @@ object LosslessOutput {
             else -> null
         }
         if (cabled != null) return State(capable = true, via = cabled, bluetoothCodec = bluetoothCodec)
-        if (AudioDeviceInfo.TYPE_BLUETOOTH_A2DP !in outputTypes) return State()
-        if (bluetoothCodec == null) return State(bluetoothCodecUnknown = true)
-        val lossless = isLosslessBluetoothCodec(bluetoothCodec, bluetoothSampleRateHz)
-        return State(
-            capable = lossless,
-            via = Kind.BLUETOOTH.takeIf { lossless },
-            bluetoothCodec = bluetoothCodec,
-        )
+        return State(bluetoothCodec = bluetoothCodec)
     }
 
     /**
@@ -143,7 +155,12 @@ object LosslessOutput {
      */
     internal fun isLosslessBluetoothCodec(name: String, sampleRateHz: Int? = null): Boolean {
         val codec = name.uppercase(Locale.ROOT)
-        if ("LDAC" in codec || "LHDC" in codec || ("APTX" in codec && "LOSSLESS" in codec)) return true
+        // LDAC/LHDC have lossy low-bitrate modes. Without a bitrate API, the
+        // 88.2 kHz+ modes are the ones worth calling close to lossless.
+        if ("LDAC" in codec || "LHDC" in codec) {
+            return sampleRateHz != null && sampleRateHz >= 88_200
+        }
+        if ("APTX" in codec && "LOSSLESS" in codec) return true
         if ("UHQ" in codec) return true
         val samsung = SAMSUNG_NAMES.any { it in codec }
         return samsung && sampleRateHz != null && sampleRateHz >= 88_200

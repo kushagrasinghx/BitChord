@@ -102,6 +102,21 @@ class DownloadOrphanReclaimTest {
     }
 
     @Test
+    fun `a package named by the legacy hashCode scheme is still preserved`() {
+        // Devices upgrading from the old naming have records pointing at this
+        // directory. Reclamation must read the record, not recompute a name.
+        val legacyName = "legacy-video".hashCode().toUInt().toString(16)
+        val legacy = packageDir(legacyName, ageMs = 400 * day)
+
+        val removed = DownloadStore.removePackages(
+            DownloadStore.orphanedPackages(temp.root, setOf(legacyName), now),
+        )
+
+        assertEquals(0, removed)
+        assertTrue(File(legacy, "playlist.m3u8").exists())
+    }
+
+    @Test
     fun `a reclaimed orphan frees its bytes`() {
         packageDir("4444444444444444", ageMs = 2 * day)
         val before = temp.root.walkTopDown().filter { it.isFile }.sumOf { it.length() }

@@ -4,7 +4,7 @@ import kotlinx.serialization.json.*
 
 /** Stateless JSON-RPC dispatch, independent of Android and HTTP. */
 internal object McpProtocol {
-    val versions = setOf("2025-06-18", "2025-03-26")
+    val versions = setOf("2025-11-25", "2025-06-18", "2025-03-26")
     fun error(id: JsonElement = JsonNull, code: Int, message: String): JsonObject = buildJsonObject {
         put("jsonrpc", "2.0"); put("id", id)
         putJsonObject("error") { put("code", code); put("message", message) }

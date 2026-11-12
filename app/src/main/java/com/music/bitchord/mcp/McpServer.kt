@@ -85,7 +85,7 @@ object McpServer {
                 addHeader("Allow", "POST")
             }
             if (h["mcp-protocol-version"]?.let { it !in McpProtocol.versions } == true)
-                return reply(Response.Status.BAD_REQUEST)
+                return reply(Response.Status.BAD_REQUEST, "{\"error\":\"Unsupported MCP-Protocol-Version\"}")
             if (h["content-type"]?.substringBefore(';')?.trim()?.lowercase() != "application/json")
                 return reply(Response.Status.UNSUPPORTED_MEDIA_TYPE)
             val accepts = h["accept"].orEmpty().split(',').map {

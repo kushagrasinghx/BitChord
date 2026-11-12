@@ -30,6 +30,12 @@ class McpProtocolTest {
             assertEquals(version, response["result"]!!.jsonObject["protocolVersion"]!!.jsonPrimitive.content)
         }
     }
+    @Test fun november2025ClientCanListTools() = runBlocking {
+        val response = McpProtocol.dispatch("""{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}""",
+            { JsonArray(emptyList()) }) { _, _ -> JsonNull }
+        assertEquals(JsonArray(emptyList()), response!!["result"]!!.jsonObject["tools"])
+        assertTrue("2025-11-25" in McpProtocol.versions)
+    }
     @Test fun unsupportedInitializeVersionOffersCurrent() {
         val response = dispatch("""{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"unknown","capabilities":{},"clientInfo":{}}}""")!!
         assertEquals("2025-06-18", response["result"]!!.jsonObject["protocolVersion"]!!.jsonPrimitive.content)

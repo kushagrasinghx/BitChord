@@ -12,6 +12,7 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.spotify.LocalPlaylistStore
 import com.music.bitchord.data.stats.ListeningStats
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.PlaybackService
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toSong
@@ -20,11 +21,15 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.*
 
 /** Deliberately accepts catalogue IDs, never stream URLs, paths or client metadata. */
 object McpTools {
+    private val songCache = CatalogueCache<String, Song>(200, 15 * 60_000L)
+    private val searchCache = CatalogueCache<String, List<Song>>(20, 5 * 60_000L)
+
     private data class Tool(val name: String, val permission: String, val description: String,
                             val fields: Map<String, String> = emptyMap(), val required: List<String> = emptyList())
     private val tools = listOf(
@@ -103,9 +108,20 @@ object McpTools {
                     when (name) {
                         "search" -> {
                             val query = args.text("query", 300)
-                            val songs = YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
-                                .filterIsInstance<SearchResult.Track>().map { it.song }.take(args.limit())
-                            buildJsonObject { put("songs", songsJson(songs)) }
+                            val limit = args.limit()
+                            var cached = false
+                            val songs = try {
+                                YtMusicRepository.search(query, SearchFilter.SONGS).getOrThrow()
+                                    .filterIsInstance<SearchResult.Track>().map { it.song }.take(200).also { rows ->
+                                        searchCache.put(query, rows)
+                                        rows.forEach { songCache.put(it.videoId, it) }
+                                    }
+                            } catch (e: Exception) {
+                                if (e is CancellationException) throw e
+                                if (!e.isCatalogueDnsFailure()) throw e
+                                searchCache.get(query)?.also { cached = true } ?: throw e
+                            }
+                            buildJsonObject { put("songs", songsJson(songs.take(limit))); put("cached", cached) }
                         }
                         "listening_history" -> {
                             val tracks = ListeningStats.exportAll().flatMap { it.tracks }.groupBy { it.id }
@@ -159,7 +175,7 @@ object McpTools {
                                     put("songs", songsJson(p.songs.drop(args.offset()).take(args.limit())))
                                 }
                                 "playlist_add" -> {
-                                    val song = catalogueSong(args.text("video_id", 11))
+                                    val song = catalogueSong(context, args.text("video_id", 11))
                                     checkPermission(tool.permission); requirePlaylist(id)
                                     check(LocalPlaylistStore.addSong(p.id, song)) { "Playlist no longer exists" }
                                     ok()
@@ -175,7 +191,7 @@ object McpTools {
                         }
                         else -> {
                             val song = if (name == "play" && "video_id" in args)
-                                catalogueSong(args.text("video_id", 11)) else null
+                                catalogueSong(context, args.text("video_id", 11)) else null
                             controller(context) { c ->
                                 checkPermission(tool.permission)
                                 when (name) {
@@ -232,7 +248,8 @@ object McpTools {
             error("invalid_arguments", e.message ?: "Invalid argument")
         } catch (e: Exception) {
             // Backend exceptions may contain URLs, account data or filesystem paths.
-            error("operation_failed", "Music operation failed (${e.javaClass.simpleName}); check playback/account availability")
+            if (e.isCatalogueDnsFailure()) error("network_unavailable", "Catalogue hostname could not be resolved; check network or DNS and retry")
+            else error("operation_failed", "Music operation failed; check playback/account availability")
         }
     }
 
@@ -250,11 +267,43 @@ object McpTools {
         // Canonical IDs only: aliases must not bypass the explicit per-playlist allowlist.
         if (id.startsWith("local:playlist:") || !McpSettings.playlistAllowed(id)) throw SecurityException("Playlist not allowed")
     }
-    private suspend fun catalogueSong(id: String): Song {
+    private suspend fun catalogueSong(context: Context, id: String): Song {
         require(Regex("[A-Za-z0-9_-]{11}").matches(id)) { "Expected an 11-character YouTube video ID, not a URL or path" }
-        // Resolve metadata from the app's catalogue, never trust client-supplied playback URIs.
+        // Only trusted app-owned metadata. Never accept playback URIs or metadata from the client.
+        val queued = try {
+            withTimeoutOrNull(1_000) {
+                controller(context) { c ->
+                    c.currentMediaItem?.takeIf { it.mediaId == id }?.toSong()
+                        ?: (0 until minOf(c.mediaItemCount, 500)).firstOrNull {
+                            c.getMediaItemAt(it).mediaId == id
+                        }?.let { c.getMediaItemAt(it).toSong() }
+                }
+            }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { null }
+        if (queued != null) return queued
+        // Do not use a non-allowed playlist as a metadata oracle.
+        LocalPlaylistStore.playlists.value.asSequence()
+            .filter { McpSettings.playlistAllowed(it.id) }
+            .flatMap { it.songs.asSequence() }.firstOrNull { it.videoId == id }?.let { return it }
+        songCache.get(id)?.let { return it }
+        val downloaded = try {
+            withTimeoutOrNull(1_500) { Downloads.getDownloadedSongs(context).firstOrNull { it.videoId == id } }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { null }
+        if (downloaded != null) return downloaded
+        val listened = try {
+            withTimeoutOrNull(1_500) {
+                ListeningStats.exportAll().asSequence().flatMap { it.tracks.asSequence() }
+                    .filter { it.id == id }.maxByOrNull { it.last }
+            }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { null }
+        if (listened != null) return Song(id, listened.title, listened.artist, null,
+            albumName = listened.album, albumId = listened.albumId, artistId = listened.artistId)
         return YtMusicRepository.trackLinks(id).getOrThrow().also {
             require(it.videoId == id) { "Catalogue returned a different track" }
+            songCache.put(id, it)
         }
     }
     private fun JsonObject.text(key: String, max: Int): String {

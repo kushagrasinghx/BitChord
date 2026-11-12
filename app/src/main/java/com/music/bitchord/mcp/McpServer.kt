@@ -27,7 +27,6 @@ object McpServer {
         scope.launch {
             synchronized(lock) {
                 McpSettings.init(app)
-                McpSettings.onChanged = { start(app) }
                 server?.stop()
                 server = null
                 if (!McpSettings.enabled) { mutableStatus.value = "Disabled"; return@synchronized }
@@ -53,13 +52,15 @@ object McpServer {
         } }
     }
 
-    private class HttpServer(val context: Context, port: Int, val lan: Boolean, val token: String) :
+    internal class HttpServer(val context: Context, port: Int, val lan: Boolean, val token: String) :
         NanoHTTPD(if (lan) "0.0.0.0" else "127.0.0.1", port) {
         private val calls = SupervisorJob()
         private val runner = BoundedRunner()
+        private val dispatch = McpRequestExecutor()
         init { setAsyncRunner(runner) }
         override fun stop() {
             calls.cancel()
+            dispatch.close()
             super.stop()
             runner.closeAll()
         }
@@ -68,7 +69,7 @@ object McpServer {
                 addHeader("Cache-Control", "no-store")
                 addHeader("X-Content-Type-Options", "nosniff")
                 // One bounded request per connection; no pipelined bytes survive.
-                addHeader("Connection", "close")
+                closeConnection(true)
             }
 
         override fun serve(session: IHTTPSession): Response {
@@ -106,7 +107,7 @@ object McpServer {
                     if (count <= 0) return reply(Response.Status.BAD_REQUEST)
                     offset += count
                 }
-                val result = runBlocking(calls) {
+                val result = dispatch.execute { runBlocking(calls) {
                     withTimeout(15_000) {
                         McpProtocol.dispatch(bytes.toString(Charsets.UTF_8), { McpTools.listTools(context) }) { name, args ->
                             try {
@@ -118,8 +119,13 @@ object McpServer {
                         }
                     }
                 }
+                }
                 if (result == null) reply(Response.Status.ACCEPTED)
                 else reply(Response.Status.OK, result.toString())
+            } catch (_: java.util.concurrent.TimeoutException) {
+                reply(Response.Status.SERVICE_UNAVAILABLE)
+            } catch (_: java.util.concurrent.RejectedExecutionException) {
+                reply(Response.Status.SERVICE_UNAVAILABLE)
             } catch (_: CancellationException) {
                 reply(Response.Status.SERVICE_UNAVAILABLE)
             } catch (_: Exception) {

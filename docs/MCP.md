@@ -8,7 +8,7 @@ BitChord's Android app provides a stateless MCP Streamable HTTP endpoint at `htt
 2. Open Settings → Miscellaneous → MCP.
 3. Enable MCP, explicitly enable the required permissions, and select the local playlists the agent may access.
 4. Copy the bearer token into your MCP client's custom `Authorization` header. Configure **Streamable HTTP**, URL `http://127.0.0.1:8765/mcp` and `Authorization: Bearer <token>`.
-5. Keep BitChord running. This initial implementation lives in the app process, not a dedicated foreground service; Android may terminate it in the background. Reopen the app if disconnected.
+5. When enabled from the visible app, MCP runs with a persistent foreground-service notification. This reduces background suspension but does not bypass Doze, vendor battery restrictions or force-stop. Reopen the app if disconnected.
 
 Loopback works for agents on the same phone. For a desktop, prefer `adb forward tcp:8765 tcp:8765` and connect to the desktop's `127.0.0.1:8765`. Optional LAN mode binds all IPv4 interfaces and requires using the phone's LAN IP. **HTTP is unencrypted: do not use on untrusted Wi-Fi, forward this port to the internet, or publish the token.** Clients sending browser `Origin` headers are rejected deliberately. Token rotation invalidates the old credential.
 
@@ -61,3 +61,5 @@ The `MCP Debug APK` workflow builds `:app:testDevDebugUnitTest` and `:app:assemb
 MCP test CI builds only `arm64-v8a` and disables the bundled Wear OS installer (`-Pbitchord.arm64Only=true -Pbitchord.bundleWear=false`), reducing download size. Normal builds retain all ABIs.
 
 Playlist access supports allowlist (only selected entries) and blocklist (all except selected entries, including future playlists). The default remains allowlist. Selections are stored separately for each mode. Switching to blocklist requires confirmation. MCP-created playlists are added to the allowlist and removed from the blocklist; the owner can revoke access afterwards. Address and token rows copy on tap.
+
+Resilience: HTTP dispatch waits at most 16 seconds for backend work and returns 503 when timed out or saturated. Catalogue metadata uses known queue/allowed playlist/download/history/cache entries before network resolution. New searches still require a working network/DNS; cached-query fallback is marked explicitly.

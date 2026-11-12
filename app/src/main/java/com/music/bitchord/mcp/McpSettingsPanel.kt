@@ -45,7 +45,7 @@ fun McpSettingsPanel() {
     key(revision) {
         Column(Modifier.fillMaxWidth()) {
             SettingsGroup(footer = stringResource(R.string.mcp_intro)) {
-                McpToggle(stringResource(R.string.mcp_enable), McpSettings.enabled) { McpSettings.enabled = it; revision++ }
+                McpToggle(stringResource(R.string.mcp_enable), McpSettings.enabled) { McpSettings.enabled = it; McpForegroundService.syncFromForeground(context); revision++ }
                 RowDivider()
                 SettingsRow(title = stringResource(R.string.mcp_server), subtitle = status.toString())
                 RowDivider()

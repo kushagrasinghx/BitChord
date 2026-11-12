@@ -417,6 +417,7 @@ class PrecisionAudioSink(
                 sourceBlock = audioBlock,
                 encoding = outEncoding,
                 outputBuffer = outputByteBuffer,
+                dither = outEncoding == PcmEncoding.PCM_16BIT && inEncoding != PcmEncoding.PCM_16BIT,
             )
             outputByteBuffer.flip()
 

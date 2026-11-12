@@ -80,9 +80,17 @@ class DspChain(
         spatial.process(block)
         equalizer.process(block)
         transition.process(block)
-        // The equaliser and spatial widener leave their overs in place for the stages
-        // after them to see; the loudness stage's limiter is what catches whatever survives.
-        loudness.holdLimiter = equalizer.isShaping || spatial.enabled
+        // The equaliser leaves its overs in place for the stages after it to
+        // see; the loudness stage's limiter is what catches whatever survives.
+        // Spatial width, transition filtering and echo can all push the mix
+        // past full scale; keep the end-of-chain limiter engaged for them too.
+        loudness.holdLimiter = dspNeedsLimiter(
+            equalizerShaping = equalizer.isShaping,
+            spatialEnabled = spatial.enabled,
+            transitionFiltering = transition.isFiltering,
+            echoEngaged = transition.isEchoing,
+        )
+
         loudness.process(block)
     }
 
@@ -106,3 +114,11 @@ class DspChain(
         private const val TAG = "DspChain"
     }
 }
+
+/** Whether any stage can lift the mix past full scale and needs the limiter. */
+internal fun dspNeedsLimiter(
+    equalizerShaping: Boolean,
+    spatialEnabled: Boolean,
+    transitionFiltering: Boolean,
+    echoEngaged: Boolean,
+): Boolean = equalizerShaping || spatialEnabled || transitionFiltering || echoEngaged

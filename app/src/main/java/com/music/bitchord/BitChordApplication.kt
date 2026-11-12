@@ -201,6 +201,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // AppSettings has already initialized LocalPlaylistStore. Socket work stays off main.
+        com.music.bitchord.mcp.McpServer.start(this)
     }
 
     /**

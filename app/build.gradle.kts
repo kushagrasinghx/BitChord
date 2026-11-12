@@ -276,6 +276,7 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 }
 
 dependencies {
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
 

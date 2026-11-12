@@ -25,6 +25,7 @@ object LocalPlaylistStore {
     private val _playlists = MutableStateFlow<List<LocalPlaylist>>(emptyList())
     val playlists = _playlists.asStateFlow()
 
+    @Synchronized
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         load()
@@ -63,8 +64,9 @@ object LocalPlaylistStore {
         }
     }
 
+    @Synchronized
     fun savePlaylist(title: String, songs: List<Song>): LocalPlaylist {
-        val id = "sp_local_" + System.currentTimeMillis()
+        val id = "sp_local_" + java.util.UUID.randomUUID().toString()
         val playlist = LocalPlaylist(id = id, title = title, songs = songs)
         val updated = listOf(playlist) + _playlists.value.filterNot { it.id == id }
         _playlists.value = updated
@@ -72,12 +74,14 @@ object LocalPlaylistStore {
         return playlist
     }
 
+    @Synchronized
     fun deletePlaylist(id: String) {
         val updated = _playlists.value.filterNot { it.id == id || it.browseId == id || it.id == id.removePrefix("local:playlist:") }
         _playlists.value = updated
         persist(updated)
     }
 
+    @Synchronized
     fun renamePlaylist(id: String, newTitle: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         val updated = _playlists.value.map {
@@ -92,6 +96,33 @@ object LocalPlaylistStore {
     fun getPlaylist(id: String): LocalPlaylist? {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         return _playlists.value.firstOrNull { it.id == cleanId || it.id == id || it.browseId == id }
+    }
+
+    /** Edits one existing playlist without creating a replacement identity. */
+    @Synchronized
+    fun addSong(id: String, song: Song): Boolean {
+        val playlist = getPlaylist(id) ?: return false
+        val updated = _playlists.value.map {
+            if (it.id == playlist.id) it.copy(songs = it.songs + song) else it
+        }
+        _playlists.value = updated
+        persist(updated)
+        return true
+    }
+
+    /** Index identifies one occurrence, including duplicate tracks. */
+    @Synchronized
+    fun removeSong(id: String, index: Int, expectedSongs: List<Song>): Boolean {
+        val playlist = getPlaylist(id) ?: return false
+        // Compare the complete snapshot under the same lock as the mutation.
+        // Checking only the ID cannot distinguish reordered duplicate entries.
+        if (playlist.songs != expectedSongs || index !in playlist.songs.indices) return false
+        val updated = _playlists.value.map {
+            if (it.id == playlist.id) it.copy(songs = it.songs.filterIndexed { i, _ -> i != index }) else it
+        }
+        _playlists.value = updated
+        persist(updated)
+        return true
     }
 
     private fun persist(list: List<LocalPlaylist>) {

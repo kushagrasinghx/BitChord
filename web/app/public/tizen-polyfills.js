@@ -16,24 +16,79 @@
   }
 
   // 2. crypto.randomUUID polyfill (Chromium < 92)
-  if (typeof window !== 'undefined') {
-    if (!window.crypto) {
-      window.crypto = {};
+  function generateUUID() {
+    var c = (typeof window !== 'undefined' && window.crypto) ||
+            (typeof self !== 'undefined' && self.crypto) ||
+            (typeof globalThis !== 'undefined' && globalThis.crypto);
+    if (c && c.getRandomValues) {
+      try {
+        var buf = new Uint8Array(16);
+        c.getRandomValues(buf);
+        buf[6] = (buf[6] & 0x0f) | 0x40; // version 4
+        buf[8] = (buf[8] & 0x3f) | 0x80; // variant
+        var hex = [];
+        for (var i = 0; i < 16; i++) {
+          var h = buf[i].toString(16);
+          hex.push(h.length === 1 ? '0' + h : h);
+        }
+        return (
+          hex.slice(0, 4).join('') + '-' +
+          hex.slice(4, 6).join('') + '-' +
+          hex.slice(6, 8).join('') + '-' +
+          hex.slice(8, 10).join('') + '-' +
+          hex.slice(10, 16).join('')
+        );
+      } catch (e) {}
     }
-    if (!window.crypto.randomUUID) {
-      window.crypto.randomUUID = function () {
-        return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, function (c) {
-          return (c ^ (window.crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16);
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (ch) {
+      var r = (Math.random() * 16) | 0;
+      return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  if (typeof Crypto !== 'undefined' && Crypto.prototype) {
+    try {
+      Crypto.prototype.randomUUID = generateUUID;
+    } catch (e) {}
+  }
+
+  var targetCrypto = (typeof window !== 'undefined' && window.crypto) ||
+                     (typeof self !== 'undefined' && self.crypto) ||
+                     (typeof globalThis !== 'undefined' && globalThis.crypto);
+
+  if (targetCrypto) {
+    try {
+      targetCrypto.randomUUID = generateUUID;
+    } catch (e) {
+      try {
+        Object.defineProperty(targetCrypto, 'randomUUID', {
+          value: generateUUID,
+          writable: true,
+          configurable: true,
+          enumerable: true
         });
-      };
+      } catch (e2) {}
     }
+  } else {
+    var fallbackCrypto = {
+      randomUUID: generateUUID,
+      getRandomValues: function (arr) {
+        for (var i = 0; i < arr.length; i++) {
+          arr[i] = Math.floor(Math.random() * 256);
+        }
+        return arr;
+      }
+    };
+    if (typeof window !== 'undefined') window.crypto = fallbackCrypto;
+    if (typeof self !== 'undefined') self.crypto = fallbackCrypto;
+    if (typeof globalThis !== 'undefined') globalThis.crypto = fallbackCrypto;
   }
 
   // 3. String.prototype.matchAll polyfill (Chromium < 73)
   if (!String.prototype.matchAll) {
     String.prototype.matchAll = function (regexp) {
       var str = String(this);
-      var flags = regexp.flags || '';
+      var flags = (regexp && regexp.flags) || '';
       if (flags.indexOf('g') === -1) {
         flags += 'g';
       }
@@ -195,5 +250,5 @@
     window.AudioContext = window.webkitAudioContext;
   }
 
-  console.log('[BitChord Tizen] All Chromium 56-69 polyfills loaded.');
+  console.log('[BitChord Tizen] Complete polyfills initialized.');
 })();

@@ -1111,7 +1111,7 @@ object Downloads {
         // and a FLAC already on disk is the song whatever the setting.
         LOSSLESS_EXTENSIONS.firstNotNullOfOrNull { extension ->
             DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension))
-        }?.let { uri ->
+        }?.takeIf { uri -> isOwnedDownload(song.videoId, uri.toString(), _saved.value) }?.let { uri ->
             return@withContext Prepared(song.videoId, track, route = null, alreadyAt = uri)
         }
 
@@ -1213,7 +1213,7 @@ object Downloads {
 
                 val name = DownloadStore.fileNameFor(track, route.extension)
                 val alreadyThere = DownloadStore.existing(context, name)
-                if (alreadyThere != null && _saved.value[id]?.toUri() == alreadyThere) {
+                if (alreadyThere != null && isOwnedDownload(id, alreadyThere.toString(), _saved.value)) {
                     // Only this song's own earlier file may be adopted. Two
                     // different recordings can sanitise to the same name.
                     Log.d(TAG, "$name is already in Music; adopting it")
@@ -1221,11 +1221,6 @@ object Downloads {
                     DownloadSession.done(id)
                     clear(id)
                     return@coroutineScope
-                }
-                val destinationName = if (alreadyThere != null) {
-                    DownloadStore.nextAvailableName(context, name)
-                } else {
-                    name
                 }
 
                 val manifest = route.offlineHls
@@ -1263,7 +1258,9 @@ object Downloads {
                     return@coroutineScope
                 }
 
-                val destination = DownloadStore.begin(context, destinationName, route.mimeType)
+                // Reservation and allocation happen together, so two workers
+                // finishing the same artist/title cannot choose one name.
+                val destination = DownloadStore.reserveAndBegin(context, name, route.mimeType)
                 pending = destination
                 destination.openStream().use { sink ->
                     var checkedAt = 0L
@@ -1750,6 +1747,14 @@ internal fun offlinePackageBadge(dash: Boolean): String {
 /** True when the id has a saved record whose file still exists. */
 internal fun alreadyDownloaded(saved: Map<String, String>, id: String, exists: (String) -> Boolean): Boolean =
     saved[id]?.let(exists) == true
+
+/**
+ * True only when [uri] is the file already recorded for [videoId]. A file with
+ * the same sanitised artist/title but no record for this id belongs to a
+ * different recording until proven otherwise.
+ */
+internal fun isOwnedDownload(videoId: String, uri: String, saved: Map<String, String>): Boolean =
+    saved[videoId] == uri
 
 @kotlinx.serialization.Serializable
 internal data class SavedSongMetadata(

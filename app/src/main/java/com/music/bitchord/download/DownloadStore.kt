@@ -76,8 +76,39 @@ object DownloadStore {
      */
     fun needsLegacyPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
 
+    private val nameLock = Any()
+    private val reservedNames = HashSet<String>()
+
     /** First `Name (n).ext` not already present in the download folder. */
     fun nextAvailableName(context: Context, name: String): String = nextAvailableName(name) { existing(context, it) != null }
+
+    /**
+     * Reserve a destination name and begin writing it, atomically.
+     *
+     * Two workers can finish downloads with the same artist/title at once; both
+     * seeing "no file yet" and choosing the same name would make one overwrite
+     * the other. The reservation closes the gap between choosing and writing,
+     * and is released by [Pending.commit] or [Pending.abort].
+     */
+    fun reserveAndBegin(context: Context, baseName: String, mimeType: String): Pending = synchronized(nameLock) {
+        val dot = baseName.lastIndexOf('.')
+        val stem = if (dot > 0) baseName.substring(0, dot) else baseName
+        val extension = if (dot > 0) baseName.substring(dot) else ""
+        var candidate = baseName
+        var suffix = 2
+        while (candidate in reservedNames || existing(context, candidate) != null) {
+            candidate = "$stem (${suffix++})$extension"
+        }
+        reservedNames += candidate
+        try {
+            begin(context, candidate, mimeType).also { pending ->
+                pending.releaseReservation = { synchronized(nameLock) { reservedNames.remove(candidate) } }
+            }
+        } catch (t: Throwable) {
+            reservedNames.remove(candidate)
+            throw t
+        }
+    }
 
     /** Distinct from a network failure: a full device must say so. */
     internal fun requireFreeSpace(availableBytes: Long, minimumBytes: Long) {
@@ -303,6 +334,15 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
         /** Set on the legacy path only: what [part] is renamed to. */
         private val target: File?,
     ) {
+        internal var releaseReservation: (() -> Unit)? = null
+        private var reservationReleased = false
+
+        private fun releaseOnce() {
+            if (reservationReleased) return
+            reservationReleased = true
+            releaseReservation?.invoke()
+            releaseReservation = null
+        }
         /** The bytes being built, whether this is a MediaStore row or a legacy `.part` file. */
         val tagUri: Uri get() = part?.let(Uri::fromFile) ?: uri
 
@@ -313,6 +353,14 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
 
         /** @return the uri the finished file can be reached at. */
         fun commit(): Uri {
+            try {
+                return commitNow()
+            } finally {
+                releaseOnce()
+            }
+        }
+
+        private fun commitNow(): Uri {
             if (part != null && target != null) {
                 if (!part.renameTo(target)) error("Could not finish writing $name")
                 // Nothing indexes a file that simply appeared; without this it
@@ -335,8 +383,12 @@ internal fun nextAvailableName(name: String, taken: (String) -> Boolean): String
         }
 
         fun abort() {
-            part?.delete()
-            if (part == null) runCatching { context.contentResolver.delete(uri, null, null) }
+            try {
+                part?.delete()
+                if (part == null) runCatching { context.contentResolver.delete(uri, null, null) }
+            } finally {
+                releaseOnce()
+            }
         }
     }
 

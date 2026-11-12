@@ -3,7 +3,9 @@
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://bitchord.tv/bitchord"
         version="1.9.0"
-        viewmodes="fullscreen">
+        width="1920"
+        height="1080"
+        viewmodes="maximized">
     <tizen:application id="BitchordV1.BitChord" package="BitchordV1" exec="index.html" screen-orientation="landscape" required_version="2.3"/>
     <name>BitChord TV</name>
     <description>BitChord TV for Samsung Tizen OS - Lossless Music &amp; Bit-Perfect Audio</description>
@@ -12,9 +14,6 @@
     <content src="index.html"/>
     <feature name="http://tizen.org/feature/screen.size.all"/>
     <feature name="http://tizen.org/feature/screen.size.normal"/>
-    <accessibility>
-        <expected-screen-size>1920x1080</expected-screen-size>
-    </accessibility>
     <feature name="http://tizen.org/feature/network.internet"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>

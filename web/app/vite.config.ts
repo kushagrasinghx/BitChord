@@ -25,7 +25,10 @@ function requirePartyServer(mode: string): void {
 }
 
 function unwrapCssLayers(css: string): string {
+  // Strip layer declarations like `@layer theme, base, utilities;`
   css = css.replace(/@layer\s+[^;{]+;/g, '');
+  // Strip modern @property definitions not understood by Chromium < 85
+  css = css.replace(/@property\s+[^{]+{[^}]+}/g, '');
   let changed = true;
   while (changed) {
     changed = false;
@@ -77,18 +80,17 @@ function tizenClassicScript() {
         .replace(/<script>\s*\/\/ The extension trusts[\s\S]*?<\/script>/, '');
     },
     generateBundle(this: any, _options: unknown, bundle: Record<string, any>) {
+      const cssRegex = /(var\s+e\s*=\s*document\.createElement\([`'"]style[`'"]\);\s*e\.textContent\s*=\s*`)([\s\S]*?)(`\s*,\s*document\.head\.appendChild\(e\);?)/;
       for (const file of Object.values(bundle)) {
         if (file.type === 'chunk' && file.code) {
-          file.code = file.code.replace(/(e\.textContent=\`)([\s\S]*?)(\`;)/, (_m: string, p1: string, css: string, p3: string) => {
-            const unwrapped = unwrapCssLayers(css);
-            file.unwrappedCss = unwrapped;
-            return p1 + unwrapped + p3;
-          });
-          if (file.unwrappedCss) {
+          const match = file.code.match(cssRegex);
+          if (match) {
+            const unwrapped = unwrapCssLayers(match[2]);
+            file.code = file.code.replace(cssRegex, `${match[1]}${unwrapped}${match[3]}`);
             this.emitFile({
               type: 'asset',
               fileName: 'assets/style.css',
-              source: file.unwrappedCss,
+              source: unwrapped,
             });
           }
         }

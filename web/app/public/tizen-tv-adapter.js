@@ -3,6 +3,19 @@
  * Handles Samsung TV remote keys, D-Pad navigation, media controls, and application lifecycle.
  */
 (function () {
+  // Ensure globalThis exists in Tizen Chromium < 71
+  if (typeof globalThis === 'undefined') {
+    if (typeof self !== 'undefined') {
+      self.globalThis = self;
+    } else if (typeof window !== 'undefined') {
+      window.globalThis = window;
+    } else if (typeof global !== 'undefined') {
+      global.globalThis = global;
+    } else {
+      this.globalThis = this;
+    }
+  }
+
   console.log('[BitChord Tizen] Initializing Samsung Tizen TV Adapter...');
 
   // 1. Register Tizen Remote Control Hardware Keys

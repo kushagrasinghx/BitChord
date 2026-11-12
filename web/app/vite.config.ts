@@ -29,6 +29,7 @@ function tizenClassicScript() {
     name: 'tizen-classic-script',
     transformIndexHtml(html: string) {
       return html
+        .replace('<head>', '<head>\n    <script src="./tizen-polyfills.js"></script>')
         .replace(/<script type="module" crossorigin/g, '<script defer')
         .replace(/<script type="module"/g, '<script defer')
         .replace(/<script>\s*\/\/ The extension trusts[\s\S]*?<\/script>/, '');

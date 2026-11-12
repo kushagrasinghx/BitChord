@@ -967,6 +967,9 @@ object AppSettings {
     fun init(context: Context, authStore: AuthStore) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         this.authStore = authStore
+        // Credentials used to live in this plain file. Move them before any
+        // reader can observe the old location, then delete the plain copies.
+        migrateSecretsToAuthStore()
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         com.music.bitchord.data.OfflinePlaylists.init(
             context,
@@ -990,6 +993,24 @@ object AppSettings {
     fun reload() {
         if (!this::prefs.isInitialized) return
         readAll()
+    }
+
+    private fun migrateSecretsToAuthStore() {
+        fun migrate(
+            key: String,
+            current: String?,
+            write: (String) -> Unit,
+        ) {
+            val legacy = prefs.getString(key, null)
+            val value = migratedSecret(legacy, current)
+            if (value != null && value != current) write(value)
+            if (legacy != null) prefs.edit().remove(key).apply()
+        }
+        migrate(KEY_LASTFM_SESSION_KEY, authStore.lastfmSessionKey) { authStore.lastfmSessionKey = it }
+        migrate(KEY_LASTFM_API_KEY, authStore.lastfmApiKey) { authStore.lastfmApiKey = it }
+        migrate(KEY_LASTFM_SECRET, authStore.lastfmSecret) { authStore.lastfmSecret = it }
+        migrate(KEY_LISTENBRAINZ_TOKEN, authStore.listenBrainzToken) { authStore.listenBrainzToken = it }
+        migrate(KEY_SPOTIFY_SPDC_TOKEN, authStore.spotifySpdcToken) { authStore.spotifySpdcToken = it }
     }
 
     private fun readAll() {
@@ -1123,9 +1144,9 @@ object AppSettings {
         showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
-        lastfmSessionKey.value = prefs.getString(KEY_LASTFM_SESSION_KEY, "").orEmpty()
-        lastfmApiKey.value = prefs.getString(KEY_LASTFM_API_KEY, "").orEmpty().ifBlank { BuildConfig.LASTFM_API_KEY }
-        lastfmSecret.value = prefs.getString(KEY_LASTFM_SECRET, "").orEmpty().ifBlank { BuildConfig.LASTFM_SECRET }
+        lastfmSessionKey.value = authStore.lastfmSessionKey.orEmpty()
+        lastfmApiKey.value = authStore.lastfmApiKey.orEmpty().ifBlank { BuildConfig.LASTFM_API_KEY }
+        lastfmSecret.value = authStore.lastfmSecret.orEmpty().ifBlank { BuildConfig.LASTFM_SECRET }
         lastfmEndpoint.value = prefs.getString(KEY_LASTFM_ENDPOINT, "").orEmpty()
         lastfmScrobbleEnabled.value = prefs.getBoolean(KEY_LASTFM_SCROBBLE_ENABLED, false)
         lastfmNowPlaying.value = prefs.getBoolean(KEY_LASTFM_NOW_PLAYING, false) && lastfmScrobbleEnabled.value
@@ -1134,9 +1155,9 @@ object AppSettings {
         scrobbleDelayPercent.value = prefs.getFloat(KEY_SCROBBLE_DELAY_PERCENT, 0.5f)
         scrobbleDelaySeconds.value = prefs.getInt(KEY_SCROBBLE_DELAY_SECONDS, 180)
         listenBrainzEnabled.value = prefs.getBoolean(KEY_LISTENBRAINZ_ENABLED, false)
-        listenBrainzToken.value = prefs.getString(KEY_LISTENBRAINZ_TOKEN, "").orEmpty()
+        listenBrainzToken.value = authStore.listenBrainzToken.orEmpty()
         listenBrainzPrimaryArtistOnly.value = prefs.getBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, false)
-        spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
+        spotifySpdcToken.value = authStore.spotifySpdcToken.orEmpty()
         replayGenres.value = prefs.getBoolean(KEY_REPLAY_GENRES, true)
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
@@ -1828,17 +1849,17 @@ object AppSettings {
 
     fun setLastfmSessionKey(value: String) {
         lastfmSessionKey.value = value
-        prefs.edit().putString(KEY_LASTFM_SESSION_KEY, value).apply()
+        authStore.lastfmSessionKey = value.ifBlank { null }
     }
 
     fun setLastfmApiKey(value: String) {
         lastfmApiKey.value = value
-        prefs.edit().putString(KEY_LASTFM_API_KEY, value).apply()
+        authStore.lastfmApiKey = value.ifBlank { null }
     }
 
     fun setLastfmSecret(value: String) {
         lastfmSecret.value = value
-        prefs.edit().putString(KEY_LASTFM_SECRET, value).apply()
+        authStore.lastfmSecret = value.ifBlank { null }
     }
 
     fun setLastfmEndpoint(value: String) {
@@ -1848,7 +1869,7 @@ object AppSettings {
 
     fun setSpotifySpdcToken(value: String) {
         spotifySpdcToken.value = value
-        prefs.edit().putString(KEY_SPOTIFY_SPDC_TOKEN, value).apply()
+        authStore.spotifySpdcToken = value.ifBlank { null }
         SpotifyToken.invalidate()
     }
 
@@ -1939,7 +1960,7 @@ object AppSettings {
 
     fun setListenBrainzToken(value: String) {
         listenBrainzToken.value = value
-        prefs.edit().putString(KEY_LISTENBRAINZ_TOKEN, value).apply()
+        authStore.listenBrainzToken = value.ifBlank { null }
     }
 
     fun setListenBrainzPrimaryArtistOnly(value: Boolean) {
@@ -2462,6 +2483,13 @@ object AppSettings {
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
+
+/**
+ * The encrypted value wins; a legacy plaintext value is only used when the
+ * encrypted store has nothing for that key.
+ */
+internal fun migratedSecret(legacy: String?, encrypted: String?): String? =
+    encrypted?.takeIf { it.isNotBlank() } ?: legacy?.takeIf { it.isNotBlank() }
 
 
 

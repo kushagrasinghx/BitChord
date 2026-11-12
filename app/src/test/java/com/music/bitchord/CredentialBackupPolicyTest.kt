@@ -16,6 +16,7 @@ class CredentialBackupPolicyTest {
             "bitchord_tester_plain.xml",
             "bitchord_addon_auth.xml",
             "bitchord_addon_auth_plain.xml",
+            "bitchord_settings.xml",
         ).forEach { name -> assertTrue("$name missing from backup_rules", backup.contains(name)) }
     }
 
@@ -27,6 +28,7 @@ class CredentialBackupPolicyTest {
             "bitchord_tester_plain.xml",
             "bitchord_addon_auth.xml",
             "bitchord_addon_auth_plain.xml",
+            "bitchord_settings.xml",
         ).forEach { name -> assertTrue("$name missing from data_extraction_rules", extraction.contains(name)) }
     }
 }

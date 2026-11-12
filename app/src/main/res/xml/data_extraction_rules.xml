@@ -15,6 +15,7 @@
         <exclude domain="sharedpref" path="bitchord_tester_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_addon_auth.xml" />
         <exclude domain="sharedpref" path="bitchord_addon_auth_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_settings.xml" />
         <!-- Playback queues are local session state; do not resurrect them after reinstall. -->
         <exclude domain="sharedpref" path="bitchord_last_played.xml" />
         <exclude domain="sharedpref" path="bitchord_bounded_context.xml" />
@@ -31,6 +32,7 @@
         <exclude domain="sharedpref" path="bitchord_tester_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_addon_auth.xml" />
         <exclude domain="sharedpref" path="bitchord_addon_auth_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_settings.xml" />
         <!-- Playback queues are local session state; do not resurrect them after reinstall. -->
         <exclude domain="sharedpref" path="bitchord_last_played.xml" />
         <exclude domain="sharedpref" path="bitchord_bounded_context.xml" />

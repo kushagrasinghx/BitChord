@@ -103,6 +103,27 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_DISCORD_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
 
+    /** Spotify web-player cookie; a full-account bearer in everything but name. */
+    var spotifySpdcToken: String?
+        get() = prefs.getString(KEY_SPOTIFY_SPDC, null)
+        set(value) = prefs.edit().putString(KEY_SPOTIFY_SPDC, value).apply()
+
+    var lastfmSessionKey: String?
+        get() = prefs.getString(KEY_LASTFM_SESSION, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_SESSION, value).apply()
+
+    var lastfmApiKey: String?
+        get() = prefs.getString(KEY_LASTFM_API_KEY, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_API_KEY, value).apply()
+
+    var lastfmSecret: String?
+        get() = prefs.getString(KEY_LASTFM_SECRET, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_SECRET, value).apply()
+
+    var listenBrainzToken: String?
+        get() = prefs.getString(KEY_LISTENBRAINZ_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_LISTENBRAINZ_TOKEN, value).apply()
+
     /**
      * The WebDAV server password. Encrypted like every other credential here:
      * a backup export carries the server URL and username in plain prefs, but
@@ -230,5 +251,10 @@ class AuthStore(context: Context) {
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
+        private const val KEY_SPOTIFY_SPDC = "spotify_spdc"
+        private const val KEY_LASTFM_SESSION = "lastfm_session_key"
+        private const val KEY_LASTFM_API_KEY = "lastfm_api_key"
+        private const val KEY_LASTFM_SECRET = "lastfm_secret"
+        private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
     }
 }

@@ -36,7 +36,11 @@ jobs:
           packages: 'platform-tools'
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Android build dependencies
-        run: sdkmanager 'platforms;android-37' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973'
+        run: |
+          sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973'
+          # AGP 8.10 resolves compileSdk = 37 using the pre-decimal directory name.
+          # Keep the official platform intact and provide the compatible lookup path.
+          ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
       - name: Run phone unit tests
         run: ./gradlew :app:testDevDebugUnitTest --stacktrace
       - name: Build installable development APK

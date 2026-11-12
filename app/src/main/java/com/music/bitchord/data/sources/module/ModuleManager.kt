@@ -219,12 +219,20 @@ class ModuleManager {
             }
 
             TrackLog.d(TAG, "  Resolved download URL: ${redactModuleUrl(downloadUrl)}")
+            if (!ModuleSandboxPolicy.allowsModuleDownload(downloadUrl)) {
+                throw Exception("Module ${module.id} must be served over HTTPS (or a local index)")
+            }
             val request = Request.Builder().url(downloadUrl).build()
             val jsCode = Http.client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     throw Exception("HTTP ${resp.code} downloading module ${module.id}")
                 }
-                resp.body?.string() ?: throw Exception("Empty body for module ${module.id}")
+                val bytes = resp.body?.source()?.readByteArray(ModuleSandboxPolicy.MAX_MODULE_BYTES + 1)
+                    ?: throw Exception("Empty body for module ${module.id}")
+                if (bytes.size > ModuleSandboxPolicy.MAX_MODULE_BYTES) {
+                    throw Exception("Module ${module.id} exceeds the ${ModuleSandboxPolicy.MAX_MODULE_BYTES} byte limit")
+                }
+                bytes.toString(Charsets.UTF_8)
             }
             val baseUrl = downloadUrl.substringBeforeLast("/")
 

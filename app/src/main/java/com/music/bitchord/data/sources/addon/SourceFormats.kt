@@ -60,6 +60,8 @@ internal fun cleartextAddonRefusal(url: String, cleartextAllowed: Boolean): Stri
     return null
 }
 
+private const val MAX_INDEX_BYTES = 4L * 1024 * 1024
+
 object SourceFormats {
 
     private const val TAG = "BitChord"
@@ -234,7 +236,10 @@ object SourceFormats {
                 if (response.code >= 500) throw AddonUnavailable("HTTP ${response.code}")
                 throw AddonException("HTTP ${response.code}")
             }
-            response.body?.string()?.takeIf { it.isNotBlank() }
+            val bytes = response.body?.source()?.readByteArray(MAX_INDEX_BYTES + 1)
+                ?: throw AddonException("Empty response")
+            if (bytes.size > MAX_INDEX_BYTES) throw AddonException("Index response is too large")
+            bytes.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
                 ?: throw AddonException("Empty response")
         }
     }.onFailure {

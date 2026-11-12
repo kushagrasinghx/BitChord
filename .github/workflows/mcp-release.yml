@@ -2,6 +2,10 @@ name: MCP Release APKs
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['feat/android-mcp']
+    paths:
+      - '.github/workflows/mcp-release.yml'
 
 permissions:
   contents: read

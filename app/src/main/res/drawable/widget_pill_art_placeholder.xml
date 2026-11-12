@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The pill widget's round cover when there is no picture yet: nothing played, a
+  track with no artwork, or the picker preview. Same gradient as
+  widget_preview_art, so the two widgets agree on what "no cover" looks like.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:angle="270"
+        android:centerColor="#FF1B2130"
+        android:centerY="0.45"
+        android:endColor="#FF07090E"
+        android:startColor="#FF2E3446"
+        android:type="linear" />
+</shape>

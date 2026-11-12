@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 4×1 entry in the widget picker: a capsule with a round cover, the track,
+  and Like / previous / play / next / Shuffle. Its own provider and layout, not
+  another size of MediaWidget — it has no full-bleed artwork, so none of that
+  widget's measuring or blur applies.
+
+  One row by the launcher's 70n − 30 arithmetic is 40dp, which is the minimum
+  asked for; the capsule is wrap_content and centred in whatever the row really
+  is. Resizable horizontally only, and not below three cells: the title and five
+  buttons need that much before the buttons crowd.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_pill_description"
+    android:initialLayout="@layout/widget_media_pill"
+    android:minHeight="40dp"
+    android:minResizeWidth="180dp"
+    android:minWidth="250dp"
+    android:previewImage="@drawable/widget_preview_pill"
+    android:previewLayout="@layout/widget_media_pill_preview"
+    android:resizeMode="horizontal"
+    android:targetCellHeight="1"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "album_name": "OK Computer OKNOTOK 1997 2017",
+      "artist_name": "Radiohead",
+      "duration": 299,
+      "id": "GBBKS1700111",
+      "isrc": "GBBKS1700111",
+      "lyricsUrl": "https://lrc.red/s/GBBKS1700111.ttml",
+      "timing_type": "line",
+      "track_name": "Let Down (Remastered)"
+    },
+    {
+      "album_name": "OK Computer",
+      "artist_name": "Radiohead",
+      "duration": 300,
+      "id": "GBAYE9701374",
+      "isrc": "GBAYE9701374",
+      "lyricsUrl": "https://lrc.red/s/GBAYE9701374.ttml",
+      "timing_type": "word",
+      "track_name": "Let Down"
+    }
+  ],
+  "source": "HIT-LRC-RED",
+  "total": 2
+}

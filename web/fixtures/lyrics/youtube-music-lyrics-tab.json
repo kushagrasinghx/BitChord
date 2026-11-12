@@ -1,0 +1,99 @@
+{
+  "responseContext": {
+    "serviceTrackingParams": [
+      {
+        "service": "GFEEDBACK",
+        "params": [
+          {
+            "key": "browse_id",
+            "value": "MPLYt_DyYPOfs7HPD-4"
+          },
+          {
+            "key": "browse_id_prefix",
+            "value": ""
+          },
+          {
+            "key": "has_unlimited_entitlement",
+            "value": "False"
+          },
+          {
+            "key": "logged_in",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "service": "CSI",
+        "params": [
+          {
+            "key": "c",
+            "value": "WEB_REMIX"
+          },
+          {
+            "key": "cver",
+            "value": "1.20261013.15.00"
+          },
+          {
+            "key": "yt_li",
+            "value": "0"
+          },
+          {
+            "key": "GetBrowseTrackLyricsPage_rid",
+            "value": "0x4e7d7eefda7a3c9d"
+          }
+        ]
+      },
+      {
+        "service": "ECATCHER",
+        "params": [
+          {
+            "key": "client.version",
+            "value": "1.20000101"
+          },
+          {
+            "key": "client.name",
+            "value": "WEB_REMIX"
+          }
+        ]
+      }
+    ],
+    "responseId": "IhMItbH0yOy7lwMVGK9LBR3VjwPq"
+  },
+  "contents": {
+    "sectionListRenderer": {
+      "contents": [
+        {
+          "musicDescriptionShelfRenderer": {
+            "description": {
+              "runs": [
+                {
+                  "text": "Come on, come on\r\nYou think you drive me crazy\r\nCome on, come on\r\nYou and whose army?\r\nYou and your cronies\r\nCome on, come on\r\nHoly Roman empire\r\nCome on if you think\r\nCome on if you think\r\nYou can take us on\r\nYou can take us on\r\n\r\nYou and whose army?\r\nYou and your cronies\r\n\r\nYou forget so easily\r\nWe ride tonight\r\nWe ride tonight\r\nGhost horses\r\nGhost horses\r\nWe ride tonight\r\nWe ride tonight\r\nGhost horses\r\nGhost horses\r\nGhost horses"
+                }
+              ]
+            },
+            "trackingParams": "CAIQ2fQEGAAiEwi1sfTI7LuXAxUYr0sFHdWPA-o=",
+            "maxCollapsedLines": 0,
+            "maxExpandedLines": 0,
+            "onShowCommands": [
+              {
+                "clickTrackingParams": "CAIQ2fQEGAAiEwi1sfTI7LuXAxUYr0sFHdWPA-rKAQR2Z1h2",
+                "logLyricEventCommand": {
+                  "serializedLyricInfo": "CgowMDItODQ5NTc1Eg90X0R5WVBPZnM3SFBELTQYASIKMDAyLTg0OTU3NQ=="
+                }
+              }
+            ],
+            "footer": {
+              "runs": [
+                {
+                  "text": "Source: LyricFind"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "trackingParams": "CAEQui8iEwi1sfTI7LuXAxUYr0sFHdWPA-o="
+    }
+  },
+  "trackingParams": "CAAQhGciEwi1sfTI7LuXAxUYr0sFHdWPA-rKAQR2Z1h2"
+}

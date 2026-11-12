@@ -1,0 +1,278 @@
+/*
+ * Design tokens, taken from the measurements in web/docs/apple-music-dom.md.
+ *
+ * The names follow Apple's own token names, so a value can be checked against
+ * the report by name. Light first, then dark under prefers-color-scheme.
+ *
+ * Apple serves higher-contrast text alphas and a deeper key colour to browsers
+ * without the system SF font. BitChord renders DM Sans everywhere, so those
+ * variants are the ones used here (report §9).
+ */
+
+:root {
+  /* ---- Type ------------------------------------------------------------ */
+  --font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* font: <weight> <size>/<line-height> (report §10) */
+  --header-emphasized: 700 34px / 40px var(--font-family);
+  --large-title: 400 26px / 32px var(--font-family);
+  --large-title-emphasized: 700 26px / 32px var(--font-family);
+  --title-1-emphasized: 700 22px / 26px var(--font-family);
+  --title-2: 400 17px / 22px var(--font-family);
+  --title-2-emphasized: 700 17px / 22px var(--font-family);
+  --title-3: 400 15px / 20px var(--font-family);
+  --title-3-emphasized: 600 15px / 20px var(--font-family);
+  --body: 400 13px / 16px var(--font-family);
+  --body-emphasized: 600 13px / 16px var(--font-family);
+  --body-tall: 400 13px / 18px var(--font-family);
+  --headline: 700 13px / 16px var(--font-family);
+  --body-reduced: 400 14px / 20px var(--font-family);
+  --callout: 400 12px / 15px var(--font-family);
+  --callout-medium: 500 12px / 15px var(--font-family);
+  --callout-emphasized: 600 12px / 15px var(--font-family);
+  --subhead-emphasized: 600 11px / 14px var(--font-family);
+  --caption-2: 500 10px / 13px var(--font-family);
+  --footnote: 400 11px / 14px var(--font-family);
+
+  /* ---- Layout ------------------------------------------------------------ */
+  --web-navigation-width: 260px;
+  --body-gutter: 25px;
+  --player-pill-height: 56px;
+  --player-bottom-offset: 20px;
+  --side-panel-width: 300px;
+  --mobile-top-bar-height: 52px;
+  --mini-player-height: 52px;
+
+  /* ---- Radii ------------------------------------------------------------- */
+  --radius-artwork-small: 5px; /* 40px track rows, horizontal lockups */
+  --radius-artwork-medium: 7px; /* square lockups */
+  --radius-artwork-large: 10px; /* album header, editorial cards */
+  --radius-nav-item: 8px;
+  --radius-track-row: 6px;
+  --radius-pill: 1000px;
+
+  /* ---- Motion ------------------------------------------------------------ */
+  --ease-out-panel: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --duration-panel: 0.3s;
+  --global-transition: opacity 0.1s ease-in;
+  --duration-arrow: 0.25s;
+
+  /* ---- z-index ----------------------------------------------------------- */
+  --z-default: 1;
+  --z-bubbles: 50;
+  --z-gpu: 1001;
+  --z-web-chrome: 9901;
+  --z-contextual-menus: 9951;
+  --z-modal: 10001;
+
+  /* ---- Colour: light ----------------------------------------------------- */
+  color-scheme: light;
+
+  --pageBG: #ffffff;
+  --pageBG-rgb: 255, 255, 255;
+
+  --systemPrimary: #000000e0;
+  --systemSecondary: #0000008f;
+  --systemTertiary: #0000007a;
+  --systemQuaternary: #0000001a;
+  --systemQuinary: #0000000d;
+
+  --systemPrimary-onDark: #ffffffeb;
+  --systemSecondary-onDark: #ffffffa3;
+  --systemTertiary-onDark: #ffffff66;
+
+  --keyColor: #d60017;
+  --keyColor-rgb: 214, 0, 23;
+  --keyColor-rollover: #a20000;
+  --keyColor-pressed: #bb0000;
+  --keyColorBG: #d60017;
+  --selectionColor: #d60017;
+  --keyColor-focus-color: rgba(var(--keyColor-rgb), 0.6);
+
+  --systemRed: #ff3b30;
+  --systemGreen: #28cd41;
+  --systemBlue: #007aff;
+  --systemGray: #8e8e93;
+  --systemGray2: #aeaeb2;
+  --systemGray3: #c7c7cc;
+  --systemGray4: #d1d1d6;
+  --systemGray5: #e5e5ea;
+  --systemGray6: #f2f2f7;
+
+  --labelDivider: #00000026;
+  --vibrantDivider: #3c3c434a;
+
+  --glassMaterialBackground: #f5f5f78c;
+  --glassMaterialShadowColor: #0000001a;
+  --glassMaterialInnerStroke: #000000;
+  --glassMaterialInnerStrokeAlpha: 0.05;
+  --glassMaterialBackdropFilter: saturate(220%) blur(16px);
+
+  --systemStandardThinMaterialSover: #f6f6f67a;
+  --systemStandardThickMaterialSover: #f6f6f6b8;
+  --systemHeaderMaterialSover: #ffffffcc;
+
+  --navSidebarSelectedState: #3c3c431a;
+  --tracklistHoverColor: #0000000f;
+  --shelfBG: #0000000d;
+  --opaqueShelfBG: #f2f2f2;
+  --footerBg: #fbfbfb;
+  --lockupHoverBGColor: #3333334d;
+  --genericJoeColor: #ebebeb;
+  --modalScrimColor: #00000073;
+  --searchBarBorderColor: #00000026;
+  --segmentedControlBG: #7676801f;
+  --segmentedControlSelectedBG: #ffffff;
+  --button-pill-color: #ffffff;
+  --button-pill-background-color: #000000;
+  --radiosityShadowColor: #0000001a;
+  --dialogShadowColor: #00000040;
+  --contextMenuOverrideTextColor: #ff3b30;
+  --nowPlayingBackdropBG: #878787;
+
+  /* Artwork's 0.5px inner stroke (report §1, "Inner stroke"). */
+  --containerInnerStroke: #000000;
+  --containerInnerStrokeAlpha: 0.1;
+
+  /* Skeleton fill and shimmer highlight. */
+  --skeleton-fill: #0000000f;
+  --skeleton-shimmer: #ffffff99;
+}
+
+@media (min-width: 1000px) {
+  :root {
+    --body-gutter: 40px;
+  }
+}
+
+@media (min-width: 484px) and (max-width: 767.31px) {
+  :root {
+    --web-navigation-width: 33.8842975207vw;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --pageBG: #1f1f1f;
+    --pageBG-rgb: 31, 31, 31;
+
+    --systemPrimary: #ffffffeb;
+    --systemSecondary: #ffffffa3;
+    --systemTertiary: #ffffff66;
+    --systemQuaternary: #ffffff1a;
+    --systemQuinary: #ffffff0d;
+
+    --keyColor: #fa586a;
+    --keyColor-rgb: 250, 88, 106;
+    --keyColor-rollover: #ff5f7a;
+    --keyColor-pressed: #ff4661;
+    --keyColorBG: #fa233b;
+    --selectionColor: #c11b2e;
+
+    --systemRed: #ff453a;
+    --systemGreen: #32d74b;
+    --systemBlue: #0a84ff;
+    --systemGray: #98989d;
+    --systemGray2: #636366;
+    --systemGray3: #48484a;
+    --systemGray4: #3a3a3c;
+    --systemGray5: #2c2c2e;
+    --systemGray6: #1c1c1e;
+
+    --labelDivider: #ffffff1a;
+    --vibrantDivider: #ebebf530;
+
+    --glassMaterialBackground: #26262899;
+    --glassMaterialShadowColor: #00000033;
+    --glassMaterialInnerStroke: #ffffff;
+    --glassMaterialInnerStrokeAlpha: 0.25;
+
+    --systemStandardThinMaterialSover: #28282880;
+    --systemStandardThickMaterialSover: #282828b3;
+    --systemHeaderMaterialSover: #1e1e1ecc;
+
+    --navSidebarSelectedState: #ffffff0d;
+    --tracklistHoverColor: #ffffff0f;
+    --shelfBG: #ffffff0d;
+    --opaqueShelfBG: #2b2b2b;
+    --footerBg: #323232;
+    --genericJoeColor: #323232;
+    --searchBarBorderColor: #ffffff26;
+    --segmentedControlBG: #7676803d;
+    --segmentedControlSelectedBG: #636366;
+    --button-pill-color: #000000;
+    --button-pill-background-color: #ffffff;
+    --radiosityShadowColor: #0000004d;
+    --dialogShadowColor: #0000008c;
+
+    --containerInnerStroke: #ffffff;
+    --containerInnerStrokeAlpha: 0.25;
+
+    --skeleton-fill: #ffffff12;
+    --skeleton-shimmer: #ffffff14;
+  }
+}
+
+/* Increased contrast: drop the translucency, as Apple's _IC tokens do. */
+@media (prefers-contrast: more) {
+  :root {
+    --glassMaterialBackground: #f2f2f2;
+    --glassMaterialBackdropFilter: none;
+    --systemSecondary: #000000c2;
+    --labelDivider: #0000004d;
+  }
+}
+
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root {
+    --glassMaterialBackground: #0e0e0e;
+    --systemSecondary: #ffffffb3;
+    --labelDivider: #ffffff4d;
+  }
+}
+
+/*
+ * Artwork tint on album and playlist pages (lib/usePageTint.ts): the page's
+ * labels recoloured for the artwork's own background.
+ */
+[data-tint='dark'] {
+  --systemPrimary: #ffffffeb;
+  --systemSecondary: color-mix(in srgb, #ffffff 64%, var(--page-tint));
+  --systemTertiary: color-mix(in srgb, #ffffff 40%, var(--page-tint));
+  --labelDivider: #ffffff1f;
+  --tracklistHoverColor: #ffffff14;
+  --systemQuinary: #ffffff12;
+  --systemQuaternary: #ffffff24;
+  --button-pill-color: #000000;
+  --button-pill-background-color: #ffffff;
+  --genericJoeColor: color-mix(in srgb, #ffffff 10%, var(--page-tint));
+}
+
+[data-tint='light'] {
+  --systemPrimary: #000000e0;
+  --systemSecondary: color-mix(in srgb, #000000 60%, var(--page-tint));
+  --systemTertiary: color-mix(in srgb, #000000 40%, var(--page-tint));
+  --labelDivider: #0000001f;
+  --tracklistHoverColor: #00000012;
+  --systemQuinary: #0000000f;
+  --systemQuaternary: #00000024;
+  --button-pill-color: #ffffff;
+  --button-pill-background-color: #000000;
+  --genericJoeColor: color-mix(in srgb, #000000 8%, var(--page-tint));
+  color: var(--systemPrimary);
+}
+
+/*
+ * The full-screen player always stands on a dark mesh, so it takes the
+ * on-dark colours whatever the page's appearance.
+ */
+[data-full-screen] {
+  color-scheme: dark;
+  --systemPrimary: var(--systemPrimary-onDark);
+  --systemSecondary: var(--systemSecondary-onDark);
+  --systemTertiary: var(--systemTertiary-onDark);
+  --systemQuaternary: #ffffff2e;
+  --systemQuinary: #ffffff1a;
+}

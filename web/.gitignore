@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.output/
+.wxt/
+*.tsbuildinfo
+.env.local
+
+# Built extension zips (web/extension: pnpm package)
+app/public/downloads/

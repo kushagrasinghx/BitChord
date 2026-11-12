@@ -1,0 +1,27 @@
+{
+  "name": "@bitchord/extension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build && wxt build -b firefox",
+    "zip": "wxt zip && wxt zip -b firefox",
+    "typecheck": "tsc -p . && tsc -p tsconfig.node.json",
+    "dev-key": "node scripts/gen-dev-key.mjs",
+    "postinstall": "wxt prepare",
+    "package": "wxt build && wxt build -b firefox && node scripts/publish-to-site.mjs",
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "dependencies": {
+    "@bitchord/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^22.0.0",
+    "fflate": "0.8.3",
+    "typescript": "^7.0.2",
+    "wxt": "^0.21.4"
+  },
+  "version": "0.4.4"
+}

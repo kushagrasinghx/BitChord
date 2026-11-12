@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Black from the first frame, so a launch never flashes the system's grey
+      before Compose draws the player over it.
+    -->
+    <style name="Theme.BitChordWear" parent="@android:style/Theme.DeviceDefault">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
+</resources>

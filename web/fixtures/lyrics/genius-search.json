@@ -1,0 +1,913 @@
+{
+  "meta": {
+    "status": 200
+  },
+  "response": {
+    "sections": [
+      {
+        "type": "top_hit",
+        "hits": [
+          {
+            "highlights": [],
+            "index": "song",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 10,
+              "api_path": "/songs/78354",
+              "artist_names": "Radiohead",
+              "full_title": "Let Down by Radiohead",
+              "header_image_thumbnail_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.300x300x1.png",
+              "header_image_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.1000x1000x1.png",
+              "hidden": false,
+              "id": 78354,
+              "instrumental": false,
+              "lyrics_owner_id": 46705,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1790951322,
+              "path": "/Radiohead-let-down-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Radiohead",
+              "pyongs_count": 87,
+              "relationships_index_url": "https://genius.com/Radiohead-let-down-sample",
+              "release_date_components": {
+                "year": 1997,
+                "month": 5,
+                "day": 21
+              },
+              "release_date_for_display": "May 21, 1997",
+              "release_date_with_abbreviated_month_for_display": "May 21, 1997",
+              "song_art_image_thumbnail_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.300x300x1.png",
+              "song_art_image_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.1000x1000x1.png",
+              "stats": {
+                "unreviewed_annotations": 2,
+                "concurrents": 2,
+                "hot": false,
+                "pageviews": 1299414
+              },
+              "title": "Let Down",
+              "title_with_featured": "Let Down",
+              "updated_at": 1792041270,
+              "updated_by_human_at": 1790951322,
+              "url": "https://genius.com/Radiohead-let-down-lyrics",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/604",
+                "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                "id": 604,
+                "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                "index_character": "r",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Radiohead",
+                "slug": "Radiohead",
+                "url": "https://genius.com/artists/Radiohead"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/604",
+                  "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                  "id": 604,
+                  "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                  "index_character": "r",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Radiohead",
+                  "slug": "Radiohead",
+                  "url": "https://genius.com/artists/Radiohead"
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [
+              {
+                "property": "lyrics",
+                "value": "Mein - Deftones\n8. 976-EVIL - Deftones\n9. Subterranean Homesick Alien - Radiohead\n10. Let Down - Radiohead\nMay Top 10\n1. Solace",
+                "snippet": true,
+                "ranges": [
+                  {
+                    "start": 72,
+                    "end": 81
+                  },
+                  {
+                    "start": 86,
+                    "end": 89
+                  },
+                  {
+                    "start": 90,
+                    "end": 94
+                  },
+                  {
+                    "start": 97,
+                    "end": 106
+                  }
+                ]
+              }
+            ],
+            "index": "lyric",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 0,
+              "api_path": "/songs/11296608",
+              "artist_names": "SwagDeLovo",
+              "full_title": "Justin Lovo's 2025 Listening Log by SwagDeLovo",
+              "header_image_thumbnail_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.300x300x1.jpg",
+              "header_image_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.904x904x1.jpg",
+              "hidden": false,
+              "id": 11296608,
+              "instrumental": false,
+              "lyrics_owner_id": 19811026,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1765652320,
+              "path": "/Swagdelovo-justin-lovos-2025-listening-log-annotated",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "SwagDeLovo",
+              "pyongs_count": 1,
+              "relationships_index_url": "https://genius.com/Swagdelovo-justin-lovos-2025-listening-log-sample",
+              "release_date_components": {
+                "year": 2025,
+                "month": 1,
+                "day": 1
+              },
+              "release_date_for_display": "January 1, 2025",
+              "release_date_with_abbreviated_month_for_display": "Jan. 1, 2025",
+              "song_art_image_thumbnail_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.300x300x1.jpg",
+              "song_art_image_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.904x904x1.jpg",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "Justin Lovo’s 2025 Listening Log",
+              "title_with_featured": "Justin Lovo's 2025 Listening Log",
+              "updated_at": 1766287194,
+              "updated_by_human_at": 1765652320,
+              "url": "https://genius.com/Swagdelovo-justin-lovos-2025-listening-log-annotated",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/4159248",
+                "header_image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                "id": 4159248,
+                "image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                "index_character": "s",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "SwagDeLovo",
+                "slug": "Swagdelovo",
+                "url": "https://genius.com/artists/Swagdelovo",
+                "iq": 313
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/4159248",
+                  "header_image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                  "id": 4159248,
+                  "image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                  "index_character": "s",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "SwagDeLovo",
+                  "slug": "Swagdelovo",
+                  "url": "https://genius.com/artists/Swagdelovo",
+                  "iq": 313
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [],
+            "index": "song",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 0,
+              "api_path": "/songs/4624317",
+              "artist_names": "Radiohead",
+              "full_title": "Let Down MD112 by Radiohead",
+              "header_image_thumbnail_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.300x300x1.jpg",
+              "header_image_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.1000x1000x1.jpg",
+              "hidden": false,
+              "id": 4624317,
+              "instrumental": false,
+              "lyrics_owner_id": 3240675,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1763511298,
+              "path": "/Radiohead-let-down-md112-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Radiohead",
+              "pyongs_count": null,
+              "relationships_index_url": "https://genius.com/Radiohead-let-down-md112-sample",
+              "release_date_components": {
+                "year": 2019,
+                "month": 6,
+                "day": 11
+              },
+              "release_date_for_display": "June 11, 2019",
+              "release_date_with_abbreviated_month_for_display": "Jun. 11, 2019",
+              "song_art_image_thumbnail_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.300x300x1.jpg",
+              "song_art_image_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.1000x1000x1.jpg",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "Let Down MD112",
+              "title_with_featured": "Let Down MD112",
+              "updated_at": 1791270226,
+              "updated_by_human_at": 1768001802,
+              "url": "https://genius.com/Radiohead-let-down-md112-lyrics",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/604",
+                "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                "id": 604,
+                "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                "index_character": "r",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Radiohead",
+                "slug": "Radiohead",
+                "url": "https://genius.com/artists/Radiohead"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/604",
+                  "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                  "id": 604,
+                  "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                  "index_character": "r",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Radiohead",
+                  "slug": "Radiohead",
+                  "url": "https://genius.com/artists/Radiohead"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "song",
+        "hits": [
+          {
+            "highlights": [],
+            "index": "song",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 10,
+              "api_path": "/songs/78354",
+              "artist_names": "Radiohead",
+              "full_title": "Let Down by Radiohead",
+              "header_image_thumbnail_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.300x300x1.png",
+              "header_image_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.1000x1000x1.png",
+              "hidden": false,
+              "id": 78354,
+              "instrumental": false,
+              "lyrics_owner_id": 46705,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1790951322,
+              "path": "/Radiohead-let-down-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Radiohead",
+              "pyongs_count": 87,
+              "relationships_index_url": "https://genius.com/Radiohead-let-down-sample",
+              "release_date_components": {
+                "year": 1997,
+                "month": 5,
+                "day": 21
+              },
+              "release_date_for_display": "May 21, 1997",
+              "release_date_with_abbreviated_month_for_display": "May 21, 1997",
+              "song_art_image_thumbnail_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.300x300x1.png",
+              "song_art_image_url": "https://images.genius.com/3759f0f4fe3091fb35a2f3416992219d.1000x1000x1.png",
+              "stats": {
+                "unreviewed_annotations": 2,
+                "concurrents": 2,
+                "hot": false,
+                "pageviews": 1299414
+              },
+              "title": "Let Down",
+              "title_with_featured": "Let Down",
+              "updated_at": 1792041270,
+              "updated_by_human_at": 1790951322,
+              "url": "https://genius.com/Radiohead-let-down-lyrics",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/604",
+                "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                "id": 604,
+                "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                "index_character": "r",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Radiohead",
+                "slug": "Radiohead",
+                "url": "https://genius.com/artists/Radiohead"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/604",
+                  "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                  "id": 604,
+                  "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                  "index_character": "r",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Radiohead",
+                  "slug": "Radiohead",
+                  "url": "https://genius.com/artists/Radiohead"
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [],
+            "index": "song",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 0,
+              "api_path": "/songs/4624317",
+              "artist_names": "Radiohead",
+              "full_title": "Let Down MD112 by Radiohead",
+              "header_image_thumbnail_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.300x300x1.jpg",
+              "header_image_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.1000x1000x1.jpg",
+              "hidden": false,
+              "id": 4624317,
+              "instrumental": false,
+              "lyrics_owner_id": 3240675,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1763511298,
+              "path": "/Radiohead-let-down-md112-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Radiohead",
+              "pyongs_count": null,
+              "relationships_index_url": "https://genius.com/Radiohead-let-down-md112-sample",
+              "release_date_components": {
+                "year": 2019,
+                "month": 6,
+                "day": 11
+              },
+              "release_date_for_display": "June 11, 2019",
+              "release_date_with_abbreviated_month_for_display": "Jun. 11, 2019",
+              "song_art_image_thumbnail_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.300x300x1.jpg",
+              "song_art_image_url": "https://images.genius.com/e3e2b7ea634a9b7ebf6d87cc267173df.1000x1000x1.jpg",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "Let Down MD112",
+              "title_with_featured": "Let Down MD112",
+              "updated_at": 1791270226,
+              "updated_by_human_at": 1768001802,
+              "url": "https://genius.com/Radiohead-let-down-md112-lyrics",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/604",
+                "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                "id": 604,
+                "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                "index_character": "r",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Radiohead",
+                "slug": "Radiohead",
+                "url": "https://genius.com/artists/Radiohead"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/604",
+                  "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                  "id": 604,
+                  "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                  "index_character": "r",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Radiohead",
+                  "slug": "Radiohead",
+                  "url": "https://genius.com/artists/Radiohead"
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [],
+            "index": "song",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 1,
+              "api_path": "/songs/4627476",
+              "artist_names": "Radiohead",
+              "full_title": "Let Down MD117 by Radiohead",
+              "header_image_thumbnail_url": "https://images.genius.com/7c73a34a8f95772910f9cbfe73f8f19e.300x300x1.jpg",
+              "header_image_url": "https://images.genius.com/7c73a34a8f95772910f9cbfe73f8f19e.1000x1000x1.jpg",
+              "hidden": false,
+              "id": 4627476,
+              "instrumental": false,
+              "lyrics_owner_id": 13804286,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1635953607,
+              "path": "/Radiohead-let-down-md117-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Radiohead",
+              "pyongs_count": null,
+              "relationships_index_url": "https://genius.com/Radiohead-let-down-md117-sample",
+              "release_date_components": {
+                "year": 2019,
+                "month": 6,
+                "day": 11
+              },
+              "release_date_for_display": "June 11, 2019",
+              "release_date_with_abbreviated_month_for_display": "Jun. 11, 2019",
+              "song_art_image_thumbnail_url": "https://images.genius.com/7c73a34a8f95772910f9cbfe73f8f19e.300x300x1.jpg",
+              "song_art_image_url": "https://images.genius.com/7c73a34a8f95772910f9cbfe73f8f19e.1000x1000x1.jpg",
+              "stats": {
+                "unreviewed_annotations": 1,
+                "hot": false
+              },
+              "title": "Let Down MD117",
+              "title_with_featured": "Let Down MD117",
+              "updated_at": 1791270227,
+              "updated_by_human_at": 1768001665,
+              "url": "https://genius.com/Radiohead-let-down-md117-lyrics",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/604",
+                "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                "id": 604,
+                "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                "index_character": "r",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Radiohead",
+                "slug": "Radiohead",
+                "url": "https://genius.com/artists/Radiohead"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/604",
+                  "header_image_url": "https://images.genius.com/eb4ccc114d908a5f37a737adc599decb.400x225x240.gif",
+                  "id": 604,
+                  "image_url": "https://images.genius.com/76d41236b949350c49ac423f0bea6dd5.1000x1000x1.png",
+                  "index_character": "r",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Radiohead",
+                  "slug": "Radiohead",
+                  "url": "https://genius.com/artists/Radiohead"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "lyric",
+        "hits": [
+          {
+            "highlights": [
+              {
+                "property": "lyrics",
+                "value": "Mein - Deftones\n8. 976-EVIL - Deftones\n9. Subterranean Homesick Alien - Radiohead\n10. Let Down - Radiohead\nMay Top 10\n1. Solace",
+                "snippet": true,
+                "ranges": [
+                  {
+                    "start": 72,
+                    "end": 81
+                  },
+                  {
+                    "start": 86,
+                    "end": 89
+                  },
+                  {
+                    "start": 90,
+                    "end": 94
+                  },
+                  {
+                    "start": 97,
+                    "end": 106
+                  }
+                ]
+              }
+            ],
+            "index": "lyric",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 0,
+              "api_path": "/songs/11296608",
+              "artist_names": "SwagDeLovo",
+              "full_title": "Justin Lovo's 2025 Listening Log by SwagDeLovo",
+              "header_image_thumbnail_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.300x300x1.jpg",
+              "header_image_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.904x904x1.jpg",
+              "hidden": false,
+              "id": 11296608,
+              "instrumental": false,
+              "lyrics_owner_id": 19811026,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1765652320,
+              "path": "/Swagdelovo-justin-lovos-2025-listening-log-annotated",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "SwagDeLovo",
+              "pyongs_count": 1,
+              "relationships_index_url": "https://genius.com/Swagdelovo-justin-lovos-2025-listening-log-sample",
+              "release_date_components": {
+                "year": 2025,
+                "month": 1,
+                "day": 1
+              },
+              "release_date_for_display": "January 1, 2025",
+              "release_date_with_abbreviated_month_for_display": "Jan. 1, 2025",
+              "song_art_image_thumbnail_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.300x300x1.jpg",
+              "song_art_image_url": "https://images.genius.com/c1358935b7f68170ac716b3823cc20e1.904x904x1.jpg",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "Justin Lovo’s 2025 Listening Log",
+              "title_with_featured": "Justin Lovo's 2025 Listening Log",
+              "updated_at": 1766287194,
+              "updated_by_human_at": 1765652320,
+              "url": "https://genius.com/Swagdelovo-justin-lovos-2025-listening-log-annotated",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/4159248",
+                "header_image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                "id": 4159248,
+                "image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                "index_character": "s",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "SwagDeLovo",
+                "slug": "Swagdelovo",
+                "url": "https://genius.com/artists/Swagdelovo",
+                "iq": 313
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/4159248",
+                  "header_image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                  "id": 4159248,
+                  "image_url": "https://images.genius.com/8cf7faa1b7c4c48f544e920faf6c33cd.640x358x72.gif",
+                  "index_character": "s",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "SwagDeLovo",
+                  "slug": "Swagdelovo",
+                  "url": "https://genius.com/artists/Swagdelovo",
+                  "iq": 313
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [
+              {
+                "property": "lyrics",
+                "value": "120. DJ Shadow: ”Midnight in a Perfect World” (1996)\n121. Radiohead: ”Let Down” (1997)\n122. Method Man: ”I’ll Be",
+                "snippet": true,
+                "ranges": [
+                  {
+                    "start": 58,
+                    "end": 67
+                  },
+                  {
+                    "start": 70,
+                    "end": 73
+                  },
+                  {
+                    "start": 74,
+                    "end": 78
+                  }
+                ]
+              }
+            ],
+            "index": "lyric",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 0,
+              "api_path": "/songs/12469401",
+              "artist_names": "Pitchfork",
+              "full_title": "The 250 Best Songs of the 1990s by Pitchfork",
+              "header_image_thumbnail_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.300x300x1.png",
+              "header_image_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.1000x1000x1.png",
+              "hidden": false,
+              "id": 12469401,
+              "instrumental": false,
+              "lyrics_owner_id": 3163698,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": 1758962761,
+              "path": "/Pitchfork-the-250-best-songs-of-the-1990s-annotated",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Pitchfork",
+              "pyongs_count": null,
+              "relationships_index_url": "https://genius.com/Pitchfork-the-250-best-songs-of-the-1990s-sample",
+              "release_date_components": {
+                "year": 2022,
+                "month": 9,
+                "day": 27
+              },
+              "release_date_for_display": "September 27, 2022",
+              "release_date_with_abbreviated_month_for_display": "Sep. 27, 2022",
+              "song_art_image_thumbnail_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.300x300x1.png",
+              "song_art_image_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.1000x1000x1.png",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "The 250 Best Songs of the 1990s",
+              "title_with_featured": "The 250 Best Songs of the 1990s",
+              "updated_at": 1758962761,
+              "updated_by_human_at": 1758962761,
+              "url": "https://genius.com/Pitchfork-the-250-best-songs-of-the-1990s-annotated",
+              "featured_artists": [],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/59661",
+                "header_image_url": "https://images.genius.com/e303f58a85ca5fb040ad836a61e4bee4.1000x1000x1.png",
+                "id": 59661,
+                "image_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.1000x1000x1.png",
+                "index_character": "p",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Pitchfork",
+                "slug": "Pitchfork",
+                "url": "https://genius.com/artists/Pitchfork"
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/59661",
+                  "header_image_url": "https://images.genius.com/e303f58a85ca5fb040ad836a61e4bee4.1000x1000x1.png",
+                  "id": 59661,
+                  "image_url": "https://images.genius.com/cb770a28a9aecd6a74ffca744384b9c4.1000x1000x1.png",
+                  "index_character": "p",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Pitchfork",
+                  "slug": "Pitchfork",
+                  "url": "https://genius.com/artists/Pitchfork"
+                }
+              ]
+            }
+          },
+          {
+            "highlights": [
+              {
+                "property": "lyrics",
+                "value": "Now It’s time to change the station in my Radiohead\nHaven’t been “Let Down” - no expectations, “No Surprises",
+                "snippet": true,
+                "ranges": [
+                  {
+                    "start": 42,
+                    "end": 51
+                  },
+                  {
+                    "start": 66,
+                    "end": 69
+                  },
+                  {
+                    "start": 70,
+                    "end": 74
+                  }
+                ]
+              }
+            ],
+            "index": "lyric",
+            "matched_words": 3,
+            "nb_exact_words": 3,
+            "nb_typos": 0,
+            "type": "song",
+            "result": {
+              "_type": "song",
+              "annotation_count": 1,
+              "api_path": "/songs/129749",
+              "artist_names": "Satnam (Ft. Chance Random)",
+              "full_title": "Heart of a Lion by Satnam (Ft. Chance Random)",
+              "header_image_thumbnail_url": "https://i1.sndcdn.com/artworks-000043570110-q3adzj-t500x500.jpg",
+              "header_image_url": "https://i1.sndcdn.com/artworks-000043570110-q3adzj-t500x500.jpg",
+              "hidden": false,
+              "id": 129749,
+              "instrumental": false,
+              "lyrics_owner_id": 199210,
+              "lyrics_state": "complete",
+              "lyrics_updated_at": null,
+              "path": "/Satnam-heart-of-a-lion-lyrics",
+              "pending_lyrics_edits_count": 0,
+              "primary_artist_names": "Satnam",
+              "pyongs_count": null,
+              "relationships_index_url": "https://genius.com/Satnam-heart-of-a-lion-sample",
+              "release_date_components": null,
+              "release_date_for_display": null,
+              "release_date_with_abbreviated_month_for_display": null,
+              "song_art_image_thumbnail_url": "https://i1.sndcdn.com/artworks-000043570110-q3adzj-t500x500.jpg",
+              "song_art_image_url": "https://i1.sndcdn.com/artworks-000043570110-q3adzj-t500x500.jpg",
+              "stats": {
+                "unreviewed_annotations": 0,
+                "hot": false
+              },
+              "title": "Heart of a Lion",
+              "title_with_featured": "Heart of a Lion (Ft. Chance Random)",
+              "updated_at": 1751073416,
+              "updated_by_human_at": 1484206215,
+              "url": "https://genius.com/Satnam-heart-of-a-lion-lyrics",
+              "featured_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/41907",
+                  "header_image_url": "https://assets.genius.com/images/default_banner.png",
+                  "id": 41907,
+                  "image_url": "https://assets.genius.com/images/default_cover_image.png",
+                  "index_character": "c",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Chance Random",
+                  "slug": "Chance-random",
+                  "url": "https://genius.com/artists/Chance-random"
+                }
+              ],
+              "primary_artist": {
+                "_type": "artist",
+                "api_path": "/artists/41906",
+                "header_image_url": "https://images.genius.com/avatars/medium/d3a6d0f29ca62b362e8749b6e50a712d",
+                "id": 41906,
+                "image_url": "https://images.genius.com/avatars/medium/d3a6d0f29ca62b362e8749b6e50a712d",
+                "index_character": "s",
+                "is_meme_verified": false,
+                "is_verified": false,
+                "links_config": null,
+                "name": "Satnam",
+                "slug": "Satnam",
+                "url": "https://genius.com/artists/Satnam",
+                "iq": 702
+              },
+              "primary_artists": [
+                {
+                  "_type": "artist",
+                  "api_path": "/artists/41906",
+                  "header_image_url": "https://images.genius.com/avatars/medium/d3a6d0f29ca62b362e8749b6e50a712d",
+                  "id": 41906,
+                  "image_url": "https://images.genius.com/avatars/medium/d3a6d0f29ca62b362e8749b6e50a712d",
+                  "index_character": "s",
+                  "is_meme_verified": false,
+                  "is_verified": false,
+                  "links_config": null,
+                  "name": "Satnam",
+                  "slug": "Satnam",
+                  "url": "https://genius.com/artists/Satnam",
+                  "iq": 702
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "artist",
+        "hits": [
+          {
+            "highlights": [],
+            "index": "artist",
+            "matched_words": 2,
+            "nb_exact_words": 0,
+            "nb_typos": 0,
+            "type": "artist",
+            "result": {
+              "_type": "artist",
+              "api_path": "/artists/2597935",
+              "header_image_url": "https://images.genius.com/da80d97bdce5bdce0ae907a3e27405a6.1000x166x1.jpg",
+              "id": 2597935,
+              "image_url": "https://images.genius.com/a6b988324f9dea95616ebccd5d934b2c.720x720x1.jpg",
+              "index_character": "l",
+              "is_meme_verified": false,
+              "is_verified": false,
+              "links_config": null,
+              "name": "Letdown.",
+              "slug": "Letdown",
+              "url": "https://genius.com/artists/Letdown"
+            }
+          },
+          {
+            "highlights": [],
+            "index": "artist",
+            "matched_words": 2,
+            "nb_exact_words": 0,
+            "nb_typos": 0,
+            "type": "artist",
+            "result": {
+              "_type": "artist",
+              "api_path": "/artists/1451238",
+              "header_image_url": "https://images.genius.com/115be13b44bb66dbdadc6c541eaf8564.780x195x1.jpg",
+              "id": 1451238,
+              "image_url": "https://images.genius.com/5bbde324cf3ed14eda63f50122abd25e.638x638x1.jpg",
+              "index_character": "l",
+              "is_meme_verified": false,
+              "is_verified": false,
+              "links_config": null,
+              "name": "LETDOWN (CAN)",
+              "slug": "Letdown-can",
+              "url": "https://genius.com/artists/Letdown-can"
+            }
+          },
+          {
+            "highlights": [],
+            "index": "artist",
+            "matched_words": 2,
+            "nb_exact_words": 0,
+            "nb_typos": 0,
+            "type": "artist",
+            "result": {
+              "_type": "artist",
+              "api_path": "/artists/2675159",
+              "header_image_url": "https://assets.genius.com/images/default_banner.png",
+              "id": 2675159,
+              "image_url": "https://assets.genius.com/images/default_cover_image.png",
+              "index_character": "l",
+              "is_meme_verified": false,
+              "is_verified": false,
+              "links_config": null,
+              "name": "letdown (UK)",
+              "slug": "Letdown-uk",
+              "url": "https://genius.com/artists/Letdown-uk"
+            }
+          }
+        ]
+      },
+      {
+        "type": "album",
+        "hits": []
+      },
+      {
+        "type": "video",
+        "hits": []
+      },
+      {
+        "type": "article",
+        "hits": []
+      },
+      {
+        "type": "user",
+        "hits": []
+      }
+    ]
+  }
+}

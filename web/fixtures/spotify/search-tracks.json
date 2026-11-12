@@ -1,0 +1,1973 @@
+{
+  "data": {
+    "searchV2": {
+      "query": "Let Down Radiohead",
+      "tracksV2": {
+        "items": [
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#607B8B",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02c8b444df094279e70d0ed856",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851c8b444df094279e70d0ed856",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273c8b444df094279e70d0ed856",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "6dVIqQ8qmQ5GBnJ9shOYGE",
+                  "name": "OK Computer",
+                  "uri": "spotify:album:6dVIqQ8qmQ5GBnJ9shOYGE",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 216,
+                          "green": 192,
+                          "red": 152
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 108,
+                            "green": 87,
+                            "red": 50
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 73,
+                            "green": 54,
+                            "red": 15
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 236,
+                            "green": 211,
+                            "red": 170
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 76,
+                            "green": 56,
+                            "red": 18
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 111,
+                            "green": 90,
+                            "red": 53
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 236,
+                            "green": 211,
+                            "red": 170
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 181,
+                            "green": 158,
+                            "red": 119
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 156,
+                            "green": 133,
+                            "red": 95
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Radiohead"
+                      },
+                      "uri": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 299560
+                },
+                "id": "2fuYa3Lx06QQJAm0MjztKr",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:2fuYa3Lx06QQJAm0MjztKr",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#627B81",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02ee58b8ce747da91d69a862cc",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851ee58b8ce747da91d69a862cc",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273ee58b8ce747da91d69a862cc",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "0tzfI6NFJqcJkWb23R3lRZ",
+                  "name": "OK Computer OKNOTOK 1997 2017",
+                  "uri": "spotify:album:0tzfI6NFJqcJkWb23R3lRZ",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 202,
+                          "green": 194,
+                          "red": 154
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 89,
+                            "red": 51
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 62,
+                            "green": 55,
+                            "red": 17
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 221,
+                            "green": 212,
+                            "red": 172
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 64,
+                            "green": 58,
+                            "red": 20
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 99,
+                            "green": 91,
+                            "red": 54
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 221,
+                            "green": 212,
+                            "red": 172
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 167,
+                            "green": 159,
+                            "red": 120
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 142,
+                            "green": 135,
+                            "red": 96
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Radiohead"
+                      },
+                      "uri": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 299280
+                },
+                "id": "1CeC8kOYxUTCC2wHGtWROD",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down - Remastered",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:1CeC8kOYxUTCC2wHGtWROD",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#535353",
+                        "isFallback": true
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e029494f456876bd9dd8bd575c8",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d000048519494f456876bd9dd8bd575c8",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b2739494f456876bd9dd8bd575c8",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "0BLjgfMEwdXmbSQVKNZvR5",
+                  "name": "Let Down (Choir)",
+                  "uri": "spotify:album:0BLjgfMEwdXmbSQVKNZvR5",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 187,
+                          "green": 187,
+                          "red": 187
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 83,
+                            "green": 83,
+                            "red": 83
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 51,
+                            "green": 51,
+                            "red": 51
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 205,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 53,
+                            "green": 53,
+                            "red": 53
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 86,
+                            "green": 86,
+                            "red": 86
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 205,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 83,
+                            "green": 83,
+                            "red": 83
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 51,
+                            "green": 51,
+                            "red": 51
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Eibell"
+                      },
+                      "uri": "spotify:artist:3ApC3GZFn1VELA00hwZGmL"
+                    },
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Odd Era."
+                      },
+                      "uri": "spotify:artist:45zyspaOBMNIpFvyEAmUJQ"
+                    },
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "fedo DJ"
+                      },
+                      "uri": "spotify:artist:0sfCfF62IjeupwxdvH7KM3"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 271162
+                },
+                "id": "4uvDPrJhUN9nAPBa268OMt",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down - Choir",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:4uvDPrJhUN9nAPBa268OMt",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": []
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#4078B8",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02bff3434553f08aa1b0a0ab59",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851bff3434553f08aa1b0a0ab59",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273bff3434553f08aa1b0a0ab59",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "4f98MipxrgDWhK5ogjcWBA",
+                  "name": "Paranoid Android",
+                  "uri": "spotify:album:4f98MipxrgDWhK5ogjcWBA",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 191,
+                          "red": 132
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 144,
+                            "green": 83,
+                            "red": 26
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 105,
+                            "green": 47,
+                            "red": 0
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 210,
+                            "red": 162
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 108,
+                            "green": 50,
+                            "red": 0
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 147,
+                            "green": 86,
+                            "red": 39
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 210,
+                            "red": 162
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 184,
+                            "green": 120,
+                            "red": 64
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 153,
+                            "green": 92,
+                            "red": 35
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Radiohead"
+                      },
+                      "uri": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 299560
+                },
+                "id": "2yzLpXCWjksJRAqD9sR7it",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:2yzLpXCWjksJRAqD9sR7it",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": []
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#84764C",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e029fca039dd2ad98e7e7cb7f80",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d000048519fca039dd2ad98e7e7cb7f80",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b2739fca039dd2ad98e7e7cb7f80",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "0UvFVQbXaJRGD7Rdc6aZ1v",
+                  "name": "Let Down (Orchestral Version)",
+                  "uri": "spotify:album:0UvFVQbXaJRGD7Rdc6aZ1v",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 136,
+                          "green": 186,
+                          "red": 203
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 34,
+                            "green": 82,
+                            "red": 97
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 49,
+                            "red": 63
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 154,
+                            "green": 205,
+                            "red": 221
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 51,
+                            "red": 66
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 38,
+                            "green": 84,
+                            "red": 100
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 154,
+                            "green": 205,
+                            "red": 221
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 88,
+                            "green": 136,
+                            "red": 152
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 63,
+                            "green": 110,
+                            "red": 126
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Alessandro Veloz"
+                      },
+                      "uri": "spotify:artist:6gXbpnGWlAd1UbEOFxOZg4"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 175049
+                },
+                "id": "5Mu8VKSjW461cysLqTMfXe",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down - Orchestral Version",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:5Mu8VKSjW461cysLqTMfXe",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": []
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#585860",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 720,
+                        "url": "https://i.scdn.co/image/ab6742d3000053b7cddac9215a29df68ce2eb0ec",
+                        "width": 1280
+                      },
+                      {
+                        "height": 360,
+                        "url": "https://i.scdn.co/image/ab6742d3000052b7cddac9215a29df68ce2eb0ec",
+                        "width": 640
+                      },
+                      {
+                        "height": 720,
+                        "url": "https://i.scdn.co/image/ab6742d3000053b7cddac9215a29df68ce2eb0ec",
+                        "width": 1280
+                      }
+                    ]
+                  },
+                  "id": "35wNsuWGC3CP7q9S9zqcjS",
+                  "name": "Let Down (Radiohead Cover)",
+                  "uri": "spotify:album:35wNsuWGC3CP7q9S9zqcjS",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 195,
+                          "green": 186,
+                          "red": 186
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 90,
+                            "green": 83,
+                            "red": 83
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 58,
+                            "green": 50,
+                            "red": 50
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 214,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 60,
+                            "green": 53,
+                            "red": 53
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 93,
+                            "green": 85,
+                            "red": 85
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 214,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 88,
+                            "red": 88
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 64,
+                            "green": 57,
+                            "red": 57
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Sun Arcana"
+                      },
+                      "uri": "spotify:artist:1yCijuMB3fPs98kFu05jkf"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 239605
+                },
+                "id": "7fWPFXVPFTFOeKefGKsgeB",
+                "trackMediaType": "VIDEO",
+                "name": "Let Down (Radiohead Cover)",
+                "playability": {
+                  "playable": false,
+                  "reason": "COUNTRY_RESTRICTED"
+                },
+                "uri": "spotify:track:7fWPFXVPFTFOeKefGKsgeB",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": {
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "maxHeight": 360,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000052b6cddac9215a29df68ce2eb0ec"
+                          },
+                          {
+                            "maxHeight": 720,
+                            "maxWidth": 1280,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000053b6cddac9215a29df68ce2eb0ec"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "matchedFields": []
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#777777",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02b1c4b76e23414c9f20242268",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851b1c4b76e23414c9f20242268",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273b1c4b76e23414c9f20242268",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "6trNtQUgC8cgbWcqoMYkOR",
+                  "name": "beerbongs & bentleys",
+                  "uri": "spotify:album:6trNtQUgC8cgbWcqoMYkOR",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 232,
+                          "green": 232,
+                          "red": 232
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 83,
+                            "green": 83,
+                            "red": 83
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 51,
+                            "green": 51,
+                            "red": 51
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 205,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 53,
+                            "green": 53,
+                            "red": 53
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 86,
+                            "green": 86,
+                            "red": 86
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 205,
+                            "green": 205,
+                            "red": 205
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 153,
+                            "green": 153,
+                            "red": 153
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 128,
+                            "green": 128,
+                            "red": 128
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Post Malone"
+                      },
+                      "uri": "spotify:artist:246dkjvS1zLTtiykXe5h60"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 1
+                  }
+                },
+                "contentRating": {
+                  "label": "EXPLICIT"
+                },
+                "duration": {
+                  "totalMilliseconds": 231266
+                },
+                "id": "7dt6x5M1jzdTEt8oCbisTK",
+                "trackMediaType": "AUDIO",
+                "name": "Better Now",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:7dt6x5M1jzdTEt8oCbisTK",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": {
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "maxHeight": 360,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000052b6479a244c72b7281b9951f178"
+                          },
+                          {
+                            "maxHeight": 720,
+                            "maxWidth": 1280,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000053b6479a244c72b7281b9951f178"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#A02828",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e0217e62ca2b7cb958440b481ea",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d0000485117e62ca2b7cb958440b481ea",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b27317e62ca2b7cb958440b481ea",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "0JJtMoh11Sry74jxgQB79U",
+                  "name": "Tonight Tonight EP",
+                  "uri": "spotify:album:0JJtMoh11Sry74jxgQB79U",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 152,
+                          "green": 162,
+                          "red": 255
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 34,
+                            "green": 32,
+                            "red": 153
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 0,
+                            "red": 97
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 181,
+                            "green": 189,
+                            "red": 255
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 0,
+                            "red": 101
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 41,
+                            "green": 52,
+                            "red": 147
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 181,
+                            "green": 189,
+                            "red": 255
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 40,
+                            "green": 40,
+                            "red": 160
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 0,
+                            "red": 109
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Hot Chelle Rae"
+                      },
+                      "uri": "spotify:artist:6jTnHxhb6cDCaCu4rdvsQ0"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "duration": {
+                  "totalMilliseconds": 163560
+                },
+                "id": "1WkyKvixQ6gPL65hF6R8D9",
+                "trackMediaType": "AUDIO",
+                "name": "Let Down",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:1WkyKvixQ6gPL65hF6R8D9",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#CA4E27",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02f9aefc986924f7e9e5e71b74",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851f9aefc986924f7e9e5e71b74",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273f9aefc986924f7e9e5e71b74",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "0Hv5X7RRaM7F3hfAq0YmzB",
+                  "name": "Jackpot",
+                  "uri": "spotify:album:0Hv5X7RRaM7F3hfAq0YmzB",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 133,
+                          "green": 163,
+                          "red": 255
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 17,
+                            "red": 157
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 0,
+                            "red": 97
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 168,
+                            "green": 191,
+                            "red": 255
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 0,
+                            "green": 0,
+                            "red": 101
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 41,
+                            "green": 52,
+                            "red": 147
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 168,
+                            "green": 191,
+                            "red": 255
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 48,
+                            "green": 96,
+                            "red": 248
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 3,
+                            "green": 66,
+                            "red": 217
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Chingy"
+                      },
+                      "uri": "spotify:artist:3s2wTjWxK8NOX09dmsvVOh"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "EXPLICIT"
+                },
+                "duration": {
+                  "totalMilliseconds": 250746
+                },
+                "id": "0l3GEbH3CviUytD6iX4wzg",
+                "trackMediaType": "AUDIO",
+                "name": "Right Thurr",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:0l3GEbH3CviUytD6iX4wzg",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          },
+          {
+            "item": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "coverArt": {
+                    "extractedColors": {
+                      "colorDark": {
+                        "hex": "#383030",
+                        "isFallback": false
+                      }
+                    },
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e0299b224b8e84c1d9d52969b93",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d0000485199b224b8e84c1d9d52969b93",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b27399b224b8e84c1d9d52969b93",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "id": "16IZu1OJkSTCliTTqIvb6O",
+                  "name": "Ghost Rider",
+                  "uri": "spotify:album:16IZu1OJkSTCliTTqIvb6O",
+                  "visualIdentity": {
+                    "squareCoverImage": {
+                      "__typename": "VisualIdentityImage",
+                      "extractedColorSet": {
+                        "encoreBaseSetTextColor": {
+                          "alpha": 255,
+                          "blue": 184,
+                          "green": 184,
+                          "red": 195
+                        },
+                        "highContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 48,
+                            "green": 48,
+                            "red": 56
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 82,
+                            "green": 82,
+                            "red": 90
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 203,
+                            "green": 203,
+                            "red": 213
+                          }
+                        },
+                        "higherContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 48,
+                            "green": 48,
+                            "red": 56
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 82,
+                            "green": 82,
+                            "red": 90
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 96,
+                            "green": 215,
+                            "red": 30
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 203,
+                            "green": 203,
+                            "red": 213
+                          }
+                        },
+                        "minContrast": {
+                          "backgroundBase": {
+                            "alpha": 255,
+                            "blue": 48,
+                            "green": 48,
+                            "red": 56
+                          },
+                          "backgroundTintedBase": {
+                            "alpha": 255,
+                            "blue": 82,
+                            "green": 82,
+                            "red": 90
+                          },
+                          "textBase": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textBrightAccent": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          },
+                          "textSubdued": {
+                            "alpha": 255,
+                            "blue": 255,
+                            "green": 255,
+                            "red": 255
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "onPlatformReputationTrait": {
+                        "verification": {
+                          "aiPersona": null
+                        }
+                      },
+                      "profile": {
+                        "name": "Xand3r"
+                      },
+                      "uri": "spotify:artist:1GdmP8bS0zMyle3We6xsP2"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "totalCount": 0
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "EXPLICIT"
+                },
+                "duration": {
+                  "totalMilliseconds": 151811
+                },
+                "id": "4IXswXe7jhE8RLLla6CKPV",
+                "trackMediaType": "AUDIO",
+                "name": "Ghost Rider",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:4IXswXe7jhE8RLLla6CKPV",
+                "visualIdentity": {
+                  "sixteenByNineCoverImage": null
+                }
+              }
+            },
+            "matchedFields": [
+              "LYRICS"
+            ]
+          }
+        ],
+        "pagingInfo": {
+          "limit": 10,
+          "nextOffset": 10
+        },
+        "totalCount": 31
+      }
+    }
+  },
+  "extensions": {
+    "requestIds": {
+      "/searchV2": {
+        "search-api": "2efdb13f-0e55-bc60-3086-08c4c77eefd9/W6ue"
+      }
+    }
+  }
+}

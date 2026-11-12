@@ -1,0 +1,16 @@
+{
+  "bundle": "https://open.spotifycdn.com/cdn/build/web-player/web-player.c6932d85.js",
+  "clientVersion": "1.3.6.1892.g0a8ca577db87",
+  "secretVersions": [
+    61,
+    60,
+    59
+  ],
+  "hashes": {
+    "libraryV3": "390c78e5b951029bad359785e69b07b536a509c581cbcd0aded5e5067f187455",
+    "fetchPlaylist": "21ea11a6ac75a5f3e01fd365d29c18e0a4a8b7dc09f89bbb5d73910190c6acaf",
+    "fetchLibraryTracks": "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240",
+    "canvas": "575138ab27cd5c1b3e54da54d0a7cc8d85485402de26340c2145f0f6bb5e7a9f",
+    "searchTracks": "b02683192a98dde7966b5e6655a79eeb62713eab703eda9902c932818dd52751"
+  }
+}

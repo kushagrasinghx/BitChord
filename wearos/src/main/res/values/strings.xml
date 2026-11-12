@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connecting">Connecting…</string>
+    <string name="no_phone_title">Phone not connected</string>
+    <string name="no_phone_body">Open BitChord on your phone, and keep it near your watch.</string>
+    <string name="retry">Try again</string>
+    <string name="nothing_playing">Not Playing</string>
+    <string name="nothing_playing_body">Play something in BitChord on your phone.</string>
+    <string name="resume">Resume</string>
+    <string name="up_next">Up Next</string>
+    <string name="queue_empty">Nothing up next</string>
+    <string name="loading">Loading…</string>
+    <string name="playing_now">Now Playing</string>
+    <string name="more">More</string>
+    <string name="shuffle">Shuffle</string>
+    <string name="repeat">Repeat</string>
+    <string name="repeat_off">Off</string>
+    <string name="repeat_all">All</string>
+    <string name="repeat_one">One</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="love">Love</string>
+    <string name="loved">Loved</string>
+    <string name="volume">Volume</string>
+    <string name="on_phone">On phone</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+    <string name="output">Output</string>
+    <string name="this_watch">This watch</string>
+    <string name="watch_speaker">Watch speaker or headphones</string>
+    <string name="on_phone_output">On phone</string>
+    <string name="phone_speaker">Phone speaker</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi">HDMI</string>
+    <string name="other_output">Other output</string>
+    <string name="moving_to_watch">Moving to watch…</string>
+    <string name="update_channel">Updates</string>
+    <string name="update_ready">BitChord update ready</string>
+    <string name="update_tap">Tap to install the update from your phone.</string>
+</resources>

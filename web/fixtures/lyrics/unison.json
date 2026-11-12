@@ -1,0 +1,103 @@
+{
+  "success": true,
+  "data": {
+    "id": 647,
+    "videoId": "ZVgHPSyEIqk",
+    "song": "Let Down",
+    "artist": "Radiohead",
+    "lyrics": "<tt xmlns=\"http://www.w3.org/ns/ttml\" xmlns:ttm=\"http://www.w3.org/ns/ttml#metadata\" xmlns:ttp=\"http://www.w3.org/ns/ttml#parameter\" xmlns:composer=\"https://composer.boidu.dev/ttml\" ttp:timeBase=\"media\" xml:lang=\"en\" composer:timing=\"Word\"><head><metadata><ttm:title>Let Down (Remastered) - Radiohead</ttm:title><ttm:agent xml:id=\"v1\" type=\"person\"/></metadata></head><body dur=\"4:59.300\"><div><p begin=\"0:22.221\" end=\"0:24.109\" ttm:agent=\"v1\"><span begin=\"0:22.221\" end=\"0:23.309\">Trans</span><span begin=\"0:23.309\" end=\"0:24.109\">port</span></p><p begin=\"0:24.570\" end=\"0:28.541\" ttm:agent=\"v1\"><span begin=\"0:24.570\" end=\"0:24.818\">Mo</span><span begin=\"0:24.818\" end=\"0:25.399\">tor</span><span begin=\"0:25.399\" end=\"0:26.250\">ways</span> <span begin=\"0:26.250\" end=\"0:26.570\">and</span> <span begin=\"0:26.570\" end=\"0:28.000\">tram</span><span begin=\"0:28.000\" end=\"0:28.541\">lines</span></p><p begin=\"0:29.129\" end=\"0:33.301\" ttm:agent=\"v1\"><span begin=\"0:29.129\" end=\"0:29.420\">Start</span><span begin=\"0:29.420\" end=\"0:30.010\">ing</span> <span begin=\"0:30.010\" end=\"0:30.556\">and</span> <span begin=\"0:30.556\" end=\"0:31.170\">then</span> <span begin=\"0:31.170\" end=\"0:32.621\">stop</span><span begin=\"0:32.621\" end=\"0:33.301\">ping</span></p><p begin=\"0:33.850\" end=\"0:38.049\" ttm:agent=\"v1\"><span begin=\"0:33.850\" end=\"0:34.149\">Tak</span><span begin=\"0:34.149\" end=\"0:34.679\">ing</span> <span begin=\"0:34.679\" end=\"0:35.540\">off</span> <span begin=\"0:35.540\" end=\"0:35.901\">and</span> <span begin=\"0:35.901\" end=\"0:37.289\">land</span><span begin=\"0:37.289\" end=\"0:38.049\">ing</span></p><p begin=\"0:38.520\" end=\"0:42.796\" ttm:agent=\"v1\"><span begin=\"0:38.520\" end=\"0:38.777\">The</span> <span begin=\"0:38.777\" end=\"0:39.029\">emp</span><span begin=\"0:39.029\" end=\"0:39.460\">ti</span><span begin=\"0:39.460\" end=\"0:40.039\">est</span> <span begin=\"0:40.039\" end=\"0:40.661\">of</span> <span begin=\"0:40.661\" end=\"0:42.119\">feel</span><span begin=\"0:42.119\" end=\"0:42.796\">ings</span></p><p begin=\"0:43.250\" end=\"0:47.499\" ttm:agent=\"v1\"><span begin=\"0:43.250\" end=\"0:43.588\">Dis</span><span begin=\"0:43.588\" end=\"0:44.159\">ap</span><span begin=\"0:44.159\" end=\"0:44.709\">point</span><span begin=\"0:44.709\" end=\"0:45.329\">ed</span> <span begin=\"0:45.329\" end=\"0:46.787\">peo</span><span begin=\"0:46.787\" end=\"0:47.499\">ple</span></p><p begin=\"0:48.000\" end=\"0:52.140\" ttm:agent=\"v1\"><span begin=\"0:48.000\" end=\"0:48.289\">Cling</span><span begin=\"0:48.289\" end=\"0:48.840\">ing</span> <span begin=\"0:48.840\" end=\"0:50.009\">onto</span> <span begin=\"0:50.009\" end=\"0:51.509\">bot</span><span begin=\"0:51.509\" end=\"0:52.140\">tles</span></p><p begin=\"0:52.490\" end=\"0:59.689\" ttm:agent=\"v1\"><span begin=\"0:52.490\" end=\"0:52.737\">And</span> <span begin=\"0:52.737\" end=\"0:53.021\">when</span> <span begin=\"0:53.021\" end=\"0:53.540\">it</span> <span begin=\"0:53.540\" end=\"0:54.100\">comes,</span> <span begin=\"0:54.100\" end=\"0:54.621\">it's</span> <span begin=\"0:54.621\" end=\"0:55.530\">so,</span> <span begin=\"0:56.079\" end=\"0:56.808\">so</span> <span begin=\"0:57.389\" end=\"0:57.719\">dis</span><span begin=\"0:57.719\" end=\"0:58.249\">ap</span><span begin=\"0:58.249\" end=\"0:58.759\">point</span><span begin=\"0:58.759\" end=\"0:59.689\">ing</span></p><p begin=\"0:59.689\" end=\"1:04.149\" ttm:agent=\"v1\"><span begin=\"0:59.689\" end=\"1:00.539\">Let</span> <span begin=\"1:00.539\" end=\"1:01.118\">down</span> <span begin=\"1:01.118\" end=\"1:02.049\">and</span> <span begin=\"1:02.049\" end=\"1:02.588\">hang</span><span begin=\"1:02.588\" end=\"1:02.929\">ing</span> <span begin=\"1:02.929\" end=\"1:04.149\">around</span></p><p begin=\"1:06.740\" end=\"1:11.409\" ttm:agent=\"v1\"><span begin=\"1:06.740\" end=\"1:07.509\">Crushed</span> <span begin=\"1:07.509\" end=\"1:08.180\">like</span> <span begin=\"1:08.180\" end=\"1:09.129\">a</span> <span begin=\"1:09.129\" end=\"1:09.759\">bug</span> <span begin=\"1:09.759\" end=\"1:10.040\">in</span> <span begin=\"1:10.040\" end=\"1:10.250\">the</span> <span begin=\"1:10.250\" end=\"1:11.409\">ground</span></p><p begin=\"1:13.730\" end=\"1:18.290\" ttm:agent=\"v1\"><span begin=\"1:13.730\" end=\"1:14.667\">Let</span> <span begin=\"1:14.667\" end=\"1:15.260\">down</span> <span begin=\"1:15.260\" end=\"1:16.149\">and</span> <span begin=\"1:16.149\" end=\"1:16.787\">hang</span><span begin=\"1:16.787\" end=\"1:17.090\">ing</span> <span begin=\"1:17.090\" end=\"1:18.290\">around</span></p><p begin=\"1:30.319\" end=\"1:34.789\" ttm:agent=\"v1\"><span begin=\"1:30.319\" end=\"1:31.501\">Shell</span> <span begin=\"1:31.501\" end=\"1:32.180\">smashed,</span> <span begin=\"1:32.719\" end=\"1:33.628\">juices</span> <span begin=\"1:33.628\" end=\"1:34.221\">flow</span><span begin=\"1:34.221\" end=\"1:34.789\">ing</span></p><p begin=\"1:34.789\" end=\"1:39.370\" ttm:agent=\"v1\"><span begin=\"1:34.789\" end=\"1:36.141\">Wings</span> <span begin=\"1:36.141\" end=\"1:36.868\">twitch,</span> <span begin=\"1:37.370\" end=\"1:37.748\">legs</span> <span begin=\"1:37.748\" end=\"1:38.290\">are</span> <span begin=\"1:38.290\" end=\"1:38.840\">go</span><span begin=\"1:38.840\" end=\"1:39.370\">ing</span></p><p begin=\"1:39.370\" end=\"1:44.170\" ttm:agent=\"v1\"><span begin=\"1:39.370\" end=\"1:40.868\">Don't</span> <span begin=\"1:40.868\" end=\"1:41.540\">get</span> <span begin=\"1:42.010\" end=\"1:42.640\">sen</span><span begin=\"1:42.640\" end=\"1:42.980\">ti</span><span begin=\"1:42.980\" end=\"1:43.509\">men</span><span begin=\"1:43.509\" end=\"1:44.170\">tal</span></p><p begin=\"1:44.170\" end=\"1:48.879\" ttm:agent=\"v1\"><span begin=\"1:44.170\" end=\"1:45.609\">It</span> <span begin=\"1:45.609\" end=\"1:46.179\">al</span><span begin=\"1:46.179\" end=\"1:46.638\">ways</span> <span begin=\"1:46.918\" end=\"1:47.221\">ends</span> <span begin=\"1:47.221\" end=\"1:47.730\">up</span> <span begin=\"1:47.730\" end=\"1:48.355\">dri</span><span begin=\"1:48.355\" end=\"1:48.879\">vel</span></p><p begin=\"1:48.879\" end=\"1:55.629\" ttm:agent=\"v1\"><span begin=\"1:48.879\" end=\"1:50.259\">One</span> <span begin=\"1:50.259\" end=\"1:51.028\">day,</span> <span begin=\"1:51.518\" end=\"1:51.828\">I</span> <span begin=\"1:51.828\" end=\"1:52.409\">am</span> <span begin=\"1:52.409\" end=\"1:53.487\">gonna</span> <span begin=\"1:53.487\" end=\"1:54.840\">grow</span> <span begin=\"1:54.840\" end=\"1:55.629\">wings</span></p><p begin=\"1:55.915\" end=\"2:00.162\" ttm:agent=\"v1\"><span begin=\"1:55.915\" end=\"1:56.203\">A</span> <span begin=\"1:56.203\" end=\"1:56.492\">chem</span><span begin=\"1:56.492\" end=\"1:57.013\">i</span><span begin=\"1:57.013\" end=\"1:57.915\">cal</span> <span begin=\"1:57.915\" end=\"1:58.242\">re</span><span begin=\"1:58.242\" end=\"1:59.573\">ac</span><span begin=\"1:59.573\" end=\"2:00.162\">tion</span></p><p begin=\"2:00.563\" end=\"2:04.843\" ttm:agent=\"v1\"><span begin=\"2:00.563\" end=\"2:00.852\">Hys</span><span begin=\"2:00.852\" end=\"2:01.414\">ter</span><span begin=\"2:01.414\" end=\"2:01.712\">i</span><span begin=\"2:01.712\" end=\"2:02.213\">cal</span> <span begin=\"2:02.213\" end=\"2:02.774\">and</span> <span begin=\"2:02.774\" end=\"2:04.263\">use</span><span begin=\"2:04.263\" end=\"2:04.843\">less</span></p><p begin=\"2:05.174\" end=\"2:07.715\" ttm:agent=\"v1\"><span begin=\"2:05.174\" end=\"2:05.463\">Hys</span><span begin=\"2:05.463\" end=\"2:05.974\">ter</span><span begin=\"2:05.974\" end=\"2:06.293\">i</span><span begin=\"2:06.293\" end=\"2:06.894\">cal</span> <span begin=\"2:06.894\" end=\"2:07.715\">and</span></p><p begin=\"2:07.715\" end=\"2:12.544\" ttm:agent=\"v1\"><span begin=\"2:07.715\" end=\"2:08.562\">Let</span> <span begin=\"2:08.562\" end=\"2:09.163\">down</span> <span begin=\"2:09.163\" end=\"2:10.063\">and</span> <span begin=\"2:10.063\" end=\"2:10.675\">hang</span><span begin=\"2:10.675\" end=\"2:10.984\">ing</span> <span begin=\"2:10.984\" end=\"2:12.544\">around</span></p><p begin=\"2:14.774\" end=\"2:21.062\" ttm:agent=\"v1\"><span begin=\"2:14.774\" end=\"2:15.533\">Crushed</span> <span begin=\"2:15.533\" end=\"2:16.141\">like</span> <span begin=\"2:16.141\" end=\"2:17.155\">a</span> <span begin=\"2:17.155\" end=\"2:17.733\">bug</span> <span begin=\"2:17.733\" end=\"2:18.034\">in</span> <span begin=\"2:18.034\" end=\"2:18.323\">the</span> <span begin=\"2:18.323\" end=\"2:21.062\">ground</span></p><p begin=\"2:21.774\" end=\"2:26.454\" ttm:agent=\"v1\"><span begin=\"2:21.774\" end=\"2:22.603\">Let</span> <span begin=\"2:22.603\" end=\"2:23.183\">down</span> <span begin=\"2:23.183\" end=\"2:24.115\">and</span> <span begin=\"2:24.115\" end=\"2:24.760\">hang</span><span begin=\"2:24.760\" end=\"2:25.034\">ing</span> <span begin=\"2:25.034\" end=\"2:26.454\">around</span></p><p begin=\"3:06.516\" end=\"3:12.580\" ttm:agent=\"v1\"><span begin=\"3:06.516\" end=\"3:07.354\">Let</span> <span begin=\"3:07.354\" end=\"3:07.985\">down</span> <span begin=\"3:07.985\" end=\"3:08.926\">and</span> <span begin=\"3:08.926\" end=\"3:12.580\">hang...</span></p><p begin=\"3:15.943\" end=\"3:22.120\" ttm:agent=\"v1\"><span begin=\"3:15.943\" end=\"3:16.805\">Let</span> <span begin=\"3:16.805\" end=\"3:17.407\">down</span> <span begin=\"3:17.407\" end=\"3:18.855\">and</span> <span begin=\"3:18.855\" end=\"3:22.120\">hang...</span></p><p begin=\"3:25.306\" end=\"3:33.757\" ttm:agent=\"v1\"><span begin=\"3:25.306\" end=\"3:26.205\">Let</span> <span begin=\"3:26.205\" end=\"3:26.777\">down</span> <span begin=\"3:26.777\" end=\"3:27.943\">and</span> <span begin=\"3:27.943\" end=\"3:33.757\">hang...</span></p><p begin=\"3:41.356\" end=\"3:47.681\" ttm:agent=\"v1\"><span begin=\"3:41.356\" end=\"3:42.444\">You</span> <span begin=\"3:42.444\" end=\"3:43.116\">know,</span> <span begin=\"3:43.663\" end=\"3:43.962\">you</span> <span begin=\"3:43.962\" end=\"3:44.495\">know</span> <span begin=\"3:44.495\" end=\"3:45.356\">where</span> <span begin=\"3:45.356\" end=\"3:45.682\">you</span> <span begin=\"3:45.682\" end=\"3:47.044\">are</span> <span begin=\"3:47.044\" end=\"3:47.681\">with</span></p><p begin=\"3:48.245\" end=\"3:52.365\" ttm:agent=\"v1\"><span begin=\"3:48.245\" end=\"3:48.556\">You</span> <span begin=\"3:48.556\" end=\"3:49.115\">know</span> <span begin=\"3:49.115\" end=\"3:49.945\">where</span> <span begin=\"3:49.945\" end=\"3:50.265\">you</span> <span begin=\"3:50.265\" end=\"3:51.626\">are</span> <span begin=\"3:51.626\" end=\"3:52.365\">with</span></p><p begin=\"3:52.825\" end=\"3:56.997\" ttm:agent=\"v1\"><span begin=\"3:52.825\" end=\"3:53.414\">Floor</span> <span begin=\"3:53.414\" end=\"3:53.724\">col</span><span begin=\"3:53.724\" end=\"3:54.294\">laps</span><span begin=\"3:54.294\" end=\"3:54.917\">ing,</span> <span begin=\"3:54.917\" end=\"3:56.324\">float</span><span begin=\"3:56.324\" end=\"3:56.997\">ing</span></p><p begin=\"3:57.534\" end=\"3:59.495\" ttm:agent=\"v1\"><span begin=\"3:57.534\" end=\"3:58.066\">Bounc</span><span begin=\"3:58.066\" end=\"3:58.385\">ing</span> <span begin=\"3:58.385\" end=\"3:58.906\">back</span> <span begin=\"3:58.906\" end=\"3:59.495\">and</span></p><p begin=\"3:59.495\" end=\"4:07.775\" ttm:agent=\"v1\"><span begin=\"3:59.524\" end=\"4:00.972\">One</span> <span begin=\"4:00.972\" end=\"4:01.764\">day,</span> <span begin=\"4:02.145\" end=\"4:02.414\">I</span> <span begin=\"4:02.414\" end=\"4:02.974\">am</span> <span begin=\"4:02.974\" end=\"4:04.081\">gonna</span> <span begin=\"4:04.081\" end=\"4:05.474\">grow</span> <span begin=\"4:05.474\" end=\"4:06.104\">wings</span><span ttm:role=\"x-bg\"><span begin=\"3:59.495\" end=\"4:00.917\">(One</span> <span begin=\"4:00.917\" end=\"4:07.775\">day...)</span></span></p><p begin=\"4:06.443\" end=\"4:11.961\" ttm:agent=\"v1\"><span begin=\"4:06.443\" end=\"4:06.725\">A</span> <span begin=\"4:06.725\" end=\"4:07.006\">chem</span><span begin=\"4:07.006\" end=\"4:07.543\">i</span><span begin=\"4:07.543\" end=\"4:08.405\">cal</span> <span begin=\"4:08.405\" end=\"4:08.734\">re</span><span begin=\"4:08.734\" end=\"4:10.054\">ac</span><span begin=\"4:10.054\" end=\"4:10.804\">tion</span><span ttm:role=\"x-bg\"><span begin=\"4:07.474\" end=\"4:07.855\">(You</span> <span begin=\"4:07.855\" end=\"4:08.165\">know</span> <span begin=\"4:08.165\" end=\"4:08.455\">where</span> <span begin=\"4:08.455\" end=\"4:08.747\">you</span> <span begin=\"4:08.747\" end=\"4:11.961\">are)</span></span></p><p begin=\"4:11.037\" end=\"4:16.536\" ttm:agent=\"v1\"><span begin=\"4:11.037\" end=\"4:11.347\">Hys</span><span begin=\"4:11.347\" end=\"4:11.915\">ter</span><span begin=\"4:11.915\" end=\"4:12.197\">i</span><span begin=\"4:12.197\" end=\"4:12.717\">cal</span> <span begin=\"4:12.717\" end=\"4:13.324\">and</span> <span begin=\"4:13.324\" end=\"4:14.747\">use</span><span begin=\"4:14.747\" end=\"4:15.495\">less</span><span ttm:role=\"x-bg\"><span begin=\"4:12.216\" end=\"4:12.485\">(You</span> <span begin=\"4:12.485\" end=\"4:12.787\">know</span> <span begin=\"4:12.787\" end=\"4:13.067\">where</span> <span begin=\"4:13.067\" end=\"4:13.347\">you</span> <span begin=\"4:13.347\" end=\"4:16.536\">are)</span></span></p><p begin=\"4:15.705\" end=\"4:24.329\" ttm:agent=\"v1\"><span begin=\"4:15.705\" end=\"4:15.974\">Hys</span><span begin=\"4:15.974\" end=\"4:16.425\">ter</span><span begin=\"4:16.425\" end=\"4:16.785\">i</span><span begin=\"4:16.785\" end=\"4:17.355\">cal</span> <span begin=\"4:17.355\" end=\"4:18.214\">and</span><span ttm:role=\"x-bg\"><span begin=\"4:16.906\" end=\"4:17.154\">(You</span> <span begin=\"4:17.154\" end=\"4:17.456\">know</span> <span begin=\"4:17.456\" end=\"4:17.725\">where</span> <span begin=\"4:17.725\" end=\"4:17.975\">you</span> <span begin=\"4:17.975\" end=\"4:24.329\">are)</span></span></p><p begin=\"4:18.214\" end=\"4:24.512\" ttm:agent=\"v1\"><span begin=\"4:18.214\" end=\"4:19.055\">Let</span> <span begin=\"4:19.055\" end=\"4:19.615\">down</span> <span begin=\"4:19.615\" end=\"4:20.502\">and</span> <span begin=\"4:20.502\" end=\"4:21.076\">hang</span><span begin=\"4:21.076\" end=\"4:21.415\">ing</span> <span begin=\"4:21.415\" end=\"4:24.512\">around</span></p><p begin=\"4:25.185\" end=\"4:31.903\" ttm:agent=\"v1\"><span begin=\"4:25.185\" end=\"4:26.016\">Crushed</span> <span begin=\"4:26.016\" end=\"4:26.553\">like</span> <span begin=\"4:26.553\" end=\"4:27.233\">a</span> <span begin=\"4:27.576\" end=\"4:28.125\">bug</span> <span begin=\"4:28.125\" end=\"4:28.404\">in</span> <span begin=\"4:28.404\" end=\"4:28.682\">the</span> <span begin=\"4:28.682\" end=\"4:31.903\">ground</span></p><p begin=\"4:32.182\" end=\"4:36.773\" ttm:agent=\"v1\"><span begin=\"4:32.182\" end=\"4:32.942\">Let</span> <span begin=\"4:32.942\" end=\"4:33.553\">down</span> <span begin=\"4:33.553\" end=\"4:34.483\">and</span> <span begin=\"4:34.483\" end=\"4:35.033\">hang</span><span begin=\"4:35.033\" end=\"4:35.324\">ing</span> <span begin=\"4:35.324\" end=\"4:36.773\">around</span></p></div></body></tt>",
+    "format": "ttml",
+    "language": "en",
+    "syncType": "richsync",
+    "score": 81,
+    "effectiveScore": 1,
+    "voteCount": 89,
+    "confidence": "medium",
+    "hidden": false,
+    "submitter": {
+      "keyId": "fab15d119eab4904e78a836ffc8f1b83a902f595b20c3e28c4a71d01fca963f6",
+      "reputation": 2,
+      "displayName": "mukeenanyafiq",
+      "tier": "legendary",
+      "level": 7,
+      "badgeCount": 14,
+      "topBadge": {
+        "key": "verified-contributor",
+        "name": "Verified Contributor",
+        "tier": 3
+      },
+      "featured": [
+        {
+          "key": "committee",
+          "name": "Better Lyrics Council"
+        },
+        {
+          "key": "verified-contributor",
+          "name": "Verified Contributor",
+          "tier": 3
+        },
+        {
+          "key": "karaoke-master",
+          "name": "Karaoke Master",
+          "tier": 3
+        },
+        {
+          "key": "early-adopter",
+          "name": "Early Adopter"
+        },
+        {
+          "key": "most-loved",
+          "name": "Most Loved"
+        }
+      ],
+      "avatarUrl": "https://cdn.discordapp.com/avatars/910875892417441823/a_458cfbb413cee1f4ce3d9e8e1fbdd5b5.gif?size=128"
+    },
+    "marks": [
+      {
+        "type": "seal",
+        "label": "Better Lyrics Council Approved (BLCA)",
+        "icon": "/badges/committee/image.svg",
+        "by": {
+          "keyId": "a80e8e35cf2d400a2d6a52abb66118690f0c81a7bfad4c4a1603d61e85ae6ea2",
+          "displayName": "boidu",
+          "tier": "elite",
+          "level": 4,
+          "badgeCount": 12,
+          "topBadge": {
+            "key": "verified-contributor",
+            "name": "Verified Contributor",
+            "tier": 3
+          },
+          "featured": [
+            {
+              "key": "committee",
+              "name": "Better Lyrics Council"
+            },
+            {
+              "key": "early-adopter",
+              "name": "Early Adopter"
+            },
+            {
+              "key": "tastemaker",
+              "name": "Tastemaker",
+              "tier": 2
+            },
+            {
+              "key": "verified-contributor",
+              "name": "Verified Contributor",
+              "tier": 3
+            },
+            {
+              "key": "sharp-ear",
+              "name": "Sharp Ear",
+              "tier": 2
+            }
+          ],
+          "avatarUrl": "https://cdn.betterlyrics.org/avatars/face-paint.webp"
+        },
+        "at": 1788996013
+      }
+    ],
+    "userVote": null
+  }
+}

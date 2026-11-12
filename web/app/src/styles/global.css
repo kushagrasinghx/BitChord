@@ -1,0 +1,404 @@
+/*
+ * The app's one stylesheet. Components style themselves with Tailwind
+ * utilities; this file holds the theme they draw on, the design tokens and
+ * the element defaults.
+ *
+ * No preflight: the element defaults below are the app's own reset. Tokens
+ * and defaults live in the base layer, so any utility outranks them.
+ */
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import './tokens.css' layer(base);
+
+/* Tailwind's hover: is (hover: hover)-gated; the design's hovers aren't. */
+@custom-variant hover (&:hover);
+
+@theme {
+  /* The design is measured in px (web/docs/apple-music-dom.md): p-4 is 16px at any root font size. */
+  --spacing: 4px;
+
+  /* CSS's own keywords, as the design was written, not Tailwind's curves. */
+  --ease-*: initial;
+  --ease-in: ease-in;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --default-transition-timing-function: ease;
+  --default-transition-duration: 0.15s;
+
+  --breakpoint-*: initial;
+  --breakpoint-sm: 484px; /* below: phone, the sidebar becomes a drawer */
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1000px;
+
+  /* Film grain over the 2D mesh fallback (MeshBackdrop). */
+  --background-image-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  --animate-*: initial;
+  --animate-menu-in: menu-in 0.12s ease-out;
+  --animate-slide-in: slide-in var(--duration-panel) var(--ease-out-panel) forwards;
+  --animate-fade: fade 0.15s ease-out;
+  --animate-zoom: zoom 0.2s ease-out;
+  --animate-fade-in: fade-in 0.4s ease;
+  --animate-enter: enter 0.3s var(--ease-out-panel);
+  --animate-morph: morph 0.32s var(--ease-out-panel);
+  --animate-spin: spin 1s linear infinite;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-matching: matching 1.4s ease-in-out infinite alternate;
+
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes zoom {
+    from {
+      transform: scale(0.97);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: scale(1.02);
+    }
+  }
+  /* One label melting into the next, as the quality switcher's text changes. */
+  @keyframes morph {
+    from {
+      opacity: 0;
+      filter: blur(5px);
+      transform: scale(0.74);
+    }
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes matching {
+    to {
+      opacity: 0.7;
+    }
+  }
+}
+
+/*
+ * The tokens (tokens.css) as Tailwind colours, radii and easings. Inline, so
+ * a utility reads the token where it's used: tinted pages (data-tint) and
+ * the dark appearance redefine them below :root.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #fff;
+  --color-black: #000;
+
+  --color-page: var(--pageBG);
+  --color-primary: var(--systemPrimary);
+  --color-secondary: var(--systemSecondary);
+  --color-tertiary: var(--systemTertiary);
+  --color-quaternary: var(--systemQuaternary);
+  --color-quinary: var(--systemQuinary);
+  --color-primary-on-dark: var(--systemPrimary-onDark);
+  --color-secondary-on-dark: var(--systemSecondary-onDark);
+  --color-tertiary-on-dark: var(--systemTertiary-onDark);
+
+  --color-key: var(--keyColor);
+  --color-key-rollover: var(--keyColor-rollover);
+  --color-key-pressed: var(--keyColor-pressed);
+  --color-key-bg: var(--keyColorBG);
+
+  --color-red: var(--systemRed);
+  --color-green: var(--systemGreen);
+  --color-blue: var(--systemBlue);
+  --color-gray: var(--systemGray);
+  --color-gray-2: var(--systemGray2);
+  --color-gray-3: var(--systemGray3);
+  --color-gray-4: var(--systemGray4);
+  --color-gray-5: var(--systemGray5);
+  --color-gray-6: var(--systemGray6);
+
+  --color-divider: var(--labelDivider);
+  --color-vibrant-divider: var(--vibrantDivider);
+  --color-glass: var(--glassMaterialBackground);
+  --color-glass-shadow: var(--glassMaterialShadowColor);
+  --color-thin-material: var(--systemStandardThinMaterialSover);
+  --color-thick-material: var(--systemStandardThickMaterialSover);
+  --color-header-material: var(--systemHeaderMaterialSover);
+  --color-nav-selected: var(--navSidebarSelectedState);
+  --color-tracklist-hover: var(--tracklistHoverColor);
+  --color-shelf: var(--shelfBG);
+  --color-opaque-shelf: var(--opaqueShelfBG);
+  --color-lockup-hover: var(--lockupHoverBGColor);
+  --color-joe: var(--genericJoeColor);
+  --color-scrim: var(--modalScrimColor);
+  --color-search-border: var(--searchBarBorderColor);
+  --color-segmented: var(--segmentedControlBG);
+  --color-segmented-selected: var(--segmentedControlSelectedBG);
+  --color-pill: var(--button-pill-color);
+  --color-pill-bg: var(--button-pill-background-color);
+  --color-radiosity: var(--radiosityShadowColor);
+  --color-dialog-shadow: var(--dialogShadowColor);
+  --color-destructive: var(--contextMenuOverrideTextColor);
+  --color-skeleton: var(--skeleton-fill);
+  --color-skeleton-shimmer: var(--skeleton-shimmer);
+
+  --radius-*: initial;
+  --radius-artwork-sm: var(--radius-artwork-small);
+  --radius-artwork-md: var(--radius-artwork-medium);
+  --radius-artwork-lg: var(--radius-artwork-large);
+  --radius-nav: var(--radius-nav-item);
+  --radius-row: var(--radius-track-row);
+  --radius-pill: 1000px;
+  --radius-full: 50%;
+
+  --ease-panel: var(--ease-out-panel);
+
+  --shadow-*: initial;
+  --shadow-glass: 0 10px 40px var(--glassMaterialShadowColor);
+
+  --type-header-emphasized: var(--header-emphasized);
+  --type-large-title: var(--large-title);
+  --type-large-title-emphasized: var(--large-title-emphasized);
+  --type-title-1-emphasized: var(--title-1-emphasized);
+  --type-title-2: var(--title-2);
+  --type-title-2-emphasized: var(--title-2-emphasized);
+  --type-title-3: var(--title-3);
+  --type-title-3-emphasized: var(--title-3-emphasized);
+  --type-body: var(--body);
+  --type-body-emphasized: var(--body-emphasized);
+  --type-body-tall: var(--body-tall);
+  --type-headline: var(--headline);
+  --type-body-reduced: var(--body-reduced);
+  --type-callout: var(--callout);
+  --type-callout-medium: var(--callout-medium);
+  --type-callout-emphasized: var(--callout-emphasized);
+  --type-subhead-emphasized: var(--subhead-emphasized);
+  --type-caption-2: var(--caption-2);
+  --type-footnote: var(--footnote);
+}
+
+/*
+ * A type token from tokens.css (`type-body`), or a one-off `weight size/leading`
+ * in DM Sans (`type-[700_19px/24px]`). Either way the `font` shorthand, as the
+ * tokens are written.
+ */
+@utility type-* {
+  --tw-sort: font-family;
+  font: --value(--type-*);
+  font: --value([*]) var(--font-family);
+}
+
+/* Glass (report §1): the sidebar, the side panel and the phone's top bar. */
+@utility glass-material {
+  background-color: var(--glassMaterialBackground);
+  backdrop-filter: var(--glassMaterialBackdropFilter);
+}
+
+/* The player pill's glass: blurred fill and drop shadow (::before), 0.5px inner stroke (::after). */
+@utility glass-pill {
+  isolation: isolate;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  &::before {
+    z-index: -1;
+    background-color: var(--glassMaterialBackground);
+    backdrop-filter: saturate(2.2) blur(16px);
+    box-shadow: 0 10px 40px var(--glassMaterialShadowColor);
+  }
+
+  &::after {
+    box-shadow:
+      inset 0.5px 0.5px 0 var(--glassMaterialInnerStroke),
+      inset 0.5px -0.5px 0 var(--glassMaterialInnerStroke),
+      inset -0.5px 0.5px 0 var(--glassMaterialInnerStroke),
+      inset -0.5px -0.5px 0 var(--glassMaterialInnerStroke);
+    opacity: var(--glassMaterialInnerStrokeAlpha);
+  }
+}
+
+/* Artwork's 0.5px inner stroke (report §1, "Inner stroke"), Apple's "has-borders". */
+@utility artwork-stroke {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0.5px 0.5px 0 var(--containerInnerStroke),
+      inset 0.5px -0.5px 0 var(--containerInnerStroke),
+      inset -0.5px 0.5px 0 var(--containerInnerStroke),
+      inset -0.5px -0.5px 0 var(--containerInnerStroke);
+    opacity: var(--containerInnerStrokeAlpha);
+  }
+}
+
+/*
+ * Grouped settings rows: a hairline between two rows of the same kind, inset
+ * from the left by the value (to the text, past an icon).
+ */
+@utility hairline-* {
+  & + &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: --value([length]);
+    right: 0;
+    border-top: 0.5px solid var(--labelDivider);
+  }
+}
+
+/*
+ * The phone's lyric typeface (SF Pro Display, app/src/main/res/font), cut to
+ * Latin, Greek and Cyrillic. Other scripts fall through to DM Sans and the
+ * system fonts. Its own family name, so a copy installed on a Mac can't stand in.
+ */
+@font-face {
+  font-family: 'BitChord SF Pro Display';
+  src: url('../assets/fonts/sf-pro-display-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'BitChord SF Pro Display';
+  src: url('../assets/fonts/sf-pro-display-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    font: var(--body);
+    color: var(--systemPrimary);
+    background-color: var(--pageBG);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Apple's player is an app, not a document: no rubber-band on the page. */
+    overscroll-behavior: none;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  h1,
+  h2,
+  h3,
+  p,
+  ul,
+  ol,
+  figure {
+    margin: 0;
+    padding: 0;
+  }
+
+  ul,
+  ol {
+    list-style: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  ::selection {
+    background-color: rgba(var(--keyColor-rgb), 0.3);
+  }
+
+  /* No focus ring, for the mouse or the keyboard: the user asked for the key-colour box to go. */
+  :focus,
+  :focus-visible {
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

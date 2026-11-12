@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- More: the three dots the phone's player uses. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.6,12A1.8,1.8 0,1 1,4,12A1.8,1.8 0,1 1,7.6,12ZM13.8,12A1.8,1.8 0,1 1,10.2,12A1.8,1.8 0,1 1,13.8,12ZM20,12A1.8,1.8 0,1 1,16.4,12A1.8,1.8 0,1 1,20,12Z" />
+</vector>

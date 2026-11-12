@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.type.watch" />
+
+    <!-- Always-on: keeps the player up while the screen is dimmed. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- The watch-face icon while the phone plays (NowPlayingListener). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- The watch as the speaker: WatchPlaybackService plays on with the screen off. -->
+    <!-- Updates sent from the phone's "BitChord for Wear OS" settings (SelfUpdate). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!--
+      No INTERNET: everything this app knows comes from the phone over the
+      Wearable Data Layer, which Play services carries.
+    -->
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BitChordWear">
+
+        <!-- A remote for the phone app; it does nothing on its own. -->
+        <!-- AmbientLifecycleObserver drives always-on through the platform's wearable library. -->
+        <uses-library
+            android:name="com.google.android.wearable"
+            android:required="false" />
+
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
+
+        <activity
+            android:name=".WearActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+              Opened by the phone once it has sent an update, so the installer's
+              prompt is on screen rather than waiting in a notification the
+              watch may not alert for. The host is this build's own package, so
+              the dev and prod apps never open each other's.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="${applicationId}"
+                    android:path="/update"
+                    android:scheme="bitchord-wear" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Puts BitChord's own ongoing icon on the watch face while the phone
+          plays, so tapping it opens this app rather than the system's media
+          controller. Woken only by the phone's now-playing writes.
+        -->
+        <service
+            android:name=".data.NowPlayingListener"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:path="/bitchord/now_playing"
+                    android:scheme="wear" />
+            </intent-filter>
+            <!-- The phone driving this watch as its speaker (Speaker). -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/bitchord/speaker"
+                    android:scheme="wear" />
+            </intent-filter>
+            <!-- The phone's settings asking what is installed, and sending an update. -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/bitchord/watch"
+                    android:scheme="wear" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/bitchord/watch/apk"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".data.InstallResultReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".playback.WatchPlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

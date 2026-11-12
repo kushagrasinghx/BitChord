@@ -1,0 +1,12 @@
+# Baseline profile for the app's own code: ahead-of-time compilation for
+# everything under our packages, the way the Compose and Media3 libraries
+# already ship theirs. Without it our code starts every install interpreted
+# and JIT-compiled piece by piece, which is the first-launch and first-scroll
+# jank a release build still had.
+#
+# Wildcards rather than a recorded profile: recording one needs a macrobenchmark
+# run on an API 33+ or rooted device. This is a superset of any recorded journey
+# for our own code; the libraries' own profiles cover theirs.
+HSPLcom/music/bitchord/**->**(**)**
+HSPLcom/my/kizzy/**->**(**)**
+Lcom/music/bitchord/**;

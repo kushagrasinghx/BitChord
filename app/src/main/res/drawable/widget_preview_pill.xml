@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Picker artwork for the 4×1 widget, on hosts older than API 31. The capsule,
+  the placeholder cover, a bar standing in for the title, and the five glyphs.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="64dp"
+    android:viewportWidth="250"
+    android:viewportHeight="64">
+
+    <path
+        android:fillColor="#E6141619"
+        android:pathData="M32,0L218,0A32,32 0,0 1,218 64L32,64A32,32 0,0 1,32 0Z" />
+    <path
+        android:fillColor="#FF2E3446"
+        android:pathData="M32,6A26,26 0,1 1,32 58A26,26 0,1 1,32 6Z" />
+
+    <!-- Title. -->
+    <path android:pathData="M72,18L150,18" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="7" />
+
+    <!-- Like, previous, play, next, shuffle; each 24-unit glyph scaled to 20. -->
+    <group android:translateX="68" android:translateY="30" android:scaleX="0.83" android:scaleY="0.83">
+        <path android:pathData="M12,20C12,20 3.2,14.6 3.2,8.9A4.5,4.5 0,0 1,12 7.4A4.5,4.5 0,0 1,20.8 8.9C20.8,14.6 12,20 12,20Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+    </group>
+    <group android:translateX="103" android:translateY="30" android:scaleX="0.83" android:scaleY="0.83">
+        <path android:pathData="M7,7.4L7,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M16.6,7.7L16.6,16.3L10.7,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+    </group>
+    <group android:translateX="138" android:translateY="30" android:scaleX="0.83" android:scaleY="0.83">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M8.4,6.4L8.4,17.6L17.6,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.6" />
+    </group>
+    <group android:translateX="173" android:translateY="30" android:scaleX="0.83" android:scaleY="0.83">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M7.4,7.7L7.4,16.3L13.3,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+        <path android:pathData="M17,7.4L17,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+    </group>
+    <group android:translateX="208" android:translateY="30" android:scaleX="0.83" android:scaleY="0.83">
+        <path android:pathData="M3.4,7.4L7,7.4L16.6,16.6L20.6,16.6M18.1,14.1L20.6,16.6L18.1,19.1M3.4,16.6L7,16.6L9.8,13.9M13.9,10.1L16.6,7.4L20.6,7.4M18.1,4.9L20.6,7.4L18.1,9.9" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+    </group>
+</vector>

@@ -1,0 +1,366 @@
+{
+  "capturedAt": "2026-10-16T05:57:47.279Z",
+  "siteOrigin": "http://localhost:5173",
+  "captures": [
+    {
+      "file": "innertube/browse-album.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 237963,
+      "acao": null,
+      "ms": 323
+    },
+    {
+      "file": "innertube/browse-artist.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 573517,
+      "acao": null,
+      "ms": 436
+    },
+    {
+      "file": "innertube/browse-explore.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 819869,
+      "acao": null,
+      "ms": 1270
+    },
+    {
+      "file": "innertube/browse-home.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 173198,
+      "acao": null,
+      "ms": 402
+    },
+    {
+      "file": "innertube/browse-moods-and-genres.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 19669,
+      "acao": null,
+      "ms": 146
+    },
+    {
+      "file": "innertube/browse-new-releases.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 390405,
+      "acao": null,
+      "ms": 294
+    },
+    {
+      "file": "innertube/browse-playlist.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 177874,
+      "acao": null,
+      "ms": 308
+    },
+    {
+      "file": "innertube/next-radio.json",
+      "url": "https://music.youtube.com/youtubei/v1/next?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 555037,
+      "acao": null,
+      "ms": 607
+    },
+    {
+      "file": "innertube/player-web-remix-no-potoken.json",
+      "url": "https://music.youtube.com/youtubei/v1/player?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 5284,
+      "acao": null,
+      "ms": 186
+    },
+    {
+      "file": "innertube/search-albums.json",
+      "url": "https://music.youtube.com/youtubei/v1/search?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 180960,
+      "acao": null,
+      "ms": 546
+    },
+    {
+      "file": "innertube/search-all.json",
+      "url": "https://music.youtube.com/youtubei/v1/search?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 230482,
+      "acao": null,
+      "ms": 565
+    },
+    {
+      "file": "innertube/search-songs.json",
+      "url": "https://music.youtube.com/youtubei/v1/search?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 196276,
+      "acao": null,
+      "ms": 485
+    },
+    {
+      "file": "innertube/search-suggestions.json",
+      "url": "https://music.youtube.com/youtubei/v1/music/get_search_suggestions?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 45413,
+      "acao": null,
+      "ms": 136
+    },
+    {
+      "file": "lyrics/betterlyrics-portato.json",
+      "url": "https://lyrics-api.boidu.dev/qq/getLyrics?s=Let+Down&a=Radiohead&d=299&al=OK+Computer",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 4203,
+      "acao": "http://localhost:5173",
+      "ms": 76
+    },
+    {
+      "file": "lyrics/betterlyrics.json",
+      "url": "https://lyrics-api.boidu.dev/getLyrics?s=Let+Down&a=Radiohead&d=299&al=OK+Computer",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 19536,
+      "acao": "http://localhost:5173",
+      "ms": 246
+    },
+    {
+      "file": "lyrics/binilyrics.json",
+      "url": "https://lyrics-api.binimum.org/?track=Let+Down&artist=Radiohead&album=OK+Computer&duration=299",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 491,
+      "acao": "*",
+      "ms": 952
+    },
+    {
+      "file": "lyrics/genius-search.json",
+      "url": "https://genius.com/api/search/multi?q=Let+Down+Radiohead",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 23909,
+      "acao": null,
+      "ms": 144
+    },
+    {
+      "file": "lyrics/google-translate.json",
+      "url": "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=hi&dt=t&q=Let+down+and+hanging+around",
+      "method": "GET",
+      "status": 429,
+      "contentType": "text/html; charset=UTF-8",
+      "bytes": 1103,
+      "acao": null,
+      "ms": 4731
+    },
+    {
+      "file": "lyrics/kugou-download.json",
+      "url": "https://lyrics.kugou.com/download?fmt=lrc&id=328962711&accesskey=…&ver=1&client=pc",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json;charset=utf-8",
+      "bytes": 2016,
+      "acao": "acsing.kugou.com",
+      "ms": 104
+    },
+    {
+      "file": "lyrics/kugou-lyric-search.json",
+      "url": "https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=Radiohead+-+Let+Down&duration=299000",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json;charset=utf-8",
+      "bytes": 4858,
+      "acao": "acsing.kugou.com",
+      "ms": 341
+    },
+    {
+      "file": "lyrics/kugou-song-search.json",
+      "url": "https://mobileservice.kugou.com/api/v3/search/song?version=9108&plat=0&pagesize=8&showtype=0&keyword=Radiohead+-+Let+Down",
+      "method": "GET",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bytes": 212,
+      "acao": null,
+      "ms": 435
+    },
+    {
+      "file": "lyrics/lrc-red-document.ttml",
+      "url": "https://lrc.red/s/GBBKS1700111.ttml",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/ttml+xml; charset=utf-8",
+      "bytes": 13663,
+      "acao": "*",
+      "ms": 103
+    },
+    {
+      "file": "lyrics/lrc-red-search.json",
+      "url": "https://lrc.red/search.json?q=Let+Down+Radiohead",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 4763,
+      "acao": "*",
+      "ms": 131
+    },
+    {
+      "file": "lyrics/lrclib-get.json",
+      "url": "https://lrclib.net/api/get?track_name=Let+Down&artist_name=Radiohead&duration=299",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 7110,
+      "acao": "*",
+      "ms": 5012
+    },
+    {
+      "file": "lyrics/lrclib-search.json",
+      "url": "https://lrclib.net/api/search?track_name=Let+Down&artist_name=Radiohead",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 142505,
+      "acao": "*",
+      "ms": 4691
+    },
+    {
+      "file": "lyrics/lyricsplus-lyricsplus.prjktla.my.id.json",
+      "url": "https://lyricsplus.prjktla.my.id/v2/lyrics/get?title=Let+Down&artist=Radiohead&duration=299&album=OK+Computer&isrc=GBBKS1700111",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "bytes": 13680,
+      "acao": "*",
+      "ms": 283
+    },
+    {
+      "file": "lyrics/paxsenix-apple.json",
+      "url": "https://lyrics.paxsenix.org/apple-music/lyrics?id=1097861834&ttml=true",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 14556,
+      "acao": "*",
+      "ms": 3322
+    },
+    {
+      "file": "lyrics/simpmusic.json",
+      "url": "https://api-lyrics.simpmusic.org/v1/ZVgHPSyEIqk",
+      "method": "GET",
+      "status": 403,
+      "contentType": "text/html; charset=UTF-8",
+      "bytes": 4574,
+      "acao": null,
+      "ms": 281
+    },
+    {
+      "file": "lyrics/unison.json",
+      "url": "https://unison.boidu.dev/lyrics?song=Let+Down&artist=Radiohead&album=OK+Computer&duration=299",
+      "method": "GET",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 16816,
+      "acao": "http://localhost:5173",
+      "ms": 316
+    },
+    {
+      "file": "lyrics/youtube-music-lyrics-tab.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 1701,
+      "acao": null,
+      "ms": 143
+    },
+    {
+      "file": "spotify/canvas-anonymous.json",
+      "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 105,
+      "acao": "https://open.spotify.com",
+      "ms": 161
+    },
+    {
+      "file": "spotify/canvas-found.json",
+      "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 105,
+      "acao": "https://open.spotify.com",
+      "ms": 196
+    },
+    {
+      "file": "spotify/canvas.json",
+      "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 105,
+      "acao": "https://open.spotify.com",
+      "ms": 181
+    },
+    {
+      "file": "spotify/fetch-playlist.json",
+      "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 116852,
+      "acao": "https://open.spotify.com",
+      "ms": 451
+    },
+    {
+      "file": "spotify/search-track.json",
+      "url": "https://api.spotify.com/v1/search?q=Let+Down+Radiohead+OK+Computer&type=track&limit=5",
+      "method": "GET",
+      "status": 429,
+      "contentType": null,
+      "bytes": 80,
+      "acao": "https://open.spotify.com",
+      "ms": 4405
+    },
+    {
+      "file": "spotify/search-tracks.json",
+      "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json",
+      "bytes": 24462,
+      "acao": "https://open.spotify.com",
+      "ms": 405
+    }
+  ]
+}

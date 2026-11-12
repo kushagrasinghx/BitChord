@@ -1,0 +1,164 @@
+:root {
+  color-scheme: light dark;
+  --primary: #000000e0;
+  --secondary: #0000008f;
+  --group: #0000000d;
+  --divider: #00000026;
+  --key: #d60017;
+  --bg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #ffffffeb;
+    --secondary: #ffffffa3;
+    --group: #ffffff0d;
+    --divider: #ffffff1a;
+    --key: #fa586a;
+    --bg: #1f1f1f;
+  }
+}
+
+body {
+  width: 300px;
+  margin: 0;
+  padding: 16px;
+  font: 400 13px / 16px 'DM Sans', system-ui, sans-serif;
+  color: var(--primary);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.name {
+  font: 700 17px / 22px 'DM Sans', system-ui, sans-serif;
+}
+
+.version {
+  font-size: 12px;
+  color: var(--secondary);
+}
+
+.group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 10px;
+  background: var(--group);
+  overflow: hidden;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  padding: 11px 14px;
+  font-size: 14px;
+}
+
+.row + .row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  border-top: 0.5px solid var(--divider);
+}
+
+.value {
+  color: var(--secondary);
+}
+
+.site {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+  color: var(--key);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.site:hover {
+  text-decoration: underline;
+}
+
+.logo {
+  align-self: center;
+  border-radius: 6px;
+}
+
+.header {
+  gap: 8px;
+}
+
+.version {
+  margin-left: auto;
+}
+
+/* The YouTube Music row, once it has an account: avatar, name and handle, action. */
+.account {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--group);
+  object-fit: cover;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.who > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.detail {
+  font-size: 12px;
+  color: var(--secondary);
+}
+
+.action {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--group);
+  color: var(--key);
+  font: 600 12px / 16px 'DM Sans', system-ui, sans-serif;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.action:hover {
+  background: var(--divider);
+}
+
+/* Why the account couldn't be read, word for word, so a screenshot says it. */
+.problem {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--secondary);
+  word-break: break-word;
+}

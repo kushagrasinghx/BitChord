@@ -1,0 +1,19 @@
+{
+  "name": "bitchord-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @bitchord/app dev",
+    "dev:ext": "pnpm --filter @bitchord/extension dev",
+    "dev:ext:firefox": "pnpm --filter @bitchord/extension dev:firefox",
+    "build": "pnpm -r build",
+    "build:site": "pnpm --filter @bitchord/extension package && pnpm --filter @bitchord/app build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "fixtures": "node scripts/capture-fixtures.mjs"
+  }
+}

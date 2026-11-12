@@ -1,0 +1,1341 @@
+{
+  "type": "Word",
+  "KpoeTools": "1.0-LPlusBcknd",
+  "metadata": {
+    "source": "Lyrics+ (via Apple with QQ)",
+    "title": "Let Down",
+    "artist": "Radiohead",
+    "album": "OK Computer",
+    "songWriters": [
+      "Colin Greenwood",
+      "EOB",
+      "Jonny Greenwood",
+      "Philip Selway",
+      "Thom Yorke"
+    ],
+    "leadingSilence": "0.000",
+    "agents": {
+      "v1": {
+        "type": "person",
+        "name": "Radiohead",
+        "alias": "v1"
+      }
+    },
+    "songParts": [
+      {
+        "name": "Verse",
+        "time": 22038,
+        "duration": 37476,
+        "divIndex": 0
+      },
+      {
+        "name": "Chorus",
+        "time": 59516,
+        "duration": 18897,
+        "divIndex": 1
+      },
+      {
+        "name": "Verse",
+        "time": 90209,
+        "duration": 18913,
+        "divIndex": 2
+      },
+      {
+        "name": "PreChorus",
+        "time": 109122,
+        "duration": 18502,
+        "divIndex": 3
+      },
+      {
+        "name": "Chorus",
+        "time": 127624,
+        "duration": 19084,
+        "divIndex": 4
+      },
+      {
+        "name": "Bridge",
+        "time": 186363,
+        "duration": 28193,
+        "divIndex": 5
+      },
+      {
+        "name": "Verse",
+        "time": 221257,
+        "duration": 17623,
+        "divIndex": 6
+      },
+      {
+        "name": "PreChorus",
+        "time": 238880,
+        "duration": 19241,
+        "divIndex": 7
+      },
+      {
+        "name": "Chorus",
+        "time": 258121,
+        "duration": 18831,
+        "divIndex": 8
+      }
+    ],
+    "language": "en",
+    "totalDuration": "4:59.280"
+  },
+  "lyrics": [
+    {
+      "time": 22038,
+      "duration": 2021,
+      "text": "Transport",
+      "syllabus": [
+        {
+          "time": 22343,
+          "duration": 2130,
+          "text": "Transport"
+        }
+      ],
+      "element": {
+        "key": "L1",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 24384,
+      "duration": 4322,
+      "text": "Motorways and tram lines",
+      "syllabus": [
+        {
+          "time": 24473,
+          "duration": 1760,
+          "text": "Motorways "
+        },
+        {
+          "time": 26233,
+          "duration": 400,
+          "text": "and "
+        },
+        {
+          "time": 26633,
+          "duration": 2090,
+          "text": "tram lines"
+        }
+      ],
+      "element": {
+        "key": "L2",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 28914,
+      "duration": 4358,
+      "text": "Starting and then stopping",
+      "syllabus": [
+        {
+          "time": 29103,
+          "duration": 1000,
+          "text": "Starting "
+        },
+        {
+          "time": 30103,
+          "duration": 550,
+          "text": "and "
+        },
+        {
+          "time": 30653,
+          "duration": 510,
+          "text": "then "
+        },
+        {
+          "time": 31163,
+          "duration": 2210,
+          "text": "stopping"
+        }
+      ],
+      "element": {
+        "key": "L3",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 33715,
+      "duration": 4285,
+      "text": "Taking off and landing",
+      "syllabus": [
+        {
+          "time": 33843,
+          "duration": 930,
+          "text": "Taking "
+        },
+        {
+          "time": 34773,
+          "duration": 1119,
+          "text": "off "
+        },
+        {
+          "time": 35892,
+          "duration": 1290,
+          "text": "and "
+        },
+        {
+          "time": 37182,
+          "duration": 1140,
+          "text": "landing"
+        }
+      ],
+      "element": {
+        "key": "L4",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 38125,
+      "duration": 4628,
+      "text": "The emptiest of feelings",
+      "syllabus": [
+        {
+          "time": 38542,
+          "duration": 200,
+          "text": "The "
+        },
+        {
+          "time": 38742,
+          "duration": 1330,
+          "text": "emptiest "
+        },
+        {
+          "time": 40072,
+          "duration": 530,
+          "text": "of "
+        },
+        {
+          "time": 40602,
+          "duration": 2240,
+          "text": "feelings"
+        }
+      ],
+      "element": {
+        "key": "L5",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 43103,
+      "duration": 4223,
+      "text": "Disappointed people",
+      "syllabus": [
+        {
+          "time": 43262,
+          "duration": 2100,
+          "text": "Disappointed "
+        },
+        {
+          "time": 45362,
+          "duration": 2589,
+          "text": "people"
+        }
+      ],
+      "element": {
+        "key": "L6",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 47729,
+      "duration": 4255,
+      "text": "Clinging onto bottles",
+      "syllabus": [
+        {
+          "time": 47951,
+          "duration": 880,
+          "text": "Clinging "
+        },
+        {
+          "time": 48831,
+          "duration": 480,
+          "text": "on"
+        },
+        {
+          "time": 49311,
+          "duration": 660,
+          "text": "to "
+        },
+        {
+          "time": 49971,
+          "duration": 2260,
+          "text": "bottles"
+        }
+      ],
+      "element": {
+        "key": "L7",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 52279,
+      "duration": 7235,
+      "text": "When it comes it's so, so disappointing",
+      "syllabus": [
+        {
+          "time": 52601,
+          "duration": 320,
+          "text": "When "
+        },
+        {
+          "time": 52921,
+          "duration": 540,
+          "text": "it "
+        },
+        {
+          "time": 53461,
+          "duration": 760,
+          "text": "comes "
+        },
+        {
+          "time": 54221,
+          "duration": 360,
+          "text": "it's "
+        },
+        {
+          "time": 54581,
+          "duration": 1610,
+          "text": "so, "
+        },
+        {
+          "time": 56191,
+          "duration": 1210,
+          "text": "so "
+        },
+        {
+          "time": 57401,
+          "duration": 1690,
+          "text": "disappointing"
+        }
+      ],
+      "element": {
+        "key": "L8",
+        "singer": "v1",
+        "songPartIndex": 0
+      }
+    },
+    {
+      "time": 59516,
+      "duration": 5005,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 59641,
+          "duration": 1110,
+          "text": "Let "
+        },
+        {
+          "time": 60751,
+          "duration": 590,
+          "text": "down "
+        },
+        {
+          "time": 61341,
+          "duration": 850,
+          "text": "and "
+        },
+        {
+          "time": 62191,
+          "duration": 920,
+          "text": "hanging "
+        },
+        {
+          "time": 63111,
+          "duration": 850,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L9",
+        "singer": "v1",
+        "songPartIndex": 1
+      }
+    },
+    {
+      "time": 66627,
+      "duration": 5802,
+      "text": "Crushed like a bug in the ground",
+      "syllabus": [
+        {
+          "time": 66911,
+          "duration": 760,
+          "text": "Crushed "
+        },
+        {
+          "time": 67671,
+          "duration": 619,
+          "text": "like "
+        },
+        {
+          "time": 68290,
+          "duration": 940,
+          "text": "a "
+        },
+        {
+          "time": 69230,
+          "duration": 640,
+          "text": "bug "
+        },
+        {
+          "time": 69870,
+          "duration": 250,
+          "text": "in "
+        },
+        {
+          "time": 70120,
+          "duration": 240,
+          "text": "the "
+        },
+        {
+          "time": 70360,
+          "duration": 1750,
+          "text": "ground"
+        }
+      ],
+      "element": {
+        "key": "L10",
+        "singer": "v1",
+        "songPartIndex": 1
+      }
+    },
+    {
+      "time": 73740,
+      "duration": 4673,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 74020,
+          "duration": 700,
+          "text": "Let "
+        },
+        {
+          "time": 74720,
+          "duration": 760,
+          "text": "down "
+        },
+        {
+          "time": 75480,
+          "duration": 520,
+          "text": "and "
+        },
+        {
+          "time": 76000,
+          "duration": 1160,
+          "text": "hanging "
+        },
+        {
+          "time": 77160,
+          "duration": 960,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L11",
+        "singer": "v1",
+        "songPartIndex": 1
+      }
+    },
+    {
+      "time": 90209,
+      "duration": 4560,
+      "text": "Shell smashed, juices flowing",
+      "syllabus": [
+        {
+          "time": 90434,
+          "duration": 1010,
+          "text": "Shell "
+        },
+        {
+          "time": 91444,
+          "duration": 1280,
+          "text": "smashed, "
+        },
+        {
+          "time": 92724,
+          "duration": 920,
+          "text": "juices "
+        },
+        {
+          "time": 93644,
+          "duration": 1130,
+          "text": "flowing"
+        }
+      ],
+      "element": {
+        "key": "L12",
+        "singer": "v1",
+        "songPartIndex": 2
+      }
+    },
+    {
+      "time": 94769,
+      "duration": 4664,
+      "text": "Wings twitch, legs are going",
+      "syllabus": [
+        {
+          "time": 95024,
+          "duration": 1220,
+          "text": "Wings "
+        },
+        {
+          "time": 96244,
+          "duration": 1200,
+          "text": "twitch, "
+        },
+        {
+          "time": 97444,
+          "duration": 540,
+          "text": "legs "
+        },
+        {
+          "time": 97984,
+          "duration": 360,
+          "text": "are "
+        },
+        {
+          "time": 98344,
+          "duration": 1000,
+          "text": "going"
+        }
+      ],
+      "element": {
+        "key": "L13",
+        "singer": "v1",
+        "songPartIndex": 2
+      }
+    },
+    {
+      "time": 99433,
+      "duration": 4701,
+      "text": "Don't get sentimental",
+      "syllabus": [
+        {
+          "time": 99604,
+          "duration": 1290,
+          "text": "Don't "
+        },
+        {
+          "time": 100894,
+          "duration": 1190,
+          "text": "get "
+        },
+        {
+          "time": 102084,
+          "duration": 2280,
+          "text": "sentimental"
+        }
+      ],
+      "element": {
+        "key": "L14",
+        "singer": "v1",
+        "songPartIndex": 2
+      }
+    },
+    {
+      "time": 104144,
+      "duration": 4978,
+      "text": "It always ends up drivel",
+      "syllabus": [
+        {
+          "time": 104364,
+          "duration": 1680,
+          "text": "It "
+        },
+        {
+          "time": 106044,
+          "duration": 720,
+          "text": "always "
+        },
+        {
+          "time": 106764,
+          "duration": 470,
+          "text": "ends "
+        },
+        {
+          "time": 107234,
+          "duration": 440,
+          "text": "up "
+        },
+        {
+          "time": 107674,
+          "duration": 1160,
+          "text": "drivel"
+        }
+      ],
+      "element": {
+        "key": "L15",
+        "singer": "v1",
+        "songPartIndex": 2
+      }
+    },
+    {
+      "time": 109122,
+      "duration": 6431,
+      "text": "One day, I am gonna grow wings",
+      "syllabus": [
+        {
+          "time": 109264,
+          "duration": 1020,
+          "text": "One "
+        },
+        {
+          "time": 110284,
+          "duration": 1200,
+          "text": "day, "
+        },
+        {
+          "time": 111484,
+          "duration": 830,
+          "text": "I "
+        },
+        {
+          "time": 112314,
+          "duration": 366,
+          "text": "am ",
+          "synthetic": true
+        },
+        {
+          "time": 112680,
+          "duration": 914,
+          "text": "gonna ",
+          "synthetic": true
+        },
+        {
+          "time": 113594,
+          "duration": 1340,
+          "text": "grow "
+        },
+        {
+          "time": 114934,
+          "duration": 670,
+          "text": "wings"
+        }
+      ],
+      "element": {
+        "key": "L16",
+        "singer": "v1",
+        "songPartIndex": 3
+      }
+    },
+    {
+      "time": 115777,
+      "duration": 4383,
+      "text": "A chemical reaction",
+      "syllabus": [
+        {
+          "time": 116094,
+          "duration": 150,
+          "text": "A "
+        },
+        {
+          "time": 116244,
+          "duration": 1880,
+          "text": "chemical "
+        },
+        {
+          "time": 118124,
+          "duration": 2150,
+          "text": "reaction"
+        }
+      ],
+      "element": {
+        "key": "L17",
+        "singer": "v1",
+        "songPartIndex": 3
+      }
+    },
+    {
+      "time": 120361,
+      "duration": 4553,
+      "text": "Hysterical and useless",
+      "syllabus": [
+        {
+          "time": 120594,
+          "duration": 2050,
+          "text": "Hysterical "
+        },
+        {
+          "time": 122644,
+          "duration": 400,
+          "text": "and "
+        },
+        {
+          "time": 123044,
+          "duration": 1970,
+          "text": "useless"
+        }
+      ],
+      "element": {
+        "key": "L18",
+        "singer": "v1",
+        "songPartIndex": 3
+      }
+    },
+    {
+      "time": 125060,
+      "duration": 2564,
+      "text": "Hysterical and",
+      "syllabus": [
+        {
+          "time": 125334,
+          "duration": 1709,
+          "text": "Hysterical "
+        },
+        {
+          "time": 127043,
+          "duration": 670,
+          "text": "and"
+        }
+      ],
+      "element": {
+        "key": "L19",
+        "singer": "v1",
+        "songPartIndex": 3
+      }
+    },
+    {
+      "time": 127624,
+      "duration": 6525,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 127713,
+          "duration": 870,
+          "text": "Let "
+        },
+        {
+          "time": 128583,
+          "duration": 820,
+          "text": "down "
+        },
+        {
+          "time": 129403,
+          "duration": 740,
+          "text": "and "
+        },
+        {
+          "time": 130143,
+          "duration": 860,
+          "text": "hanging "
+        },
+        {
+          "time": 131003,
+          "duration": 1570,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L20",
+        "singer": "v1",
+        "songPartIndex": 4
+      }
+    },
+    {
+      "time": 134635,
+      "duration": 6863,
+      "text": "Crushed like a bug in the ground",
+      "syllabus": [
+        {
+          "time": 134943,
+          "duration": 670,
+          "text": "Crushed "
+        },
+        {
+          "time": 135613,
+          "duration": 720,
+          "text": "like "
+        },
+        {
+          "time": 136333,
+          "duration": 920,
+          "text": "a "
+        },
+        {
+          "time": 137253,
+          "duration": 640,
+          "text": "bug "
+        },
+        {
+          "time": 137893,
+          "duration": 210,
+          "text": "in "
+        },
+        {
+          "time": 138103,
+          "duration": 220,
+          "text": "the "
+        },
+        {
+          "time": 138323,
+          "duration": 2350,
+          "text": "ground"
+        }
+      ],
+      "element": {
+        "key": "L21",
+        "singer": "v1",
+        "songPartIndex": 4
+      }
+    },
+    {
+      "time": 141742,
+      "duration": 4966,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 141853,
+          "duration": 780,
+          "text": "Let "
+        },
+        {
+          "time": 142633,
+          "duration": 720,
+          "text": "down "
+        },
+        {
+          "time": 143353,
+          "duration": 590,
+          "text": "and "
+        },
+        {
+          "time": 143943,
+          "duration": 1050,
+          "text": "hanging "
+        },
+        {
+          "time": 144993,
+          "duration": 1779,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L22",
+        "singer": "v1",
+        "songPartIndex": 4
+      }
+    },
+    {
+      "time": 186363,
+      "duration": 6334,
+      "text": "Let down again",
+      "syllabus": [
+        {
+          "time": 187022,
+          "duration": 580,
+          "text": "Let "
+        },
+        {
+          "time": 187602,
+          "duration": 840,
+          "text": "down "
+        },
+        {
+          "time": 188442,
+          "duration": 4290,
+          "text": "again"
+        }
+      ],
+      "element": {
+        "key": "L23",
+        "singer": "v1",
+        "songPartIndex": 5
+      }
+    },
+    {
+      "time": 195778,
+      "duration": 7267,
+      "text": "Let down",
+      "syllabus": [
+        {
+          "time": 196252,
+          "duration": 680,
+          "text": "Let "
+        },
+        {
+          "time": 196932,
+          "duration": 1080,
+          "text": "down"
+        }
+      ],
+      "element": {
+        "key": "L24",
+        "singer": "v1",
+        "songPartIndex": 5
+      }
+    },
+    {
+      "time": 205217,
+      "duration": 9339,
+      "text": "Let down",
+      "syllabus": [
+        {
+          "time": 205741,
+          "duration": 460,
+          "text": "Let "
+        },
+        {
+          "time": 206201,
+          "duration": 1600,
+          "text": "down"
+        }
+      ],
+      "element": {
+        "key": "L25",
+        "singer": "v1",
+        "songPartIndex": 5
+      }
+    },
+    {
+      "time": 221257,
+      "duration": 2008,
+      "text": "You know",
+      "syllabus": [
+        {
+          "time": 221821,
+          "duration": 929,
+          "text": "You "
+        },
+        {
+          "time": 222750,
+          "duration": 950,
+          "text": "know"
+        }
+      ],
+      "element": {
+        "key": "L26",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 223574,
+      "duration": 4218,
+      "text": "You know where you are with",
+      "syllabus": [
+        {
+          "time": 223700,
+          "duration": 179,
+          "text": "You "
+        },
+        {
+          "time": 223879,
+          "duration": 710,
+          "text": "know "
+        },
+        {
+          "time": 224589,
+          "duration": 810,
+          "text": "where "
+        },
+        {
+          "time": 225399,
+          "duration": 460,
+          "text": "you "
+        },
+        {
+          "time": 225859,
+          "duration": 1249,
+          "text": "are "
+        },
+        {
+          "time": 227108,
+          "duration": 850,
+          "text": "with"
+        }
+      ],
+      "element": {
+        "key": "L27",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 228128,
+      "duration": 4101,
+      "text": "You know where you are with",
+      "syllabus": [
+        {
+          "time": 228378,
+          "duration": 230,
+          "text": "You "
+        },
+        {
+          "time": 228608,
+          "duration": 540,
+          "text": "know "
+        },
+        {
+          "time": 229148,
+          "duration": 870,
+          "text": "where "
+        },
+        {
+          "time": 230018,
+          "duration": 290,
+          "text": "you "
+        },
+        {
+          "time": 230308,
+          "duration": 1370,
+          "text": "are "
+        },
+        {
+          "time": 231678,
+          "duration": 800,
+          "text": "with"
+        }
+      ],
+      "element": {
+        "key": "L28",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 232688,
+      "duration": 2139,
+      "text": "Floor collapsing",
+      "syllabus": [
+        {
+          "time": 232958,
+          "duration": 509,
+          "text": "Floor "
+        },
+        {
+          "time": 233467,
+          "duration": 1110,
+          "text": "collapsing"
+        }
+      ],
+      "element": {
+        "key": "L29",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 234834,
+      "duration": 2187,
+      "text": "Floating",
+      "syllabus": [
+        {
+          "time": 235107,
+          "duration": 2410,
+          "text": "Floating"
+        }
+      ],
+      "element": {
+        "key": "L30",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 237370,
+      "duration": 1510,
+      "text": "Bouncing back",
+      "syllabus": [
+        {
+          "time": 237517,
+          "duration": 999,
+          "text": "Bouncing "
+        },
+        {
+          "time": 238516,
+          "duration": 470,
+          "text": "back"
+        }
+      ],
+      "element": {
+        "key": "L31",
+        "singer": "v1",
+        "songPartIndex": 6
+      }
+    },
+    {
+      "time": 238880,
+      "duration": 7340,
+      "text": "And one day, I am gonna grow wings",
+      "syllabus": [
+        {
+          "time": 239216,
+          "duration": 370,
+          "text": "And "
+        },
+        {
+          "time": 239586,
+          "duration": 1479,
+          "text": "one "
+        },
+        {
+          "time": 241065,
+          "duration": 580,
+          "text": "day, "
+        },
+        {
+          "time": 242145,
+          "duration": 440,
+          "text": "I "
+        },
+        {
+          "time": 242585,
+          "duration": 190,
+          "text": "am "
+        },
+        {
+          "time": 242775,
+          "duration": 1759,
+          "text": "gonna ",
+          "synthetic": true
+        },
+        {
+          "time": 244534,
+          "duration": 880,
+          "text": "grow "
+        },
+        {
+          "time": 245414,
+          "duration": 730,
+          "text": "wings"
+        }
+      ],
+      "element": {
+        "key": "L32",
+        "singer": "v1",
+        "songPartIndex": 7
+      }
+    },
+    {
+      "time": 246292,
+      "duration": 4413,
+      "text": "A chemical reaction",
+      "syllabus": [
+        {
+          "time": 246584,
+          "duration": 160,
+          "text": "A "
+        },
+        {
+          "time": 246744,
+          "duration": 1810,
+          "text": "chemical "
+        },
+        {
+          "time": 248554,
+          "duration": 2230,
+          "text": "reaction"
+        }
+      ],
+      "element": {
+        "key": "L33",
+        "singer": "v1",
+        "songPartIndex": 7
+      }
+    },
+    {
+      "time": 250897,
+      "duration": 4430,
+      "text": "Hysterical and useless",
+      "syllabus": [
+        {
+          "time": 251104,
+          "duration": 2150,
+          "text": "Hysterical "
+        },
+        {
+          "time": 253254,
+          "duration": 280,
+          "text": "and "
+        },
+        {
+          "time": 253534,
+          "duration": 1790,
+          "text": "useless"
+        }
+      ],
+      "element": {
+        "key": "L34",
+        "singer": "v1",
+        "songPartIndex": 7
+      }
+    },
+    {
+      "time": 255529,
+      "duration": 2592,
+      "text": "Hysterical and",
+      "syllabus": [
+        {
+          "time": 255774,
+          "duration": 1880,
+          "text": "Hysterical "
+        },
+        {
+          "time": 257654,
+          "duration": 690,
+          "text": "and"
+        }
+      ],
+      "element": {
+        "key": "L35",
+        "singer": "v1",
+        "songPartIndex": 7
+      }
+    },
+    {
+      "time": 258121,
+      "duration": 6731,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 258344,
+          "duration": 820,
+          "text": "Let "
+        },
+        {
+          "time": 259164,
+          "duration": 770,
+          "text": "down "
+        },
+        {
+          "time": 259934,
+          "duration": 500,
+          "text": "and "
+        },
+        {
+          "time": 260434,
+          "duration": 1050,
+          "text": "hanging "
+        },
+        {
+          "time": 261484,
+          "duration": 750,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L36",
+        "singer": "v1",
+        "songPartIndex": 8
+      }
+    },
+    {
+      "time": 265065,
+      "duration": 6938,
+      "text": "Crushed like a bug in the ground",
+      "syllabus": [
+        {
+          "time": 265154,
+          "duration": 910,
+          "text": "Crushed "
+        },
+        {
+          "time": 266064,
+          "duration": 820,
+          "text": "like "
+        },
+        {
+          "time": 266884,
+          "duration": 730,
+          "text": "a "
+        },
+        {
+          "time": 267614,
+          "duration": 680,
+          "text": "bug "
+        },
+        {
+          "time": 268294,
+          "duration": 180,
+          "text": "in "
+        },
+        {
+          "time": 268474,
+          "duration": 340,
+          "text": "the "
+        },
+        {
+          "time": 268814,
+          "duration": 3170,
+          "text": "ground"
+        }
+      ],
+      "element": {
+        "key": "L37",
+        "singer": "v1",
+        "songPartIndex": 8
+      }
+    },
+    {
+      "time": 272082,
+      "duration": 4870,
+      "text": "Let down and hanging around",
+      "syllabus": [
+        {
+          "time": 272494,
+          "duration": 500,
+          "text": "Let "
+        },
+        {
+          "time": 272994,
+          "duration": 790,
+          "text": "down "
+        },
+        {
+          "time": 273784,
+          "duration": 470,
+          "text": "and "
+        },
+        {
+          "time": 274254,
+          "duration": 1010,
+          "text": "hanging "
+        },
+        {
+          "time": 275264,
+          "duration": 1980,
+          "text": "around"
+        }
+      ],
+      "element": {
+        "key": "L38",
+        "singer": "v1",
+        "songPartIndex": 8
+      }
+    }
+  ],
+  "cached": "None",
+  "processingTime": {
+    "timeElapsed": 2494,
+    "lastProcessed": 1792061307173,
+    "totalElapsedMs": 2494,
+    "winnerSource": "qaple",
+    "syncPriority": 3,
+    "sourcesStatus": {
+      "apple": {
+        "status": "OK",
+        "elapsedMs": 203
+      },
+      "lyricsplus": {
+        "status": "OK",
+        "elapsedMs": 2493
+      }
+    },
+    "selectedSongMetadata": {
+      "source": "Apple",
+      "title": "Let Down (Remastered)",
+      "artist": "Radiohead",
+      "album": "OK Computer OKNOTOK 1997 2017",
+      "duration": 299.28,
+      "songISRC": "GBBKS1700111",
+      "songPlatformId": "1239489067"
+    }
+  }
+}

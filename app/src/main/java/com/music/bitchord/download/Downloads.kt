@@ -17,7 +17,9 @@ import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
+import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
@@ -160,6 +162,10 @@ object Downloads {
      * acknowledges it is what made a batch feel like a freeze.
      */
     private val enqueueScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Exposed so a regression test can prove enqueue never moves work back to Main. */
+    internal val enqueueDispatcher: CoroutineDispatcher
+        get() = enqueueScope.coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)

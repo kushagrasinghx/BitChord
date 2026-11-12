@@ -1439,9 +1439,9 @@
     <string name="mcp_playlist_read">Çalma listelerini okuma</string>
     <string name="mcp_playlist_create">Çalma listesi oluşturma</string>
     <string name="mcp_playlist_write">Çalma listelerini düzenleme</string>
-    <string name="mcp_playlists">İzin verilen yerel çalma listeleri</string>
+    <string name="mcp_playlists">İzin verilen çalma listeleri</string>
     <string name="mcp_playlist_hint">Okuma ve düzenleme için yukarıdaki ilgili izin de gereklidir. Yeni listelere otomatik izin verilmez.</string>
-    <string name="mcp_no_playlists">Yerel çalma listesi yok.</string>
+    <string name="mcp_no_playlists">Yüklenen kaynaklarda çalma listesi yok.</string>
     <string name="mcp_lan_title">Şifrelenmemiş yerel ağ erişimine izin verilsin mi?</string>
     <string name="mcp_lan_body">Anahtar ve müzik verileri şifrelenmemiş HTTP ile aktarılır. Yalnızca güvenilir özel ağ kullanın. 8765 portunu internete yönlendirmeyin. Telefondaki yapay zekâ için yerel ağ erişimi gerekmez.</string>
     <string name="mcp_allow_lan">Yerel ağa izin ver</string>
@@ -1454,7 +1454,7 @@
     <string name="mcp_playlist_mode">Çalma listesi erişim modu</string>
     <string name="mcp_allowlist">İzin listesi</string>
     <string name="mcp_blocklist">Engel listesi</string>
-    <string name="mcp_blocked_playlists">Engellenen yerel çalma listeleri</string>
+    <string name="mcp_blocked_playlists">Engellenen çalma listeleri</string>
     <string name="mcp_blocklist_hint">Seçili listeler engellenir. Gelecekte oluşturulanlar dahil diğer tüm listelere yukarıdaki ilgili izinlerle erişilebilir. Her mod kendi seçimlerini korur.</string>
     <string name="mcp_blocklist_title">Engel listesi modu etkinleştirilsin mi?</string>
     <string name="mcp_blocklist_warning">Engel listesinde seçili olmayan tüm listelere, gelecekte oluşturulacaklar dahil, erişilebilecek. İlgili okuma/yazma izinleri yine gereklidir. Yalnızca bu geniş erişimi kabul ediyorsanız etkinleştirin.</string>
@@ -1466,6 +1466,18 @@
     <string name="mcp_playlist_search">Çalma listesi adı ara</string>
     <string name="mcp_select_all">Tümünü seç</string>
     <string name="mcp_deselect_all">Tümünün seçimini kaldır</string>
-    <string name="mcp_select_all_hint">Bu moddaki tüm çalma listelerine uygulanır; yalnızca arama sonuçlarına değil.</string>
+    <string name="mcp_select_all_hint">Bu modda yüklenmiş tüm çalma listelerine uygulanır; yalnızca arama sonuçlarına değil.</string>
     <string name="mcp_playlist_no_matches">Aramayla eşleşen çalma listesi yok.</string>
+    <string name="mcp_catalog_loading">Çalma listesi kaynakları yükleniyor…</string>
+    <string name="mcp_catalog_denied">Çalma listelerine erişim için yetkilendirme gerekli</string>
+    <string name="mcp_catalog_error">Bazı çalma listesi kaynakları yüklenemedi</string>
+    <string name="mcp_catalog_incomplete">Liste eksik olabilir. Hesap erişiminizi kontrol edip yeniden deneyin. Mevcut seçimler korunur.</string>
+    <string name="mcp_catalog_retry">Listeleri yenile / Yeniden dene</string>
+    <string name="mcp_source_local">Yerel müzik</string>
+    <string name="mcp_read_only">Salt okunur</string>
+    <string name="mcp_catalog_youtube_error">YouTube Music çalma listeleri yüklenemedi</string>
+    <string name="mcp_catalog_spotify_error">Spotify çalma listeleri yüklenemedi</string>
+    <string name="mcp_source_offline">Çevrimdışı kitaplık</string>
+    <string name="mcp_source_youtube">YouTube Music</string>
+    <string name="mcp_source_spotify">Spotify</string>
 </resources>

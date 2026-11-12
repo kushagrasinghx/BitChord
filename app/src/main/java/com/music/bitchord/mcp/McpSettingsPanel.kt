@@ -22,7 +22,15 @@ import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.RowDivider
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.CancellationException
 import com.music.bitchord.data.spotify.LocalPlaylistStore
+import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.ui.components.IosSwitch
 
 @Composable
@@ -30,7 +38,43 @@ fun McpSettingsPanel() {
     val context = LocalContext.current
     remember(context) { McpSettings.init(context); true }
     val status by McpServer.status.collectAsStateWithLifecycle()
-    val playlists by LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
+    val localPlaylists by LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
+    val offlinePlaylists by OfflinePlaylists.playlists.collectAsStateWithLifecycle()
+    val catalogWarnings by McpPlaylistCatalog.warnings.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var catalog by remember { mutableStateOf<List<McpPlaylistEntry>>(emptyList()) }
+    var catalogLoading by remember { mutableStateOf(true) }
+    var catalogFailure by remember { mutableStateOf(false) }
+    var catalogDenied by remember { mutableStateOf(false) }
+    var refreshCatalog by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lifecycleOwner, refreshCatalog) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // Never display remote names from a previous account during refresh.
+            catalog = emptyList()
+            catalogLoading = true
+            catalogFailure = false
+            catalogDenied = false
+            try {
+                catalog = withContext(Dispatchers.IO) { McpPlaylistCatalog.load(context.applicationContext) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: SecurityException) {
+                catalogDenied = true
+            } catch (_: Exception) {
+                catalogFailure = true
+            } finally {
+                catalogLoading = false
+            }
+            // Relaunch on every resume, not continuously while the screen is visible.
+            awaitCancellation()
+        }
+    }
+    val playlists = remember(catalog, localPlaylists, offlinePlaylists) {
+        val localEntries = localPlaylists.map { McpPlaylistEntry(it.id, it.title, "local", false) }
+        val offlineEntries = offlinePlaylists.map { McpPlaylistEntry(it.browseId, it.title, "offline", true) }
+        (localEntries + offlineEntries + catalog.filterNot { it.source in setOf("local", "offline") })
+            .distinctBy { it.id }
+    }
     var playlistQuery by rememberSaveable { mutableStateOf("") }
     val locale = LocalConfiguration.current.locales[0]
     var revision by remember { mutableIntStateOf(0) }
@@ -184,16 +228,54 @@ fun McpSettingsPanel() {
                         )
                     },
                 )
-                if (playlists.isEmpty()) {
+                if (catalogLoading) {
+                    RowDivider()
+                    SettingsRow(title = stringResource(R.string.mcp_catalog_loading), trailing = {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                    })
+                }
+                if (catalogDenied || catalogFailure) {
+                    RowDivider()
+                    SettingsRow(
+                        title = stringResource(if (catalogDenied) R.string.mcp_catalog_denied else R.string.mcp_catalog_error),
+                        subtitle = stringResource(R.string.mcp_catalog_incomplete),
+                    )
+                }
+                if (!catalogLoading) catalogWarnings.distinct().forEach { warning ->
+                    RowDivider()
+                    val warningLabel = when (warning) {
+                        "youtube_catalog_unavailable" -> R.string.mcp_catalog_youtube_error
+                        "spotify_catalog_unavailable" -> R.string.mcp_catalog_spotify_error
+                        else -> R.string.mcp_catalog_error
+                    }
+                    SettingsRow(title = stringResource(warningLabel), subtitle = stringResource(R.string.mcp_catalog_incomplete))
+                }
+                RowDivider()
+                SettingsRow(
+                    title = stringResource(R.string.mcp_catalog_retry),
+                    enabled = !catalogLoading,
+                    onClick = { refreshCatalog++ },
+                )
+                if (playlists.isEmpty() && !catalogLoading && !catalogFailure && !catalogDenied && catalogWarnings.isEmpty()) {
                     RowDivider()
                     SettingsRow(title = stringResource(R.string.mcp_no_playlists))
-                } else if (filteredPlaylists.isEmpty()) {
+                } else if (playlists.isNotEmpty() && filteredPlaylists.isEmpty()) {
                     RowDivider()
                     SettingsRow(title = stringResource(R.string.mcp_playlist_no_matches))
                 }
                 filteredPlaylists.forEach { playlist ->
                     RowDivider()
-                    McpToggle(playlist.title, playlist.id in selection.selectedIds) {
+                    val sourceLabel = when (playlist.source.lowercase(java.util.Locale.ROOT)) {
+                        "local" -> stringResource(R.string.mcp_source_local)
+                        "offline" -> stringResource(R.string.mcp_source_offline)
+                        "youtube" -> stringResource(R.string.mcp_source_youtube)
+                        "spotify" -> stringResource(R.string.mcp_source_spotify)
+                        else -> playlist.source
+                    }
+                    val playlistSubtitle = if (playlist.readOnly) {
+                        "$sourceLabel · ${stringResource(R.string.mcp_read_only)}"
+                    } else sourceLabel
+                    McpToggle(playlist.title, playlist.id in selection.selectedIds, subtitle = playlistSubtitle) {
                         McpSettings.setPlaylistSelected(playlist.id, it); revision++
                     }
                 }

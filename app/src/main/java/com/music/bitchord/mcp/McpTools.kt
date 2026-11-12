@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
@@ -45,8 +46,8 @@ object McpTools {
         Tool("resume", "playback", "Resume the current queue"),
         Tool("seek", "seek", "Seek within the current track in milliseconds", mapOf("position_ms" to "integer"), listOf("position_ms")),
         Tool("search", "search", "Search YouTube Music songs", mapOf("query" to "string", "limit" to "integer"), listOf("query")),
-        Tool("playlist_list", "playlist_read", "List only explicitly allowed local playlists"),
-        Tool("playlist_read", "playlist_read", "Read an explicitly allowed local playlist", mapOf("playlist_id" to "string", "offset" to "integer", "limit" to "integer"), listOf("playlist_id")),
+        Tool("playlist_list", "playlist_read", "List allowed local and current-account YouTube playlists"),
+        Tool("playlist_read", "playlist_read", "Read an allowed local or account-scoped YouTube playlist", mapOf("playlist_id" to "string", "offset" to "integer", "limit" to "integer"), listOf("playlist_id")),
         Tool("playlist_create", "playlist_create", "Create an empty local playlist and automatically grant playlist access; global read/write permissions still apply", mapOf("title" to "string"), listOf("title")),
         Tool("playlist_add", "playlist_write", "Append a YouTube catalogue track to an allowed local playlist", mapOf("playlist_id" to "string", "video_id" to "string"), listOf("playlist_id", "video_id")),
         Tool("playlist_remove", "playlist_write", "Remove one occurrence by zero-based index from an allowed local playlist", mapOf("playlist_id" to "string", "index" to "integer"), listOf("playlist_id", "index")),
@@ -82,12 +83,22 @@ object McpTools {
             if (id != null && !McpSettings.playlistAllowed(id))
                 result = error("permission_denied", "Playlist permission was revoked")
         }
+        if (name == "playlist_read") {
+            val id = (args["playlist_id"] as? JsonPrimitive)?.content
+            if (id != null && McpPlaylistCatalog.isRemote(id)) {
+                try { McpPlaylistCatalog.remoteBrowseId(context, id) }
+                catch (_: Exception) { result = error("permission_denied", "Account playlist access changed") }
+            }
+        }
         if (name == "playlist_list" && result is JsonObject) {
             val rows = result["playlists"] as? JsonArray
+            val warnings = result["warnings"]
             if (rows != null) result = buildJsonObject {
+                if (warnings != null) put("warnings", warnings)
                 put("playlists", JsonArray(rows.filter { row ->
                     val id = ((row as? JsonObject)?.get("id") as? JsonPrimitive)?.content
-                    id != null && McpSettings.playlistAllowed(id)
+                    id != null && McpSettings.playlistAllowed(id) && (!McpPlaylistCatalog.isRemote(id) ||
+                        runCatching { McpPlaylistCatalog.remoteBrowseId(context, id) }.isSuccess)
                 }))
             }
         }
@@ -159,13 +170,22 @@ object McpTools {
                             put("deduplicated", true)
                             put("songs", songsJson(YtMusicRepository.history().getOrThrow().take(args.limit())))
                         }
-                        "playlist_list" -> buildJsonObject {
-                            put("playlists", buildJsonArray {
-                                LocalPlaylistStore.playlists.value.filter { McpSettings.playlistAllowed(it.id) }
-                                    .forEach { p -> add(buildJsonObject {
-                                        put("id", p.id); put("title", p.title); put("song_count", p.songs.size)
-                                    }) }
-                            })
+                        "playlist_list" -> {
+                            val scope = McpPlaylistCatalog.currentScope(context)
+                            val catalog = McpPlaylistCatalog.loadResult(context)
+                            val entries = catalog.entries
+                            if (scope != null) McpPlaylistCatalog.assertScope(context, scope)
+                            buildJsonObject {
+                                put("warnings", JsonArray(catalog.warnings.map(::JsonPrimitive)))
+                                put("playlists", buildJsonArray {
+                                    entries.filter { McpSettings.playlistAllowed(it.id) }.forEach { p ->
+                                        add(buildJsonObject {
+                                            put("id", p.id); put("title", p.title)
+                                            put("source", p.source); put("read_only", p.readOnly)
+                                        })
+                                    }
+                                })
+                            }
                         }
                         "playlist_create" -> {
                             withContext(Dispatchers.Main) {
@@ -180,6 +200,33 @@ object McpTools {
                             val id = args.text("playlist_id", 200)
                             // Check before lookup: disallowed and nonexistent IDs are indistinguishable.
                             requirePlaylist(id)
+                            if (id.startsWith("spotify:")) {
+                                if (name != "playlist_read") return@withContext error("unsupported_remote_write", "Account playlists are read-only")
+                                val result = McpSpotifyPlaylists.read(id, args.offset(), args.limit())
+                                checkPermission(tool.permission); requirePlaylist(id)
+                                return@withContext result
+                            }
+                            if (OfflinePlaylists.isOfflinePlaylist(id)) {
+                                if (name != "playlist_read") return@withContext error("unsupported_remote_write", "Offline file playlist editing is not supported by these catalogue-track tools")
+                                val offline = OfflinePlaylists.get(id)
+                                    ?: return@withContext error("not_found", "Allowed playlist not found")
+                                return@withContext buildJsonObject {
+                                    put("id", id); put("title", offline.title); put("source", "offline")
+                                    put("read_only", true); put("total", offline.songs.size)
+                                    put("songs", songsJson(offline.songs.drop(args.offset()).take(args.limit())))
+                                }
+                            }
+                            if (McpPlaylistCatalog.isRemote(id)) {
+                                McpPlaylistCatalog.remoteBrowseId(context, id)
+                                if (name != "playlist_read") return@withContext error("unsupported_remote_write", "Account playlists are read-only; local playlist editing remains supported")
+                                val (songs, hasMore) = McpPlaylistCatalog.read(context, id, args.offset(), args.limit())
+                                checkPermission(tool.permission); requirePlaylist(id)
+                                return@withContext buildJsonObject {
+                                    put("id", id); put("source", "youtube"); put("read_only", true)
+                                    put("offset", args.offset()); put("has_more", hasMore)
+                                    put("songs", songsJson(songs))
+                                }
+                            }
                             val p = LocalPlaylistStore.getPlaylist(id)
                                 ?: return@withContext error("not_found", "Allowed playlist not found")
                             when (name) {

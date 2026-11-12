@@ -1455,9 +1455,9 @@
     <string name="mcp_playlist_read">Read playlists</string>
     <string name="mcp_playlist_create">Create playlists</string>
     <string name="mcp_playlist_write">Edit playlists</string>
-    <string name="mcp_playlists">Allowed local playlists</string>
+    <string name="mcp_playlists">Allowed playlists</string>
     <string name="mcp_playlist_hint">Reading and editing also require the matching permission above. New playlists are not automatically allowed.</string>
-    <string name="mcp_no_playlists">No local playlists available.</string>
+    <string name="mcp_no_playlists">No playlists available from loaded sources.</string>
     <string name="mcp_lan_title">Allow cleartext LAN access?</string>
     <string name="mcp_lan_body">The token and music data travel over unencrypted HTTP. Use only a trusted private network. Never forward port 8765 to the internet. Phone-local AI needs no LAN access.</string>
     <string name="mcp_allow_lan">Allow LAN</string>
@@ -1471,7 +1471,7 @@
     <string name="mcp_playlist_mode">Playlist access mode</string>
     <string name="mcp_allowlist">Allowlist</string>
     <string name="mcp_blocklist">Blocklist</string>
-    <string name="mcp_blocked_playlists">Blocked local playlists</string>
+    <string name="mcp_blocked_playlists">Blocked playlists</string>
     <string name="mcp_blocklist_hint">Selected playlists are blocked. All other playlists, including future playlists, are accessible with the matching permissions above. Each mode keeps its own selections.</string>
     <string name="mcp_blocklist_title">Enable blocklist mode?</string>
     <string name="mcp_blocklist_warning">All playlists not selected in the blocklist will be accessible, including playlists created in the future. The matching read/write permissions are still required. Enable only if you accept this broader access.</string>
@@ -1484,6 +1484,20 @@
     <string name="mcp_playlist_search">Search playlist names</string>
     <string name="mcp_select_all">Select all</string>
     <string name="mcp_deselect_all">Deselect all</string>
-    <string name="mcp_select_all_hint">Applies to all playlists in this mode, not only search results.</string>
+    <string name="mcp_select_all_hint">Applies to all currently loaded playlists in this mode, not only search results.</string>
     <string name="mcp_playlist_no_matches">No matching playlists.</string>
+    <!-- TODO translation: MCP catalog labels use English fallback. -->
+    <string name="mcp_catalog_loading">Loading playlist sources…</string>
+    <string name="mcp_catalog_denied">Playlist access requires authorization</string>
+    <string name="mcp_catalog_error">Some playlist sources could not be loaded</string>
+    <string name="mcp_catalog_incomplete">The list may be incomplete. Check your account access and retry. Existing selections are kept.</string>
+    <string name="mcp_catalog_retry">Refresh playlists / Retry</string>
+    <string name="mcp_source_local">Local music</string>
+    <string name="mcp_read_only">Read-only</string>
+    <!-- TODO translation: MCP source warnings use English fallback. -->
+    <string name="mcp_catalog_youtube_error">YouTube Music playlists could not be loaded</string>
+    <string name="mcp_catalog_spotify_error">Spotify playlists could not be loaded</string>
+    <string name="mcp_source_offline">Offline library</string>
+    <string name="mcp_source_youtube">YouTube Music</string>
+    <string name="mcp_source_spotify">Spotify</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.LyricsProviderState
@@ -118,6 +119,7 @@ fun LyricsSidePanel(
                         onHideControls = {},
                         translationProgress = particleProgress,
                         centerFocus = true,
+                        durationMs = song.durationMillis(),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

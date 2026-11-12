@@ -20,6 +20,7 @@ fun SyncedLyricsPanel(
     onSeekToLine: (Long) -> Unit,
     /** See [LyricsPanel]'s own: the sung line held mid-panel, not at its top. */
     centerFocus: Boolean = false,
+    durationMs: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     LyricsPanel(
@@ -33,6 +34,7 @@ fun SyncedLyricsPanel(
         onRevealControls = {},
         onHideControls = {},
         centerFocus = centerFocus,
+        durationMs = durationMs,
         modifier = modifier,
     )
 }

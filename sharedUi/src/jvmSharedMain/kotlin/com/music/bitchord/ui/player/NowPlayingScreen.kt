@@ -170,6 +170,7 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeInputScale
@@ -2317,6 +2318,7 @@ fun NowPlayingScreen(
                                     onPickLine = lyricPicker.pick,
                                     onTogglePick = lyricPicker.toggle,
                                     centerFocus = true,
+                                    durationMs = song.durationMillis(),
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
@@ -3875,6 +3877,7 @@ fun NowPlayingScreen(
                                         picked = lyricPicker.picks,
                                         onPickLine = lyricPicker.pick,
                                         onTogglePick = lyricPicker.toggle,
+                                        durationMs = song.durationMillis(),
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }

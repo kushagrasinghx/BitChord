@@ -35,6 +35,25 @@ class ModelsTest {
             "https://notggpht.com/avatar=s88.jpg",
             "https://notggpht.com/avatar=s88.jpg".artworkAt(512),
         )
+        // Apple Music mzstatic URL upgrade
+        assertEquals(
+            "https://is1-ssl.mzstatic.com/image/thumb/Music/190295978075.jpg/720x720bb.jpg",
+            "https://is1-ssl.mzstatic.com/image/thumb/Music/190295978075.jpg/100x100bb.jpg".artworkAt(720),
+        )
+        // Spotify scdn URL upgrade
+        assertEquals(
+            "https://i.scdn.co/image/ab67616d0000b273c8b444df094279e70d0ed856",
+            "https://i.scdn.co/image/ab67616d00004851c8b444df094279e70d0ed856".artworkAt(512),
+        )
+        // YouTube CDN thumbnail upgrade
+        assertEquals(
+            "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+            "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg".artworkAt(720),
+        )
+        assertEquals(
+            "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+            "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg".artworkAt(250),
+        )
     }
 
     private fun album(id: String) = ShelfItem(id, "", null, null, id)

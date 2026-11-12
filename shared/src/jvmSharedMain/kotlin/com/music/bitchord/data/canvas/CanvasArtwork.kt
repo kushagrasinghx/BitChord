@@ -88,7 +88,10 @@ fun splitArtists(raw: String): List<String> =
         .map { it.normalizeForMatch() }
         .filter { it.isNotBlank() }
 
-private val ARTIST_SEPARATORS = Regex(
+val ARTIST_SEPARATORS = Regex(
     "(?:\\s*,\\s*|\\s*&\\s*|\\s+×\\s+|\\s+x\\s+|\\bfeat\\.?\\b|\\bft\\.?\\b|\\bfeaturing\\b|\\bwith\\b)",
     RegexOption.IGNORE_CASE,
 )
+
+fun primaryArtist(raw: String): String =
+    raw.split(ARTIST_SEPARATORS).firstOrNull()?.trim().orEmpty()

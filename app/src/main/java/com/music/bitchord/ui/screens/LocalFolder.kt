@@ -165,8 +165,8 @@ enum class LocalFolderTab {
         /** Every folder's: the three readings any set of tracks has. */
         val BASIC = listOf(SONGS, ARTISTS, ALBUMS)
 
-        /** Local Music's: the whole device, so its playlists and directories too. */
-        val DEVICE = entries.toList()
+        /** Local Music's: playlists and tags (device folders tab excluded). */
+        val DEVICE = listOf(SONGS, ARTISTS, ALBUMS, PLAYLISTS)
     }
 }
 

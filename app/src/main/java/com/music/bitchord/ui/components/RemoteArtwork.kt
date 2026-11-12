@@ -2,34 +2,53 @@ package com.music.bitchord.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.music.bitchord.data.canvas.AppleArtworkRepository
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.isYouTubeThumbnailUrl
 import com.music.bitchord.data.remote.RemoteArtworkStore
+import com.music.bitchord.data.settings.AppSettings
 
 /**
- * A drawable art URL for [song]: its own thumbnail when it has one, else the
- * embedded picture pulled out of the remote file and cached — else null.
- *
- * The extraction only ever runs for remote-library tracks with no thumbnail;
- * every other row resolves synchronously to what it already had, so this is
- * safe to call from shared components like [SongRow] that draw every library
- * in the app. Keyed on the track id, so a recycled row re-resolves instead
- * of flashing a stranger's cover.
+ * A drawable art URL for [song]: official studio album artwork (Apple / Spotify)
+ * when available, with clean suppression of low-resolution YouTube video stills
+ * when [AppSettings.hideYoutubeThumbnails] is enabled.
  */
 @Composable
 fun rememberRemoteArtworkUrl(song: Song?): String? {
     val context = LocalContext.current
     val key = song?.videoId
-    var resolved by remember(key) { mutableStateOf(song?.thumbnailUrl) }
-    LaunchedEffect(key) {
-        if (song != null && song.thumbnailUrl == null &&
-            (song.videoId.startsWith("webdav:") || song.videoId.startsWith("smb:"))
-        ) {
-            resolved = RemoteArtworkStore.resolveArt(context, song)
+    val hideYoutubeThumbnails by AppSettings.hideYoutubeThumbnails.collectAsState()
+
+    val cached = AppleArtworkRepository.cached(song)
+    var resolved by remember(key, hideYoutubeThumbnails) {
+        val initial = when {
+            !cached?.artworkUrl.isNullOrBlank() -> cached.artworkUrl
+            !hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song?.thumbnailUrl) -> song?.thumbnailUrl
+            else -> null
+        }
+        mutableStateOf(initial)
+    }
+
+    LaunchedEffect(key, hideYoutubeThumbnails) {
+        if (song != null) {
+            val art = AppleArtworkRepository.artworkFor(song)
+            if (!art?.artworkUrl.isNullOrBlank()) {
+                resolved = art.artworkUrl
+            } else if (song.thumbnailUrl == null &&
+                (song.videoId.startsWith("webdav:") || song.videoId.startsWith("smb:"))
+            ) {
+                resolved = RemoteArtworkStore.resolveArt(context, song)
+            } else if (!hideYoutubeThumbnails || !isYouTubeThumbnailUrl(song.thumbnailUrl)) {
+                resolved = song.thumbnailUrl
+            } else {
+                resolved = null
+            }
         }
     }
     return resolved

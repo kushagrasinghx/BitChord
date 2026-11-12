@@ -214,14 +214,25 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
     private val coilHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor { chain ->
-                chain.proceed(
-                    chain.request().newBuilder()
-                        .header(
-                            "User-Agent",
-                            "BitChord/${BuildConfig.VERSION_NAME} (Android; +https://github.com/kushagrasinghx/BitChord)",
-                        )
-                        .build(),
-                )
+                val req = chain.request()
+                val reqWithUa = req.newBuilder()
+                    .header(
+                        "User-Agent",
+                        "BitChord/${BuildConfig.VERSION_NAME} (Android; +https://github.com/kushagrasinghx/BitChord)",
+                    )
+                    .build()
+                val response = chain.proceed(reqWithUa)
+                // If YouTube CDN 404s on maxresdefault (e.g. non-HD video), seamlessly fall back to hqdefault
+                if (!response.isSuccessful && response.code == 404) {
+                    val urlStr = req.url.toString()
+                    if (urlStr.contains("/maxresdefault.")) {
+                        response.close()
+                        val fallbackUrl = urlStr.replace("/maxresdefault.", "/hqdefault.")
+                        val fallbackRequest = reqWithUa.newBuilder().url(fallbackUrl).build()
+                        return@addInterceptor chain.proceed(fallbackRequest)
+                    }
+                }
+                response
             }
             .build()
     }

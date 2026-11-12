@@ -1,5 +1,8 @@
 package com.music.bitchord.ui.tv
 
+import com.music.bitchord.data.canvas.AppleArtworkRepository
+import com.music.bitchord.data.model.isYouTubeThumbnailUrl
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -22,14 +25,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +64,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.media3.session.MediaController
 import com.music.bitchord.R
@@ -186,10 +198,16 @@ fun TvApp(
     }
 
 
+    val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+    val activeSong = playerState.song
+    val activeCanvasArt = activeSong?.let { song ->
+        AppleArtworkRepository.cached(song)?.artworkUrl ?: song.thumbnailUrl
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .tvCanvas(playerState.song?.thumbnailUrl),
+            .tvCanvas(activeCanvasArt),
     ) {
         AnimatedContent(
             targetState = isRunningSetup,
@@ -231,6 +249,49 @@ fun TvApp(
                                 playerState = playerState,
                                 onBack = { isNowPlayingOpen = false },
                             )
+                        }
+                    }
+
+                    val connectBanner by com.music.bitchord.playback.connect.BitChordConnectBanner.bannerMessage.collectAsState()
+                    AnimatedVisibility(
+                        visible = connectBanner != null,
+                        enter = fadeIn(tween(250)) + slideInVertically { -it },
+                        exit = fadeOut(tween(250)) + slideOutVertically { -it },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 28.dp, end = 40.dp)
+                            .zIndex(300f),
+                    ) {
+                        connectBanner?.let { msg ->
+                            Row(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF0F172A).copy(alpha = 0.88f))
+                                    .border(1.dp, Color(0xFF1DB954).copy(alpha = 0.60f), CircleShape)
+                                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF1DB954)),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.PhoneAndroid,
+                                    contentDescription = null,
+                                    tint = Color(0xFF1DB954),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = msg,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White,
+                                )
+                            }
                         }
                     }
                 }
@@ -336,6 +397,9 @@ private fun TvMainShell(
         if (next != destination) {
             chrome.contentScrolled = false
             destination = next
+        }
+        if (next == TvDestination.EXPLORE) {
+            viewModel.onExploreShown()
         }
     }
     val openDetail: TvOpenDetail = { browseId, title, subtitle, thumb, type ->

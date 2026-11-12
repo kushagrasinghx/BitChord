@@ -2,6 +2,10 @@ package com.music.bitchord.playback
 
 import android.os.SystemClock
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.StreamFormat
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -52,6 +56,16 @@ object StreamChoice {
     private class Choice(val stream: SourceStream, val at: Long, val substituted: Boolean)
 
     private val chosen = ConcurrentHashMap<String, Choice>()
+    private val noMatch = ConcurrentHashMap<String, Long>()
+
+    private val _choicesFlow = MutableStateFlow<Map<String, StreamFormat>>(emptyMap())
+    /** Reactive map of currently resolved stream formats keyed by videoId. */
+    val choicesFlow: StateFlow<Map<String, StreamFormat>> = _choicesFlow.asStateFlow()
+
+    private fun updateChoicesFlow() {
+        val now = SystemClock.elapsedRealtime()
+        _choicesFlow.value = chosen.filterValues { now - it.at <= TTL_MS }.mapValues { it.value.stream.format }
+    }
 
     /**
      * The stream already serving [videoId], or null if this is the first read
@@ -62,10 +76,14 @@ object StreamChoice {
         val choice = chosen[videoId] ?: return null
         if (SystemClock.elapsedRealtime() - choice.at > TTL_MS) {
             chosen.remove(videoId)
+            updateChoicesFlow()
             return null
         }
         return choice.stream
     }
+
+    /** Returns the known [StreamFormat] for [videoId], if already resolved. */
+    fun formatOf(videoId: String): StreamFormat? = of(videoId)?.format
 
     /**
      * Records [stream] as the one copy of [videoId] this play is reading.
@@ -78,26 +96,41 @@ object StreamChoice {
      */
     fun remember(videoId: String, stream: SourceStream, substituted: Boolean) {
         if (chosen.size >= MAX_REMEMBERED) {
-            // Drop what can no longer be honoured, and only then the oldest of
-            // what can. This used to `clear()`, which is the one eviction
-            // capable of causing the corruption this class exists to prevent:
-            // every live entry is a promise that a half-filled cache entry will
-            // be finished by the stream that started filling it, and emptying
-            // the map frees *all* of those entries to be finished by a
-            // different server instead.
-            //
-            // Harmless while only playback wrote here — an entry was made and
-            // consumed within one track. Read-ahead now pins the next track
-            // before it is reached and caches its bytes on the strength of that
-            // pin, so a promise can outlive several other tracks' worth of
-            // entries, and the blunt version became reachable.
             val now = SystemClock.elapsedRealtime()
             chosen.entries.removeIf { now - it.value.at > TTL_MS }
             if (chosen.size >= MAX_REMEMBERED) {
                 chosen.minByOrNull { it.value.at }?.let { chosen.remove(it.key) }
             }
         }
+        noMatch.remove(videoId)
         chosen[videoId] = Choice(stream, SystemClock.elapsedRealtime(), substituted)
+        updateChoicesFlow()
+    }
+
+    /**
+     * Whether [videoId] was recently searched against lossless addons and produced no match.
+     */
+    fun hasNoLosslessMatch(videoId: String): Boolean {
+        val at = noMatch[videoId] ?: return false
+        if (SystemClock.elapsedRealtime() - at > NO_MATCH_TTL_MS) {
+            noMatch.remove(videoId)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Caches that [videoId] has no lossless match, avoiding redundant addon searches.
+     */
+    fun rememberNoLosslessMatch(videoId: String) {
+        noMatch[videoId] = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * Clears negative match cache for [videoId].
+     */
+    fun clearNoLosslessMatch(videoId: String) {
+        noMatch.remove(videoId)
     }
 
     /**
@@ -124,6 +157,7 @@ object StreamChoice {
      */
     fun forget(videoId: String) {
         chosen.remove(videoId)
+        updateChoicesFlow()
     }
 
     /**
@@ -135,7 +169,8 @@ object StreamChoice {
      * is why the caller passes the tracks around the playhead in [keep].
      */
     fun forgetWhere(keep: Set<String>, drop: (SourceStream) -> Boolean) {
-        chosen.entries.removeIf { (videoId, choice) -> videoId !in keep && drop(choice.stream) }
+        val removed = chosen.entries.removeIf { (videoId, choice) -> videoId !in keep && drop(choice.stream) }
+        if (removed) updateChoicesFlow()
     }
 
     /**
@@ -181,6 +216,11 @@ object StreamChoice {
         refusedSubstitutes[videoId] = SystemClock.elapsedRealtime()
     }
 
+    /** Clears negative substitution and allows [videoId] to resolve via lossless substitutes again. */
+    fun allowSubstitutes(videoId: String) {
+        refusedSubstitutes.remove(videoId)
+    }
+
     /** Whether a substitution has broken [videoId] recently enough to still count. */
     fun substitutesRefused(videoId: String): Boolean {
         val at = refusedSubstitutes[videoId] ?: return false
@@ -192,6 +232,9 @@ object StreamChoice {
     /** Long enough to outlast any one play, far short of any signed URL's life. */
     private const val TTL_MS = 15 * 60 * 1000L
 
+    /** How long negative lossless matches are remembered before re-querying. */
+    private const val NO_MATCH_TTL_MS = 30 * 60 * 1000L
+
     /**
      * How long a track stays off substitution after one broke it.
      *
@@ -202,5 +245,5 @@ object StreamChoice {
      */
     private const val REFUSAL_MS = 10 * 60 * 1000L
 
-    private const val MAX_REMEMBERED = 32
+    private const val MAX_REMEMBERED = 128
 }

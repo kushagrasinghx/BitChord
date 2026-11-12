@@ -49,6 +49,9 @@ interface RemoteSpeaker {
 
     /** Something started the phone's own (paused) player while this is the speaker. */
     fun onLocalStartedPlaying(player: Player)
+
+    fun seekToNext() {}
+    fun seekToPrevious() {}
 }
 
 /**
@@ -76,6 +79,8 @@ class Speakers(private val all: List<RemoteSpeaker>) : RemoteSpeaker {
     override fun play() = current.play()
     override fun pause() = current.pause()
     override fun seekTo(positionMs: Long) = current.seekTo(positionMs)
+    override fun seekToNext() = current.seekToNext()
+    override fun seekToPrevious() = current.seekToPrevious()
     override fun setVolume(fraction: Float) = current.setVolume(fraction)
 
     override fun onLocalTransition(item: MediaItem?, reason: Int) = all.forEach { it.onLocalTransition(item, reason) }
@@ -97,6 +102,8 @@ object NoSpeaker : RemoteSpeaker {
     override fun play() = Unit
     override fun pause() = Unit
     override fun seekTo(positionMs: Long) = Unit
+    override fun seekToNext() = Unit
+    override fun seekToPrevious() = Unit
     override fun setVolume(fraction: Float) = Unit
     override fun onLocalTransition(item: MediaItem?, reason: Int) = Unit
     override fun onLocalQueueChanged() = Unit

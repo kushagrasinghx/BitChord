@@ -33,6 +33,16 @@ import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -92,8 +102,13 @@ internal fun AudioOutputSheet(
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
     val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
-    // A watch comes and goes; ask again each time the drawer opens.
-    LaunchedEffect(Unit) { PlayerPlatform.host.refreshWatchOutput() }
+    val connect by PlayerPlatform.host.connectUi.collectAsStateWithLifecycle()
+
+    // A watch or connect device comes and goes; ask again each time the drawer opens.
+    LaunchedEffect(Unit) {
+        PlayerPlatform.host.refreshWatchOutput()
+        PlayerPlatform.host.refreshConnectDevices()
+    }
 
     PlayerDrawer(
         hazeState = hazeState,
@@ -101,26 +116,54 @@ internal fun AudioOutputSheet(
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
-        // Flat, with the playing one marked, rather than folded behind a
-        // chevron. There are two outputs on a phone most of the time; one
-        // of them is the answer and the other is the only alternative, so a
-        // disclosure control costs a tap to reveal a single row.
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            // Discovered BitChord Connect TVs / Remote Devices (Spotify Connect style)
+            if (connect.devices.isNotEmpty()) {
+                Text(
+                    text = "CONNECT TO A DEVICE",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        fontSize = 11.sp,
+                    ),
+                    color = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp),
+                )
+                connect.devices.forEach { device ->
+                    ConnectDeviceRow(
+                        device = device,
+                        onSelect = { PlayerPlatform.host.selectConnectDevice(device.id) },
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "THIS PHONE",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        fontSize = 11.sp,
+                    ),
+                    color = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp),
+                )
+            }
+
             outputs.forEach { device ->
                 OutputRow(
                     device = device,
                     accountName = accountName,
-                    onSelect = { PlayerPlatform.host.selectAudioOutput(device.id) },
+                    onSelect = {
+                        if (connect.isConnected) {
+                            PlayerPlatform.host.disconnectConnectDevice(resumeHere = true)
+                        }
+                        PlayerPlatform.host.selectAudioOutput(device.id)
+                    },
                 )
             }
-            // One more place to send the music, listed with the others. The
-            // receivers behind it are chosen in a popup of their own — there
-            // can be any number of them, and they come and go while it is open.
-            // The watch, when one with BitChord on it is in reach: picked
-            // directly, since there is only ever the one.
+            // One more place to send the music, listed with the others.
             if (watch.available || watch.active) {
                 WatchRow(watch = watch, onClick = { PlayerPlatform.host.selectWatchOutput() })
             }
@@ -128,7 +171,10 @@ internal fun AudioOutputSheet(
         }
 
         Spacer(Modifier.height(10.dp))
-        VolumeRow(routeKey = outputs)
+        VolumeRow(
+            routeKey = listOf(outputs, connect.activeDeviceName),
+            isConnectActive = connect.isConnected,
+        )
 
         Spacer(Modifier.height(6.dp))
         AudioPipelineRow(onClick = onOpenPipeline)
@@ -273,6 +319,121 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
             tint = Color.White.copy(alpha = 0.35f),
             modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+/**
+ * A discovered BitChord Connect television or remote speaker (Spotify Connect style).
+ * Highlights with vibrant emerald/Spotify green glow and animated equalizers when active.
+ */
+@Composable
+private fun ConnectDeviceRow(
+    device: ConnectDeviceUi,
+    onSelect: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    val active = device.active
+    val spotifyGreen = Color(0xFF1DB954)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ROW_SHAPE)
+            .background(if (active) spotifyGreen.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.05f))
+            .then(
+                if (active) Modifier.border(1.dp, spotifyGreen.copy(alpha = 0.40f), ROW_SHAPE) else Modifier
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = !active,
+            ) {
+                haptics.play(Haptic.Select)
+                onSelect()
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(if (active) spotifyGreen.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Tv,
+                contentDescription = null,
+                tint = if (active) spotifyGreen else Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(21.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = device.name,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                ),
+                color = if (active) Color.White else Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (active) "BitChord Connect • Listening now (FLAC)" else "BitChord Connect • TV",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (active) spotifyGreen else Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (active) {
+            AnimatedEqualizerBars(color = spotifyGreen)
+        } else {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.35f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimatedEqualizerBars(
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xFF1DB954),
+) {
+    val transition = rememberInfiniteTransition(label = "equalizer")
+    val bar1 by transition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(420, easing = LinearEasing), RepeatMode.Reverse),
+        label = "b1",
+    )
+    val bar2 by transition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(tween(360, easing = LinearEasing), RepeatMode.Reverse),
+        label = "b2",
+    )
+    val bar3 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(tween(480, easing = LinearEasing), RepeatMode.Reverse),
+        label = "b3",
+    )
+
+    Row(
+        modifier = modifier.height(16.dp).width(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Box(Modifier.width(3.dp).fillMaxHeight(bar1).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(Modifier.width(3.dp).fillMaxHeight(bar2).clip(RoundedCornerShape(1.dp)).background(color))
+        Box(Modifier.width(3.dp).fillMaxHeight(bar3).clip(RoundedCornerShape(1.dp)).background(color))
     }
 }
 
@@ -434,7 +595,7 @@ private fun OutputRow(
  * the device list changes rather than in the same breath.
  */
 @Composable
-private fun VolumeRow(routeKey: Any) {
+private fun VolumeRow(routeKey: Any, isConnectActive: Boolean = false) {
     val system = PlayerPlatform.host.volume
     val systemLevel by system.level.collectAsStateWithLifecycle()
     var level by remember(system) { mutableFloatStateOf(systemLevel) }
@@ -463,9 +624,9 @@ private fun VolumeRow(routeKey: Any) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (level > 0f) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
+            imageVector = if (isConnectActive) Icons.Rounded.Tv else if (level > 0f) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.6f),
+            tint = if (isConnectActive) Color(0xFF1DB954) else Color.White.copy(alpha = 0.6f),
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(12.dp))

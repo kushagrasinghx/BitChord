@@ -123,12 +123,14 @@ object DirectSourceGate {
      * leaves a loader parked here.
      */
     suspend fun awaitOpen(mediaId: String) {
-        if (bypass.get() == true || !isActive() || open.value.admits(mediaId)) return
+        if (bypass.get() == true || !isActive() || open.value.playing.isEmpty() || open.value.admits(mediaId) || StreamChoice.isSubstitute(mediaId)) return
         TrackLog.d(TAG, "holding $mediaId until it is within ${WINDOW_MS / 1000}s of playing", about = mediaId)
-        combine(open, AppSettings.directSourceStream, ListenTogether.state) { state, on, party ->
-            !on || party.inParty || state.admits(mediaId)
+        kotlinx.coroutines.withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
+            combine(open, AppSettings.directSourceStream, ListenTogether.state) { state, on, party ->
+                !on || party.inParty || state.playing.isEmpty() || state.admits(mediaId) || StreamChoice.isSubstitute(mediaId)
+            }
+                .first { it }
         }
-            .first { it }
         TrackLog.d(TAG, "released $mediaId", about = mediaId)
     }
 
@@ -199,9 +201,10 @@ object DirectSourceGate {
      * and the caller falls back to YouTube and says so with [startedOnYouTube].
      */
     suspend fun lookup(videoId: String, target: TrackMatcher.Target): SourceStream? {
+        StreamChoice.of(videoId)?.let { return it }
         val fresh = Lookup(
             work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-                SourceResolver.directStream(target, lengthOf = { youTubeLength(videoId) })
+                SourceResolver.directStream(target, videoId = videoId, lengthOf = { youTubeLength(videoId) })
             },
             startedAtMs = android.os.SystemClock.elapsedRealtime(),
         )
@@ -214,7 +217,7 @@ object DirectSourceGate {
         }
         val lookup = running ?: fresh
         val waited = android.os.SystemClock.elapsedRealtime() - lookup.startedAtMs
-        return withTimeoutOrNull(LOOKUP_TIMEOUT_MS - waited) { lookup.work.await() }
+        return withTimeoutOrNull((LOOKUP_TIMEOUT_MS - waited).coerceAtLeast(1_000L)) { lookup.work.await() }
     }
 
     /**

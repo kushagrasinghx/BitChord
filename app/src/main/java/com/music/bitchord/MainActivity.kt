@@ -2213,28 +2213,9 @@ private fun BitChordApp(
                 .show()
         }
     }
-    val mediaPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            viewModel.reloadLocalDetail("local:all")
-            viewModel.reloadLocalDetail("local:downloads")
-            viewModel.loadLibrarySongs()
-        } else {
-            Toast.makeText(context, context.getString(R.string.storage_required_read), Toast.LENGTH_SHORT).show()
-        }
-    }
-    val mediaPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
     // The Search tab's Library source reads the Local Music folder, so it asks
     // for the same permission opening that folder does.
     val onSearchSourceChange: (SearchSource) -> Unit = { source ->
-        if (source == SearchSource.LIBRARY && !LocalMediaRepository.hasStoragePermission(context)) {
-            mediaPermissionLauncher.launch(mediaPermission)
-        }
         viewModel.setSearchSource(source)
     }
     // Shared by the Library tab itself and by a shelf's "Show all" page, so a
@@ -2244,9 +2225,6 @@ private fun BitChordApp(
             if (id == SPOTIFY_BROWSE_ID) {
                 navigator.push(AppRoute.Spotify)
                 return@let
-            }
-            if ((id == "local:all" || id == "local:downloads") && !LocalMediaRepository.hasStoragePermission(context)) {
-                mediaPermissionLauncher.launch(mediaPermission)
             }
             // Opened from a shelf's "Show all" page, it stacks over the grid
             // exactly as one opened from the Library tab stacks over that, so

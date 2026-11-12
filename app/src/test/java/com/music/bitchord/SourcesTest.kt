@@ -7,6 +7,7 @@ import com.music.bitchord.data.jiosaavn.selectBestSaavnStream
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.DeviceCodecs
+import com.music.bitchord.data.sources.MonochromeSource
 import com.music.bitchord.data.sources.ModuleSource
 import com.music.bitchord.data.sources.MusicSource
 import com.music.bitchord.data.sources.SourceConfig
@@ -624,6 +625,39 @@ class SourcesTest {
             forceJioSaavnOff = false,
         )
         assertTrue(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+    }
+
+    @Test
+    fun `dead and retired addons are pruned from stored sources`() {
+        val deadAddon = SourceConfig(
+            id = "gg.gglos.addon",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
+            enabled = true,
+        )
+        val deadHost = SourceConfig(
+            id = "custom.dead.host",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://lastbabe.de.deplexo.com/manifest.json",
+            enabled = true,
+        )
+        val validAddon = SourceConfig(
+            id = "dev.bitperfect.qobuz.heisenbergg",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://soundfean-musics.onrender.com/a/manifest.json",
+            enabled = true,
+        )
+
+        val initialized = SourceRegistry.sourcesForInit(
+            listOf(deadAddon, deadHost, validAddon),
+            forceJioSaavnOff = false,
+        )
+
+        assertFalse(initialized.any { it.id == "gg.gglos.addon" })
+        assertFalse(initialized.any { it.baseUrl.contains("lastbabe") })
+        assertFalse(initialized.any { it.baseUrl.contains("bitchord-hires") })
+        assertTrue(initialized.any { it.id == "dev.bitperfect.qobuz.heisenbergg" })
+        assertEquals(1, SourceRegistry.PREBAKED_SOURCES.size)
     }
 
     @Test
@@ -1798,7 +1832,7 @@ class SourcesTest {
     @Test
     fun `keeps a CJK title whose dash tail is the artist`() {
         assertEquals(
-            listOf("紅蓮華 lisa", "紅蓮華"),
+            listOf("紅蓮華 li sa", "紅蓮華"),
             TrackMatcher.queries(TrackMatcher.Target("紅蓮華 - LiSA", "LiSA")),
         )
     }
@@ -2061,5 +2095,36 @@ class SourcesTest {
         assertNull(TrackMatcher.secondsOf(null))
         assertNull(TrackMatcher.secondsOf("live"))
         assertNull(TrackMatcher.secondsOf("0:00"))
+    }
+
+    @Test
+    fun `test middle name artist matching and featured track matching`() {
+        assertTrue(TrackMatcher.sharesArtist("Sasha Sloan", "Sasha Alex Sloan"))
+        assertTrue(TrackMatcher.sharesArtist("Sasha Alex Sloan", "Sasha Sloan"))
+        assertTrue(TrackMatcher.sharesArtist("Sasha Alex Sloan", "Sasha Alex Sloan, Charlie Puth"))
+
+        val target = TrackMatcher.Target(
+            title = "Is It Just Me? (feat. Charlie Puth)",
+            artist = "Sasha Alex Sloan",
+            durationSec = 154,
+        )
+        val candidate = song(
+            title = "Is It Just Me? (feat. Charlie Puth)",
+            artist = "Sasha Alex Sloan, Charlie Puth",
+            duration = "2:34",
+        )
+        val score = TrackMatcher.score(candidate, target)
+        assertTrue(score != null && score > 0)
+    }
+
+    @Test
+    fun `test monochrome matching`() = kotlinx.coroutines.runBlocking {
+        val mono = MonochromeSource(SourceConfig(id = "dev.bitperfect.qobuz.heisenbergg", kind = SourceKind.ADDON, baseUrl = "https://tracks.monochrome.st", enabled = true))
+        val results = mono.search("Love Story Indila", 5, false, null)
+        if (results.isNotEmpty()) {
+            val target = TrackMatcher.Target(title = "Love Story", artist = "Indila", durationSec = 316)
+            val ranked = TrackMatcher.ranked(results, target)
+            assertTrue(ranked.isNotEmpty())
+        }
     }
 }

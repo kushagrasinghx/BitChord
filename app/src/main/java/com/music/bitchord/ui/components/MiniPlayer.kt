@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +50,7 @@ import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -367,6 +369,7 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val musicVideoEnabled by AppSettings.musicVideoEnabled.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
@@ -418,7 +421,7 @@ fun MiniPlayer(
         ) {
             // A music video plays here at its own 16:9, as the web player's
             // mini player does, rather than cropped into the square cover.
-            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
+            val showsPicture = song.isVideo && musicVideoEnabled && MusicOnlyPlayback.showsPicture(song.videoId)
             val artWidth by animateDpAsState(
                 targetValue = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp,
                 label = "miniArtWidth",
@@ -461,11 +464,38 @@ fun MiniPlayer(
                     badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     fadeOverflow = true,
                 )
-                FadingLine(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val connect by com.music.bitchord.ui.player.PlayerPlatform.host.connectUi.collectAsStateWithLifecycle()
+                if (connect.activeDeviceName != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tv,
+                            contentDescription = null,
+                            tint = Color(0xFF1DB954),
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = connect.activeDeviceName!!,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                            color = Color(0xFF1DB954),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = " • ${song.artist}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    FadingLine(
+                        text = song.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (isLoading) {
                 Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {

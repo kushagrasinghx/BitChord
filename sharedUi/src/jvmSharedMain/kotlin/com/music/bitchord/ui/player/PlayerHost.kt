@@ -133,6 +133,18 @@ interface PlayerHost {
     /** Make the watch the speaker. */
     fun selectWatchOutput() = Unit
 
+    /** BitChord Connect (Spotify Connect-style Wi-Fi playback on TV / remote speakers). */
+    val connectUi: StateFlow<ConnectUi> get() = NoConnect
+
+    /** Look for BitChord Connect devices on same Wi-Fi. */
+    fun refreshConnectDevices() = Unit
+
+    /** Connect to a discovered BitChord Connect device. */
+    fun selectConnectDevice(id: String) = Unit
+
+    /** Disconnect from active BitChord Connect device. */
+    fun disconnectConnectDevice(resumeHere: Boolean = true) = Unit
+
     /** The device picker the output drawer's Cast row opens, in the pipeline dialog's card. */
     @Composable
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
@@ -200,6 +212,24 @@ internal fun MusicVideoSurface(
 ) = PlayerPlatform.host.MusicVideo(videoId, fit, onRenderedChanged, modifier)
 
 private val NoWatch = MutableStateFlow(WatchOutputUi())
+
+private val NoConnect = MutableStateFlow(ConnectUi())
+
+data class ConnectDeviceUi(
+    val id: String,
+    val name: String,
+    val model: String,
+    val active: Boolean,
+    val isTv: Boolean = true,
+)
+
+data class ConnectUi(
+    val devices: List<ConnectDeviceUi> = emptyList(),
+    val activeDeviceName: String? = null,
+    val connecting: Boolean = false,
+) {
+    val isConnected: Boolean get() = activeDeviceName != null
+}
 
 /** What the output drawer needs to draw the watch's row. */
 data class WatchOutputUi(
@@ -486,7 +516,7 @@ internal fun rememberOutputPicker(onOpen: () -> Unit): () -> Unit =
     PlayerPlatform.host.rememberOutputPicker(onOpen)
 
 @Composable
-internal fun rememberRemoteArtworkUrl(song: Song?): String? =
+fun rememberRemoteArtworkUrl(song: Song?): String? =
     PlayerPlatform.host.rememberRemoteArtworkUrl(song)
 
 @Composable

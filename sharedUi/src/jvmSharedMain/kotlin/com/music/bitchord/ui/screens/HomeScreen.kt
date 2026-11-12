@@ -73,6 +73,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.TopPick
 import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.data.model.toSong
 import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.MessageState
@@ -380,10 +381,12 @@ private fun RecentTrackRow(
     isCurrent: Boolean,
     isPlaying: Boolean,
 ) {
+    val song = remember(item.videoId, item.title, item.subtitle) { item.toSong() }
+    val remoteArt = com.music.bitchord.ui.player.rememberRemoteArtworkUrl(song)
     CompactTrackRow(
         title = item.title,
         subtitle = item.subtitle,
-        thumbnailUrl = item.thumbnailUrl,
+        thumbnailUrl = remoteArt ?: item.thumbnailUrl,
         onClick = onClick,
         onLongPress = onLongPress,
         isCurrent = isCurrent,
@@ -721,6 +724,7 @@ internal fun localizeCardSubtitle(subtitle: String): String {
     return localizedParts.joinToString(delimiter)
 }
 
+
 /**
  * [leadingCard] rides at the head of the row, ahead of the content — the
  * Library tab's "New playlist" tile, which belongs among the playlists rather
@@ -988,6 +992,9 @@ internal fun ShelfCard(
                 icon = Icons.Rounded.Storage,
             )
             else -> {
+                val song = remember(item.videoId, item.title, item.subtitle) { item.toSong() }
+                val remoteArt = if (song != null) com.music.bitchord.ui.player.rememberRemoteArtworkUrl(song) else null
+                val displayArt = remoteArt ?: item.thumbnailUrl
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -997,7 +1004,7 @@ internal fun ShelfCard(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 ) {
                     AsyncImage(
-                        model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+                        model = displayArt.artworkAt(CARD_ART_PX),
                         contentDescription = null,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),

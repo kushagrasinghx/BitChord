@@ -30,8 +30,8 @@ object TvSettings {
     val tvNickname = MutableStateFlow("Listener")
     val tvTheme = MutableStateFlow("dynamic_artwork")
     val tvFontFamily = MutableStateFlow("sf_pro")
-    val spatialAudioEnabled = MutableStateFlow(true)
-    val soundCheckEnabled = MutableStateFlow(true)
+    val spatialAudioEnabled = MutableStateFlow(false)
+    val soundCheckEnabled = MutableStateFlow(false)
     val addPlaylistSongsToLibrary = MutableStateFlow(true)
     val addFavoriteSongsToLibrary = MutableStateFlow(true)
     val tvSetupVersionCompleted = MutableStateFlow(0)
@@ -40,6 +40,7 @@ object TvSettings {
     val tvLyricsCanvasEnabled = MutableStateFlow(true)
     val tvVideoAuto1080p = MutableStateFlow(true)
     val tvNavLayout = MutableStateFlow("left_rail")
+    val tvHideYoutubeThumbnails = MutableStateFlow(false)
     val tvPlayerStyle = MutableStateFlow(TvPlayerStyle.DEFAULT)
 
     /** UI density/scale multiplier for the TV layout: 0.8 (Small) → 1.0 (Normal) → 1.2 (Large) → 1.4 (XL). */
@@ -52,8 +53,8 @@ object TvSettings {
         tvNickname.value = prefs.getString(KEY_TV_NICKNAME, "Listener") ?: "Listener"
         tvTheme.value = prefs.getString(KEY_TV_THEME, "dynamic_artwork") ?: "dynamic_artwork"
         tvFontFamily.value = prefs.getString(KEY_TV_FONT, "sf_pro") ?: "sf_pro"
-        spatialAudioEnabled.value = prefs.getBoolean(KEY_TV_SPATIAL_AUDIO, true)
-        soundCheckEnabled.value = prefs.getBoolean(KEY_SOUND_CHECK, true)
+        spatialAudioEnabled.value = prefs.getBoolean(KEY_TV_SPATIAL_AUDIO, false)
+        soundCheckEnabled.value = prefs.getBoolean(KEY_SOUND_CHECK, false)
         addPlaylistSongsToLibrary.value = prefs.getBoolean(KEY_ADD_PLAYLIST_SONGS_TO_LIBRARY, true)
         addFavoriteSongsToLibrary.value = prefs.getBoolean(KEY_ADD_FAVORITE_SONGS_TO_LIBRARY, true)
         tvSetupVersionCompleted.value = prefs.getInt(KEY_TV_SETUP_VERSION, 0)
@@ -63,6 +64,7 @@ object TvSettings {
         tvLyricsCanvasEnabled.value = prefs.getBoolean(KEY_TV_LYRICS_CANVAS, true)
         tvVideoAuto1080p.value = prefs.getBoolean(KEY_TV_VIDEO_AUTO_1080P, true)
         tvNavLayout.value = prefs.getString(KEY_TV_NAV_LAYOUT, "left_rail") ?: "left_rail"
+        tvHideYoutubeThumbnails.value = prefs.getBoolean(KEY_TV_HIDE_YOUTUBE_THUMBNAILS, false)
         tvPlayerStyle.value = runCatching {
             TvPlayerStyle.valueOf(prefs.getString(KEY_TV_PLAYER_STYLE, null) ?: TvPlayerStyle.DEFAULT.name)
         }.getOrDefault(TvPlayerStyle.DEFAULT)
@@ -106,6 +108,11 @@ object TvSettings {
     fun setTvVideoAuto1080p(enabled: Boolean) {
         tvVideoAuto1080p.value = enabled
         save { putBoolean(KEY_TV_VIDEO_AUTO_1080P, enabled) }
+    }
+
+    fun setTvHideYoutubeThumbnails(enabled: Boolean) {
+        tvHideYoutubeThumbnails.value = enabled
+        save { putBoolean(KEY_TV_HIDE_YOUTUBE_THUMBNAILS, enabled) }
     }
 
     fun setSpatialAudioEnabled(enabled: Boolean) {
@@ -300,5 +307,6 @@ object TvSettings {
     private const val KEY_TV_LYRICS_CANVAS = "tv_lyrics_canvas"
     private const val KEY_TV_VIDEO_AUTO_1080P = "tv_video_auto_1080p"
     private const val KEY_TV_NAV_LAYOUT = "tv_nav_layout"
+    private const val KEY_TV_HIDE_YOUTUBE_THUMBNAILS = "tv_hide_youtube_thumbnails"
     private const val KEY_TV_PLAYER_STYLE = "tv_player_style"
 }

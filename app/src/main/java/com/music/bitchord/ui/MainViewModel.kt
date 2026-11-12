@@ -370,6 +370,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * different one.
      */
     private var lyricsFor: List<Any>? = null
+    private var lastLyricsDurationMs: Long = 0L
 
     /**
      * Called as the playing track changes; cheap no-op when already loaded.
@@ -397,7 +398,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val key = lyricsLookupKey(
             videoId, sources, AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
         )
-        if (lyricsFor == key) return
+        val durationDelta = kotlin.math.abs(durationMs - lastLyricsDurationMs)
+        // If it is the exact same track and sources, only skip if local file or duration hasn't significantly shifted (> 3 seconds).
+        // Lossless stream upgrades can change video edit (~3m 13s) to full album version (~3m 37s).
+        val isSameRequest = lyricsFor == key && (localUri != null || (lastLyricsDurationMs > 0L && durationDelta <= 3000L))
+        if (isSameRequest) return
         // The duration lands a beat after the track, and a database match needs
         // it. Turned away here rather than inside the job below: claiming the
         // lookup first and giving it up asynchronously means the very re-trigger
@@ -406,7 +411,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // by nobody — which is what left a paused track loading for ever, since
         // pausing is when the duration is most likely to arrive a frame late.
         if (localUri == null && durationMs <= 0L) return
+
+        if (lyricsFor?.firstOrNull() == videoId && durationDelta > 3000L) {
+            LyricsRepository.forget(videoId)
+        }
+
         lyricsFor = key
+        lastLyricsDurationMs = durationMs
         lyricsGeneration += 1
         val generation = lyricsGeneration
         currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
@@ -445,6 +456,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (durationMs <= 0L) {
                 // Duration arrives a beat after the track does; wait for it.
                 lyricsFor = null
+                lastLyricsDurationMs = 0L
                 return@launch
             }
             val found = LyricsRepository.lyrics(
@@ -528,7 +540,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         lyricsProviderResults[source] = result
         _lyricsProviderStates.update { it + (source to LyricsProviderState.FOUND) }
-        if (selectedLyricsSource == source) showLyricsResult(result)
+        if (selectedLyricsSource == null) {
+            val current = _lyrics.value
+            val currentHasWords = current?.any { it.isWordSynced } == true
+            val incomingHasWords = result.lines.any { it.isWordSynced }
+            // 1. Show the first fast time-synced lyrics immediately (sub-second)
+            // 2. Seamlessly upgrade to syllable word-by-word bouncing karaoke as soon as it arrives
+            if (current == null || (!currentHasWords && incomingHasWords)) {
+                showLyricsResult(result)
+            }
+        } else if (selectedLyricsSource == source) {
+            showLyricsResult(result)
+        }
     }
 
     private fun providerCancelled(generation: Long, source: LyricsSource) {
@@ -1541,14 +1564,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * vanish because a track started playing.
      */
     private fun refreshHomeRecents() {
-        if (!_signedIn.value) return
         val identity = listenerKey()
         val generation = homeLoadGeneration.get()
         viewModelScope.launch {
-            YtMusicRepository.homeRecentlyPlayed().onSuccess { shelf ->
-                // A full load that started meanwhile fetches Recents itself.
-                if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
-                shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+            if (_signedIn.value) {
+                val res = YtMusicRepository.homeRecentlyPlayed()
+                if (res.isSuccess) {
+                    val shelf = res.getOrNull()
+                    if (isCurrentHomeLoad(identity, generation)) {
+                        shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                    }
+                    return@launch
+                }
+            }
+            val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+            if (localShelf != null && isCurrentHomeLoad(identity, generation)) {
+                publishHomeShelves(listOf(localShelf), prepend = true)
             }
         }
     }
@@ -1702,7 +1733,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
-        _home.value = UiState.Loading
+        // Serve cached Home feed and local Recents immediately for near-instant UI load on startup
+        if (_home.value !is UiState.Success) {
+            viewModelScope.launch {
+                val cached = com.music.bitchord.data.HomeFeedCache.read(getApplication())
+                val localRecentShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                val initialShelves = when {
+                    localRecentShelf != null && cached != null -> {
+                        listOf(localRecentShelf) + cached.filterNot {
+                            it.title.equals("Recents", ignoreCase = true) ||
+                            it.title.equals("Recently played", ignoreCase = true) ||
+                            it.title.equals("Jump Back In", ignoreCase = true)
+                        }
+                    }
+                    localRecentShelf != null -> listOf(localRecentShelf)
+                    cached != null -> cached
+                    else -> null
+                }
+                if (initialShelves != null && isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
+                    _home.value = UiState.Success(initialShelves)
+                }
+            }
+        }
         homeContinuation = null
         homeSeenTitles.clear()
         _homeLoadingMore.value = false
@@ -1740,8 +1792,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         .onFailure {
-                            if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
+                            if (isCurrentHomeLoad(identity, generation)) {
+                                _homeRecentlyPlayedLoading.value = false
+                                val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                                localShelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                            }
                         }
+                }
+            } else {
+                launch {
+                    val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                    if (isCurrentHomeLoad(identity, generation)) {
+                        _homeRecentlyPlayedLoading.value = false
+                        localShelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                    }
                 }
             }
             YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
@@ -1860,19 +1924,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
         val existing = (_home.value as? UiState.Success)?.data.orEmpty()
-        if (prepend) {
+        val updated = if (prepend) {
             // YouTube's core home can also contain a stale "Recently played"
             // shelf. The dedicated history endpoint wins and replaces it.
             val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
             homeSeenTitles.addAll(replacing)
-            _home.value = UiState.Success(shelves + existing.filterNot {
+            shelves + existing.filterNot {
                 it.title.lowercase(Locale.ROOT) in replacing
-            })
-            return
+            }
+        } else {
+            val added = shelves.withoutRepeatsOf(existing)
+                .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+            if (added.isEmpty()) return
+            existing + added
         }
-        val added = shelves.withoutRepeatsOf(existing)
-            .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+        _home.value = UiState.Success(updated)
+        viewModelScope.launch { com.music.bitchord.data.HomeFeedCache.write(getApplication(), updated) }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Tells Wi-Fi from mobile data, so the matching quality ceiling applies. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -45,26 +47,13 @@
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- Reading local audio files across the device -->
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <!--
-      Only for API 28 and below. From 29 the app writes to the shared Music
-      folder through MediaStore, which grants access to the rows it created and
-      needs no permission at all — and this one stops being grantable there.
-    -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"
         android:appCategory="audio"
-        android:usesCleartextTraffic="false"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -251,23 +240,6 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
-            <!--
-              "Open with" for an audio file: a file manager, a downloads list, a
-              tapped attachment. Typed rather than matched on extension, which
-              is what every sender actually fills in — and the two Ogg/FLAC
-              spellings are there because some file managers still type those
-              files as applications. Answered by MusicLink.LocalFile.
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" />
-                <data android:scheme="file" />
-                <data android:mimeType="audio/*" />
-                <data android:mimeType="application/ogg" />
-                <data android:mimeType="application/x-ogg" />
-                <data android:mimeType="application/x-flac" />
-            </intent-filter>
         </activity>
 
         <!--

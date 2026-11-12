@@ -1,5 +1,9 @@
 package com.music.bitchord.ui.tv.dialogs
 
+import com.music.bitchord.data.canvas.AppleArtworkRepository
+import com.music.bitchord.data.model.isYouTubeThumbnailUrl
+import com.music.bitchord.data.settings.TvSettings
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -136,9 +140,11 @@ fun TvSongActionMenuDialog(
         SongSheet.Actions -> Unit
     }
 
+    val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+    val dialogArtUrl = AppleArtworkRepository.cached(song)?.artworkUrl ?: song.thumbnailUrl
     TvDialog(title = song.title, message = song.artist.ifBlank { null }, onDismissRequest = onDismiss) {
         TvArtwork(
-            url = song.thumbnailUrl,
+            url = dialogArtUrl,
             px = 320,
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier

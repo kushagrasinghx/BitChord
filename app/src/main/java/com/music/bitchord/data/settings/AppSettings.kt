@@ -285,6 +285,9 @@ object AppSettings {
     /** Prefer an attached USB audio output over the system's normal route. */
     val preferUsbDac = MutableStateFlow(false)
 
+    /** Pass bitstream (Dolby Atmos) and bit-perfect Hi-Res PCM directly to hardware HDMI/Optical sink. */
+    val audioPassthrough = MutableStateFlow(false)
+
     /** Unprocessed output to a DAC; see [BitPerfectMode]. */
     val bitPerfectMode = MutableStateFlow(BitPerfectMode.OFF)
 
@@ -322,7 +325,7 @@ object AppSettings {
      * altering samples, and switching this off is the first thing a listener
      * chasing an untouched signal would do.
      */
-    val loudnessNormalization = MutableStateFlow(true)
+    val loudnessNormalization = MutableStateFlow(false)
 
     /** Skip loudness normalization while the active output is the phone's own speaker. */
     val loudnessOffOnSpeaker = MutableStateFlow(true)
@@ -360,7 +363,7 @@ object AppSettings {
      * of its transition — see [DirectSourceGate][com.music.bitchord.playback.DirectSourceGate].
      * Automix analysis is untouched: it keeps reading its own YouTube Opus copy.
      */
-    val directSourceStream = MutableStateFlow(false)
+    val directSourceStream = MutableStateFlow(true)
 
     /**
      * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
@@ -422,7 +425,7 @@ object AppSettings {
     val repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
 
     /** Put the playing track's codec, bitrate and sample rate on the player. */
-    val showNerdStats = MutableStateFlow(false)
+    val showNerdStats = MutableStateFlow(true)
 
     /** Show the output / Listen Together pill under the player's transport. */
     val showListenTogetherButton = MutableStateFlow(false)
@@ -563,6 +566,14 @@ object AppSettings {
 
     /** Tries Spotify before Apple Music and the other animated-art providers. */
     val prioritizeSpotifyCanvas = MutableStateFlow(false)
+    /** Whether to suppress YouTube video screenshots and prioritize studio covers & canvas. */
+    val hideYoutubeThumbnails = MutableStateFlow(true)
+
+    /** Plays background video for music videos; off renders album artwork and direct/lossless audio only. */
+    val musicVideoEnabled = MutableStateFlow(true)
+
+    /** Only plays Dolby Atmos or Lossless FLAC/ALAC masters; never falls back to lossy Opus. */
+    val strictLosslessOnly = MutableStateFlow(false)
 
     /**
      * Secondary artist art: a user-hosted artist-signature API used only when
@@ -987,6 +998,7 @@ object AppSettings {
             )
         }.getOrDefault(OutputPcmMode.PCM_16)
         preferUsbDac.value = prefs.getBoolean(KEY_PREFER_USB_DAC, false)
+        audioPassthrough.value = prefs.getBoolean(KEY_AUDIO_PASSTHROUGH, false)
         bitPerfectMode.value = runCatching {
             BitPerfectMode.valueOf(prefs.getString(KEY_BIT_PERFECT_MODE, null) ?: BitPerfectMode.OFF.name)
         }.getOrDefault(BitPerfectMode.OFF)
@@ -995,7 +1007,7 @@ object AppSettings {
         loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
         loudnessOffOnSpeaker.value = prefs.getBoolean(KEY_LOUDNESS_OFF_ON_SPEAKER, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
-        directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
+        directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
@@ -1017,7 +1029,7 @@ object AppSettings {
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
-        showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
+        showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, true)
         showListenTogetherButton.value = prefs.getBoolean(KEY_LISTEN_TOGETHER_BUTTON, false)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
         onboardingComplete.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
@@ -1058,6 +1070,9 @@ object AppSettings {
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
+        hideYoutubeThumbnails.value = prefs.getBoolean(KEY_HIDE_YOUTUBE_THUMBNAILS, true)
+        musicVideoEnabled.value = prefs.getBoolean(KEY_MUSIC_VIDEO_ENABLED, true)
+        strictLosslessOnly.value = prefs.getBoolean(KEY_STRICT_LOSSLESS_ONLY, false)
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
@@ -1689,6 +1704,21 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, value).apply()
     }
 
+    fun setHideYoutubeThumbnails(value: Boolean) {
+        hideYoutubeThumbnails.value = value
+        prefs.edit().putBoolean(KEY_HIDE_YOUTUBE_THUMBNAILS, value).apply()
+    }
+
+    fun setMusicVideoEnabled(value: Boolean) {
+        musicVideoEnabled.value = value
+        prefs.edit().putBoolean(KEY_MUSIC_VIDEO_ENABLED, value).apply()
+    }
+
+    fun setStrictLosslessOnly(value: Boolean) {
+        strictLosslessOnly.value = value
+        prefs.edit().putBoolean(KEY_STRICT_LOSSLESS_ONLY, value).apply()
+    }
+
     fun setSignatureApiEnabled(value: Boolean) {
         signatureApiEnabled.value = value
         prefs.edit().putBoolean(KEY_SIGNATURE_API_ENABLED, value).apply()
@@ -1800,6 +1830,11 @@ object AppSettings {
     fun setPreferUsbDac(value: Boolean) {
         preferUsbDac.value = value
         prefs.edit().putBoolean(KEY_PREFER_USB_DAC, value).apply()
+    }
+
+    fun setAudioPassthrough(value: Boolean) {
+        audioPassthrough.value = value
+        prefs.edit().putBoolean(KEY_AUDIO_PASSTHROUGH, value).apply()
     }
 
     fun setBitPerfectMode(value: BitPerfectMode) {
@@ -2261,6 +2296,7 @@ object AppSettings {
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
+    private const val KEY_AUDIO_PASSTHROUGH = "audio_passthrough"
     private const val KEY_BIT_PERFECT_MODE = "bit_perfect_mode"
     private const val KEY_USB_ALLOW_FIXED_VOLUME = "usb_allow_fixed_volume"
     private const val KEY_CONVERT_FOR_LIMITED_DAC = "convert_for_limited_dac"
@@ -2316,6 +2352,9 @@ object AppSettings {
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
+    private const val KEY_HIDE_YOUTUBE_THUMBNAILS = "hide_youtube_thumbnails"
+    private const val KEY_MUSIC_VIDEO_ENABLED = "music_video_enabled"
+    private const val KEY_STRICT_LOSSLESS_ONLY = "strict_lossless_only"
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"

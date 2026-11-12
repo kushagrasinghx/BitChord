@@ -80,14 +80,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.media3.common.Player
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.canvas.AppleArtworkRepository
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.model.isYouTubeThumbnailUrl
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.playback.StreamChoice
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.ic_dolby_atmos
+import com.music.bitchord.sharedui.resources.ic_lossless
 import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.sharedui.resources.ic_player_pause
 import com.music.bitchord.sharedui.resources.ic_player_play
@@ -97,6 +103,7 @@ import com.music.bitchord.data.settings.TvPlayerStyle
 import com.music.bitchord.ui.player.ArtworkMeshBackdrop
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.player.SyncedLyricsPanel
+import com.music.bitchord.ui.player.adjustedLyricsSeekTarget
 import com.music.bitchord.ui.player.rememberArtworkMesh
 import com.music.bitchord.ui.tv.components.TvActivityIndicator
 import com.music.bitchord.ui.tv.components.TvArtwork
@@ -169,9 +176,32 @@ internal fun TvNowPlayingStage(
     // While the transport is up the lyrics fade out above it rather than run under it.
     val underControls by animateFloatAsState(if (controlsVisible) 1f else 0f, tween(320), label = "lyricsFade")
     val canvasEnabled by AppSettings.animatedCanvas.collectAsState()
+    val prioritizeSpotifyCanvas by AppSettings.prioritizeSpotifyCanvas.collectAsState()
+    val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+    val lyricsOffsetMs by AppSettings.lyricsOffsetMs.collectAsState()
+
+    var appleArt by remember(song.videoId) { mutableStateOf(AppleArtworkRepository.cached(song)) }
     var canvas by remember(song.videoId) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, canvasEnabled) {
-        canvas = if (canvasEnabled) CanvasRepository.canvasFor(song) else null
+
+    LaunchedEffect(song.videoId, canvasEnabled, prioritizeSpotifyCanvas) {
+        val art = AppleArtworkRepository.artworkFor(song)
+        appleArt = art
+
+        if (!canvasEnabled) {
+            canvas = null
+            return@LaunchedEffect
+        }
+
+        // Priority order:
+        // 1. Apple Artwork (Apple Music motion artwork first)
+        // 2. Spotify Canvas (if Apple motion artwork not available, or prioritizeSpotifyCanvas is true)
+        if (prioritizeSpotifyCanvas) {
+            canvas = CanvasRepository.canvasFor(song) ?: art?.motionCanvas
+        } else if (art?.motionCanvas != null) {
+            canvas = art.motionCanvas
+        } else {
+            canvas = CanvasRepository.canvasFor(song)
+        }
     }
     val side by animateFloatAsState(if (showLyrics) 1f else 0f, tween(520), label = "artToSide")
 
@@ -201,7 +231,11 @@ internal fun TvNowPlayingStage(
                     clip = true
                 },
         ) {
-            TvArtwork(url = song.thumbnailUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
+            val coverUrl = when {
+                !appleArt?.artworkUrl.isNullOrBlank() -> appleArt?.artworkUrl
+                else -> song.thumbnailUrl
+            }
+            TvArtwork(url = coverUrl, px = 480, shape = RectangleShape, modifier = Modifier.fillMaxSize())
             canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
         }
 
@@ -244,6 +278,11 @@ internal fun TvNowPlayingStage(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                TvQualityLine(
+                    showStats = true,
+                    compact = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
 
@@ -287,8 +326,11 @@ internal fun TvNowPlayingStage(
                         position = position,
                         looking = lyricsLoading,
                         isPlaying = isPlaying,
-                        onSeekToLine = onSeek,
+                        onSeekToLine = { lineTimeMs ->
+                            onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
+                        },
                         centerFocus = true,
+                        durationMs = song.durationMillis(),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -334,9 +376,22 @@ internal fun TvTransport(
     onToggleLyrics: () -> Unit,
     onToggleUpNext: () -> Unit,
     onMore: () -> Unit,
+    onUpgradeHiFi: () -> Unit,
+    shuffle: Boolean = false,
+    repeatMode: Int = Player.REPEAT_MODE_OFF,
+    autoplay: Boolean = true,
+    onToggleShuffle: () -> Unit = {},
+    onCycleRepeat: () -> Unit = {},
+    onToggleAutoplay: () -> Unit = {},
     upNext: @Composable () -> Unit,
 ) {
     val showStats by AppSettings.showNerdStats.collectAsState()
+    val stats by NerdStats.current.collectAsState()
+    val racingLossless by NerdStats.racingLossless.collectAsState()
+    val isUpgrading = song.videoId in racingLossless
+    val isAlreadyLossless = stats?.let { it.isLossless || it.isHiRes || it.isDolbyAtmos } == true
+    val buttonsFocus = remember { FocusRequester() }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -361,11 +416,70 @@ internal fun TvTransport(
                 )
                 TvQualityLine(showStats = showStats, modifier = Modifier.padding(top = 6.dp))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (!isAlreadyLossless) {
+                    TvUpgradePill(
+                        isUpgrading = isUpgrading,
+                        onClick = onUpgradeHiFi,
+                        modifier = Modifier.onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                                scrubberFocus.requestFocus(); true
+                            } else false
+                        },
+                    )
+                }
+                TvTransportButton(
+                    icon = BitChordIcons.Shuffle,
+                    contentDescription = "Shuffle",
+                    active = shuffle,
+                    onClick = onToggleShuffle,
+                    modifier = Modifier
+                        .focusRequester(buttonsFocus)
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                                scrubberFocus.requestFocus(); true
+                            } else false
+                        },
+                )
+                TvTransportButton(
+                    icon = if (repeatMode == Player.REPEAT_MODE_ONE) null else BitChordIcons.Repeat,
+                    contentDescription = when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> "Repeat One"
+                        Player.REPEAT_MODE_ALL -> "Repeat All"
+                        else -> "Repeat Off"
+                    },
+                    active = repeatMode != Player.REPEAT_MODE_OFF,
+                    badge = if (repeatMode == Player.REPEAT_MODE_ONE) "1" else null,
+                    onClick = onCycleRepeat,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
+                )
+                TvTransportButton(
+                    icon = BitChordIcons.Infinity,
+                    contentDescription = "Autoplay",
+                    active = autoplay,
+                    onClick = onToggleAutoplay,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
+                )
                 TvTransportButton(
                     icon = if (isLiked) BitChordIcons.StarFilled else BitChordIcons.Star,
                     contentDescription = if (isLiked) "Unfavorite" else "Favorite",
                     onClick = onToggleLike,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = BitChordIcons.LyricsQuote,
@@ -373,17 +487,32 @@ internal fun TvTransport(
                     active = lyricsOn,
                     enabled = lyricsAvailable,
                     onClick = onToggleLyrics,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = BitChordIcons.Queue,
                     contentDescription = "Up Next",
                     active = upNextOpen,
                     onClick = onToggleUpNext,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = Icons.Rounded.MoreHoriz,
                     contentDescription = "More",
                     onClick = onMore,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
             }
         }
@@ -398,6 +527,7 @@ internal fun TvTransport(
             onScrub = onScrub,
             onSelect = onSelectOnScrubber,
             onDown = onOpenUpNext,
+            onUp = { buttonsFocus.requestFocus() },
         )
         AnimatedVisibility(
             visible = upNextOpen,
@@ -422,11 +552,12 @@ private fun TvTransportButton(
     enabled: Boolean = true,
     size: androidx.compose.ui.unit.Dp = 37.dp,
     badge: String? = null,
+    modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(size)
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
             .tvLift(interaction, CircleShape, focusedScale = 1.1f, elevation = 10.dp)
@@ -447,6 +578,60 @@ private fun TvTransportButton(
                 text = badge,
                 style = TvType.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.W700),
                 color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * A sleek glass pill on the transport that queries all lossless addons immediately on demand.
+ * Features tvOS lift elevation, glassmorphism highlight, and auto-disappears once the song plays lossless.
+ */
+@Composable
+private fun TvUpgradePill(
+    isUpgrading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(19.dp)
+    Row(
+        modifier = modifier
+            .height(37.dp)
+            .tvLift(interaction, shape, focusedScale = 1.08f, elevation = 10.dp)
+            .tvPlatter(
+                interaction,
+                resting = Color.White.copy(alpha = 0.14f),
+                focused = TvGlass.Platter,
+            )
+            .tvClick(interaction, enabled = !isUpgrading, onClick = onClick)
+            .padding(horizontal = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (isUpgrading) {
+            TvActivityIndicator(
+                size = 13.dp,
+                color = if (focused) TvGlass.OnPlatter else Color.White,
+            )
+            Text(
+                text = "Searching…",
+                style = TvType.Caption.copy(fontSize = 12.sp, fontWeight = FontWeight.W600),
+                color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+                maxLines = 1,
+            )
+        } else {
+            Text(
+                text = "⚡",
+                style = TvType.Caption.copy(fontSize = 12.sp),
+                color = if (focused) TvGlass.OnPlatter else Color(0xFFFFD54F),
+            )
+            Text(
+                text = "Upgrade Hi-Fi",
+                style = TvType.Caption.copy(fontSize = 12.sp, fontWeight = FontWeight.W600),
+                color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+                maxLines = 1,
             )
         }
     }
@@ -473,6 +658,7 @@ private fun TvScrubber(
     onScrub: (Long) -> Unit,
     onSelect: () -> Unit,
     onDown: () -> Unit,
+    onUp: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -493,6 +679,7 @@ private fun TvScrubber(
                     when (event.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_DPAD_LEFT -> { onScrub(-10_000L); true }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> { onScrub(10_000L); true }
+                        KeyEvent.KEYCODE_DPAD_UP -> { onUp?.invoke(); true }
                         KeyEvent.KEYCODE_DPAD_DOWN -> { onDown(); true }
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                             onSelect(); true
@@ -588,16 +775,37 @@ internal fun formatClock(ms: Long): String {
  * from what's actually decoding, and with Stats for Nerds on, the stream itself.
  */
 @Composable
-private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
+private fun TvQualityLine(
+    showStats: Boolean,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val snapshot by NerdStats.current.collectAsState()
     val stats = snapshot ?: return
     val label = when {
         stats.isDolbyAtmos -> "Dolby Atmos"
         stats.isHiRes -> "Hi-Res Lossless"
         stats.isLossless -> "Lossless"
-        else -> null
+        else -> {
+            val codec = when (val mime = stats.mimeType?.lowercase()) {
+                null -> null
+                "audio/flac" -> "FLAC"
+                "audio/alac" -> "ALAC"
+                "audio/mp4a-latm", "audio/aac" -> "AAC"
+                "audio/opus" -> "Opus"
+                "audio/vorbis" -> "Vorbis"
+                "audio/mpeg" -> "MP3"
+                else -> mime.substringAfter('/').uppercase()
+            }
+            val kbps = stats.bitrateKbps
+            if (codec != null && kbps != null && kbps > 0) {
+                "$codec • $kbps kbps"
+            } else codec
+        }
     }
-    val detail = if (showStats) streamDetail(stats) else null
+    val detail = if (showStats) {
+        if (compact) streamDetailCompact(stats) else streamDetail(stats)
+    } else null
     if (label == null && detail.isNullOrBlank()) return
     Row(
         modifier = modifier,
@@ -620,6 +828,13 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
                         tint = TvGlass.TextPrimary.copy(alpha = 0.85f),
                         modifier = Modifier.height(9.dp),
                     )
+                } else if (stats.isLossless || stats.isHiRes) {
+                    Icon(
+                        painter = painterResource(Res.drawable.ic_lossless),
+                        contentDescription = null,
+                        tint = TvGlass.TextPrimary.copy(alpha = 0.85f),
+                        modifier = Modifier.height(9.dp),
+                    )
                 }
                 Text(
                     text = label,
@@ -632,6 +847,18 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
             Text(text = detail, style = TvType.Caption, color = TvGlass.TextTertiary, maxLines = 1)
         }
     }
+}
+
+private fun streamDetailCompact(s: NerdStats.Snapshot): String {
+    val rate = s.sampleRateHz
+    val depth = s.bitDepth
+    val format = when {
+        depth != null && rate != null -> "$depth-bit / ${khz(rate)}"
+        rate != null -> khz(rate)
+        else -> null
+    }
+    val bitrate = s.bitrateKbps?.takeIf { it > 0 }?.let { "$it kbps" }
+    return listOfNotNull(format, bitrate).joinToString(" • ")
 }
 
 private fun streamDetail(s: NerdStats.Snapshot): String {
@@ -733,6 +960,8 @@ internal fun TvUpNext(
             )
         } else {
             val indexed = remember(upcoming) { upcoming.withIndex().toList() }
+            val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+            val streamChoices by StreamChoice.choicesFlow.collectAsState()
             TvRow(
                 items = indexed,
                 key = { "${it.value.videoId}#${it.index}" },
@@ -742,13 +971,47 @@ internal fun TvUpNext(
                 top = 13.dp,
                 bottom = 5.dp,
             ) { i, entry ->
+                val cardArtUrl = AppleArtworkRepository.cached(entry.value)?.artworkUrl
+                    ?: entry.value.thumbnailUrl
+                val format = streamChoices[entry.value.videoId]
+                val badge = when {
+                    format?.isDolbyAtmos == true -> "ATMOS"
+                    format?.isLossless == true -> {
+                        val rate = format.sampleRateHz ?: 0
+                        val depth = format.bitDepth ?: 0
+                        if (rate > 48000 || depth > 16) "HI-RES" else "LOSSLESS"
+                    }
+                    else -> null
+                }
                 TvLockup(
                     title = entry.value.title,
                     subtitle = entry.value.artist,
-                    artworkUrl = entry.value.thumbnailUrl,
+                    artworkUrl = cardArtUrl,
                     width = 99.dp,
                     onClick = { onJump(currentIndex + 1 + i) },
                     modifier = if (i == 0) Modifier.focusRequester(firstCardFocus) else Modifier,
+                    overlay = if (badge != null) {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color.Black.copy(alpha = 0.76f))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = badge,
+                                    style = TvType.Caption.copy(
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.4.sp,
+                                    ),
+                                    color = if (badge == "HI-RES") Color(0xFFFFD54F) else Color.White,
+                                )
+                            }
+                        }
+                    } else null,
                 )
             }
         }

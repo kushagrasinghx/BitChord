@@ -962,6 +962,7 @@ private fun OutputPartyPill(
     val badge = rememberPartyBadge()
     val shown by PlayerSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val output = rememberOutputGlyph()
+    val connect by PlayerPlatform.host.connectUi.collectAsStateWithLifecycle()
     // Party half hidden only outside a party: once in one, this is the way to
     // who's in it. Without it the output glyph stands alone, drawn like the
     // lyrics and queue glyphs either side rather than as half a capsule.
@@ -981,6 +982,7 @@ private fun OutputPartyPill(
             iconSize = output.size,
             contentDescription = stringResource(Res.string.audio_output),
             onClick = onOutput,
+            highlighted = connect.isConnected,
             vibrant = true,
         )
         PillDivider()
@@ -1018,10 +1020,12 @@ private fun OutputPartyPill(
  */
 @Composable
 private fun rememberOutputGlyph(): OutputGlyph {
+    val connect by PlayerPlatform.host.connectUi.collectAsStateWithLifecycle()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
     val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
     val active = rememberAudioOutputs().firstOrNull { it.isActive }
     return when {
+        connect.activeDeviceName != null -> OutputGlyph(Icons.Rounded.Tv, PILL_OUTPUT_WIDE_SIZE)
         cast.connectedName != null -> OutputGlyph(Icons.Rounded.CastConnected, PILL_OUTPUT_WIDE_SIZE)
         watch.active -> OutputGlyph(Icons.Rounded.Watch, PILL_OUTPUT_TALL_SIZE)
         else -> when (active?.kind) {
@@ -1190,6 +1194,34 @@ internal fun OutputCaption(
         .fillMaxWidth(0.65f)
         .additiveChrome(LocalPlayerChrome.current)
         .clickable { if (badge.inParty) onOpenMembers() else onOpenOutput() }
+    val connect by PlayerPlatform.host.connectUi.collectAsStateWithLifecycle()
+    if (!badge.inParty && connect.isConnected && connect.activeDeviceName != null) {
+        Row(
+            modifier = captionModifier,
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1DB954)),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "Listening on ${connect.activeDeviceName}",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1DB954),
+                    textAlign = TextAlign.Center,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        return
+    }
     if (!badge.inParty && (outputFormat.bitPerfect || outputFormat.dacLimited)) {
         ShimmerText(
             text = outputName,
@@ -1772,19 +1804,34 @@ private fun LosslessOrStats(
             iconPainter = painterResource(Res.drawable.ic_dolby_atmos),
             modifier = modifier,
         )
-        // Lossy, but the good end of lossy — a module's 320kbps tier, which
-        // for a great many tracks is the best copy that exists anywhere the
-        // app can reach. See [NerdStats.Snapshot.isHiQuality].
-        nerdStats?.isHiQuality == true -> LosslessLabel(
-            text = stringResource(Res.string.high_quality),
-            animated = false,
-            iconPainter = rememberVectorPainter(Icons.Rounded.Headphones),
-            // A Material glyph's own size is 24dp; the badge's are drawn small.
-            iconSize = 13.dp,
-            modifier = modifier,
-        )
-        // Below that, no badge: "Medium Quality" and "Data Saver" are gone.
-        // The space under the bar is kept for what is worth announcing.
+        nerdStats != null -> {
+            val codec = when (val mime = nerdStats.mimeType?.lowercase()) {
+                null -> null
+                "audio/flac" -> "FLAC"
+                "audio/alac" -> "ALAC"
+                "audio/mp4a-latm", "audio/aac" -> "AAC"
+                "audio/opus" -> "Opus"
+                "audio/vorbis" -> "Vorbis"
+                "audio/mpeg" -> "MP3"
+                else -> mime.substringAfter('/').uppercase()
+            }
+            val kbps = nerdStats.bitrateKbps
+            val text = when {
+                codec != null && kbps != null && kbps > 0 -> "$codec • $kbps kbps"
+                codec != null -> codec
+                nerdStats.isHiQuality -> stringResource(Res.string.high_quality)
+                else -> null
+            }
+            if (text != null) {
+                LosslessLabel(
+                    text = text,
+                    animated = false,
+                    iconPainter = rememberVectorPainter(Icons.Rounded.Headphones),
+                    iconSize = 13.dp,
+                    modifier = modifier,
+                )
+            }
+        }
         else -> {}
     }
 }

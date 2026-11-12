@@ -88,15 +88,7 @@ fun TvDetailScreen(
     val scope = rememberCoroutineScope()
     var menuSong by remember { mutableStateOf<Song?>(null) }
 
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        arrayOf(Manifest.permission.READ_MEDIA_AUDIO)
-    } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-    }
     val reopen = { viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        reopen()
-    }
 
     LaunchedEffect(browseId) { if (page == null) reopen() }
 
@@ -134,7 +126,7 @@ fun TvDetailScreen(
             onShuffle = shuffle,
             onSongMenu = { menuSong = it },
             onRetry = reopen,
-            onRequestPermission = { permissionLauncher.launch(permissions) },
+            onRequestPermission = reopen,
             onNavigateToDetail = onNavigateToDetail,
             modifier = modifier,
         )

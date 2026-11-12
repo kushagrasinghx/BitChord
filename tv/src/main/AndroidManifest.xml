@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Tells Wi-Fi from mobile data, so the matching quality ceiling applies. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -31,21 +33,6 @@
       only lets the request reach the installer.
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
-    <!-- Reading local audio files across the device -->
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-
-    <!--
-      Only for API 28 and below. From 29 the app writes to the shared Music
-      folder through MediaStore, which grants access to the rows it created and
-      needs no permission at all — and this one stops being grantable there.
-    -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
 
     <!-- Universal device support: TV Leanback and hardware features are optional -->
     <uses-feature
@@ -75,7 +62,9 @@
         android:allowBackup="true"
         android:appCategory="audio"
         android:banner="@drawable/tv_banner"
-        android:usesCleartextTraffic="false"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -300,7 +289,7 @@
             android:theme="@style/Theme.BitChord.Tv" />
 
         <service
-            android:name=".playback.PlaybackService"
+            android:name="com.music.bitchord.playback.PlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

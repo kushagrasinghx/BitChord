@@ -206,7 +206,7 @@ object QualityUpgrade {
         // lookup that was still running got cancelled outright the moment
         // YouTube won the race, so a 320kbps source never finished and never
         // played. [SourceResolver.upgradeFor] applies the real quality bar.
-        if (target.title.isBlank() || target.isVideo ||
+        if (target.title.isBlank() ||
             mediaId in refused ||
             !SourceResolver.canSubstituteForYouTube()
         ) {
@@ -277,9 +277,7 @@ object QualityUpgrade {
      * entry and the settings; nothing here touches the network.
      */
     fun couldStillUpgrade(mediaId: String, uri: Uri?): Boolean {
-        if (uri == null || uri.getQueryParameter("v") == null ||
-            uri.getQueryParameter("m") == "1"
-        ) return false
+        if (uri == null || uri.getQueryParameter("v") == null) return false
         // Already upgraded: this *is* the better copy. Except when the listener
         // has asked by hand, where the marker is on a *reverted* item and
         // saying "this is the copy that was chosen" is the very thing being
@@ -290,7 +288,7 @@ object QualityUpgrade {
         // it had to start on YouTube is still looked for, as it is with the
         // setting off. Asking by hand always works: that is the listener
         // overruling the copy, not a background hunt.
-        if (mediaId !in handAsked && DirectSourceGate.isActive() && !StreamChoice.isYouTube(mediaId)) {
+        if (mediaId !in handAsked && DirectSourceGate.isActive() && StreamChoice.isSubstitute(mediaId)) {
             return false
         }
         // Same widening as [settledForLess]: a track playing off the cache is
@@ -476,9 +474,9 @@ object QualityUpgrade {
             // which played for five seconds of silence and was then put back.
             waiting.inFlight?.let { lookup ->
                 val late = runCatching { lookup.await() }.getOrNull()
-                val slack = SourceResolver.upgradeSlackSec()
+                val slack = if (waiting.target.isVideo) TrackMatcher.VIDEO_DURATION_LIMIT_SEC else SourceResolver.upgradeSlackSec()
                 val sameLength = late != null &&
-                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec, slack)
+                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec, isVideoOrigin = waiting.target.isVideo, slackSec = slack)
                 // The live lookup logs "substituted … at <format>" on finding
                 // this, so a refusal that said nothing read as a swap that had
                 // happened. Named, with both runtimes and the bar between them.
@@ -712,6 +710,7 @@ object QualityUpgrade {
         handAsked += mediaId
         asked -= mediaId
         refused -= mediaId
+        shelved.remove(mediaId)
     }
 
     /**

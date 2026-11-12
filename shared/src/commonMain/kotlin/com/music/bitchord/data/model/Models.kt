@@ -299,11 +299,41 @@ fun String?.durationMillis(): Long {
     return (seconds * 1_000).coerceAtLeast(0L)
 }
 
+private val SIZE_HINT = Regex("""w\d+-h\d+""")
+private val PARAM_SIZE_HINT = Regex("""=s\d+""")
+private val APPLE_ARTWORK_HINT = Regex("""\b\d+x\d+bb(?=[.-])""")
+private val SPOTIFY_LOW_RES_HASH = Regex("""ab67616d0000(4851|1e02)""")
+private val YOUTUBE_LOW_RES_THUMB = Regex("""/(default|mqdefault|hqdefault|sddefault)\.(jpg|webp)""")
+private val YOUTUBE_TINY_THUMB = Regex("""/(default|mqdefault)\.(jpg|webp)""")
+
 /** As [Song.artworkAt], for artwork that isn't a track's. */
 fun String?.artworkAt(px: Int): String? {
     if (this == null) return null
-    val sized = this.replace(SIZE_HINT, "w$px-h$px")
-    return if (isGoogleImageHost(this)) {
+    var url = this
+
+    // 1. Apple Music / iTunes mzstatic URLs (e.g. 100x100bb.jpg -> 1000x1000bb.jpg)
+    if (url.contains("mzstatic.com")) {
+        val targetSize = px.coerceAtLeast(600)
+        return url.replace(APPLE_ARTWORK_HINT, "${targetSize}x${targetSize}bb")
+    }
+
+    // 2. Spotify image CDN (ab67616d00004851 [64px] or ab67616d00001e02 [300px] -> ab67616d0000b273 [640px])
+    if (url.contains("i.scdn.co/image/")) {
+        return url.replace(SPOTIFY_LOW_RES_HASH, "ab67616d0000b273")
+    }
+
+    // 3. YouTube CDN image hosts (i.ytimg.com, img.youtube.com, etc.)
+    if (url.contains("ytimg.com") || url.contains("youtube.com")) {
+        if (px >= 400) {
+            url = url.replace(YOUTUBE_LOW_RES_THUMB) { match -> "/maxresdefault.${match.groupValues[2]}" }
+        } else if (px >= 200) {
+            url = url.replace(YOUTUBE_TINY_THUMB) { match -> "/hqdefault.${match.groupValues[2]}" }
+        }
+    }
+
+    // 4. Google usercontent / ggpht URLs
+    val sized = url.replace(SIZE_HINT, "w$px-h$px")
+    return if (isGoogleImageHost(url)) {
         sized.replace(PARAM_SIZE_HINT, "=s$px")
     } else {
         sized
@@ -321,8 +351,20 @@ private fun isGoogleImageHost(url: String): Boolean {
         host == "googleusercontent.com" || host.endsWith(".googleusercontent.com")
 }
 
-private val SIZE_HINT = Regex("""w\d+-h\d+""")
-private val PARAM_SIZE_HINT = Regex("""=s\d+""")
+/** Whether the given URL points to a YouTube/Google CDN thumbnail image. */
+fun isYouTubeThumbnailUrl(url: String?): Boolean {
+    if (url.isNullOrBlank()) return false
+    val host = url.substringAfter("://", "")
+        .ifEmpty { url.substringAfter("//", "") }
+        .substringBefore('/')
+        .substringBefore(':')
+        .substringBefore('?')
+        .lowercase()
+    return isGoogleImageHost(url) ||
+        host == "ytimg.com" || host.endsWith(".ytimg.com") ||
+        host == "youtube.com" || host.endsWith(".youtube.com") ||
+        host.contains("ytimg") || host.contains("googleusercontent")
+}
 
 /**
  * Artwork for a list row — 52dp at most, so about 140px on a 3x screen.
@@ -411,6 +453,19 @@ data class ShelfItem(
      */
     val isVideo: Boolean = false,
 )
+
+/** Converts a playable [ShelfItem] into a [Song] for playback or artwork resolution. */
+fun ShelfItem.toSong(): Song? = videoId?.let { vid ->
+    val duration = subtitle.split(" • ").map(String::trim).firstOrNull { it.matches(Regex("""\d+:\d{2}""")) }
+    val artist = subtitle.split(" • ").map(String::trim).firstOrNull { !it.matches(Regex("""\d+:\d{2}""")) } ?: subtitle
+    Song(
+        videoId = vid,
+        title = title,
+        artist = artist,
+        thumbnailUrl = thumbnailUrl,
+        durationText = duration,
+    )
+}
 
 /** How a shelf's items are laid out — the web player's `ShelfLayout`, by the same rules. */
 enum class ShelfLayout {

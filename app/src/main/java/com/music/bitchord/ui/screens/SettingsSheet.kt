@@ -252,6 +252,10 @@ fun SettingsScreen(
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
+    val prioritizeSpotifyCanvas by AppSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
+    val hideYoutubeThumbnails by AppSettings.hideYoutubeThumbnails.collectAsStateWithLifecycle()
+    val musicVideoEnabled by AppSettings.musicVideoEnabled.collectAsStateWithLifecycle()
+    val strictLosslessOnly by AppSettings.strictLosslessOnly.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
@@ -265,6 +269,7 @@ fun SettingsScreen(
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+    val audioPassthrough by AppSettings.audioPassthrough.collectAsStateWithLifecycle()
     val bitPerfectMode by AppSettings.bitPerfectMode.collectAsStateWithLifecycle()
     val bitPerfectStatus by BitPerfectOutput.status.collectAsStateWithLifecycle()
     val bitPerfectReady by BitPerfectOutput.ready.collectAsStateWithLifecycle()
@@ -587,6 +592,21 @@ fun SettingsScreen(
                         )
                     }
                 }
+                val strictLosslessTitle = "Strict Lossless / Dolby Only"
+                row(strictLosslessTitle, "audiophile", "lossless", "dolby", "opus") {
+                    SettingsRow(
+                        icon = Icons.Rounded.GraphicEq,
+                        title = strictLosslessTitle,
+                        subtitle = "Never falls back to lossy Opus. Automatically skips tracks if no Lossless or Dolby Atmos master is available.",
+                        trailing = {
+                            IosSwitch(
+                                checked = strictLosslessOnly,
+                                onCheckedChange = AppSettings::setStrictLosslessOnly,
+                            )
+                        },
+                        onClick = { AppSettings.setStrictLosslessOnly(!strictLosslessOnly) },
+                    )
+                }
             }
 
             // The categories, each a page of its own — until there is a query,
@@ -683,6 +703,15 @@ fun SettingsScreen(
                     checked = preferUsbDac,
                     onCheckedChange = AppSettings::setPreferUsbDac,
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                )
+            }
+            val passthroughTitle = "Audio Passthrough (Bit-Perfect)"
+            row(passthroughTitle, "passthrough", "bitperfect", "bit-perfect", "dac", "usb", "direct", "hdmi") {
+                SettingsSubRow(
+                    title = passthroughTitle,
+                    checked = audioPassthrough,
+                    onCheckedChange = AppSettings::setAudioPassthrough,
+                    subtitle = "Bypasses system resampler and DSP for direct bit-perfect high-res PCM (>48kHz) and bitstreams to USB DAC or HDMI",
                 )
             }
             val bitPerfectTitle = stringResource(R.string.bit_perfect_output)
@@ -1162,6 +1191,21 @@ fun SettingsScreen(
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
+            val musicVideoPlaybackTitle = "Music Video Playback"
+            row(musicVideoPlaybackTitle, "music video", "video", "youtube", "playback") {
+                SettingsRow(
+                    icon = SfIcons.Video,
+                    title = musicVideoPlaybackTitle,
+                    subtitle = "Plays background video for music videos. Turn off to save battery and data, showing artwork and lossless audio only.",
+                    trailing = {
+                        IosSwitch(
+                            checked = musicVideoEnabled,
+                            onCheckedChange = AppSettings::setMusicVideoEnabled,
+                        )
+                    },
+                    onClick = { AppSettings.setMusicVideoEnabled(!musicVideoEnabled) },
+                )
+            }
             val animatedCoverArtTitle = stringResource(R.string.animated_cover_art)
             // Carries the keywords of the rows that only appear once it is on,
             // so searching "spotify" with animated covers switched off turns up
@@ -1192,6 +1236,22 @@ fun SettingsScreen(
                         title = coverCellularTitle,
                         checked = canvasOverCellular,
                         onCheckedChange = AppSettings::setCanvasOverCellular,
+                    )
+                }
+                val prioritizeSpotifyTitle = stringResource(R.string.prioritize_spotify_canvas)
+                row(prioritizeSpotifyTitle, "spotify", "canvas", "prioritize", divided = false) {
+                    SettingsSubRow(
+                        title = prioritizeSpotifyTitle,
+                        checked = prioritizeSpotifyCanvas,
+                        onCheckedChange = AppSettings::setPrioritizeSpotifyCanvas,
+                    )
+                }
+                val hideYoutubeTitle = "Hide YouTube Thumbnails"
+                row(hideYoutubeTitle, "youtube", "thumbnails", "artwork", divided = false) {
+                    SettingsSubRow(
+                        title = hideYoutubeTitle,
+                        checked = hideYoutubeThumbnails,
+                        onCheckedChange = AppSettings::setHideYoutubeThumbnails,
                     )
                 }
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)

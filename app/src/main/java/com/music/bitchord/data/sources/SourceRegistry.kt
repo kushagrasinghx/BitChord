@@ -17,6 +17,14 @@ import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.music.bitchord.data.Http
+import okhttp3.Request
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -75,9 +83,12 @@ data class SourceConfig(
     val activeQuality: AddonQualityOption?
         get() = qualityOptions.firstOrNull { it.value == pickedQuality } ?: qualityOptions.firstOrNull()
 
-    /** Whether this source is shut out right now because it needs an output that isn't connected. */
+    /**
+     * Whether this source is shut out right now because it needs an output that isn't connected.
+     * Always false so lossless streaming is never gated on hardware DAC detection.
+     */
     val awaitsLosslessOutput: Boolean
-        get() = checkValidLossless && !LosslessOutput.capable
+        get() = false
 
     /**
      * Whether this is an addon known to be out of date: its manifest doesn't
@@ -121,6 +132,14 @@ data class SourceConfig(
  * is present but off until the user accepts its catalogue-matching risk.
  */
 object SourceRegistry {
+    data class AddonHealthInfo(
+        val configId: String,
+        val online: Boolean,
+        val latencyMs: Long,
+        val qualityLabel: String = "Lossless",
+        val qualityRank: Int = 2,
+        val statusText: String,
+    )
 
     private const val TAG = "BitChord"
 
@@ -176,8 +195,63 @@ object SourceRegistry {
         // Seeded rather than persisted-on-first-write, so a build adding a new
         // built-in kind picks it up for existing installs too. SourceConfig's
         // default is the policy: JioSaavn off, YouTube on.
-        val seeded = stored + BUILT_IN_KINDS
-            .filter { kind -> stored.none { it.kind == kind } }
+        fun String.normalizeUrl(): String = this.trim().trimEnd('/').removeSuffix("/manifest.json")
+
+        val deadSourceIds = setOf(
+            "gg.gglos.addon",
+            "gglos.ggottes.s1",
+            "app.bitchord.lossless-bridge",
+            "botkeep.bppcaf.addon",
+            "dev.akira.bitchord-hires",
+            "eljohnzc.addon.deezer",
+            "dev.eljohnzc.addon.deezer",
+            "app.bitchord.confih",
+            "dev.confih.bitchord.addon",
+            "com.8spine.tidal-deezer",
+            "dev.bluebit.stream",
+        )
+        val deadHostPatterns = listOf(
+            "gglos",
+            "losslessbridge",
+            "bppcaf",
+            "lastbabe",
+            "bitchord-hires",
+            "deplexo",
+            "confih",
+            "workers.dev",
+        )
+
+        // Purge dead, offline, or retired addons from existing storage
+        val cleanStored = stored.filterNot { s ->
+            s.id in deadSourceIds || deadHostPatterns.any { s.baseUrl.contains(it, ignoreCase = true) }
+        }
+
+        val updatedStored = cleanStored.map { s ->
+            val sNorm = s.baseUrl.normalizeUrl()
+            val match = PREBAKED_SOURCES.firstOrNull { it.id == s.id || it.baseUrl.normalizeUrl() == sNorm }
+                ?: if (s.baseUrl.contains("qobuz") && (s.baseUrl.contains("vercel") || s.baseUrl.contains("soundfean"))) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "dev.bitperfect.qobuz.heisenbergg" }
+                } else if (s.baseUrl.contains("bitchord-hires")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "dev.akira.bitchord-hires" }
+                } else if (s.baseUrl.contains("eljohnzc-mono") || s.baseUrl.contains("eljohnzc")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "eljohnzc.addon.mono" }
+                } else null
+
+            if (match != null && (match.baseUrl != s.baseUrl || match.label != s.label)) {
+                s.copy(id = match.id, baseUrl = match.baseUrl, label = match.label)
+            } else {
+                s
+            }
+        }
+        val distinctStored = updatedStored.distinctBy { it.baseUrl.normalizeUrl().ifBlank { it.id } }
+        val withPrebaked = PREBAKED_SOURCES.filter { pre ->
+            val preNorm = pre.baseUrl.normalizeUrl()
+            distinctStored.none { it.id == pre.id || it.baseUrl.normalizeUrl() == preNorm }
+        } + distinctStored
+        val prebakedOrder = PREBAKED_SOURCES.map { it.id }.withIndex().associate { it.value to it.index }
+        val prioritized = withPrebaked.sortedBy { prebakedOrder[it.id] ?: (100 + it.kind.ordinal) }
+        val seeded = prioritized + BUILT_IN_KINDS
+            .filter { kind -> prioritized.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
 
         // The retired built-in module is removed, while a custom module entered
@@ -185,9 +259,11 @@ object SourceRegistry {
         return seeded
             .filterNot { it.kind == SourceKind.MODULE }
             .map { config ->
+                val prebaked = PREBAKED_SOURCES.firstOrNull { it.id == config.id }
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
                     config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
+                    prebaked != null -> config.copy(enabled = prebaked.enabled)
                     else -> config
                 }
             }
@@ -226,9 +302,6 @@ object SourceRegistry {
             // that asked for a lossless output costs nothing — not even a timed
             // out search — while there isn't one. See [SourceConfig.checkValidLossless].
             .filterNot { it.awaitsLosslessOutput }
-            // Nor, for an addon that asks for auth, while this device was just
-            // refused verification: back in the walk once the backoff lapses,
-            // when the next resolve asks the auth service again.
             .filterNot { unverified && it.kind == SourceKind.ADDON && it.bitchordAuth == true }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
@@ -581,13 +654,16 @@ object SourceRegistry {
      */
     suspend fun probeCandidate(config: SourceConfig): SourceHealth = build(config).health()
 
-    private fun build(config: SourceConfig): MusicSource = when (config.kind) {
-        SourceKind.ADDON -> AddonSource(config)
+    private fun build(config: SourceConfig): MusicSource = when {
+        config.baseUrl.contains("monochrome", ignoreCase = true) || config.id.contains("monochrome", ignoreCase = true) || config.id == "dev.bitperfect.qobuz.heisenbergg" ->
+            MonochromeSource(config)
+        config.kind == SourceKind.ADDON -> AddonSource(config)
         // Same protocol, same implementation — the kinds differ only in rank.
-        SourceKind.CUSTOM_MODULE -> ModuleSource(config)
-        SourceKind.MODULE -> ModuleSource(config)
-        SourceKind.JIOSAAVN -> JioSaavnSource(config)
-        SourceKind.YOUTUBE -> YouTubeSource(config)
+        config.kind == SourceKind.CUSTOM_MODULE -> ModuleSource(config)
+        config.kind == SourceKind.MODULE -> ModuleSource(config)
+        config.kind == SourceKind.JIOSAAVN -> JioSaavnSource(config)
+        config.kind == SourceKind.YOUTUBE -> YouTubeSource(config)
+        else -> AddonSource(config)
     }
 
     /**
@@ -630,6 +706,96 @@ object SourceRegistry {
             .appendQueryParameter("t", trackId)
             .build()
             .toString()
+
+    val PREBAKED_SOURCES = listOf(
+        SourceConfig(
+            id = "dev.bitperfect.qobuz.heisenbergg",
+            kind = SourceKind.ADDON,
+            label = "Qobuz [Monochrome] (Hi-Res FLAC)",
+            baseUrl = "https://tracks.monochrome.st",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+    )
+
+    suspend fun checkAddonsHealth(): Map<String, AddonHealthInfo> = withContext(Dispatchers.IO) {
+        val addons = configs.value.filter { it.kind == SourceKind.ADDON && it.baseUrl.isNotBlank() }
+        val results = ConcurrentHashMap<String, AddonHealthInfo>()
+        val probeClient = Http.client.newBuilder()
+            .connectTimeout(7, TimeUnit.SECONDS)
+            .readTimeout(7, TimeUnit.SECONDS)
+            .callTimeout(7, TimeUnit.SECONDS)
+            .build()
+
+        coroutineScope {
+            addons.forEach { addon ->
+                launch {
+                    val url = if (addon.baseUrl.endsWith(".json", ignoreCase = true)) addon.baseUrl else addon.baseUrl.trimEnd('/') + "/manifest.json"
+                    val start = System.currentTimeMillis()
+                    val info = try {
+                        val req = Request.Builder()
+                            .url(url)
+                            .header("User-Agent", "BitChord/v1.8.1")
+                            .get()
+                            .build()
+                        val resp = probeClient.newCall(req).execute()
+                        val elapsed = System.currentTimeMillis() - start
+                        val code = resp.code
+                        val body = resp.body?.string().orEmpty().trim()
+                        resp.close()
+                        if (code == 200 && (body.startsWith("{") || body.startsWith("["))) {
+                            val lower = body.lowercase()
+                            val isAtmos = lower.contains("atmos") || lower.contains("eac3") || lower.contains("spatial")
+                            val isHiRes = lower.contains("hires") || lower.contains("hi-res") || lower.contains("24-bit") || lower.contains("master")
+                            val isLossless = lower.contains("lossless") || lower.contains("flac")
+                            val (qLabel, qRank) = when {
+                                isAtmos -> "Atmos / Hi-Res" to 4
+                                isHiRes -> "Hi-Res FLAC" to 3
+                                isLossless -> "Lossless FLAC" to 2
+                                else -> "High (320k)" to 1
+                            }
+                            AddonHealthInfo(
+                                configId = addon.id,
+                                online = true,
+                                latencyMs = elapsed,
+                                qualityLabel = qLabel,
+                                qualityRank = qRank,
+                                statusText = "$qLabel • ${elapsed} ms",
+                            )
+                        } else {
+                            AddonHealthInfo(addon.id, false, 99999L, "Offline", 0, "HTTP $code")
+                        }
+                    } catch (e: Exception) {
+                        val msg = if (e is java.net.SocketTimeoutException) "Timeout" else "Offline"
+                        AddonHealthInfo(addon.id, false, 99999L, "Offline", 0, msg)
+                    }
+                    results[addon.id] = info
+                }
+            }
+        }
+        results
+    }
+
+    fun autoSortByLatency(healthMap: Map<String, AddonHealthInfo>) {
+        val addons = configs.value.filter { it.kind.isUserAdded }
+        if (addons.size < 2) return
+        val sorted = addons.sortedWith(
+            compareBy<SourceConfig> { config ->
+                val h = healthMap[config.id]
+                if (h != null && h.online) 0 else 1
+            }.thenByDescending { config ->
+                healthMap[config.id]?.qualityRank ?: 0
+            }.thenBy { config ->
+                healthMap[config.id]?.latencyMs ?: 99999L
+            }
+        )
+        publish(sorted + configs.value.filterNot { it.kind.isUserAdded })
+    }
+
+    fun resetToPrebaked() {
+        publish(PREBAKED_SOURCES + BUILT_IN_KINDS.map { SourceConfig(kind = it) })
+    }
 
     private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 

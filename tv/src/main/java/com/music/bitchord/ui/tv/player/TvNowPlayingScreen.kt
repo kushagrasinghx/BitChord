@@ -33,14 +33,18 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.media3.common.Player
+import com.music.bitchord.data.model.durationMillis
 import androidx.media3.session.MediaController
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.canvas.AppleArtworkRepository
+import com.music.bitchord.data.model.isYouTubeThumbnailUrl
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.playback.toggleAutoplay
 import com.music.bitchord.playback.toggleShuffle
+import com.music.bitchord.playback.upgradeQuality
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.dialogs.TvSongActionMenuDialog
 import kotlinx.coroutines.Job
@@ -105,12 +109,12 @@ fun TvNowPlayingScreen(
     val autoplay by AppSettings.autoplay.collectAsState()
     val playerStyle by TvSettings.tvPlayerStyle.collectAsState()
 
-    LaunchedEffect(song.videoId, durationMs) {
+    LaunchedEffect(song.videoId) {
         viewModel.loadLyrics(
             videoId = song.videoId,
             title = song.title,
             artist = song.artist,
-            durationMs = durationMs.coerceAtLeast(0L),
+            durationMs = playerState.durationMs.takeIf { it > 0L } ?: song.durationMillis(),
             album = song.albumName,
         )
     }
@@ -221,7 +225,13 @@ fun TvNowPlayingScreen(
                 }
             },
     ) {
-        TvPlayerBackground(artworkUrl = song.thumbnailUrl, style = playerStyle)
+        val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+        var appleArt by remember(song.videoId) { mutableStateOf(AppleArtworkRepository.cached(song)) }
+        LaunchedEffect(song.videoId) {
+            appleArt = AppleArtworkRepository.artworkFor(song)
+        }
+        val effectiveArtworkUrl = appleArt?.artworkUrl?.takeIf { it.isNotBlank() } ?: song.thumbnailUrl
+        TvPlayerBackground(artworkUrl = effectiveArtworkUrl, style = playerStyle)
 
         // The stage: takes the remote while the transport is down. Select or a
         // vertical press brings the transport up; left and right change track.
@@ -282,6 +292,23 @@ fun TvNowPlayingScreen(
                 onToggleLyrics = { lyricsHidden = !lyricsHidden },
                 onToggleUpNext = { upNextOpen = !upNextOpen },
                 onMore = { sheet = PlayerSheet.Menu },
+                onUpgradeHiFi = { mediaController?.upgradeQuality() },
+                shuffle = shuffle,
+                repeatMode = playerState.repeatMode,
+                autoplay = autoplay,
+                onToggleShuffle = { mediaController?.toggleShuffle() },
+                onCycleRepeat = {
+                    mediaController?.let {
+                        val next = when (it.repeatMode) {
+                            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                        AppSettings.setRepeatMode(next)
+                        it.repeatMode = next
+                    }
+                },
+                onToggleAutoplay = { mediaController?.toggleAutoplay() },
                 upNext = {
                     TvUpNext(
                         queue = playerState.queue,

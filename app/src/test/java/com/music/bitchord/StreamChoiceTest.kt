@@ -31,7 +31,7 @@ class StreamChoiceTest {
     fun reset() {
         // Ids used below, cleared both ways round so a failure can't leak into
         // the next test through the shared object.
-        (0..80).forEach { StreamChoice.forget("track-$it") }
+        (0..150).forEach { StreamChoice.forget("track-$it") }
     }
 
     @Test
@@ -91,5 +91,22 @@ class StreamChoiceTest {
         StreamChoice.remember("track-5", stream("aac.saavncdn.com"), substituted = true)
         StreamChoice.forget("track-5")
         assertNull(StreamChoice.of("track-5"))
+    }
+
+    @Test
+    fun `choicesFlow publishes resolved format and clears on forget`() {
+        val s = SourceStream(url = "https://example.com/audio.flac", format = StreamFormat(codec = "flac", bitDepth = 24, sampleRateHz = 96000))
+        StreamChoice.remember("track-6", s, substituted = true)
+        assertEquals(s.format, StreamChoice.choicesFlow.value["track-6"])
+        StreamChoice.forget("track-6")
+        assertNull(StreamChoice.choicesFlow.value["track-6"])
+    }
+
+    @Test
+    fun `negative lossless match is recorded and cleared on remember`() {
+        StreamChoice.rememberNoLosslessMatch("track-7")
+        assertEquals(true, StreamChoice.hasNoLosslessMatch("track-7"))
+        StreamChoice.remember("track-7", stream("example.com"), substituted = true)
+        assertEquals(false, StreamChoice.hasNoLosslessMatch("track-7"))
     }
 }

@@ -132,6 +132,7 @@ import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
@@ -766,8 +767,24 @@ class PlaybackService : MediaLibraryService() {
         WearBridge.createSpeaker(this, scope, localPlayer = { player }, onChanged = { publishWidgetState() })
     }
 
+    private val connectSpeaker by lazy {
+        com.music.bitchord.playback.connect.BitChordConnectManager.initialize(
+            context = this,
+            playerProvider = { player },
+            onPlaySongsRequested = { songs, startIndex, positionMs ->
+                scope.launch(Dispatchers.Main) {
+                    val p = player ?: return@launch
+                    val items = songs.map { it.toMediaItem() }
+                    p.setMediaItems(items, startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)), positionMs)
+                    p.prepare()
+                    p.play()
+                }
+            },
+        )
+    }
+
     /** Every remote speaker, as the one the session player reports. */
-    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker)) }
+    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker, connectSpeaker)) }
 
     /**
      * Binds playback to a Listen Together party, when there is one.
@@ -1187,6 +1204,12 @@ class PlaybackService : MediaLibraryService() {
             publishNerdStats()
             currentAudioInputFormat = format
             applyOutputRoute()
+            this@PlaybackService.player?.let { p ->
+                val id = eventTime.mediaId()
+                if (id != null && QualityUpgrade.couldStillUpgrade(id, p.currentMediaItem?.localConfiguration?.uri)) {
+                    lookForBetterCopy(p)
+                }
+            }
         }
 
         /**
@@ -1204,6 +1227,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             val cutAt = swapCutAt ?: return
             swapCutAt = null
+            publishNerdStats()
             TrackLog.d(
                 "BitChord",
                 "swap seam: ${SystemClock.elapsedRealtime() - cutAt}ms of silence",
@@ -1220,6 +1244,7 @@ class PlaybackService : MediaLibraryService() {
         override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
             val cutAt = swapCutAt ?: return
             if (state == Player.STATE_READY) {
+                publishNerdStats()
                 TrackLog.d(
                     "BitChord",
                     "swap leg: ready ${SystemClock.elapsedRealtime() - cutAt}ms after the cut",
@@ -1335,6 +1360,8 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
         }
+        // BitChord Connect: start local server and discovery
+        runCatching { connectSpeaker }
         // Signing in or out adds or removes Like everywhere at once.
         scope.launch {
             SignedIn.state(this@PlaybackService)
@@ -1554,6 +1581,12 @@ class PlaybackService : MediaLibraryService() {
             // the middle of an MP4 ended up appended to a WebM. See
             // [StreamChoice].
             StreamChoice.of(videoId)?.let { serving ->
+                if (StreamChoice.isSubstitute(videoId)) {
+                    val key = AudioCache.cacheKeyOf(dataSpec.uri)
+                    if (AudioCache.heldByYouTube(key)) {
+                        AudioCache.dropYouTubeEntry(key, videoId)
+                    }
+                }
                 // What the stream claims to be, restated on every open rather
                 // than only on the one that chose it.
                 //
@@ -1590,7 +1623,6 @@ class PlaybackService : MediaLibraryService() {
                 // Direct Source Stream plays the addon's answer as final: no
                 // second look, no mid-song swap.
                 if (!DirectSourceGate.isActive() &&
-                    StreamChoice.isSubstitute(videoId) &&
                     serving.format.isLossless != true &&
                     QualityUpgrade.couldStillUpgrade(videoId, dataSpec.uri)
                 ) {
@@ -3637,6 +3669,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        mediaItem?.mediaId?.let { DirectSourceGate.onPlaying(setOf(it)) }
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -3649,7 +3682,11 @@ class PlaybackService : MediaLibraryService() {
         AudioOutputStatus.onTrackTransition()
         // The entry this track is read from now counts as played — the only
         // kind the Cached songs folder lists. See [AudioCache.Origin].
-        mediaItem?.let { AudioCache.notePlayed(it.toSong(), it.localConfiguration?.uri) }
+        mediaItem?.let {
+            val song = it.toSong()
+            AudioCache.notePlayed(song, it.localConfiguration?.uri)
+            com.music.bitchord.data.RecentTracksStore.recordPlay(applicationContext, song)
+        }
         scheduleForeignCachePurge()
         mediaItem?.mediaId?.let { id ->
             resolveLocalBitrate(id, mediaItem)
@@ -3759,6 +3796,7 @@ class PlaybackService : MediaLibraryService() {
 
         // currentPosition already belongs to the new item by now, so
         // the outgoing track is closed out on the last sampled value.
+        val sampledSeconds = lastPositionSeconds
         PlaybackTracker.onTrackChanged(lastPositionSeconds)
         lastPositionSeconds = 0
 
@@ -3785,6 +3823,16 @@ class PlaybackService : MediaLibraryService() {
         val prevStart = listenBrainzStartMs
         if (prevSong != null && ended && prevStart > 0L) {
             submitListenBrainzFinished(prevSong, prevStart, listenBrainzDurationMs)
+        }
+        if (prevSong != null) {
+            if (!ended && sampledSeconds < 25L) {
+                RecommendationTaste.recordSkip(prevSong)
+            } else if (ended || sampledSeconds >= 45L) {
+                RecommendationTaste.recordCompletion(prevSong)
+            }
+        }
+        if (newSong != null) {
+            RecommendationTaste.recordSessionTrack(newSong)
         }
         listenBrainzSong = newSong
         listenBrainzStartMs = if (exoPlayer.isPlaying) System.currentTimeMillis() else 0L
@@ -4215,20 +4263,24 @@ class PlaybackService : MediaLibraryService() {
         val fallback = item.toYouTubeFallbackMediaItem() ?: return false
         val mediaId = item.mediaId
 
+        val networkFault = keepComplete
         QualityUpgrade.forget(mediaId)
-        QualityUpgrade.refuseUpgrades(mediaId)
-        videoId?.let {
-            StreamChoice.refuseSubstitutes(it)
-            StreamChoice.forget(it)
+        if (!networkFault) {
+            QualityUpgrade.refuseUpgrades(mediaId)
+            videoId?.let {
+                StreamChoice.refuseSubstitutes(it)
+                StreamChoice.forget(it)
+            }
+        } else {
+            videoId?.let { StreamChoice.forget(it) }
         }
         NerdStats.clearDeclared(mediaId)
         recoveries.remove(mediaId)
         TrackLog.w(
             "BitChord",
-            "$mediaId $why; falling back to YouTube audio",
+            "$mediaId $why; falling back to YouTube audio (networkFault=$networkFault)",
             about = mediaId,
         )
-
         scope.launch(TrackLog.about(mediaId)) {
             delay(RECOVERY_DELAY_MS)
             withContext(Dispatchers.IO) { AudioCache.discard(playbackUri, keepComplete = keepComplete) }
@@ -4598,7 +4650,7 @@ class PlaybackService : MediaLibraryService() {
             // a null. It is genuinely not known yet at some of the moments
             // this is called from: a queue advance runs its transition before
             // the item it moved onto has finished preparing.
-            val playingSeconds = withTimeoutOrNull(DURATION_SETTLE_MS) {
+            val playingSeconds = withTimeoutOrNull(2_000L) {
                 while (true) {
                     val ms = withContext(Dispatchers.Main) {
                         this@PlaybackService.player
@@ -4610,11 +4662,15 @@ class PlaybackService : MediaLibraryService() {
                     // seconds, and truncating a 225.9s stream to 225 spent up to
                     // a second of the length tolerance before any candidate was
                     // weighed.
-                    if (ms > 0) return@withTimeoutOrNull ((ms + 500) / 1000).toInt()
+                    if (ms > 0) {
+                        val sec = ((ms + 500) / 1000).toInt()
+                        com.music.bitchord.data.sources.KnownTrackDurations.put(mediaId, sec)
+                        return@withTimeoutOrNull sec
+                    }
                     delay(UPGRADE_PROVE_STEP_MS)
                 }
                 @Suppress("UNREACHABLE_CODE") null
-            }
+            } ?: (uri?.let { SourceResolver.targetIn(it).durationSec })
             // Re-asked rather than carried down from above, because the wait
             // is long enough for the answer to have changed: the resolver runs
             // on the loader thread and marks a track pending as it opens the
@@ -4697,6 +4753,8 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         OriginalVersion.unpin(mediaId)
+        StreamChoice.allowSubstitutes(mediaId)
+        StreamChoice.forget(mediaId)
         // A manual retry is a request for the addon's state *now*. In
         // particular, do not replay a successful empty search cached while one
         // of the addon's upstreams was unavailable or reuse an earlier stream
@@ -4735,10 +4793,17 @@ class PlaybackService : MediaLibraryService() {
      *   bitrate. See [cachedFloor].
      */
     private suspend fun adoptCachedTrack(mediaId: String, uri: Uri, durationSec: Int?): Boolean {
-        val format = withContext(Dispatchers.Main) {
-            player
-                ?.takeIf { it.currentMediaItem?.mediaId == mediaId && audioFormatFor == mediaId }
-                ?.audioFormat
+        val format = withTimeoutOrNull(2_000L) {
+            while (true) {
+                val f = withContext(Dispatchers.Main) {
+                    player
+                        ?.takeIf { it.currentMediaItem?.mediaId == mediaId && audioFormatFor == mediaId }
+                        ?.audioFormat
+                }
+                if (f != null && f.sampleMimeType != null) return@withTimeoutOrNull f
+                delay(UPGRADE_PROVE_STEP_MS)
+            }
+            @Suppress("UNREACHABLE_CODE") null
         } ?: return false
         val mime = format.sampleMimeType ?: return false
         val videoId = uri.getQueryParameter("v") ?: return false
@@ -5013,9 +5078,11 @@ class PlaybackService : MediaLibraryService() {
             NerdStats.recordSource(mediaId, upgradedSourceName)
             player.seekTo(player.currentMediaItemIndex, now.position)
             player.prepare()
+            publishNerdStats()
             QualityUpgrade.unshelve(mediaId)
             TrackLog.d("BitChord", "upgraded to ${stream.format.summary} at ${now.position}ms ($upgradedSourceName)")
-            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat)
+            val isVideoOrigin = now.item.isVideoOrigin || SourceResolver.targetIn(Uri.parse(now.uri)).isVideo
+            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat, isVideoOrigin = isVideoOrigin)
             if (QualityUpgrade.continueAfterLossySwap(mediaId)) {
                 // The immediate JioSaavn improvement stays audible while a
                 // slower lossless source is checked against its higher-quality
@@ -5178,12 +5245,13 @@ class PlaybackService : MediaLibraryService() {
                 prepare()
             }
         }
+        val isVideoOrigin = at.item.isVideoOrigin || SourceResolver.targetIn(Uri.parse(at.uri)).isVideo
         val warmedThrough: Long?
         try {
             warmedThrough = withTimeoutOrNull(UPGRADE_AUDITION_MS) {
                 while (true) {
                     val verdict = withContext(Dispatchers.Main) {
-                        auditionVerdict(audition, at.duration, stream, meter.bytes.get())
+                        auditionVerdict(audition, at.duration, stream, meter.bytes.get(), isVideoOrigin = isVideoOrigin)
                     }
                     when (verdict) {
                         is Audition.Ready -> return@withTimeoutOrNull verdict.bufferedTo
@@ -5264,6 +5332,7 @@ class PlaybackService : MediaLibraryService() {
         previousDuration: Long,
         stream: SourceStream,
         bytesLoaded: Long,
+        isVideoOrigin: Boolean = false,
     ): Audition {
         audition.playerError?.let {
             return Audition.Rejected("${it.errorCodeName} opening ${stream.format.summary}")
@@ -5279,7 +5348,8 @@ class PlaybackService : MediaLibraryService() {
         if (audition.playbackState != Player.STATE_READY) return Audition.Waiting
         val length = audition.duration
         if (length <= 0) return Audition.Waiting
-        if (previousDuration > 0 && abs(length - previousDuration) > upgradeLengthSlackMs) {
+        val maxSlackMs = maxOf(TrackMatcher.VIDEO_DURATION_LIMIT_SEC * 1_000L, upgradeLengthSlackMs)
+        if (previousDuration > 0 && abs(length - previousDuration) > maxSlackMs) {
             return Audition.Rejected("replacement is ${length}ms against ${previousDuration}ms")
         }
         // What the decoder was actually configured with, against what the
@@ -5382,15 +5452,17 @@ class PlaybackService : MediaLibraryService() {
         position: Long,
         previousDuration: Long,
         previousFormat: StreamFormat?,
+        isVideoOrigin: Boolean = false,
     ) {
         if (previousDuration <= 0) return
+        val maxSlackMs = maxOf(TrackMatcher.VIDEO_DURATION_LIMIT_SEC * 1_000L, upgradeLengthSlackMs)
         scope.launch(TrackLog.about(mediaId)) {
             val agreed = withTimeoutOrNull(UPGRADE_PROVE_MS) {
                 while (true) {
                     val current = player?.takeIf { it.currentMediaItem?.mediaId == mediaId }
                         ?: return@withTimeoutOrNull false
                     val now = current.duration
-                    if (now > 0) return@withTimeoutOrNull abs(now - previousDuration) <= upgradeLengthSlackMs
+                    if (now > 0) return@withTimeoutOrNull abs(now - previousDuration) <= maxSlackMs
                     // The failure this whole check exists for, caught when it
                     // happens rather than at the ceiling: a replacement that
                     // came up short does not raise an error, it reaches the
@@ -5413,7 +5485,7 @@ class PlaybackService : MediaLibraryService() {
             TrackLog.w(
                 "BitChord",
                 "upgrade reverted: replacement reports ${player.duration}ms against " +
-                    "${previousDuration}ms (state=${player.playbackState}, " +
+                    "${previousDuration}ms (slack=${maxSlackMs}ms, state=${player.playbackState}, " +
                     "buffered=${player.bufferedPosition}ms)",
             )
             QualityUpgrade.forget(mediaId)
@@ -5609,6 +5681,13 @@ class PlaybackService : MediaLibraryService() {
             // [StreamResolver] parents the walk itself elsewhere and lets it
             // finish into its own cache.
             fallback.cancel()
+            val isEligible = quick.format.isLossless == true || quick.format.isDolbyAtmos
+            if (AppSettings.strictLosslessOnly.value && !isEligible) {
+                NerdStats.onLosslessRaceEnd(videoId)
+                throw StreamResolver.PermanentlyUnplayableException(
+                    "Skipped '${target.title}': No Lossless or Dolby Atmos stream found (Strict Mode)"
+                )
+            }
             // Everything that was asked for, ahead of the fallback: the
             // ordinary good case, and the one with no seam in it.
             if (!quick.belowRequest) {
@@ -5626,6 +5705,25 @@ class PlaybackService : MediaLibraryService() {
             )
             if (!settled) NerdStats.onLosslessRaceEnd(videoId)
             return Resolved.Module(quick)
+        }
+
+        // When strict lossless mode is active, reject falling back to lossy Opus
+        if (AppSettings.strictLosslessOnly.value) {
+            val candidate = if (lookup.isActive) {
+                withTimeoutOrNull(2500) { lookup.await() }
+            } else {
+                null
+            }
+            if (candidate != null && (candidate.format.isLossless == true || candidate.format.isDolbyAtmos)) {
+                fallback.cancel()
+                NerdStats.onLosslessRaceEnd(videoId)
+                return Resolved.Module(candidate)
+            }
+            fallback.cancel()
+            NerdStats.onLosslessRaceEnd(videoId)
+            throw StreamResolver.PermanentlyUnplayableException(
+                "Skipped '${target.title}': No Lossless or Dolby Atmos stream found (Strict Mode)"
+            )
         }
 
         val url = fallback.await().getOrThrow()
@@ -6401,13 +6499,8 @@ class PlaybackService : MediaLibraryService() {
      * tracks is more than it does anything with, but it decides that, not this.
      */
     private fun prefetchAround(player: ExoPlayer) {
-        // Direct Source Stream reads ahead from its own window instead — see
-        // [driveDirectWindow]. Anything the ordinary read-ahead had running
-        // for the old queue is dropped with it.
         if (DirectSourceGate.isActive()) {
             driveDirectWindow()
-            if (preferredPrefetchRequest != null) cancelPrefetch()
-            return
         }
         val nextIndex = player.nextMediaItemIndex
         val upcomingSongs = if (nextIndex != C.INDEX_UNSET) {
@@ -6834,7 +6927,13 @@ class PlaybackService : MediaLibraryService() {
             enableFloatOutput: Boolean,
             enableAudioTrackPlaybackParams: Boolean,
         ): AudioSink {
+            val capabilities = if (AppSettings.audioPassthrough.value) {
+                androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context)
+            } else {
+                androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES
+            }
             val defaultSink = DefaultAudioSink.Builder(context)
+                .setAudioCapabilities(capabilities)
                 .setEnableFloatOutput(enableFloatOutput)
                 // Speed handled by the AudioTrack itself on a float-capable
                 // route, rather than by Sonic. `DefaultAudioSink.configure`
@@ -7061,7 +7160,7 @@ class PlaybackService : MediaLibraryService() {
             deviceName = activeDevice?.productName?.toString()?.ifBlank { null } ?: "System default",
             advertisedEncodings = advertisedEncodings,
             advertisedSampleRates = advertisedSampleRates,
-            requestedMode = AppSettings.outputPcmMode.value,
+            requestedMode = if (AppSettings.audioPassthrough.value) OutputPcmMode.FLOAT_32 else AppSettings.outputPcmMode.value,
             directSupport = directSupport,
             bluetoothTelemetry = btTelemetry,
             delegateSupportsFloat = shouldEnableFloatOutput(),
@@ -7298,6 +7397,9 @@ class PlaybackService : MediaLibraryService() {
                     requestOutputReconfiguration(rebuild = true)
                 }
             }
+        }
+        scope.launch {
+            AppSettings.audioPassthrough.drop(1).collect { requestOutputReconfiguration() }
         }
         scope.launch {
             // Not applied to a player mid-transition: [CrossfadeController]
@@ -7919,20 +8021,36 @@ class PlaybackService : MediaLibraryService() {
         super.onDestroy()
     }
 
+    private var serviceLyricsFor: String? = null
+    private var serviceLyricsDurationMs: Long = 0L
+
     private fun loadLyricsForCurrentTrack() {
         val currentSong = player?.currentMediaItem?.toSong() ?: run {
             serviceLyrics = null
+            serviceLyricsFor = null
+            serviceLyricsDurationMs = 0L
             stopLyricsTicker()
             return
         }
 
         if (!AppSettings.syncedLyrics.value) {
             serviceLyrics = null
+            serviceLyricsFor = null
+            serviceLyricsDurationMs = 0L
             stopLyricsTicker()
             return
         }
 
-        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
+        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: currentSong.durationMillis()
+        val durationDelta = kotlin.math.abs(trackDurationMs - serviceLyricsDurationMs)
+        if (serviceLyricsFor == currentSong.videoId && trackDurationMs > 0L && durationDelta <= 3000L && serviceLyrics != null) {
+            return
+        }
+        if (serviceLyricsFor == currentSong.videoId && durationDelta > 3000L) {
+            LyricsRepository.forget(currentSong.videoId)
+        }
+        serviceLyricsFor = currentSong.videoId
+        serviceLyricsDurationMs = trackDurationMs
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
@@ -8071,6 +8189,8 @@ class PlaybackService : MediaLibraryService() {
         private var reportedPlayWhenReady = false
         private var reportedPlaybackState = Player.STATE_IDLE
         private var reportedIsPlaying = false
+        private var reportedMediaId: String? = null
+        private var reportedMediaItemIndex = C.INDEX_UNSET
 
         init {
             cast.sink = this
@@ -8287,6 +8407,21 @@ class PlaybackService : MediaLibraryService() {
             val playWhenReady = getPlayWhenReady()
             val state = getPlaybackState()
             val playing = isPlaying()
+            val currentItem = currentMediaItem
+            val currentMediaId = currentItem?.mediaId
+            val currentIndex = currentMediaItemIndex
+
+            if (currentMediaId != reportedMediaId || currentIndex != reportedMediaItemIndex) {
+                reportedMediaId = currentMediaId
+                reportedMediaItemIndex = currentIndex
+                flags.add(Player.EVENT_MEDIA_ITEM_TRANSITION)
+                flags.add(Player.EVENT_TIMELINE_CHANGED)
+                listeners.forEach {
+                    it.onMediaItemTransition(currentItem, Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
+                    it.onTimelineChanged(currentTimeline, Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED)
+                }
+            }
+
             if (playWhenReady != reportedPlayWhenReady) {
                 reportedPlayWhenReady = playWhenReady
                 flags.add(Player.EVENT_PLAY_WHEN_READY_CHANGED)
@@ -8344,10 +8479,10 @@ class PlaybackService : MediaLibraryService() {
 
         /** Back, on a receiver: restart past the first seconds, else the previous track. */
         private fun castPrevious() {
-            if (cast.positionMs > wrappedPlayer.maxSeekToPreviousPosition || !wrappedPlayer.hasPreviousMediaItem()) {
+            if (cast.positionMs > 3000L) {
                 cast.seekTo(0L)
             } else {
-                wrappedPlayer.seekToPreviousMediaItem()
+                cast.seekToPrevious()
             }
         }
 
@@ -8604,6 +8739,10 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onUserIntent()
             crossfade.onSkipRequested()
+            if (cast.active) {
+                cast.seekToNext()
+                return
+            }
             wrappedPlayer.seekToNextMediaItem()
         }
 
@@ -8611,6 +8750,10 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onUserIntent()
             crossfade.onSkipRequested()
+            if (cast.active) {
+                cast.seekToNext()
+                return
+            }
             wrappedPlayer.seekToNext()
         }
     }
@@ -9645,7 +9788,7 @@ class PlaybackService : MediaLibraryService() {
          * delayed — and it applies only where a transition actually ran, so the
          * ordinary swap, minutes from any blend, is as immediate as it was.
          */
-        const val UPGRADE_AFTER_CROSSFADE_MS = 5_000L
+        const val UPGRADE_AFTER_CROSSFADE_MS = 1_200L
 
         /**
          * How long a replacement gets to report a length before it is

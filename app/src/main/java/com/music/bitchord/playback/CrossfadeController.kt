@@ -685,17 +685,11 @@ class CrossfadeController(
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            when (reason) {
-                // Something replaced the queue out from under the fade — a new
-                // album, a new search result — so the tail still playing is a
-                // leftover of a session that no longer exists. Note that this
-                // does *not* fire when AutoPlay appends to the end, since the
-                // playing item doesn't change: extending the queue mid-fade is
-                // harmless and shouldn't cost the listener the blend.
-                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> bail()
-                Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> bail()
-                Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> ranOutBeforeHandoff()
+            if (shouldBailOnTransition(reason)) {
+                bail()
+                return
             }
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) ranOutBeforeHandoff()
         }
 
         override fun onPlayerError(error: PlaybackException) = bail()
@@ -4319,6 +4313,15 @@ internal fun crossfadeHeadroom(incomingGain: Float, outgoingGain: Float): Float 
     val sum = incomingGain.coerceAtLeast(0f) + outgoingGain.coerceAtLeast(0f)
     return if (sum <= 1f) 1f else 1f / sum
 }
+
+/**
+ * A queue replacement or seek changes what the incoming item is, so the standby
+ * copy is no longer a valid tail and the blend must be dropped. AutoPlay's
+ * append does not change the playing item and is reconciled instead.
+ */
+internal fun shouldBailOnTransition(reason: Int): Boolean =
+    reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED ||
+        reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
 
 /** True when the transition would pair the current item with itself. */
 internal fun isSelfTransition(currentIndex: Int, nextIndex: Int): Boolean = currentIndex == nextIndex

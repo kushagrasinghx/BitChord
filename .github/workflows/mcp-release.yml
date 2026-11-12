@@ -1,0 +1,77 @@
+name: MCP Release APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/android-mcp']
+    paths:
+      - '.github/workflows/mcp-release.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install SDK
+        run: |
+          sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973'
+          [ -e "$ANDROID_HOME/platforms/android-37" ] || ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+      - name: Optional release signing
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > bitchord-release.jks
+            printf 'storeFile=bitchord-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+            echo 'label=signed' >> "$GITHUB_OUTPUT"
+          else
+            echo 'label=unsigned' >> "$GITHUB_OUTPUT"
+            echo '::warning::No release signing credentials: output is unsigned and must be signed before installation/distribution.'
+          fi
+      - name: Unit tests
+        run: ./gradlew :app:testProdReleaseUnitTest -Pbitchord.bundleWear=false --stacktrace
+      - name: Build optimized production APKs including universal
+        run: ./gradlew :app:assembleProdRelease -Pbitchord.bundleWear=false --stacktrace
+      - name: Package APKs and checksums
+        run: |
+          mkdir -p release-artifacts
+          cp app/build/outputs/apk/prod/release/*.apk release-artifacts/
+          (cd release-artifacts && sha256sum *.apk > SHA256SUMS.txt)
+          echo 'Wear OS installer omitted in this MCP release candidate.' > release-artifacts/BUILD-NOTES.txt
+          echo 'Signing: ${{ steps.signing.outputs.label }}' >> release-artifacts/BUILD-NOTES.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-mcp-release-all-abis-${{ steps.signing.outputs.label }}-${{ github.run_number }}
+          path: release-artifacts/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-mcp-release-universal-${{ steps.signing.outputs.label }}-${{ github.run_number }}
+          path: app/build/outputs/apk/prod/release/*universal*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-release-test-reports-${{ github.run_number }}
+          path: app/build/reports/tests/
+          if-no-files-found: ignore

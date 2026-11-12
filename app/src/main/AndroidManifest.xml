@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Saving a track to Music outlives the screen it was asked from. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -93,6 +94,16 @@
         <meta-data
             android:name="com.samsung.android.support.ongoing_activity"
             android:value="true" />
+
+        <service
+            android:name=".mcp.McpForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled authenticated local MCP HTTP server for AI music control while the user interacts with another app; active until disabled in settings." />
+        </service>
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

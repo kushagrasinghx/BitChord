@@ -201,6 +201,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // Start user-enabled MCP only after an activity becomes visible.
+        com.music.bitchord.mcp.McpForegroundService.install(this)
     }
 
     /**

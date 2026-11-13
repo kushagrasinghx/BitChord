@@ -90,7 +90,6 @@ object LocalMediaRepository {
                     MediaStore.Audio.Media.DISPLAY_NAME,
                     MediaStore.Audio.Media.RELATIVE_PATH,
                     MediaStore.Audio.Media.ALBUM,
-                    MediaStore.Audio.Media.ALBUM_ID,
                     MediaStore.Audio.Media.DATE_ADDED,
                     MediaStore.Audio.Media.DATE_MODIFIED,
                 )
@@ -107,23 +106,16 @@ object LocalMediaRepository {
                     val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                     val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
                     val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-                    val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                     val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-                    val albumArtBaseUri = Uri.parse("content://media/external/audio/albumart")
 
                     while (cursor.moveToNext()) {
                         val id = cursor.getLong(idCol)
                         val name = cursor.getString(nameCol) ?: continue
                         val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
-                        val albumId = cursor.getLong(albumIdCol)
                         val tags = ScannedTags(
                             albumName = cursor.getString(albumCol).cleanTag(),
-                            artworkUrl = if (albumId > 0) {
-                                ContentUris.withAppendedId(albumArtBaseUri, albumId).toString()
-                            } else {
-                                null
-                            },
+                            artworkUrl = trackArtworkUrl(contentUri),
                             dateAddedSeconds = cursor.getLong(dateAddedCol),
                             dateModifiedSeconds = cursor.getLong(dateModifiedCol),
                         )
@@ -283,7 +275,6 @@ object LocalMediaRepository {
         MediaStore.Audio.Media.TITLE,
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
-        MediaStore.Audio.Media.ALBUM_ID,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.DATA,
         MediaStore.Audio.Media.DATE_ADDED,
@@ -304,7 +295,6 @@ object LocalMediaRepository {
         val title = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
         val artist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
         val album = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-        val albumId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
         val duration = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val data = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
         val dateAdded = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
@@ -314,7 +304,6 @@ object LocalMediaRepository {
         fun song(cursor: Cursor, videoIdByUri: Map<String, String>): Song {
             val rowId = cursor.getLong(id)
             val name = cursor.getString(displayName).orEmpty()
-            val artId = cursor.getLong(albumId)
             val durationMs = cursor.getLong(duration)
             val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, rowId).toString()
             val songTitle = cursor.getString(title).cleanTag()?.removeAudioExtension()
@@ -329,7 +318,7 @@ object LocalMediaRepository {
                 videoId = videoIdByUri[contentUri] ?: contentUri,
                 title = songTitle,
                 artist = cursor.getString(artist).cleanTag() ?: "Unknown Artist",
-                thumbnailUrl = if (artId > 0) ContentUris.withAppendedId(ALBUM_ART_URI, artId).toString() else null,
+                thumbnailUrl = trackArtworkUrl(contentUri),
                 durationText = durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
                 albumName = cursor.getString(album).cleanTag(),
                 localUri = contentUri,
@@ -341,9 +330,15 @@ object LocalMediaRepository {
         }
     }
 
-    // Lazy so loading this object doesn't touch the framework: unit tests of
-    // the pure helpers here run against a stub Uri.parse that returns null.
-    private val ALBUM_ART_URI: Uri by lazy { Uri.parse("content://media/external/audio/albumart") }
+    /**
+     * The cover for one track, not its album. MediaStore files every untagged
+     * song under an album named after its folder ("Music", "Download"), so
+     * `audio/albumart/<albumId>` handed every one of them the first file's
+     * picture. `audio/media/<id>/albumart` reads the art embedded in that very
+     * file, falling back to a cover image in its folder as the album URI did.
+     * Plain string work, so the unit tests' stub Uri never gets in the way.
+     */
+    internal fun trackArtworkUrl(contentUri: String): String = "$contentUri/albumart"
 
     /**
      * Which of [songs] still have a file behind them, in their order — for an

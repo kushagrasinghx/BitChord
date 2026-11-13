@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -371,6 +372,7 @@ internal fun LibraryGridShelf(
 ) {
     val extraCount = (if (leadingCard != null) 1 else 0) + (if (trailingCard != null) 1 else 0)
     val visibleItems = shelf.items.take((LIBRARY_ROW_MAX_ITEMS - extraCount).coerceAtLeast(0))
+    val cardKeys = remember(visibleItems) { shelfCardKeys(visibleItems) }
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(
             title = shelf.title,
@@ -383,7 +385,8 @@ internal fun LibraryGridShelf(
             flingBehavior = ScrollableDefaults.flingBehavior(),
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(visibleItems, key = { it.browseId ?: it.title }) { item ->
+            items(visibleItems.size, key = { cardKeys[it] }) { index ->
+                val item = visibleItems[index]
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
@@ -393,6 +396,22 @@ internal fun LibraryGridShelf(
             }
             trailingCard?.let { card -> item(key = "trailing") { card() } }
         }
+    }
+}
+
+/**
+ * One key per card in a shelf row, unique however the cards repeat. A lazy row
+ * throws on a key it has seen twice, and two cards can share a browse id (a
+ * shelf that lists one twice) or, with none, a title. Prefixed so no card's
+ * key can be the row's "leading" or "trailing" card's.
+ */
+internal fun shelfCardKeys(items: List<ShelfItem>): List<String> {
+    val seen = HashMap<String, Int>()
+    return items.map { item ->
+        val base = "card:" + (item.browseId ?: item.videoId ?: item.title)
+        val count = (seen[base] ?: 0) + 1
+        seen[base] = count
+        if (count == 1) base else "$base#$count"
     }
 }
 

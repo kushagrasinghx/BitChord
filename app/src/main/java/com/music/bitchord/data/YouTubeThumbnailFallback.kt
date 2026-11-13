@@ -1,6 +1,7 @@
 package com.music.bitchord.data
 
 import coil3.intercept.Interceptor
+import coil3.network.HttpException
 import coil3.request.ErrorResult
 import coil3.request.ImageResult
 import com.music.bitchord.data.model.youTubeThumbnailFallback
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  * without this its cover went blank in exactly the places it is drawn largest,
  * where `hqdefault` had shown before.
  *
- * A URL found missing is remembered for the process, so the same cover isn't
+ * A URL YouTube answers 404 for is remembered for the process, so the same cover isn't
  * asked for in vain on every recomposition. Every other request passes through
  * untouched.
  */
@@ -28,7 +29,10 @@ class YouTubeThumbnailFallback : Interceptor {
         if (url !in missing) {
             val result = chain.proceed()
             if (result !is ErrorResult) return result
-            missing.add(url)
+            // Only YouTube saying the size doesn't exist is worth remembering.
+            // A dropped connection falls back this once, and the large copy is
+            // tried again next time rather than given up on until a restart.
+            if ((result.throwable as? HttpException)?.response?.code == 404) missing.add(url)
         }
         return chain.withRequest(request.newBuilder().data(fallback).build()).proceed()
     }

@@ -3692,11 +3692,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun text(id: Int): String = getApplication<Application>().getString(id)
 }
 
-/**
- * What one lyrics lookup for the playing track was made under. The order and
- * the syllable preference pick a different answer from the same providers, so
- * a change in either is a new lookup, as switching a source on or off is.
- */
 /** Waits before each retry of a page's fill-in, as the service's own loader waits. */
 private val FILL_IN_RETRIES_MS = longArrayOf(2_000L, 5_000L, 15_000L)
 
@@ -3710,6 +3705,11 @@ internal suspend fun <T : Any> retryingOrNull(waitsMs: LongArray, attempt: suspe
     return null
 }
 
+/**
+ * What one lyrics lookup for the playing track was made under. The order and
+ * the syllable preference pick a different answer from the same providers, so
+ * a change in either is a new lookup, as switching a source on or off is.
+ */
 internal fun lyricsLookupKey(
     videoId: String,
     sources: Set<LyricsSource>,

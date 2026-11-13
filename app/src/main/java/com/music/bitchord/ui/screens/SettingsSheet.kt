@@ -10,6 +10,7 @@ import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -158,6 +159,8 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.backup.CloudBackup
+import com.music.bitchord.data.backup.CloudBackupSettings
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.playback.AudioOutputStatus
@@ -213,6 +216,13 @@ fun SettingsScreen(
     onConfirmFixedVolume: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    /**
+     * Opens the cloud-backup editor. It lives at the activity root rather
+     * than here: the frosted card needs the app's blur, same reason as
+     * [onConfirmBitPerfect]'s alert. True opens it to finish turning sync on;
+     * false just opens it.
+     */
+    onEditCloudBackup: (Boolean) -> Unit,
     /**
      * The category this page is, or null for the main page — which lists the
      * categories rather than their rows, until something is typed into its
@@ -343,6 +353,18 @@ fun SettingsScreen(
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+
+    // Cloud backup. Its config is its own store rather than AppSettings, so
+    // none of these values can leak into the export it is uploading.
+    val cloudConfig by CloudBackupSettings.config.collectAsStateWithLifecycle()
+    val cloudLastBackupAt by CloudBackupSettings.lastBackupAt.collectAsStateWithLifecycle()
+    val cloudLastError by CloudBackupSettings.lastError.collectAsStateWithLifecycle()
+    val cloudWorking by CloudBackupSettings.working.collectAsStateWithLifecycle()
+    val appWebDavUrl by AppSettings.webdavUrl.collectAsStateWithLifecycle()
+    var confirmCloudRestore by remember { mutableStateOf(false) }
+    var cloudBackupStatus by remember { mutableStateOf<String?>(null) }
+    var cloudRestoreStatus by remember { mutableStateOf<String?>(null) }
+    val cloudScope = rememberCoroutineScope()
     var confirmClearSongCache by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
@@ -1525,6 +1547,101 @@ fun SettingsScreen(
                     onClick = { AppSettings.setReplayGenres(!replayGenres) },
                 )
             }
+            val cloudConfigured = CloudBackupSettings.isConfigured(cloudConfig, appWebDavUrl)
+            val cloudProviderLabel = stringResource(
+                if (cloudConfig.provider == CloudBackupSettings.Provider.WEBDAV) {
+                    R.string.cloud_backup_webdav
+                } else {
+                    R.string.cloud_backup_s3
+                },
+            )
+            val cloudLastBackup = cloudLastBackupAt.takeIf { it > 0 }?.let {
+                DateUtils.getRelativeTimeSpanString(
+                    it,
+                    System.currentTimeMillis(),
+                    DateUtils.MINUTE_IN_MILLIS,
+                ).toString()
+            }
+            val cloudSubtitle = when {
+                cloudWorking -> stringResource(R.string.cloud_backup_backing_up)
+                !cloudConfigured -> stringResource(R.string.cloud_backup_not_configured)
+                !cloudConfig.enabled -> stringResource(R.string.cloud_backup_off) + " · " + cloudProviderLabel
+                cloudLastError != null -> stringResource(R.string.cloud_backup_failed, cloudLastError!!)
+                cloudLastBackup != null -> stringResource(R.string.cloud_backup_every_day) + " · " +
+                    stringResource(R.string.cloud_backup_last_backup, cloudLastBackup)
+                else -> stringResource(R.string.cloud_backup_every_day) + " · " + cloudProviderLabel
+            }
+            val cloudTitle = stringResource(R.string.cloud_backup)
+            row(cloudTitle, "cloud", "backup", "webdav", "s3", "sync") {
+                SettingsRow(
+                    icon = SfIcons.Cloud,
+                    title = cloudTitle,
+                    subtitle = cloudSubtitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = cloudConfig.enabled,
+                            onCheckedChange = { on ->
+                                if (on && !cloudConfigured) {
+                                    // Saving then finishes the action the
+                                    // switch started; see MainActivity's editor.
+                                    onEditCloudBackup(true)
+                                } else {
+                                    CloudBackupSettings.setEnabled(on)
+                                    if (on) CloudBackup.backupNow(context)
+                                }
+                            },
+                        )
+                    },
+                    onClick = {
+                        cloudBackupStatus = null
+                        onEditCloudBackup(false)
+                    },
+                )
+            }
+            if (cloudConfigured) {
+                val backupNowTitle = stringResource(R.string.cloud_backup_backup_now)
+                row(backupNowTitle, "cloud", "backup", "upload") {
+                    SettingsRow(
+                        icon = SfIcons.FileUpload,
+                        title = if (cloudWorking) {
+                            stringResource(R.string.cloud_backup_backing_up)
+                        } else {
+                            backupNowTitle
+                        },
+                        subtitle = cloudBackupStatus,
+                        enabled = !cloudWorking,
+                        onClick = {
+                            cloudBackupStatus = context.getString(R.string.cloud_backup_backing_up)
+                            cloudScope.launch {
+                                CloudBackup.performBackup(context).fold(
+                                    onSuccess = {
+                                        cloudBackupStatus = context.getString(
+                                            R.string.cloud_backup_succeeded,
+                                            it,
+                                        )
+                                    },
+                                    onFailure = {
+                                        cloudBackupStatus = context.getString(
+                                            R.string.cloud_backup_failed,
+                                            it.message ?: context.getString(R.string.unknown_error),
+                                        )
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
+                val restoreTitle = stringResource(R.string.cloud_backup_restore)
+                row(restoreTitle, "cloud", "backup", "restore", "download") {
+                    SettingsRow(
+                        icon = SfIcons.FileDownload,
+                        title = restoreTitle,
+                        subtitle = cloudRestoreStatus,
+                        onClick = { confirmCloudRestore = true },
+                    )
+                }
+            }
+
             val exportDataTitle = stringResource(R.string.export_data)
             row(exportDataTitle, "backup") {
                 SettingsRow(
@@ -1868,6 +1985,44 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmImport = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (confirmCloudRestore) {
+        AlertDialog(
+            onDismissRequest = { confirmCloudRestore = false },
+            title = { Text(stringResource(R.string.cloud_backup_restore_confirm_title)) },
+            text = { Text(stringResource(R.string.cloud_backup_restore_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmCloudRestore = false
+                    cloudRestoreStatus = context.getString(R.string.cloud_backup_restoring)
+                    cloudScope.launch {
+                        CloudBackup.restore(context).fold(
+                            onSuccess = {
+                                cloudRestoreStatus = context.getString(
+                                    R.string.cloud_backup_restore_succeeded,
+                                    it.months,
+                                    it.from.ifBlank { context.getString(R.string.cloud_backup) },
+                                )
+                            },
+                            onFailure = {
+                                cloudRestoreStatus = context.getString(
+                                    R.string.cloud_backup_restore_failed,
+                                    it.message ?: context.getString(R.string.unknown_error),
+                                )
+                            },
+                        )
+                    }
+                }) {
+                    Text(stringResource(R.string.cloud_backup_restore_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCloudRestore = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             },

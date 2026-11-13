@@ -122,6 +122,20 @@ class AuthStore(context: Context) {
         set(value) = prefs.edit().putString(KEY_SMB_PASSWORD, value).apply()
 
     /**
+     * Credentials for the optional S3 cloud backup destination. WebDAV needs
+     * none of its own: the backup writes through the Sources connection, so
+     * [webdavPassword] already covers it.
+     */
+    var cloudBackupS3SecretKey: String?
+        get() = prefs.getString(KEY_CLOUD_BACKUP_S3_SECRET_KEY, null)
+        set(value) = prefs.edit().putString(KEY_CLOUD_BACKUP_S3_SECRET_KEY, value).apply()
+
+    /** Set only for temporary STS credentials; empty for ordinary R2/S3 keys. */
+    var cloudBackupS3SessionToken: String?
+        get() = prefs.getString(KEY_CLOUD_BACKUP_S3_SESSION_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_CLOUD_BACKUP_S3_SESSION_TOKEN, value).apply()
+
+    /**
      * The channel the listener chose to act as, if they chose one.
      *
      * Stored beside the cookie rather than in the plain settings because it is
@@ -230,5 +244,7 @@ class AuthStore(context: Context) {
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
+        private const val KEY_CLOUD_BACKUP_S3_SECRET_KEY = "cloud_backup_s3_secret_key"
+        private const val KEY_CLOUD_BACKUP_S3_SESSION_TOKEN = "cloud_backup_s3_session_token"
     }
 }

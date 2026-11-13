@@ -130,6 +130,8 @@ import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
+import com.music.bitchord.data.backup.CloudBackup
+import com.music.bitchord.data.backup.CloudBackupSettings
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.partyQueueIndexOf
@@ -290,6 +292,7 @@ import com.music.bitchord.ui.components.topBarHeight
 import com.music.bitchord.ui.components.AppLanguageDialog
 import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
+import com.music.bitchord.ui.components.CloudBackupEditorDialog
 import com.music.bitchord.ui.components.ServerEditorHost
 import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.components.WebDavConflictAlert
@@ -668,6 +671,8 @@ private fun BitChordApp(
     var showLastfmLogin by remember { mutableStateOf(false) }
     var showWebDavEditor by remember { mutableStateOf(false) }
     var showSmbEditor by remember { mutableStateOf(false) }
+    var showCloudEditor by remember { mutableStateOf(false) }
+    var enableCloudAfterEdit by remember { mutableStateOf(false) }
     // Discord Rich Presence: its own page under Account & integrations (a
     // route), its own full-screen sign-in, and one slot for whichever of its
     // alerts is open. The alerts live out here rather than on the page because
@@ -3140,6 +3145,10 @@ private fun BitChordApp(
                                 onConfirmBitPerfect = { confirmBitPerfect = it },
                                 onConfirmFixedVolume = { confirmFixedVolume = true },
                                 contentPadding = listPadding,
+                                onEditCloudBackup = { enableAfterEdit ->
+                                    enableCloudAfterEdit = enableAfterEdit
+                                    showCloudEditor = true
+                                },
                             )
                         } else if (page != null) {
                             // Local Music, Downloads and the other device folders are
@@ -5710,6 +5719,40 @@ private fun BitChordApp(
                     showSmbEditor = false
                 },
                 onDismiss = { showSmbEditor = false },
+            )
+        }
+
+        if (showCloudEditor) {
+            BackHandler {
+                showCloudEditor = false
+                enableCloudAfterEdit = false
+            }
+            val cloudConfig by CloudBackupSettings.config.collectAsStateWithLifecycle()
+            val cloudS3Secret by CloudBackupSettings.s3SecretKey.collectAsStateWithLifecycle()
+            val cloudS3Token by CloudBackupSettings.s3SessionToken.collectAsStateWithLifecycle()
+            CloudBackupEditorDialog(
+                hazeState = hazeState,
+                initial = cloudConfig,
+                initialS3SecretKey = cloudS3Secret,
+                initialS3SessionToken = cloudS3Token,
+                onDismiss = {
+                    showCloudEditor = false
+                    enableCloudAfterEdit = false
+                },
+                onSave = { config, s3Secret, s3Token ->
+                    val enabled = config.enabled || enableCloudAfterEdit
+                    CloudBackupSettings.save(
+                        config.copy(enabled = enabled),
+                        s3Secret,
+                        s3Token,
+                    )
+                    showCloudEditor = false
+                    enableCloudAfterEdit = false
+                    if (enabled) CloudBackup.backupNow(context)
+                },
+                onTest = { config, s3Secret, s3Token ->
+                    CloudBackup.test(config, s3Secret, s3Token)
+                },
             )
         }
 

@@ -158,6 +158,31 @@ object WebDavClient {
     }
 
     /**
+     * Reads a whole file into memory.
+     *
+     * The backup JSON is a few hundred kilobytes at most (36 months of
+     * listening plus the preference map), so unlike a track this does not need
+     * the streaming path. A 404 is reported as "not uploaded yet" rather than
+     * a generic HTTP failure.
+     */
+    suspend fun getFile(fileUrl: String, username: String, password: String): Result<ByteArray> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val builder = Request.Builder().url(fileUrl).get()
+                WebDavConfig.basicAuthHeader(username, password)?.let { builder.header("Authorization", it) }
+                Http.client.newCall(builder.build()).execute().use { response ->
+                    if (response.code == 404) {
+                        throw WebDavException("No backup found on the server yet")
+                    }
+                    if (response.code !in 200..299) {
+                        throw WebDavException("Download failed with ${response.code}")
+                    }
+                    response.body?.bytes() ?: throw WebDavException("The server returned an empty file")
+                }
+            }
+        }
+
+    /**
      * Streams [stream] to [fileUrl] without buffering it in memory — a FLAC
      * can be a hundred megabytes, and holding two copies (ours plus OkHttp's)
      * is what gets a background upload killed.

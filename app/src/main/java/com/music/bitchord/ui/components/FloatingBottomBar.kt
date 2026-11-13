@@ -181,6 +181,8 @@ fun FloatingBottomBar(
     onTabSelected: (Int) -> Unit,
     hazeState: HazeState,
     modifier: Modifier = Modifier,
+    /** Called when the user taps the currently active tab (scroll-to-top). */
+    onActiveTabTap: () -> Unit = {},
 ) {
     val pillShape = RoundedCornerShape(percent = 50)
     val container = MaterialTheme.colorScheme.surface
@@ -351,6 +353,7 @@ fun FloatingBottomBar(
                     selectedTint = adaptiveTint,
                     unselectedTint = adaptiveTint?.copy(alpha = 0.65f),
                     onClick = { onTabSelected(index) },
+                    onActiveTabTap = onActiveTabTap,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -364,6 +367,7 @@ private fun BottomBarItem(
     selected: Boolean,
     glassSpec: AnimationSpec<Float>,
     onClick: () -> Unit,
+    onActiveTabTap: () -> Unit,
     modifier: Modifier = Modifier,
     /** Overrides the theme's primary/onSurfaceVariant tint — see the glass branch above. */
     selectedTint: Color? = null,
@@ -395,7 +399,11 @@ private fun BottomBarItem(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
             ) {
-                if (!selected) haptics.play(Haptic.Select)
+                if (selected) {
+                    onActiveTabTap()
+                } else {
+                    haptics.play(Haptic.Select)
+                }
                 onClick()
             }
             .padding(vertical = TAB_VERTICAL_PADDING),

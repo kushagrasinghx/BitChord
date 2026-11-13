@@ -1466,4 +1466,14 @@
     <string name="diwali_title">BitChord מאחלת לך דיוואלי שמח</string>
     <string name="diwali_subtitle">שחג האורות הזה ימלא את ביתך בשמחה ואת ימיך במוזיקה.</string>
     <string name="diwali_cta">בואו נחגוג</string>
+    <string name="find_a_playlist">חיפוש פלייליסט</string>
+    <string name="no_playlists_match">אין פלייליסטים שתואמים ל־“%1$s”</string>
+    <string name="hide_lyrics_preview">הסתרת מילות השיר</string>
+    <string name="hide_lyrics_preview_subtitle">מסתיר את שורת מילות השיר בנגן</string>
+    <string name="show_total_duration">הצגת משך כולל</string>
+    <string name="show_total_duration_subtitle">מציג את האורך המלא של השיר במקום הזמן שנותר</string>
+    <string name="sleep_timer_fade_out">עמעום לפני השהיה</string>
+    <string name="sleep_timer_fade_out_subtitle">מנמיך את עוצמת הקול בהדרגה ב־30 השניות האחרונות</string>
+    <string name="disable_spotify_canvas">השבתת Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">לעולם לא להשתמש ב־Spotify Canvas. עטיפות מונפשות יגיעו מהמקורות האחרים</string>
 </resources>

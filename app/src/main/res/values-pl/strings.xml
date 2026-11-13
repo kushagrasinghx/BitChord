@@ -1501,4 +1501,14 @@
     <string name="diwali_title">BitChord życzy Ci szczęśliwego Diwali</string>
     <string name="diwali_subtitle">Niech to święto świateł wypełni Twój dom radością, a Twoje dni muzyką.</string>
     <string name="diwali_cta">Świętujmy</string>
+    <string name="find_a_playlist">Znajdź playlistę</string>
+    <string name="no_playlists_match">Brak playlist pasujących do „%1$s”</string>
+    <string name="hide_lyrics_preview">Ukryj tekst</string>
+    <string name="hide_lyrics_preview_subtitle">Ukrywa wiersz tekstu w odtwarzaczu</string>
+    <string name="show_total_duration">Pokazuj całkowity czas</string>
+    <string name="show_total_duration_subtitle">Pokazuje pełną długość utworu zamiast pozostałego czasu</string>
+    <string name="sleep_timer_fade_out">Wyciszanie przed pauzą</string>
+    <string name="sleep_timer_fade_out_subtitle">Stopniowo ścisza dźwięk przez ostatnie 30 sekund</string>
+    <string name="disable_spotify_canvas">Wyłącz Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Nigdy nie używaj Spotify Canvas. Animowane okładki pochodzą z innych źródeł</string>
 </resources>

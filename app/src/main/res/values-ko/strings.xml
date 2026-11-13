@@ -1311,4 +1311,14 @@
     <string name="diwali_title">BitChord가 행복한 디왈리를 기원합니다</string>
     <string name="diwali_subtitle">빛의 축제가 집에는 기쁨을, 하루하루에는 음악을 가득 채워 주길 바랍니다.</string>
     <string name="diwali_cta">함께 축하해요</string>
+    <string name="find_a_playlist">재생목록 찾기</string>
+    <string name="no_playlists_match">“%1$s”와(과) 일치하는 재생목록이 없습니다</string>
+    <string name="hide_lyrics_preview">가사 숨기기</string>
+    <string name="hide_lyrics_preview_subtitle">플레이어의 가사 줄을 숨깁니다</string>
+    <string name="show_total_duration">전체 재생 시간 표시</string>
+    <string name="show_total_duration_subtitle">남은 시간 대신 곡의 전체 길이를 표시합니다</string>
+    <string name="sleep_timer_fade_out">일시정지 전 페이드 아웃</string>
+    <string name="sleep_timer_fade_out_subtitle">마지막 30초 동안 볼륨을 서서히 줄입니다</string>
+    <string name="disable_spotify_canvas">Spotify Canvas 사용 안 함</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvas를 사용하지 않습니다. 움직이는 아트워크는 다른 소스에서 가져옵니다</string>
 </resources>

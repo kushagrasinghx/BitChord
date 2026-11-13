@@ -1466,4 +1466,14 @@
     <string name="diwali_title">O BitChord deseja a você um feliz Diwali</string>
     <string name="diwali_subtitle">Que este festival das luzes encha sua casa de alegria e seus dias de música.</string>
     <string name="diwali_cta">Vamos celebrar</string>
+    <string name="find_a_playlist">Buscar playlist</string>
+    <string name="no_playlists_match">Nenhuma playlist corresponde a “%1$s”</string>
+    <string name="hide_lyrics_preview">Ocultar letra</string>
+    <string name="hide_lyrics_preview_subtitle">Oculta a linha da letra no player</string>
+    <string name="show_total_duration">Mostrar duração total</string>
+    <string name="show_total_duration_subtitle">Mostra a duração completa da música em vez do tempo restante</string>
+    <string name="sleep_timer_fade_out">Diminuir o volume antes de pausar</string>
+    <string name="sleep_timer_fade_out_subtitle">Abaixa o volume aos poucos nos últimos 30 segundos</string>
+    <string name="disable_spotify_canvas">Desativar Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Nunca usar o Spotify Canvas. As capas animadas vêm das outras fontes</string>
 </resources>

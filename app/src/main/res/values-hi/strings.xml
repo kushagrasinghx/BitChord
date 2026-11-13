@@ -1461,4 +1461,14 @@
     <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
     <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
     <string name="diwali_cta">चलो जश्न मनाएँ</string>
+    <string name="find_a_playlist">प्लेलिस्ट खोजें</string>
+    <string name="no_playlists_match">“%1$s” से कोई प्लेलिस्ट मेल नहीं खाती</string>
+    <string name="hide_lyrics_preview">लिरिक्स छिपाएँ</string>
+    <string name="hide_lyrics_preview_subtitle">प्लेयर पर लिरिक्स की लाइन छिपाता है</string>
+    <string name="show_total_duration">कुल अवधि दिखाएँ</string>
+    <string name="show_total_duration_subtitle">बचे हुए समय की जगह गाने की पूरी अवधि दिखाता है</string>
+    <string name="sleep_timer_fade_out">रोकने से पहले आवाज़ धीमी करें</string>
+    <string name="sleep_timer_fade_out_subtitle">आख़िरी 30 सेकंड में आवाज़ धीरे-धीरे कम करता है</string>
+    <string name="disable_spotify_canvas">Spotify Canvas बंद करें</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvas कभी इस्तेमाल न करें। एनिमेटेड कवर बाकी स्रोतों से आएँगे</string>
 </resources>

@@ -1287,19 +1287,29 @@ fun SettingsScreen(
                     }
                 }
             }
+            // This row replaced the old "Synced lyrics" switch, which is still
+            // the setting that turns the lookup itself off. Someone who switched
+            // that off before the change would be left without lyrics and no
+            // row to bring them back, so the line counts as hidden while
+            // either is set, and showing it turns lyrics back on too.
+            val lyricsHidden = hideLyricsPreview || !syncedLyrics
+            val setLyricsHidden: (Boolean) -> Unit = { hide ->
+                AppSettings.setHideLyricsPreview(hide)
+                if (!hide && !syncedLyrics) AppSettings.setSyncedLyrics(true)
+            }
             val hideLyricsTitle = stringResource(R.string.hide_lyrics_preview)
-            row(hideLyricsTitle, "lyrics", "hide") {
+            row(hideLyricsTitle, "lyrics", "hide", "synced", "translation", "lrclib", "musixmatch") {
                 SettingsRow(
                     icon = SfIcons.VisibilityOff,
                     title = hideLyricsTitle,
                     subtitle = stringResource(R.string.hide_lyrics_preview_subtitle),
                     trailing = {
                         IosSwitch(
-                            checked = hideLyricsPreview,
-                            onCheckedChange = AppSettings::setHideLyricsPreview,
+                            checked = lyricsHidden,
+                            onCheckedChange = setLyricsHidden,
                         )
                     },
-                    onClick = { AppSettings.setHideLyricsPreview(!hideLyricsPreview) },
+                    onClick = { setLyricsHidden(!lyricsHidden) },
                 )
             }
             // Nothing to choose between while the feature is off, and the

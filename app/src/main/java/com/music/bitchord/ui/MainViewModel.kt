@@ -2293,7 +2293,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_filter.value == value) return
         _filter.value = value
         searchSubmitted = true
-        runSearch(anonymous = if (value.requiresAuth) false else !_signedIn.value)
+        // Anonymous, as a filter change always was: switching chips is not a
+        // search worth filing in the account's history. Only a filter scoped
+        // to the account itself (Library) has to go signed in.
+        runSearch(anonymous = !value.requiresAuth)
     }
 
     /**

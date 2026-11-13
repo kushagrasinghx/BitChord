@@ -1438,4 +1438,14 @@
     <string name="diwali_title">BitChord 祝你排灯节快乐</string>
     <string name="diwali_subtitle">愿这个光明节日让你的家充满欢乐，让你的每一天充满音乐。</string>
     <string name="diwali_cta">一起庆祝</string>
+    <string name="find_a_playlist">查找播放列表</string>
+    <string name="no_playlists_match">没有与“%1$s”匹配的播放列表</string>
+    <string name="hide_lyrics_preview">隐藏歌词</string>
+    <string name="hide_lyrics_preview_subtitle">隐藏播放器上的歌词行</string>
+    <string name="show_total_duration">显示总时长</string>
+    <string name="show_total_duration_subtitle">显示歌曲的完整时长，而不是剩余时间</string>
+    <string name="sleep_timer_fade_out">暂停前淡出</string>
+    <string name="sleep_timer_fade_out_subtitle">在最后 30 秒内逐渐降低音量</string>
+    <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">从不使用 Spotify Canvas。动态封面将来自其他来源</string>
 </resources>

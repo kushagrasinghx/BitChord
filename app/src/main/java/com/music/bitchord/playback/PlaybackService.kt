@@ -6722,10 +6722,12 @@ class PlaybackService : MediaLibraryService() {
     private fun watchSleepTimer() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
-                if (deadline == null) {
-                    player?.volume = 1f
-                    return@collectLatest
-                }
+                if (deadline == null) return@collectLatest
+                // The player this timer turned down, if it did. Only that one
+                // is turned back up: the crossfade owns both players' volume
+                // the rest of the time, and resetting it whenever a timer is
+                // cancelled or reset would cut into a fade it is running.
+                var faded: ExoPlayer? = null
                 try {
                     val fadeDurationMs = if (AppSettings.sleepTimerFadeOut.value) SleepTimer.FADE_OUT_DURATION_MS else 0L
                     val totalRemaining = deadline - SystemClock.elapsedRealtime()
@@ -6739,7 +6741,10 @@ class PlaybackService : MediaLibraryService() {
                         while (true) {
                             val elapsed = SystemClock.elapsedRealtime() - fadeStart
                             val remaining = (actualDuration - elapsed).coerceAtLeast(0L)
-                            player?.volume = SleepTimer.calculateFadeVolume(remaining, actualDuration, true)
+                            player?.let {
+                                it.volume = SleepTimer.calculateFadeVolume(remaining, actualDuration, true)
+                                faded = it
+                            }
                             if (elapsed >= actualDuration) break
                             delay(100L)
                         }
@@ -6748,7 +6753,7 @@ class PlaybackService : MediaLibraryService() {
                     player?.pause()
                     SleepTimer.cancel()
                 } finally {
-                    player?.volume = 1f
+                    faded?.volume = 1f
                 }
             }
         }

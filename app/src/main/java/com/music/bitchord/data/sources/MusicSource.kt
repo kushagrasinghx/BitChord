@@ -139,12 +139,17 @@ interface MusicSource {
      *   caller is never going to ask for. Null is a search nobody is about to
      *   stream from: the user typing in the search box, where the best the
      *   catalogue has is exactly what should be shown.
+     * @param target the recording [query] was built from, when a known track is
+     *   being looked for. Null for the search box. A source whose backend can
+     *   match on separate title and artist fields may pass them on; [query]
+     *   alone cannot tell two recordings of the same title apart.
      */
     suspend fun search(
         query: String,
         limit: Int = 25,
         waitForAll: Boolean = false,
         request: StreamRequest? = null,
+        target: TrackMatcher.Target? = null,
     ): List<Song>
 
     /**

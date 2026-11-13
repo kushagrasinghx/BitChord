@@ -102,6 +102,7 @@ class ModuleSource(
         limit: Int,
         waitForAll: Boolean,
         request: StreamRequest?,
+        target: TrackMatcher.Target?,
     ): List<Song> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()

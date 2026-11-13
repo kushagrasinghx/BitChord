@@ -4545,7 +4545,7 @@ private fun BitChordApp(
                 },
                 onAddToPlaylist = {
                     songActions = null
-                    if (song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
+                    if (song.localUri != null) {
                         offlinePlaylistTarget = song
                     } else {
                         viewModel.loadPlaylists()

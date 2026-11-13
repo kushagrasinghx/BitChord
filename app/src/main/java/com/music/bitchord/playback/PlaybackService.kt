@@ -403,21 +403,19 @@ class PlaybackService : MediaLibraryService() {
             if (SystemClock.elapsedRealtime() - at < LIKED_CACHE_TTL_MS && songs.isNotEmpty()) return songs
         }
         val songs = try {
-            withTimeoutOrNull(4000L) {
-                YtMusicRepository.browseSongs(YtMusicRepository.LIKED_MUSIC).getOrNull()?.songs?.ifEmpty { null }
-                    ?: YtMusicRepository.browseSongs("LM").getOrNull()?.songs?.ifEmpty { null }
-                    ?: run {
-                        val libPlaylists = YtMusicRepository.libraryPlaylists().getOrNull()
-                        val likedCard = libPlaylists?.firstOrNull {
-                            it.browseId == "VLLM" || it.title.contains("liked", ignoreCase = true)
-                        }
-                        val likedBrowseId = likedCard?.browseId
-                        if (likedBrowseId != null) {
-                            YtMusicRepository.browseSongs(likedBrowseId).getOrNull()?.songs
-                        } else null
+            autoBrowseSongs(YtMusicRepository.LIKED_MUSIC).ifEmpty { null }
+                ?: autoBrowseSongs("LM").ifEmpty { null }
+                ?: run {
+                    val libPlaylists = YtMusicRepository.libraryPlaylists().getOrNull()
+                    val likedCard = libPlaylists?.firstOrNull {
+                        it.browseId == "VLLM" || it.title.contains("liked", ignoreCase = true)
                     }
-                    ?: YtMusicRepository.browseSongs("FEmusic_liked_videos").getOrNull()?.songs
-            } ?: emptyList()
+                    val likedBrowseId = likedCard?.browseId
+                    if (likedBrowseId != null) {
+                        autoBrowseSongs(likedBrowseId).ifEmpty { null }
+                    } else null
+                }
+                ?: autoBrowseSongs("FEmusic_liked_videos")
         } catch (_: Exception) {
             emptyList()
         }
@@ -8884,8 +8882,7 @@ class PlaybackService : MediaLibraryService() {
                 }
                 MEDIA_DOWNLOADS_ID -> {
                     val downloaded = Downloads.getDownloadedSongs(this@PlaybackService)
-                    downloaded.forEach { songCache[it.videoId] = it }
-                    if (downloaded.isNotEmpty()) downloaded.map { it.toMediaItem() } else listOf(
+                    if (downloaded.isNotEmpty()) downloaded.map(::autoLocalItem) else listOf(
                         createInfoItem(
                             "msg:empty_downloads",
                             getString(R.string.auto_empty_offline_title),
@@ -8919,8 +8916,10 @@ class PlaybackService : MediaLibraryService() {
                 }
                 MEDIA_LOCAL_MUSIC_ID -> {
                     val local = LocalMediaRepository.getLocalMusic(this@PlaybackService)
-                    local.forEach { songCache[it.videoId] = it }
-                    if (local.isNotEmpty()) local.map { it.toMediaItem() } else listOf(
+                    val playlists = OfflinePlaylists.playlists.value.map { playlist ->
+                        createGridPlaylistItem(playlist.browseId, playlist.title)
+                    }
+                    playlists + if (local.isNotEmpty()) local.map(::autoLocalItem) else listOf(
                         createInfoItem(
                             "msg:empty_local",
                             getString(R.string.auto_empty_offline_title),
@@ -8930,15 +8929,15 @@ class PlaybackService : MediaLibraryService() {
                 }
                 else -> {
                     when {
+                        OfflinePlaylists.isOfflinePlaylist(parentId) -> {
+                            autoOfflineSongs(parentId).map(::autoLocalItem)
+                        }
                         parentId.startsWith("playlist:") -> {
                             val playlistId = parentId.removePrefix("playlist:")
                             val songs = try {
-                                withTimeoutOrNull(2500L) {
-                                    YtMusicRepository.browseSongs("VL$playlistId").getOrNull()?.songs
-                                        ?: YtMusicRepository.browseSongs(playlistId).getOrNull()?.songs
-                                } ?: emptyList()
-                            } catch (_: Exception) {
-                                emptyList()
+                                autoBrowseSongs("VL$playlistId", playlistId)
+                            } catch (_: AutoPlaylistLoadException) {
+                                return@future LibraryResult.ofError(SessionError.ERROR_UNKNOWN)
                             }
                             songs.forEach { songCache[it.videoId] = it }
                             songs.map { it.toMediaItem() }
@@ -8946,11 +8945,9 @@ class PlaybackService : MediaLibraryService() {
                         parentId.startsWith("browse:") -> {
                             val browseId = parentId.removePrefix("browse:")
                             val songs = try {
-                                withTimeoutOrNull(2500L) {
-                                    YtMusicRepository.browseSongs(browseId).getOrNull()?.songs
-                                } ?: emptyList()
-                            } catch (_: Exception) {
-                                emptyList()
+                                autoBrowseSongs(browseId)
+                            } catch (_: AutoPlaylistLoadException) {
+                                return@future LibraryResult.ofError(SessionError.ERROR_UNKNOWN)
                             }
                             songs.forEach { songCache[it.videoId] = it }
                             songs.map { it.toMediaItem() }
@@ -9009,7 +9006,10 @@ class PlaybackService : MediaLibraryService() {
                     } else {
                         val cached = songCache[mediaId]
                         if (cached != null) {
-                            cached.toMediaItem()
+                            if (mediaId.startsWith("auto-file:")) autoLocalItem(cached) else cached.toMediaItem()
+                        } else if (OfflinePlaylists.isOfflinePlaylist(mediaId)) {
+                            OfflinePlaylists.get(mediaId)?.let { createGridPlaylistItem(it.browseId, it.title) }
+                                ?: return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
                         } else if (mediaId.startsWith("playlist:") || mediaId.startsWith("browse:")) {
                             createGridPlaylistItem(
                                 mediaId = mediaId,
@@ -9137,8 +9137,12 @@ class PlaybackService : MediaLibraryService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future(Dispatchers.IO) {
-            val resolved = resolveMediaItems(mediaItems)
-            val validIndex = startIndex.coerceIn(0, (resolved.size - 1).coerceAtLeast(0))
+            var resolvedStartIndex = 0
+            val requestedIndex = startIndex.coerceIn(0, mediaItems.lastIndex.coerceAtLeast(0))
+            val resolved = resolveMediaItems(mediaItems) { index, resolvedSize ->
+                if (index == requestedIndex) resolvedStartIndex = resolvedSize
+            }
+            val validIndex = resolvedStartIndex.coerceAtMost(resolved.lastIndex.coerceAtLeast(0))
             MediaSession.MediaItemsWithStartPosition(
                 ImmutableList.copyOf(resolved),
                 validIndex,
@@ -9154,9 +9158,13 @@ class PlaybackService : MediaLibraryService() {
             resolveMediaItems(mediaItems)
         }
 
-        private suspend fun resolveMediaItems(mediaItems: List<MediaItem>): List<MediaItem> {
+        private suspend fun resolveMediaItems(
+            mediaItems: List<MediaItem>,
+            onResolve: (index: Int, resolvedSize: Int) -> Unit = { _, _ -> },
+        ): List<MediaItem> {
             val resolved = mutableListOf<MediaItem>()
-            for (item in mediaItems) {
+            for ((index, item) in mediaItems.withIndex()) {
+                onResolve(index, resolved.size)
                 val id = item.mediaId
                 val searchQuery = item.requestMetadata.searchQuery
                 when {
@@ -9179,15 +9187,17 @@ class PlaybackService : MediaLibraryService() {
                             resolved.addAll(songs.map { it.toMediaItem() })
                         }
                     }
+                    OfflinePlaylists.isOfflinePlaylist(id) -> {
+                        val songs = autoOfflineSongs(id)
+                        songs.forEach { songCache[it.videoId] = it }
+                        resolved.addAll(songs.map { it.toMediaItem() })
+                    }
                     id.startsWith("playlist:") -> {
                         val playlistId = id.removePrefix("playlist:")
                         val songs = try {
-                            withTimeoutOrNull(3000L) {
-                                YtMusicRepository.browseSongs("VL$playlistId").getOrNull()?.songs
-                                    ?: YtMusicRepository.browseSongs(playlistId).getOrNull()?.songs
-                            } ?: emptyList()
-                        } catch (_: Exception) {
-                            emptyList()
+                            autoBrowseSongs("VL$playlistId", playlistId)
+                        } catch (_: AutoPlaylistLoadException) {
+                            continue
                         }
                         songs.forEach { songCache[it.videoId] = it }
                         resolved.addAll(songs.map { it.toMediaItem() })
@@ -9195,11 +9205,9 @@ class PlaybackService : MediaLibraryService() {
                     id.startsWith("browse:") -> {
                         val browseId = id.removePrefix("browse:")
                         val songs = try {
-                            withTimeoutOrNull(3000L) {
-                                YtMusicRepository.browseSongs(browseId).getOrNull()?.songs
-                            } ?: emptyList()
-                        } catch (_: Exception) {
-                            emptyList()
+                            autoBrowseSongs(browseId)
+                        } catch (_: AutoPlaylistLoadException) {
+                            continue
                         }
                         songs.forEach { songCache[it.videoId] = it }
                         resolved.addAll(songs.map { it.toMediaItem() })
@@ -9229,8 +9237,7 @@ class PlaybackService : MediaLibraryService() {
                                 val playlists = YtMusicRepository.userPlaylists().getOrNull() ?: emptyList()
                                 val first = playlists.firstOrNull()
                                 if (first != null) {
-                                    YtMusicRepository.browseSongs("VL${first.playlistId}").getOrNull()?.songs
-                                        ?: YtMusicRepository.browseSongs(first.playlistId).getOrNull()?.songs
+                                    autoBrowseSongs("VL${first.playlistId}", first.playlistId)
                                 } else null
                             } ?: emptyList()
                         } catch (_: Exception) {
@@ -9244,8 +9251,10 @@ class PlaybackService : MediaLibraryService() {
                         local.forEach { songCache[it.videoId] = it }
                         resolved.addAll(local.map { it.toMediaItem() })
                     }
-                    songCache.containsKey(id) -> {
-                        resolved.add(songCache[id]!!.toMediaItem())
+                    id.startsWith("auto-file:") -> {
+                        val uri = id.removePrefix("auto-file:")
+                        val song = songCache[id] ?: item.toSong().copy(videoId = uri, localUri = uri)
+                        if (!Downloads.isMissingLocalFile(uri)) resolved.add(song.toMediaItem())
                     }
                     item.localConfiguration != null -> {
                         resolved.add(item)
@@ -9275,7 +9284,7 @@ class PlaybackService : MediaLibraryService() {
                     }
                 }
             }
-            return if (resolved.isEmpty()) mediaItems else resolved
+            return resolved
         }
     }
 
@@ -9295,13 +9304,43 @@ class PlaybackService : MediaLibraryService() {
             putBoolean(EXTRA_CONTENT_STYLE_SUPPORTED_AX, true)
         }
 
+    private class AutoPlaylistLoadException : Exception()
+
+    private suspend fun autoBrowseSongs(browseId: String, fallbackId: String? = null): List<Song> {
+        var page = withTimeoutOrNull(4000L) {
+            YtMusicRepository.browseSongs(browseId).getOrNull()
+                ?: fallbackId?.let { YtMusicRepository.browseSongs(it).getOrNull() }
+        } ?: return emptyList()
+        val songs = page.songs.toMutableList()
+        val seenTokens = HashSet<String>()
+        while (true) {
+            val token = page.continuation ?: break
+            if (!seenTokens.add(token)) throw AutoPlaylistLoadException()
+            page = withTimeoutOrNull(4000L) {
+                YtMusicRepository.moreSongs(token).getOrNull()
+                    ?: YtMusicRepository.moreSongs(token).getOrNull()
+            } ?: throw AutoPlaylistLoadException()
+            songs.addAll(page.songs)
+        }
+        return songs
+    }
+
+    private fun autoLocalItem(song: Song): MediaItem {
+        val uri = song.localUri ?: return song.toMediaItem()
+        val id = "auto-file:$uri"
+        songCache[id] = song
+        return song.toMediaItem().buildUpon().setMediaId(id).build()
+    }
+
+    private suspend fun autoOfflineSongs(browseId: String): List<Song> =
+        OfflinePlaylists.get(browseId)?.let { LocalMediaRepository.present(this, it.songs) }.orEmpty()
+
     private fun <T> paginate(items: List<T>, page: Int, pageSize: Int): List<T> {
         if (page < 0 || pageSize <= 0 || items.isEmpty()) return emptyList()
-        val safePageSize = pageSize.coerceAtMost(MAX_AUTO_PAGE_SIZE)
-        val fromLong = page.toLong() * safePageSize.toLong()
+        val fromLong = page.toLong() * pageSize.toLong()
         if (fromLong >= items.size.toLong()) return emptyList()
         val from = fromLong.toInt()
-        val to = (fromLong + safePageSize).coerceAtMost(items.size.toLong()).toInt()
+        val to = (fromLong + pageSize).coerceAtMost(items.size.toLong()).toInt()
         return items.subList(from, to)
     }
 
@@ -9511,7 +9550,6 @@ class PlaybackService : MediaLibraryService() {
         const val FOREIGN_CACHE_KEEP_AHEAD = 3
         const val MEDIA_DOWNLOADS_ID = "downloads"
         const val MEDIA_LOCAL_MUSIC_ID = "local_music"
-        const val MAX_AUTO_PAGE_SIZE = 50
         const val MAX_AUTO_SEARCH_QUERY_CHARS = 200
         const val MAX_AUTO_SEARCH_CACHE_ENTRIES = 20
 

@@ -42,7 +42,7 @@
     <string name="retry">Reintentar</string>
     <string name="shuffle">Aleatorio</string>
     <string name="more">Más</string>
-    <string name="add_to_playlist">Añadir a la lista</string>
+    <string name="add_to_playlist">Añadir a playlist</string>
     <string name="add_to_library">Añadir a la biblioteca</string>
     <string name="remove_from_library">Quitar de la biblioteca</string>
     <string name="download_all">Descargar todo</string>
@@ -1003,7 +1003,7 @@
     <string name="playlist_action">Lista de reproducción</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">Ajustar la sincronización de la letra</string>
 
 
 
@@ -1052,8 +1052,8 @@
     <string name="hide_recents">Hide Recents</string>
     <string name="hide_home_videos">Hide videos from Home</string>
     <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
-    <string name="hide_top_picks">Hide Top Picks for You</string>
-    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="hide_top_picks">Ocultar Selección para ti</string>
+    <string name="hide_home_moods">Ocultar Encuentra tu estado de ánimo</string>
     <string name="square_video_thumbnails">Square video thumbnails</string>
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="prefer_music_only">Prefer music-only version</string>

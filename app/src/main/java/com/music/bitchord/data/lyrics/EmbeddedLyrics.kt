@@ -73,9 +73,20 @@ object EmbeddedLyrics {
                 ?: return@withContext null
             // The same last pass the network sources get, so a downloaded track
             // and a streamed one draw their backing vocals the same way.
-            LrcLib.parseLrc(raw).takeIf { lines -> lines.any { it.text.isNotBlank() } }
-                ?.withBackgroundVocals()
+            linesOf(raw)?.withBackgroundVocals()
         }
+
+    /**
+     * [raw] as lines: LRC where it is stamped, else the words as plain,
+     * unsynced lines — which is how most taggers store lyrics, and what an
+     * MP3's `USLT` usually holds (#1020). Null when there is nothing to show.
+     */
+    internal fun linesOf(raw: String): List<LyricLine>? {
+        val synced = LrcLib.parseLrc(raw).takeIf { lines -> lines.any { it.text.isNotBlank() } }
+        if (synced != null) return synced
+        return raw.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }
+            .map { LyricLine(0L, it) }.toList().ifEmpty { null }
+    }
 
     /** The raw LRC text for the file, preferring this app's word-timed field. */
     private fun read(context: Context, uri: Uri): String? =
@@ -120,6 +131,7 @@ object EmbeddedLyrics {
             head.startsWith(FLAC_MAGIC) -> flac(head)
             head.startsWith(MATROSKA_MAGIC) -> matroska(head)
             head.isMp4() -> mp4(head)
+            head.startsWith(ID3_MAGIC) -> id3(head)
             else -> null
         }
         return found?.takeIf { it.isNotBlank() }
@@ -348,6 +360,83 @@ object EmbeddedLyrics {
         return out.toByteArray()
     }
 
+    // ---- MP3 (ID3v2) ---------------------------------------------------------
+
+    /**
+     * The first `USLT` frame's text (`ULT` in ID3v2.2): the lyrics field every
+     * MP3 tagger writes, and the one other players read (#1020).
+     *
+     * ponytail: v2.4's per-frame unsynchronisation and compression flags are
+     * not undone; such a frame reads as no lyrics, as every MP3 did before.
+     */
+    private fun id3(head: ByteArray): String? {
+        if (head.size < 10) return null
+        val major = head[3].toInt()
+        if (major !in 2..4) return null
+        val flags = head[5].toInt()
+        val tagEnd = minOf(head.size, 10 + syncsafe(head, 6))
+        // v2.2 and v2.3 may unsynchronise the whole tag: FF 00 stands for FF.
+        val bytes = if (flags and 0x80 != 0 && major < 4) deUnsync(head, 10, tagEnd) else head.copyOfRange(10, tagEnd)
+        var at = 0
+        if (flags and 0x40 != 0 && major >= 3 && bytes.size >= 4) {
+            at += if (major == 4) syncsafe(bytes, 0) else readU32(bytes, 0).toInt() + 4
+        }
+        val idLength = if (major == 2) 3 else 4
+        val headerLength = if (major == 2) 6 else 10
+        val wanted = if (major == 2) "ULT" else "USLT"
+        while (at in 0..bytes.size - headerLength) {
+            if (bytes[at] == 0.toByte()) break // padding
+            val id = String(bytes, at, idLength, Charsets.ISO_8859_1)
+            val size = when (major) {
+                2 -> ((bytes[at + 3].toInt() and 0xFF) shl 16) or ((bytes[at + 4].toInt() and 0xFF) shl 8) or
+                    (bytes[at + 5].toInt() and 0xFF)
+                4 -> syncsafe(bytes, at + 4)
+                else -> readU32(bytes, at + 4).toInt()
+            }
+            val body = at + headerLength
+            if (size <= 0 || body + size > bytes.size) break
+            if (id == wanted) usltText(bytes, body, body + size)?.let { return it }
+            at = body + size
+        }
+        return null
+    }
+
+    /** encoding, three-letter language, a terminated description, then the lyrics. */
+    private fun usltText(bytes: ByteArray, from: Int, until: Int): String? {
+        if (until - from < 5) return null
+        val charset = when (bytes[from].toInt()) {
+            0 -> Charsets.ISO_8859_1
+            1 -> Charsets.UTF_16
+            2 -> Charsets.UTF_16BE
+            3 -> Charsets.UTF_8
+            else -> return null
+        }
+        val wide = charset == Charsets.UTF_16 || charset == Charsets.UTF_16BE
+        var at = from + 4
+        // Skip the description up to and past its terminator.
+        while (at < until) {
+            if (!wide && bytes[at] == 0.toByte()) { at += 1; break }
+            if (wide && at + 1 < until && bytes[at] == 0.toByte() && bytes[at + 1] == 0.toByte()) { at += 2; break }
+            at += if (wide) 2 else 1
+        }
+        if (at >= until) return null
+        return String(bytes, at, until - at, charset).trimEnd('\u0000').takeIf { it.isNotBlank() }
+    }
+
+    private fun syncsafe(b: ByteArray, off: Int): Int =
+        ((b[off].toInt() and 0x7F) shl 21) or ((b[off + 1].toInt() and 0x7F) shl 14) or
+            ((b[off + 2].toInt() and 0x7F) shl 7) or (b[off + 3].toInt() and 0x7F)
+
+    private fun deUnsync(b: ByteArray, from: Int, until: Int): ByteArray {
+        val out = ByteArrayOutputStream(until - from)
+        var i = from
+        while (i < until) {
+            out.write(b[i].toInt())
+            i += if (b[i] == 0xFF.toByte() && i + 1 < until && b[i + 1] == 0.toByte()) 2 else 1
+        }
+        return out.toByteArray()
+    }
+
     private fun ByteArray.startsWith(prefix: ByteArray): Boolean {
         if (size < prefix.size) return false
         return prefix.indices.all { this[it] == prefix[it] }
@@ -386,6 +475,7 @@ object EmbeddedLyrics {
 
     private const val FLAC_VORBIS_COMMENT = 4
     private val FLAC_MAGIC = "fLaC".toByteArray(Charsets.US_ASCII)
+    private val ID3_MAGIC = "ID3".toByteArray(Charsets.US_ASCII)
     private val MATROSKA_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private val DATA_ATOM = "data".toByteArray(Charsets.ISO_8859_1)
     private val LYR_ATOM = byteArrayOf(0xA9.toByte()) + "lyr".toByteArray(Charsets.ISO_8859_1)

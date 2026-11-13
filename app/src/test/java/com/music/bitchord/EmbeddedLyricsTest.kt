@@ -30,6 +30,46 @@ class EmbeddedLyricsTest {
 
     private val lrc = "[00:01.00]first line\n[00:05.00]second line"
 
+    /** An ID3v2 tag holding one USLT frame, as an MP3 tagger writes it. */
+    private fun id3(major: Int, encoding: Int, lyrics: String, description: String = ""): ByteArray {
+        val charset = when (encoding) { 1 -> Charsets.UTF_16; 3 -> Charsets.UTF_8; else -> Charsets.ISO_8859_1 }
+        val terminator = if (encoding == 1) byteArrayOf(0, 0) else byteArrayOf(0)
+        val frameBody = byteArrayOf(encoding.toByte()) + "eng".toByteArray() +
+            description.toByteArray(charset) + terminator + lyrics.toByteArray(charset)
+        val size = frameBody.size
+        val frameSize = if (major == 4) syncsafe(size) else byteArrayOf((size ushr 24).toByte(), (size ushr 16).toByte(), (size ushr 8).toByte(), size.toByte())
+        val frame = "USLT".toByteArray() + frameSize + byteArrayOf(0, 0) + frameBody
+        val tag = byteArrayOf('I'.code.toByte(), 'D'.code.toByte(), '3'.code.toByte(), major.toByte(), 0, 0) +
+            syncsafe(frame.size + 16) + frame + ByteArray(16)
+        return tag + byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x00) // an MPEG frame header after it
+    }
+
+    private fun syncsafe(v: Int) = byteArrayOf(
+        ((v ushr 21) and 0x7F).toByte(), ((v ushr 14) and 0x7F).toByte(), ((v ushr 7) and 0x7F).toByte(), (v and 0x7F).toByte(),
+    )
+
+    @Test
+    fun `an mp3's USLT lyrics are read, in every ID3 version and encoding`() {
+        assertEquals(lrc, EmbeddedLyrics.fromBytes(id3(major = 3, encoding = 0, lyrics = lrc)))
+        assertEquals(lrc, EmbeddedLyrics.fromBytes(id3(major = 4, encoding = 3, lyrics = lrc, description = "desc")))
+        assertEquals("слова песни", EmbeddedLyrics.fromBytes(id3(major = 3, encoding = 1, lyrics = "слова песни")))
+    }
+
+    @Test
+    fun `an mp3 without lyrics has none`() {
+        assertNull(EmbeddedLyrics.fromBytes(byteArrayOf('I'.code.toByte(), 'D'.code.toByte(), '3'.code.toByte(), 3, 0, 0, 0, 0, 0, 16) + ByteArray(16)))
+    }
+
+    @Test
+    fun `lyrics with no timestamps show as plain lines`() {
+        assertEquals(
+            listOf(LyricLine(0L, "first line"), LyricLine(0L, "second line")),
+            EmbeddedLyrics.linesOf("first line\n\nsecond line\n"),
+        )
+        assertEquals(2, EmbeddedLyrics.linesOf(lrc)!!.size)
+        assertNull(EmbeddedLyrics.linesOf("  \n"))
+    }
+
     @Test
     fun `an m4a written by the tagger reads back`() {
         val tagged = Mp4Tagger.tag(

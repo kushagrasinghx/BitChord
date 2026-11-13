@@ -157,25 +157,43 @@ object LyricsRepository {
         }
 
         try {
-            var lineSynced: Result? = null
-            for ((source, job) in racing) {
-                // If we already found a line-synced or better result, skip Genius completely
-                if (lineSynced != null && source == LyricsSource.GENIUS) continue
-
-                val found = runCatching { job.await() }.getOrNull() ?: continue
-                if (found.lines.any { it.isWordSynced }) return@coroutineScope found
-                if (!prioritizeSyllableSync && found.lines.any { it.timeMs > 0 }) {
-                    return@coroutineScope found
-                }
-                if (lineSynced == null) lineSynced = found
-            }
-            lineSynced
+            pick(racing.map { (source, job) -> source to suspend { job.await() } }, prioritizeSyllableSync)
         } finally {
             // Whoever lost the race is no longer worth waiting on, and
             // coroutineScope will not return while they are still running.
             racing.forEach { it.second.cancel() }
             documents.cancel()
         }
+    }
+
+    /**
+     * The first word-synced result in [racing] order; failing that, the first
+     * line-synced one; failing that, the first plain one. Without
+     * [prioritizeSyllableSync], the first timed result wins outright.
+     *
+     * Plain and line-synced are kept apart: a plain result that happened to
+     * arrive first must not shadow a line-synced one further down the order.
+     */
+    internal suspend fun pick(
+        racing: List<Pair<LyricsSource, suspend () -> Result?>>,
+        prioritizeSyllableSync: Boolean,
+    ): Result? {
+        var lineSynced: Result? = null
+        var plain: Result? = null
+        for ((source, await) in racing) {
+            // If we already found a line-synced or better result, skip Genius completely
+            if ((lineSynced ?: plain) != null && source == LyricsSource.GENIUS) continue
+
+            val found = runCatching { await() }.getOrNull() ?: continue
+            if (found.lines.any { it.isWordSynced }) return found
+            if (found.lines.any { it.timeMs > 0 }) {
+                if (!prioritizeSyllableSync) return found
+                if (lineSynced == null) lineSynced = found
+            } else if (plain == null) {
+                plain = found
+            }
+        }
+        return lineSynced ?: plain
     }
 
     private suspend fun fetch(

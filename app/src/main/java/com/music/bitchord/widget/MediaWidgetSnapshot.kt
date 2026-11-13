@@ -96,7 +96,8 @@ internal data class MediaWidgetSnapshot(
             return EMPTY
         }
 
-        private fun prefs(context: Context) =
+        /** Where the snapshot lives; the Quick Settings tile watches it for changes. */
+        fun prefs(context: Context) =
             context.getSharedPreferences("bitchord_widget", Context.MODE_PRIVATE)
 
         private const val KEY_MEDIA_ID = "media_id"

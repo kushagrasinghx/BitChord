@@ -82,6 +82,7 @@ import androidx.media3.common.Player
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -169,8 +170,10 @@ internal fun TvNowPlayingStage(
     // While the transport is up the lyrics fade out above it rather than run under it.
     val underControls by animateFloatAsState(if (controlsVisible) 1f else 0f, tween(320), label = "lyricsFade")
     val canvasEnabled by AppSettings.animatedCanvas.collectAsState()
+    val disableSpotifyCanvas by AppSettings.disableSpotifyCanvas.collectAsState()
     var canvas by remember(song.videoId) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, canvasEnabled) {
+    LaunchedEffect(song.videoId, canvasEnabled, disableSpotifyCanvas) {
+        canvas = null
         canvas = if (canvasEnabled) CanvasRepository.canvasFor(song) else null
     }
     val side by animateFloatAsState(if (showLyrics) 1f else 0f, tween(520), label = "artToSide")
@@ -202,7 +205,9 @@ internal fun TvNowPlayingStage(
                 },
         ) {
             TvArtwork(url = song.thumbnailUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
-            canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
+            canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }?.let {
+                CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize())
+            }
         }
 
         // With the transport away, the song is named under the cover: the title and

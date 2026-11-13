@@ -85,13 +85,14 @@ object CanvasRepository {
         // a second time. [reusable] decides when the earlier answer still
         // stands instead.
         val album = song.albumName
-        val spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value
-        val key = cacheKey("song|${song.videoId}", spotifyFirst)
+        val spotifyFirst = AppSettings.effectivePrioritizeSpotifyCanvas.value
+        val spotifyDisabled = AppSettings.disableSpotifyCanvas.value
+        val key = cacheKey("song|${song.videoId}", spotifyFirst, spotifyDisabled)
 
         return resolve(key, album != null) {
             if (spotifyFirst) {
                 firstHit(
-                    { SpotifyCanvas.search(title, artist, album) },
+                    { if (AppSettings.disableSpotifyCanvas.value) null else SpotifyCanvas.search(title, artist, album) },
                     { AppleMusicCanvas.search(title, artist, album) },
                     { TidalCanvas.search(title, artist, album) },
                     { CommunityCanvas.search(title, artist, album) },
@@ -101,7 +102,7 @@ object CanvasRepository {
                     { AppleMusicCanvas.search(title, artist, album) },
                     { TidalCanvas.search(title, artist, album) },
                     { CommunityCanvas.search(title, artist, album) },
-                    { SpotifyCanvas.search(title, artist, album) },
+                    { if (AppSettings.disableSpotifyCanvas.value) null else SpotifyCanvas.search(title, artist, album) },
                 ) { it.matches(title, artist, album) }
             }
         }
@@ -117,9 +118,11 @@ object CanvasRepository {
     fun cached(song: Song): CanvasArtwork? {
         val key = cacheKey(
             base = "song|${song.videoId}",
-            spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value,
+            spotifyFirst = AppSettings.effectivePrioritizeSpotifyCanvas.value,
+            spotifyDisabled = AppSettings.disableSpotifyCanvas.value,
         )
         return synchronized(cache) { cache[key]?.artwork }
+            ?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
     }
 
     /**
@@ -135,11 +138,12 @@ object CanvasRepository {
         val credit = artist.cleaned()
         if (name.isBlank() || credit.isBlank()) return null
 
-        val spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value
-        return resolve(cacheKey("album|$name|$credit", spotifyFirst), withAlbum = true) {
+        val spotifyFirst = AppSettings.effectivePrioritizeSpotifyCanvas.value
+        val spotifyDisabled = AppSettings.disableSpotifyCanvas.value
+        return resolve(cacheKey("album|$name|$credit", spotifyFirst, spotifyDisabled), withAlbum = true) {
             if (spotifyFirst) {
                 firstHit(
-                    { SpotifyCanvas.searchAlbum(name, credit) },
+                    { if (AppSettings.disableSpotifyCanvas.value) null else SpotifyCanvas.searchAlbum(name, credit) },
                     { AppleMusicCanvas.searchAlbum(name, credit) },
                     { TidalCanvas.searchAlbum(name, credit) },
                     { CommunityCanvas.searchAlbum(name, credit) },
@@ -149,15 +153,15 @@ object CanvasRepository {
                     { AppleMusicCanvas.searchAlbum(name, credit) },
                     { TidalCanvas.searchAlbum(name, credit) },
                     { CommunityCanvas.searchAlbum(name, credit) },
-                    { SpotifyCanvas.searchAlbum(name, credit) },
+                    { if (AppSettings.disableSpotifyCanvas.value) null else SpotifyCanvas.searchAlbum(name, credit) },
                 ) { it.matches(name, credit, name) }
             }
         }
     }
 
-    /** Priority is part of the question, so a toggle never reuses the other order's answer. */
-    private fun cacheKey(base: String, spotifyFirst: Boolean): String =
-        "$base|spotifyFirst=$spotifyFirst"
+    /** Provider settings are part of the question, not just the search order. */
+    private fun cacheKey(base: String, spotifyFirst: Boolean, spotifyDisabled: Boolean): String =
+        "$base|spotifyFirst=$spotifyFirst|spotifyDisabled=$spotifyDisabled"
 
     private suspend fun resolve(
         key: String,
@@ -165,9 +169,14 @@ object CanvasRepository {
         lookUp: suspend () -> CanvasArtwork?,
     ): CanvasArtwork? = lock.withLock {
         synchronized(cache) {
-            cache[key]?.let { if (it.reusable(withAlbum)) return@withLock it.artwork }
+            cache[key]?.let {
+                if (it.reusable(withAlbum) &&
+                    !(AppSettings.disableSpotifyCanvas.value && it.artwork?.source == CanvasSource.SPOTIFY)
+                ) return@withLock it.artwork
+            }
         }
         val found = withContext(Dispatchers.IO) { lookUp() }
+        if (AppSettings.disableSpotifyCanvas.value && found?.source == CanvasSource.SPOTIFY) return@withLock null
         synchronized(cache) { cache[key] = Entry(found, withAlbum) }
         found
     }

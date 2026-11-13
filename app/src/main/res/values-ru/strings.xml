@@ -210,6 +210,7 @@
     <string name="crossfade">Кроссфейд</string>
     <string name="crossfade_subtitle">Плавно переходит от одного трека к другому</string>
     <string name="automix">Автомикс [БЕТА]</string>
+    <string name="automix_overview">Обзор автомикса</string>
     <string name="skip_silence">Пропускать тишину</string>
     <string name="skip_silence_subtitle">Обрезает паузы длиннее секунды</string>
     <string name="skip_silence_float_subtitle">Недоступно при 32-битном выводе с плавающей точкой</string>
@@ -1489,4 +1490,17 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="diwali_title">BitChord поздравляет вас с Дивали</string>
+    <string name="diwali_subtitle">Пусть этот праздник огней наполнит ваш дом радостью, а ваши дни — музыкой.</string>
+    <string name="diwali_cta">Отпразднуем</string>
+    <string name="find_a_playlist">Найти плейлист</string>
+    <string name="no_playlists_match">Нет плейлистов по запросу «%1$s»</string>
+    <string name="hide_lyrics_preview">Скрыть текст</string>
+    <string name="hide_lyrics_preview_subtitle">Скрывает строку текста в плеере</string>
+    <string name="show_total_duration">Показывать общую длительность</string>
+    <string name="show_total_duration_subtitle">Показывает полную длительность трека вместо оставшегося времени</string>
+    <string name="sleep_timer_fade_out">Затухание перед паузой</string>
+    <string name="sleep_timer_fade_out_subtitle">Плавно уменьшает громкость в последние 30 секунд</string>
+    <string name="disable_spotify_canvas">Отключить Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Никогда не использовать Spotify Canvas. Анимированные обложки берутся из других источников</string>
 </resources>

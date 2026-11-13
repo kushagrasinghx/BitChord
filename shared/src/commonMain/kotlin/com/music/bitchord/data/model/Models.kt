@@ -303,10 +303,10 @@ fun String?.durationMillis(): Long {
 fun String?.artworkAt(px: Int): String? {
     if (this == null) return null
     val sized = this.replace(SIZE_HINT, "w$px-h$px")
-    return if (isGoogleImageHost(this)) {
-        sized.replace(PARAM_SIZE_HINT, "=s$px")
-    } else {
-        sized
+    return when {
+        isGoogleImageHost(this) -> sized.replace(PARAM_SIZE_HINT, "=s$px")
+        isYouTubeThumbnailHost(this) -> upgradeYouTubeThumbnail(sized, px)
+        else -> sized
     }
 }
 
@@ -320,6 +320,61 @@ private fun isGoogleImageHost(url: String): Boolean {
     return host == "ggpht.com" || host.endsWith(".ggpht.com") ||
         host == "googleusercontent.com" || host.endsWith(".googleusercontent.com")
 }
+
+internal fun isYouTubeThumbnailHost(url: String): Boolean {
+    val host = url.substringAfter("://", "")
+        .ifEmpty { url.substringAfter("//", "") }
+        .substringBefore('/')
+        .substringBefore(':')
+        .substringBefore('?')
+        .lowercase()
+    return host == "i.ytimg.com" || host.endsWith(".ytimg.com") ||
+        host == "img.youtube.com" || host.endsWith(".youtube.com")
+}
+
+/** YouTube's thumbnail renditions, smallest to largest. Every video has `hqdefault`. */
+private val YT_THUMB_NAME_REGEX = Regex("/(default|mqdefault|hqdefault|sddefault|hq720|maxresdefault)\\.([a-zA-Z0-9]+)")
+
+/** The renditions an old or low-resolution upload doesn't have: each answers 404 for it. */
+private val YT_UPGRADED_RENDITIONS = setOf("sddefault", "hq720", "maxresdefault")
+
+internal fun upgradeYouTubeThumbnail(url: String, px: Int): String {
+    val match = YT_THUMB_NAME_REGEX.find(url) ?: return url
+    val current = match.groupValues[1]
+    val target = when {
+        px >= 480 -> "maxresdefault"
+        px >= 240 -> "sddefault"
+        // A row keeps the small copy it came with, but an upgraded URL — one
+        // read back off the lock screen's artwork, say — comes back down to
+        // the one every video has, rather than a list row loading a 1280px
+        // cover, or nothing, where the video has no such size.
+        current in YT_UPGRADED_RENDITIONS -> "hqdefault"
+        else -> return url
+    }
+    return if (target == current) url else withRendition(url, match, target)
+}
+
+/**
+ * The copy every YouTube video has, for a thumbnail [artworkAt] asked a larger
+ * rendition of; null when [url] is no such thumbnail. Old and low-resolution
+ * uploads have no `sddefault` or `maxresdefault` (YouTube answers 404), so
+ * whatever loads one of those needs this to fall back on — and a loader that
+ * can't fall back should be handed this instead.
+ */
+fun youTubeThumbnailFallback(url: String): String? {
+    if (!isYouTubeThumbnailHost(url)) return null
+    val match = YT_THUMB_NAME_REGEX.find(url) ?: return null
+    if (match.groupValues[1] !in YT_UPGRADED_RENDITIONS) return null
+    return withRendition(url, match, "hqdefault")
+}
+
+/**
+ * [url] naming [rendition] instead. The query (`sqp=…&rs=…`) is dropped: it
+ * signs the rendition it came with, and the bare path serves any of them.
+ */
+private fun withRendition(url: String, match: MatchResult, rendition: String): String =
+    (url.substring(0, match.range.first) + "/$rendition.${match.groupValues[2]}" + url.substring(match.range.last + 1))
+        .substringBefore('?')
 
 private val SIZE_HINT = Regex("""w\d+-h\d+""")
 private val PARAM_SIZE_HINT = Regex("""=s\d+""")
@@ -388,7 +443,11 @@ sealed interface SearchResult {
     data class Browse(val item: BrowseItem) : SearchResult
 }
 
-enum class SearchFilter(val label: String, val params: String?) {
+enum class SearchFilter(
+    val label: String,
+    val params: String?,
+    val requiresAuth: Boolean = false,
+) {
     /** YouTube Music's mixed search page: songs, artists, albums and playlists. */
     ALL("All", null),
     SONGS("Songs", "EgWKAQIIAWoKEAkQChAFEAMQBA=="),
@@ -396,6 +455,7 @@ enum class SearchFilter(val label: String, val params: String?) {
     ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA=="),
     ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA=="),
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA=="),
+    LIBRARY("Library", "agIYBA==", requiresAuth = true);
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */

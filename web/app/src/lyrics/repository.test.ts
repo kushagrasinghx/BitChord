@@ -7,6 +7,11 @@ import { useLyricsSettings } from './settings';
 vi.mock('./http', () => ({ lyricsGet: async () => null }));
 vi.mock('./providers', () => ({
   lrclib: async () => ({ lines: [line(1000, 'line timed')], ttml: '<tt/>' }),
+  // QQ's stand-in for an instrumental: "this song has no lyrics, please enjoy".
+  betterLyricsPortato: async () => ({
+    lines: [line(0, '此歌曲为没有填词的纯音乐，请您欣赏', { words: [{ startMs: 0, endMs: 5000, text: '此歌曲为没有填词的纯音乐，请您欣赏', syllables: [] }] })],
+    ttml: '<tt/>',
+  }),
   lyricsPlus: async () => ({
     lines: [line(1000, 'word', { words: [{ startMs: 1000, endMs: 1500, text: 'word', syllables: [] }] })],
     ttml: '<tt/>',
@@ -21,5 +26,12 @@ describe('lookupLyrics', () => {
     expect((await lookupLyrics(track))?.source).toBe('lrclib');
     useLyricsSettings.setState({ preferSyllables: true });
     expect((await lookupLyrics(track))?.source).toBe('lyrics-plus');
+  });
+
+  it("passes over a source that answers an instrumental with QQ's no-lyrics notice", async () => {
+    useLyricsSettings.setState({ order: ['better-lyrics-portato', 'lrclib'], disabled: [], preferSyllables: false });
+    const track = { videoId: 'instrumenta', title: 'Instrumental', artist: 'Artist', durationMs: 180_000, album: null };
+
+    expect((await lookupLyrics(track))?.source).toBe('lrclib');
   });
 });

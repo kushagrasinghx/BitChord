@@ -195,6 +195,7 @@
     <string name="crossfade">クロスフェード</string>
     <string name="crossfade_subtitle">1曲を次の曲へなめらかにつなげます</string>
     <string name="automix">オートミックス [BETA]</string>
+    <string name="automix_overview">オートミックスの概要</string>
     <string name="skip_silence">無音をスキップ</string>
     <string name="skip_silence_subtitle">1秒より長い無音部分をカットします</string>
     <string name="skip_silence_float_subtitle">32ビット浮動小数点出力では使用できません</string>
@@ -1435,4 +1436,17 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="diwali_title">BitChord より、ハッピー・ディワリ</string>
+    <string name="diwali_subtitle">光の祭典が、あなたの家を喜びで、毎日を音楽で満たしますように。</string>
+    <string name="diwali_cta">お祝いしよう</string>
+    <string name="find_a_playlist">プレイリストを検索</string>
+    <string name="no_playlists_match">「%1$s」に一致するプレイリストはありません</string>
+    <string name="hide_lyrics_preview">歌詞を非表示</string>
+    <string name="hide_lyrics_preview_subtitle">プレーヤーの歌詞の行を非表示にします</string>
+    <string name="show_total_duration">合計時間を表示</string>
+    <string name="show_total_duration_subtitle">残り時間の代わりに曲の長さを表示します</string>
+    <string name="sleep_timer_fade_out">一時停止前にフェードアウト</string>
+    <string name="sleep_timer_fade_out_subtitle">最後の30秒で音量を徐々に下げます</string>
+    <string name="disable_spotify_canvas">Spotify Canvasを無効にする</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvasを使用しません。アニメーションアートワークは他のソースから取得します</string>
 </resources>

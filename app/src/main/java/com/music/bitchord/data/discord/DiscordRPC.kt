@@ -4,6 +4,7 @@ import android.content.Context
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.my.kizzy.rpc.KizzyRPC
 import com.my.kizzy.rpc.RpcImage
 import java.util.Locale
@@ -119,7 +120,10 @@ class DiscordRPC(
             // A track with no artwork — or with artwork Discord can't reach,
             // which is anything that isn't an http URL — sends none, and Discord
             // draws the BitChord application's own icon in its place.
+            // Discord fetches it with no fallback, so a YouTube cover goes at
+            // the size every video has rather than one an old upload 404s on.
             largeImage = song.artworkAt(ART_PX)
+                ?.let { youTubeThumbnailFallback(it) ?: it }
                 ?.takeIf { it.startsWith("http") }
                 ?.let(RpcImage::ExternalImage),
             smallImage = null,

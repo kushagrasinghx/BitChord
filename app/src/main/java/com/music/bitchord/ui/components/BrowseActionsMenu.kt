@@ -109,6 +109,7 @@ fun BrowseActionsMenu(
     modifier: Modifier = Modifier,
     onPlay: (() -> Unit)? = null,
     onShuffle: (() -> Unit)? = null,
+    onAddToPlaylists: (() -> Unit)? = null,
     /** Null where the menu was opened from the page it would navigate to. */
     onOpen: (() -> Unit)? = null,
     onDownloadAll: (() -> Unit)? = null,
@@ -172,8 +173,26 @@ fun BrowseActionsMenu(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
         ) {
+            if (!target.fromCard) {
+                onAddToPlaylists?.let {
+                    ActionRow(
+                        icon = SfIcons.AddToPlaylist,
+                        label = stringResource(R.string.add_to_playlist),
+                        onClick = it,
+                    )
+                }
+            }
             onPlay?.let { ActionRow(SfIcons.Play, stringResource(R.string.play), onClick = it) }
             onShuffle?.let { ActionRow(SfIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
+            if (target.fromCard) {
+                onAddToPlaylists?.let {
+                    ActionRow(
+                        icon = SfIcons.AddToPlaylist,
+                        label = stringResource(R.string.add_to_playlist),
+                        onClick = it,
+                    )
+                }
+            }
             ActionRow(
                 SfIcons.PlayNext,
                 stringResource(R.string.play_next),

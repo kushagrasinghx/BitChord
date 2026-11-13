@@ -432,6 +432,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // only needed to *match* a track against a stranger's database, and
             // nothing is being matched here — these lyrics were written into
             // this exact file, for this exact recording.
+            // Plain words from the file: shown at once, but they only stand in
+            // until a source answers with timing. Most taggers store lyrics
+            // untimed (an MP3's USLT nearly always is), and ending the lookup
+            // on them would cost every such file the synced lyrics it got
+            // before the file's own words were read at all.
+            var embeddedPlain: List<LyricLine>? = null
             if (localUri != null) {
                 EmbeddedLyrics.forUri(getApplication(), localUri)?.let { embedded ->
                     _lyrics.value = embedded
@@ -439,7 +445,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     // not which of the eight services they came from months ago.
                     _lyricsSource.value = null
                     _lyricsChecked.value = true
-                    return@launch
+                    if (EmbeddedLyrics.isSynced(embedded)) return@launch
+                    embeddedPlain = embedded
                 }
             }
             if (durationMs <= 0L) {
@@ -456,9 +463,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 onSourceCancelled = { source -> providerCancelled(generation, source) },
             )
-            val selected = selectedLyricsSource?.let(lyricsProviderResults::get) ?: found
-            _lyrics.value = selected?.lines
-            _lyricsSource.value = selected?.source
+            val picked = selectedLyricsSource?.let(lyricsProviderResults::get)
+            // The file's own words beat a stranger's untimed copy; only timing,
+            // or a provider the listener picked by hand, displaces them.
+            val selected = picked
+                ?: found?.takeIf { embeddedPlain == null || EmbeddedLyrics.isSynced(it.lines) }
+            if (selected == null && embeddedPlain != null) {
+                _lyrics.value = embeddedPlain
+                _lyricsSource.value = null
+            } else {
+                _lyrics.value = selected?.lines
+                _lyricsSource.value = selected?.source
+            }
             _lyricsChecked.value = true
         }
     }
@@ -1019,6 +1035,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 outcomes.count { it == AddOutcome.ALREADY_THERE },
                 outcomes.count { it == AddOutcome.FAILED },
             )
+        }
+    }
+
+    /** Adds every distinct song in [songs] to each selected playlist, serially. */
+    fun addSongsToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+    ) {
+        if (!requireSignIn() || playlists.isEmpty() || songs.isEmpty()) return
+        viewModelScope.launch {
+            var addedCount = 0
+            var alreadyThereCount = 0
+            var failedCount = 0
+            val uniqueSongs = songs.distinctBy { it.videoId }
+            playlists.forEach { playlist ->
+                val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
+                    ?.songs as? UiState.Success)?.data
+                val known = openSongs ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
+                val knownIds = known?.mapTo(HashSet()) { it.videoId }
+                val missing = uniqueSongs.filterNot { it.videoId in knownIds.orEmpty() }
+                alreadyThereCount += uniqueSongs.size - missing.size
+                missing.chunked(50).forEach { chunk ->
+                    YtMusicRepository.addToPlaylist(playlist.playlistId, chunk.map { it.videoId }).fold(
+                        onSuccess = { returned ->
+                            libraryStale = true
+                            addedCount += chunk.size
+                            chunk.forEach { song ->
+                                appendToOpenPlaylist(playlist.browseId, song, returned[song.videoId])
+                            }
+                        },
+                        onFailure = { failedCount += chunk.size },
+                    )
+                }
+            }
+            onResult(addedCount, alreadyThereCount, failedCount)
         }
     }
 
@@ -2241,7 +2293,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_filter.value == value) return
         _filter.value = value
         searchSubmitted = true
-        runSearch()
+        // Anonymous, as a filter change always was: switching chips is not a
+        // search worth filing in the account's history. Only a filter scoped
+        // to the account itself (Library) has to go signed in.
+        runSearch(anonymous = !value.requiresAuth)
     }
 
     /**
@@ -2328,6 +2383,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@collectLatest
                 }
 
+                if (request.filter.requiresAuth && !_signedIn.value) {
+                    _results.value = UiState.Error(text(R.string.library_sign_in_description))
+                    return@collectLatest
+                }
+
                 // Search is YouTube's alone. A module is a *substitution*
                 // layer, not a catalogue to browse: it never has cover art,
                 // radio, related tracks or an album page, so its rows arrived
@@ -2337,7 +2397,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // see [SourceResolver.substituteForYouTube] — which upgrades
                 // the ones it holds without any of them having to be a
                 // separate row to pick between.
-                val result = YtMusicRepository.searchPage(request.query, request.filter, request.anonymous)
+                val isAnon = if (request.filter.requiresAuth) false else request.anonymous
+                val result = YtMusicRepository.searchPage(request.query, request.filter, isAnon)
                 // A search that has been superseded shouldn't land on screen,
                 // whether it succeeded or failed.
                 if (request.requestId != newestRequestId.get()) return@collectLatest
@@ -3110,7 +3171,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             delay(150)
             var next: String? = token
             while (next != null) {
-                val fetched = YtMusicRepository.moreSongs(next).getOrNull() ?: return@launch
+                val token = next
+                // One dropped request used to end the walk for good, leaving a
+                // long playlist cut short on screen and in its menu (#1178).
+                val fetched = retryingOrNull(FILL_IN_RETRIES_MS) {
+                    YtMusicRepository.moreSongs(token).getOrNull()
+                } ?: return@launch
                 // Repository calls may finish after cancellation. Do not let
                 // an in-flight UI page append after the playback service has
                 // taken the continuation over.
@@ -3624,6 +3690,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
+}
+
+/** Waits before each retry of a page's fill-in, as the service's own loader waits. */
+private val FILL_IN_RETRIES_MS = longArrayOf(2_000L, 5_000L, 15_000L)
+
+/** [attempt], then again after each of [waitsMs] while it answers null; null if it never answers. */
+internal suspend fun <T : Any> retryingOrNull(waitsMs: LongArray, attempt: suspend () -> T?): T? {
+    attempt()?.let { return it }
+    for (wait in waitsMs) {
+        delay(wait)
+        attempt()?.let { return it }
+    }
+    return null
 }
 
 /**

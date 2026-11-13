@@ -676,7 +676,17 @@ internal class LyricPlayhead(
      * without saying so would look like a reading gone wrong.
      */
     val discontinuity: Long
-        get() = (position.seeks.toLong() shl 32) or (offsetMs.value.toLong() and 0xFFFF_FFFFL)
+        get() = (position.sampledSeeks.toLong() shl 32) or (offsetMs.value.toLong() and 0xFFFF_FFFFL)
+
+    fun reading(isPlaying: Boolean): LyricClockReading {
+        val sampledAt = sampledAtNanos
+        return LyricClockReading(
+            positionMs = positionMs,
+            sampledAtMs = if (sampledAt > 0L) nanosToMs(sampledAt) else Double.NaN,
+            discontinuity = discontinuity,
+            isPlaying = (position.isPlaying ?: isPlaying) && position.advancing,
+        )
+    }
 }
 
 @Composable
@@ -705,20 +715,20 @@ private fun rememberLyricClock(
     trackKey: Any,
     playhead: LyricPlayhead,
     isPlaying: Boolean,
+    active: Boolean = true,
 ): MutableLongState {
     val clock = remember(trackKey) {
         mutableLongStateOf(Snapshot.withoutReadObservation { playhead.positionMs })
     }
     val engine = remember(trackKey) { LyricClock(clock.longValue) }
 
-    // Not moving: each reading is the truth, including a seek made while paused.
-    // Followed off the snapshot rather than read here, so a reading recomposes
-    // nothing.
-    if (!isPlaying) {
-        LaunchedEffect(engine, playhead) {
-            snapshotFlow { playhead.positionMs }.collect { positionMs ->
-                engine.hold(positionMs, nanosToMs(System.nanoTime()))
-                clock.longValue = positionMs
+    // Observe transport state with the reading, not the lifetime of a paused composition branch.
+    // Includes stopped seeks/offset changes even when the reported position itself is unchanged.
+    val foreground = rememberIsForeground()
+    LaunchedEffect(engine, playhead, isPlaying, active, foreground) {
+        snapshotFlow { playhead.reading(isPlaying) }.collect { reading ->
+            engine.observe(reading, nanosToMs(System.nanoTime()), active && foreground)?.let {
+                clock.longValue = it
             }
         }
     }
@@ -735,9 +745,8 @@ private fun rememberLyricClock(
     // One loop for the whole run, reading the playhead itself. Keyed on the
     // reading instead, every reading restarted it, and each restart spent a
     // frame waiting for its first frame time — a hitch twice a second.
-    val foreground = rememberIsForeground()
-    LaunchedEffect(engine, playhead, isPlaying, foreground) {
-        if (!isPlaying || !foreground) return@LaunchedEffect
+    LaunchedEffect(engine, playhead, isPlaying, active, foreground) {
+        if (!isPlaying || !active || !foreground) return@LaunchedEffect
         engine.restart()
         while (true) {
             withFrameNanos { frameNanos ->
@@ -747,13 +756,7 @@ private fun rememberLyricClock(
                 // two are seconds apart and the real clock is used instead.
                 val system = System.nanoTime()
                 val now = if (abs(system - frameNanos) < SAME_CLOCK_NANOS) frameNanos else system
-                val sampledAt = playhead.sampledAtNanos
-                clock.longValue = engine.frame(
-                    nowMs = nanosToMs(now),
-                    reportedMs = playhead.positionMs,
-                    sampledAtMs = if (sampledAt > 0L) nanosToMs(sampledAt) else Double.NaN,
-                    discontinuity = playhead.discontinuity,
-                )
+                clock.longValue = engine.frame(nanosToMs(now), playhead.reading(isPlaying))
             }
         }
     }
@@ -1800,7 +1803,7 @@ internal fun LyricsPanel(
     modifier: Modifier = Modifier,
 ) {
     val panelPlaying = isPlaying && active
-    val clock = rememberLyricClock(trackKey, playhead, panelPlaying)
+    val clock = rememberLyricClock(trackKey, playhead, isPlaying, active)
     val subReveal = rememberSubLyricsReveal(subLines, trackKey)
 
     val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
@@ -2443,7 +2446,7 @@ internal fun LyricsPanel(
                         PanelVoice(
                             line = subLine,
                             clock = clock,
-                            style = voiceStyle(subStyle, subLine.text, alignEnd, duet),
+                            style = voiceStyle(subStyle, subLine.text, alignEnd, laneLocked = true),
                             isActive = isActive,
                             sung = sung,
                             synced = isSynced,
@@ -2451,7 +2454,7 @@ internal fun LyricsPanel(
                             glowAlpha = 0f,
                             room = 0.dp,
                             alignEnd = alignEnd,
-                            laneLocked = duet,
+                            laneLocked = true,
                             rise = false,
                             // Only the rows actually in front of the reader get the
                             // particle pass. Sixty rows' worth of glyph boxes is a
@@ -2878,6 +2881,15 @@ private fun CurrentLyricLine(
     // own text direction so alignment and sweep geometry match what Compose would
     // produce for that paragraph.  LTR rows keep the chevron on the right; RTL
     // rows put it on the left (mirrored) and right-align the text.
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val lyricsBlur by PlayerSettings.lyricsBlur.collectAsStateWithLifecycle()
+    val glowing = !reduceAnimation && !reduceDynamicBlur && lyricsBlur &&
+        renderEffectBlurSupported
+    val glow by animateFloatAsState(
+        targetValue = if (glowing) GLOW_ALPHA else 0f,
+        animationSpec = tween(durationMillis = 420),
+        label = "stripLyricGlow",
+    )
     val stripRtl = isRtl(text)
 
     Row(
@@ -2947,6 +2959,8 @@ private fun CurrentLyricLine(
                     dimAlpha = UNSUNG_ALPHA_STRIP,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    glowAlpha = if (itemIndex == index) glow else 0f,
+                    feather = itemIndex == index,
                     rise = false,
                     modifier = fading,
                 )

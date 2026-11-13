@@ -201,6 +201,7 @@
     <string name="crossfade">Fondu enchaîné</string>
     <string name="crossfade_subtitle">Fait fondre une piste dans la suivante</string>
     <string name="automix">Automix [BÊTA]</string>
+    <string name="automix_overview">Vue d\'ensemble d\'Automix</string>
     <string name="skip_silence">Ignorer les silences</string>
     <string name="skip_silence_subtitle">Coupe les silences de plus d\'une seconde</string>
     <string name="skip_silence_float_subtitle">Indisponible avec la sortie flottante 32 bits</string>
@@ -1458,4 +1459,17 @@
     <string name="bit_perfect_status_inexact">%1$s · inexact : cette source n\'est pas du PCM sans perte</string>
     <string name="bit_perfect_status_waiting">En attente d\'un morceau sans perte sur une sortie compatible</string>
     <string name="bit_perfect_status_unavailable">Indisponible pour ce morceau (%1$s)</string>
+    <string name="diwali_title">BitChord vous souhaite un joyeux Diwali</string>
+    <string name="diwali_subtitle">Que cette fête des lumières remplisse votre foyer de joie et vos journées de musique.</string>
+    <string name="diwali_cta">Célébrons</string>
+    <string name="find_a_playlist">Rechercher une playlist</string>
+    <string name="no_playlists_match">Aucune playlist ne correspond à « %1$s »</string>
+    <string name="hide_lyrics_preview">Masquer les paroles</string>
+    <string name="hide_lyrics_preview_subtitle">Masque la ligne de paroles dans le lecteur</string>
+    <string name="show_total_duration">Afficher la durée totale</string>
+    <string name="show_total_duration_subtitle">Affiche la durée complète du titre au lieu du temps restant</string>
+    <string name="sleep_timer_fade_out">Fondu avant la pause</string>
+    <string name="sleep_timer_fade_out_subtitle">Baisse progressivement le volume pendant les 30 dernières secondes</string>
+    <string name="disable_spotify_canvas">Désactiver Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Ne jamais utiliser Spotify Canvas. Les pochettes animées viennent des autres sources</string>
 </resources>

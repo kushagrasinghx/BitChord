@@ -29,6 +29,7 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
@@ -342,10 +343,11 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             }
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
-            position.report(player.currentPosition.coerceAtLeast(0L))
+            val playing = player.isPlaying
+            position.report(player.currentPosition.coerceAtLeast(0L), isPlaying = playing)
             state = state.copy(
                 song = item?.toSong(),
-                isPlaying = player.isPlaying,
+                isPlaying = playing,
                 durationMs = player.duration.coerceAtLeast(0L),
                 error = error,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
@@ -423,7 +425,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     val foreground = rememberIsForeground()
     LaunchedEffect(controller, state.isPlaying, foreground) {
         while (controller != null && state.isPlaying && foreground) {
-            position.report(controller.currentPosition.coerceAtLeast(0L))
+            position.report(controller.currentPosition.coerceAtLeast(0L), isPlaying = controller.isPlaying)
             val duration = controller.duration.coerceAtLeast(0L)
             if (duration != state.durationMs) state = state.copy(durationMs = duration)
             delay(500)
@@ -716,7 +718,12 @@ fun Song.toMediaItem(): MediaItem {
             // Sized here rather than left as stored: this is what the lock
             // screen, the notification and Android Auto draw, all of them
             // large, and none of them go back for a better copy later.
-            .setArtworkUri(artworkAt(NOTIFICATION_ART_PX)?.toUri())
+            //
+            // Media3 loads this itself, with no way to try a second URL, so a
+            // YouTube cover goes at the size every video has: a larger one is a
+            // 404 for an old upload, and a blank lock screen. It is also read
+            // back as the queue row's thumbnail, which wants no 1280px copy.
+            .setArtworkUri(artworkAt(NOTIFICATION_ART_PX)?.let { youTubeThumbnailFallback(it) ?: it }?.toUri())
             // System media surfaces (One UI's Now Bar, Android Auto, Assistant)
             // classify a session by its media type; untyped sessions get treated
             // as generic audio and lose the music-specific card.

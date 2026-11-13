@@ -583,10 +583,17 @@ object InnertubeParser {
      * generic walk.
      */
     fun parsePlaylistShelf(root: JsonElement): PlaylistShelfPage? {
+        // A later page of the playlist's own rows can also come appended by an
+        // action, with no `continuationContents` at all: the shape a long
+        // playlist's second page now has. Read as nothing, a reorder saw only
+        // the first 100 rows (#947).
+        val appended = root.a("onResponseReceivedActions")?.firstNotNullOfOrNull { it.o("appendContinuationItemsAction") }
         val scope: JsonElement = root.o("continuationContents")
+            ?: appended
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
             ?: return null
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
+            ?: appended?.takeIf { scope === it }
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }

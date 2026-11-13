@@ -195,6 +195,7 @@
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
     <string name="automix">Automix [測試版]</string>
+    <string name="automix_overview">Automix 概覽</string>
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
     <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>
@@ -1434,4 +1435,17 @@
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
     <string name="source_downloads_on">允許下載</string>
+    <string name="diwali_title">BitChord 祝你排燈節快樂</string>
+    <string name="diwali_subtitle">願這個光明節日讓你的家充滿歡樂，讓你的每一天充滿音樂。</string>
+    <string name="diwali_cta">一起慶祝</string>
+    <string name="find_a_playlist">尋找播放列表</string>
+    <string name="no_playlists_match">沒有符合「%1$s」的播放列表</string>
+    <string name="hide_lyrics_preview">隱藏歌詞</string>
+    <string name="hide_lyrics_preview_subtitle">隱藏播放器上的歌詞行</string>
+    <string name="show_total_duration">顯示總時長</string>
+    <string name="show_total_duration_subtitle">顯示歌曲的完整長度，而非剩餘時間</string>
+    <string name="sleep_timer_fade_out">暫停前淡出</string>
+    <string name="sleep_timer_fade_out_subtitle">在最後 30 秒內逐漸降低音量</string>
+    <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">永不使用 Spotify Canvas。動態封面會改由其他來源提供</string>
 </resources>

@@ -1,4 +1,4 @@
-import { withBackgroundVocals, type LyricLine } from './model';
+import { isInstrumentalNotice, withBackgroundVocals, type LyricLine } from './model';
 import { lyricsGet } from './http';
 import type { Parsed } from './parse';
 import * as providers from './providers';
@@ -162,7 +162,8 @@ export async function lookupLyrics(track: LyricsTrack, { only, onSource }: Looku
     return fetchFrom(source)
       .catch(() => null)
       .then((parsed) => {
-        const result = parsed?.lines.some((l) => l.text.trim()) ? toResult(source, parsed) : null;
+        // An instrumental's notice is no lyrics, from whichever source relays it (QQ through Portato, KuGou).
+        const result = parsed?.lines.some((l) => l.text.trim()) && !isInstrumentalNotice(parsed.lines) ? toResult(source, parsed) : null;
         onSource?.(source, result ? 'found' : 'missing');
         return result;
       });

@@ -200,6 +200,7 @@
     <string name="crossfade">Überblendung</string>
     <string name="crossfade_subtitle">Blendet einen Track in den nächsten über</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Automix-Übersicht</string>
     <string name="skip_silence">Stille überspringen</string>
     <string name="skip_silence_subtitle">Kürzt Pausen länger als eine Sekunde</string>
     <string name="skip_silence_float_subtitle">Bei 32-Bit-Float-Ausgabe nicht verfügbar</string>
@@ -1457,4 +1458,17 @@
     <string name="bit_perfect_status_inexact">%1$s · nicht exakt: Diese Quelle ist kein verlustfreies PCM</string>
     <string name="bit_perfect_status_waiting">Warte auf einen verlustfreien Titel an einem unterstützten Ausgang</string>
     <string name="bit_perfect_status_unavailable">Für diesen Titel nicht verfügbar (%1$s)</string>
+    <string name="diwali_title">BitChord wünscht dir ein frohes Diwali</string>
+    <string name="diwali_subtitle">Möge dieses Lichterfest dein Zuhause mit Freude und deine Tage mit Musik erfüllen.</string>
+    <string name="diwali_cta">Lass uns feiern</string>
+    <string name="find_a_playlist">Playlist finden</string>
+    <string name="no_playlists_match">Keine Playlists für „%1$s“</string>
+    <string name="hide_lyrics_preview">Songtext ausblenden</string>
+    <string name="hide_lyrics_preview_subtitle">Blendet die Songtextzeile im Player aus</string>
+    <string name="show_total_duration">Gesamtdauer anzeigen</string>
+    <string name="show_total_duration_subtitle">Zeigt die volle Länge des Songs statt der Restzeit</string>
+    <string name="sleep_timer_fade_out">Vor dem Pausieren ausblenden</string>
+    <string name="sleep_timer_fade_out_subtitle">Senkt die Lautstärke in den letzten 30 Sekunden langsam ab</string>
+    <string name="disable_spotify_canvas">Spotify Canvas deaktivieren</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvas nie verwenden. Animierte Cover kommen dann aus den anderen Quellen</string>
 </resources>

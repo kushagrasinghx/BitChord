@@ -2257,7 +2257,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_filter.value == value) return
         _filter.value = value
         searchSubmitted = true
-        runSearch()
+        runSearch(anonymous = if (value.requiresAuth) false else !_signedIn.value)
     }
 
     /**
@@ -2344,6 +2344,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@collectLatest
                 }
 
+                if (request.filter.requiresAuth && !_signedIn.value) {
+                    _results.value = UiState.Error(text(R.string.library_sign_in_description))
+                    return@collectLatest
+                }
+
                 // Search is YouTube's alone. A module is a *substitution*
                 // layer, not a catalogue to browse: it never has cover art,
                 // radio, related tracks or an album page, so its rows arrived
@@ -2353,7 +2358,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // see [SourceResolver.substituteForYouTube] — which upgrades
                 // the ones it holds without any of them having to be a
                 // separate row to pick between.
-                val result = YtMusicRepository.searchPage(request.query, request.filter, request.anonymous)
+                val isAnon = if (request.filter.requiresAuth) false else request.anonymous
+                val result = YtMusicRepository.searchPage(request.query, request.filter, isAnon)
                 // A search that has been superseded shouldn't land on screen,
                 // whether it succeeded or failed.
                 if (request.requestId != newestRequestId.get()) return@collectLatest

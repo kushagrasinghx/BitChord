@@ -11,6 +11,7 @@ class LibraryShelfOrderingTest {
         title = title,
         subtitle = "Playlist",
         thumbnailUrl = null,
+        videoId = null,
         browseId = id,
     )
 

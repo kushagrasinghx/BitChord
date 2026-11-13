@@ -280,6 +280,28 @@ class WebDavTest {
     }
 
     @Test
+    fun `getFile returns the backup bytes and reports a missing one`() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val target = server.url("/BitChord/bitchord-backup.json").toString()
+
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"app":"BitChord"}"""))
+            assertEquals(
+                """{"app":"BitChord"}""",
+                WebDavClient.getFile(target, "user", "pass").getOrThrow().decodeToString(),
+            )
+            val get = server.takeRequest()
+            assertEquals("GET", get.method)
+            assertEquals("Basic dXNlcjpwYXNz", get.getHeader("Authorization"))
+
+            server.enqueue(MockResponse().setResponseCode(404))
+            val missing = WebDavClient.getFile(target, "", "")
+            assertTrue(missing.isFailure)
+            assertEquals("No backup found on the server yet", missing.exceptionOrNull()?.message)
+        }
+    }
+
+    @Test
     fun detectsImageFiles() {
         assertTrue(WebDavClient.isImageFile("cover.jpg"))
         assertTrue(WebDavClient.isImageFile("Folder.PNG"))

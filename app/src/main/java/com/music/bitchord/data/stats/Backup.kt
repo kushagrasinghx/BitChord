@@ -53,14 +53,17 @@ object Backup {
         )}.json"
 
     /**
-     * Writes a backup to [target], a document the user picked.
+     * The whole backup, as bytes, without a document to put it in.
      *
-     * Through the content resolver rather than a [java.io.File] because the
-     * destination is wherever they chose — Drive, a USB stick, a folder this app
-     * has no path to and no permission for. The picker grants access to that one
-     * document and nothing else, which is the correct amount.
+     * [exportTo] writes these to a user-picked file; the cloud backup uploads
+     * the same bytes to WebDAV or S3. Keeping the snapshot here rather than in
+     * the cloud layer means both paths carry exactly the same payload, and a
+     * setting added to [AppSettings.exportPrefs] reaches both without a second
+     * list to maintain.
      */
-    suspend fun exportTo(context: Context, target: Uri): Result<Int> = withContext(Dispatchers.IO) {
+    data class Payload(val bytes: ByteArray, val months: Int)
+
+    suspend fun payload(): Result<Payload> = withContext(Dispatchers.IO) {
         runCatching {
             val buckets = ListeningStats.exportAll()
             val file = BackupFile(
@@ -71,11 +74,25 @@ object Backup {
                 }.toMap(),
                 listening = buckets,
             )
-            val text = json.encodeToString(BackupFile.serializer(), file)
+            Payload(json.encodeToString(BackupFile.serializer(), file).toByteArray(), buckets.size)
+        }
+    }
+
+    /**
+     * Writes a backup to [target], a document the user picked.
+     *
+     * Through the content resolver rather than a [java.io.File] because the
+     * destination is wherever they chose — Drive, a USB stick, a folder this app
+     * has no path to and no permission for. The picker grants access to that one
+     * document and nothing else, which is the correct amount.
+     */
+    suspend fun exportTo(context: Context, target: Uri): Result<Int> = withContext(Dispatchers.IO) {
+        runCatching {
+            val payload = payload().getOrThrow()
             context.contentResolver.openOutputStream(target, "wt")
-                ?.use { it.write(text.toByteArray()) }
+                ?.use { it.write(payload.bytes) }
                 ?: error("Couldn't open that file for writing")
-            buckets.size
+            payload.months
         }
     }
 
@@ -89,11 +106,19 @@ object Backup {
      */
     suspend fun importFrom(context: Context, source: Uri): Result<Summary> = withContext(Dispatchers.IO) {
         runCatching {
-            val text = context.contentResolver.openInputStream(source)
-                ?.use { it.readBytes().decodeToString() }
+            val bytes = context.contentResolver.openInputStream(source)
+                ?.use { it.readBytes() }
                 ?: error("Couldn't open that file")
-            val file = runCatching { json.decodeFromString(BackupFile.serializer(), text) }
-                .getOrElse { error("That doesn't look like a BitChord backup") }
+            importBytes(bytes).getOrThrow()
+        }
+    }
+
+    /** [importFrom] for a backup already in memory, such as one downloaded from the cloud. */
+    suspend fun importBytes(bytes: ByteArray): Result<Summary> = withContext(Dispatchers.IO) {
+        runCatching {
+            val file = runCatching {
+                json.decodeFromString(BackupFile.serializer(), bytes.decodeToString())
+            }.getOrElse { error("That doesn't look like a BitChord backup") }
             require(file.app == APP_TAG) { "That backup is from another app" }
             require(file.version <= SCHEMA_VERSION) {
                 "That backup was written by a newer version of BitChord"

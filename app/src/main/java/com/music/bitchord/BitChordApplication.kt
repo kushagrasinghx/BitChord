@@ -170,6 +170,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
         ListeningStats.init(this)
+        // Reads the same record and the settings export. Opened after both, so
+        // the first scheduled upload sees a complete snapshot; WorkManager is
+        // still only touched when the setting is on.
+        com.music.bitchord.data.backup.CloudBackupSettings.init(this, authStore)
+        com.music.bitchord.data.backup.CloudBackup.init(this)
         // After AppSettings, whose switch decides whether half of it runs.
         ArtistFacts.init(this)
         // One cache directory can only be opened once per process, and

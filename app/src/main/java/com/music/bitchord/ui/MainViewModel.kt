@@ -432,6 +432,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // only needed to *match* a track against a stranger's database, and
             // nothing is being matched here — these lyrics were written into
             // this exact file, for this exact recording.
+            // Plain words from the file: shown at once, but they only stand in
+            // until a source answers with timing. Most taggers store lyrics
+            // untimed (an MP3's USLT nearly always is), and ending the lookup
+            // on them would cost every such file the synced lyrics it got
+            // before the file's own words were read at all.
+            var embeddedPlain: List<LyricLine>? = null
             if (localUri != null) {
                 EmbeddedLyrics.forUri(getApplication(), localUri)?.let { embedded ->
                     _lyrics.value = embedded
@@ -439,7 +445,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     // not which of the eight services they came from months ago.
                     _lyricsSource.value = null
                     _lyricsChecked.value = true
-                    return@launch
+                    if (EmbeddedLyrics.isSynced(embedded)) return@launch
+                    embeddedPlain = embedded
                 }
             }
             if (durationMs <= 0L) {
@@ -456,9 +463,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 onSourceCancelled = { source -> providerCancelled(generation, source) },
             )
-            val selected = selectedLyricsSource?.let(lyricsProviderResults::get) ?: found
-            _lyrics.value = selected?.lines
-            _lyricsSource.value = selected?.source
+            val picked = selectedLyricsSource?.let(lyricsProviderResults::get)
+            // The file's own words beat a stranger's untimed copy; only timing,
+            // or a provider the listener picked by hand, displaces them.
+            val selected = picked
+                ?: found?.takeIf { embeddedPlain == null || EmbeddedLyrics.isSynced(it.lines) }
+            if (selected == null && embeddedPlain != null) {
+                _lyrics.value = embeddedPlain
+                _lyricsSource.value = null
+            } else {
+                _lyrics.value = selected?.lines
+                _lyricsSource.value = selected?.source
+            }
             _lyricsChecked.value = true
         }
     }

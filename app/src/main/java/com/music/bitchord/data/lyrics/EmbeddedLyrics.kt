@@ -84,9 +84,19 @@ object EmbeddedLyrics {
     internal fun linesOf(raw: String): List<LyricLine>? {
         val synced = LrcLib.parseLrc(raw).takeIf { lines -> lines.any { it.text.isNotBlank() } }
         if (synced != null) return synced
-        return raw.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }
+        // An LRC header with no stamped lines under it (`[ar:…]`, `[ti:…]`,
+        // `[length:…]`) is metadata, not words to sing.
+        return raw.lineSequence().map { it.trim() }
+            .filter { it.isNotEmpty() && !LRC_ID_TAG.matches(it) }
             .map { LyricLine(0L, it) }.toList().ifEmpty { null }
     }
+
+    /**
+     * Whether [lines] carry timing. Only timed lyrics from the file end the
+     * lookup; plain ones are a fallback a network source may still beat with
+     * synced lines, as every MP3 got before its `USLT` was read.
+     */
+    fun isSynced(lines: List<LyricLine>): Boolean = lines.any { it.timeMs > 0L }
 
     /** The raw LRC text for the file, preferring this app's word-timed field. */
     private fun read(context: Context, uri: Uri): String? =
@@ -476,6 +486,7 @@ object EmbeddedLyrics {
     private const val FLAC_VORBIS_COMMENT = 4
     private val FLAC_MAGIC = "fLaC".toByteArray(Charsets.US_ASCII)
     private val ID3_MAGIC = "ID3".toByteArray(Charsets.US_ASCII)
+    private val LRC_ID_TAG = Regex("""\[[A-Za-z#]+:[^\]]*]""")
     private val MATROSKA_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private val DATA_ATOM = "data".toByteArray(Charsets.ISO_8859_1)
     private val LYR_ATOM = byteArrayOf(0xA9.toByte()) + "lyr".toByteArray(Charsets.ISO_8859_1)

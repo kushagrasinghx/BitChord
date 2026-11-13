@@ -240,13 +240,7 @@ fun LyricsSourcesDialog(
     }
 }
 
-/**
- * Whether a merely line-synced answer is good enough on its own, or worth
- * holding out on for a word-synced one further down the priority order —
- * see the note on [AppSettings.prioritizeSyllableSync]. A single row rather
- * than one more entry in the checkable list above: this isn't a source to
- * ask or not, it's a rule about what to do once one has answered.
- */
+/** The PaxSenix key: its name, and under it whether one is set. */
 @Composable
 private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -286,6 +280,13 @@ private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * Whether a merely line-synced answer is good enough on its own, or worth
+ * holding out on for a word-synced one further down the priority order —
+ * see the note on [AppSettings.prioritizeSyllableSync]. A single row rather
+ * than one more entry in the checkable list above: this isn't a source to
+ * ask or not, it's a rule about what to do once one has answered.
+ */
 @Composable
 private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }

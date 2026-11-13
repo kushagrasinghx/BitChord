@@ -10,7 +10,9 @@ import com.music.bitchord.download.FlacTagger
 import com.music.bitchord.download.Mp4Tagger
 import com.music.bitchord.download.WebmTagger
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -68,6 +70,21 @@ class EmbeddedLyricsTest {
         )
         assertEquals(2, EmbeddedLyrics.linesOf(lrc)!!.size)
         assertNull(EmbeddedLyrics.linesOf("  \n"))
+    }
+
+    @Test
+    fun `an lrc header over plain words is not sung`() {
+        assertEquals(
+            listOf(LyricLine(0L, "first line")),
+            EmbeddedLyrics.linesOf("[ar:Artist]\n[ti:Title]\nfirst line"),
+        )
+        assertNull(EmbeddedLyrics.linesOf("[ar:Artist]\n[length:03:20]"))
+    }
+
+    @Test
+    fun `only timed lyrics count as synced`() {
+        assertTrue(EmbeddedLyrics.isSynced(EmbeddedLyrics.linesOf(lrc)!!))
+        assertFalse(EmbeddedLyrics.isSynced(EmbeddedLyrics.linesOf("first line\nsecond line")!!))
     }
 
     @Test

@@ -2021,7 +2021,9 @@ class PlaybackService : MediaLibraryService() {
         if (!AppSettings.syncedLyrics.value) return null
         val song = item.toSong()
         return kotlinx.coroutines.withTimeoutOrNull(LOOP_MIX_LYRICS_TIMEOUT_MS) {
+            // Only timed lines say when a loop is sung; the file's plain words can't.
             song.localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
+                ?.takeIf(EmbeddedLyrics::isSynced)
                 ?: LyricsRepository.lyrics(
                     videoId = song.videoId,
                     title = song.title,
@@ -7937,10 +7939,10 @@ class PlaybackService : MediaLibraryService() {
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
             val localUri = currentSong.localUri
-            var lines: List<LyricLine>? = null
-            if (localUri != null) {
-                lines = EmbeddedLyrics.forUri(this@PlaybackService, localUri)
-            }
+            val embedded = localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
+            // The file's plain words don't end the lookup: a source may have
+            // them synced, which is all a lock-screen line can follow.
+            var lines: List<LyricLine>? = embedded?.takeIf(EmbeddedLyrics::isSynced)
             if (lines == null) {
                 val found = LyricsRepository.lyrics(
                     videoId = currentSong.videoId,
@@ -7952,7 +7954,7 @@ class PlaybackService : MediaLibraryService() {
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
                 )
-                lines = found?.lines
+                lines = found?.lines?.takeIf(EmbeddedLyrics::isSynced) ?: embedded ?: found?.lines
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines

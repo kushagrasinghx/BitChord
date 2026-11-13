@@ -39,6 +39,14 @@ class LrcLibTest {
     }
 
     @Test
+    fun `stamps with a space between them are still one run`() {
+        val lines = LrcLib.parseLrc("[00:12.00] [00:45.00] chorus").filterNot { it.isGap }
+
+        assertEquals(listOf(12_000L, 45_000L), lines.map { it.timeMs })
+        assertEquals(listOf("chorus", "chorus"), lines.words())
+    }
+
+    @Test
     fun `parses millisecond stamps`() {
         val lines = LrcLib.parseLrc("[02:03.456] third line").filterNot { it.isGap }
         assertEquals(123_456L, lines.single().timeMs)

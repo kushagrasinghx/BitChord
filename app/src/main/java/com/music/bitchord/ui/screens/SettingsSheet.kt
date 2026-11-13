@@ -838,7 +838,7 @@ fun SettingsScreen(
                 }
             }
             val skipSilenceTitle = stringResource(R.string.skip_silence)
-            row(skipSilenceTitle, "silence") {
+            row(skipSilenceTitle, "silence", "sponsor", "sponsorblock", "intro", "outro", "non-music") {
                 BypassedByBitPerfect(bitPerfectReady) {
                     SettingsRow(
                         icon = SfIcons.VolumeOff,

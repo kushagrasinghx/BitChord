@@ -596,6 +596,9 @@ object AppSettings {
      */
     val fullBleedDetailArtwork = MutableStateFlow(false)
 
+    /** Shows the track's total duration at the end of the player scrubber. */
+    val showTotalDuration = MutableStateFlow(false)
+
     /**
      * What the main player stands on below the artwork.
      *
@@ -1066,6 +1069,7 @@ object AppSettings {
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
+        showTotalDuration.value = prefs.getBoolean(KEY_SHOW_TOTAL_DURATION, false)
         // The old legacy mesh switch answers until a theme has been picked.
         playerTheme.value = runCatching {
             PlayerTheme.valueOf(prefs.getString(KEY_PLAYER_THEME, null).orEmpty())
@@ -1720,6 +1724,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
     }
 
+    fun setShowTotalDuration(value: Boolean) {
+        showTotalDuration.value = value
+        prefs.edit().putBoolean(KEY_SHOW_TOTAL_DURATION, value).apply()
+    }
+
     fun setPlayerTheme(value: PlayerTheme) {
         playerTheme.value = value
         prefs.edit().putString(KEY_PLAYER_THEME, value.name).apply()
@@ -2330,6 +2339,7 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
+    private const val KEY_SHOW_TOTAL_DURATION = "show_total_duration"
     private const val KEY_PLAYER_THEME = "player_theme"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"

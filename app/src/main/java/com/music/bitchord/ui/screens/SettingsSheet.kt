@@ -256,6 +256,7 @@ fun SettingsScreen(
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
+    val showTotalDuration by AppSettings.showTotalDuration.collectAsStateWithLifecycle()
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
@@ -1147,6 +1148,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setFullBleedDetailArtwork(!fullBleedDetailArtwork) },
+                )
+            }
+            val showTotalDurationTitle = stringResource(R.string.show_total_duration)
+            row(showTotalDurationTitle, "seek bar", "remaining time", "duration", "song length") {
+                SettingsRow(
+                    icon = SfIcons.Clock,
+                    title = showTotalDurationTitle,
+                    subtitle = stringResource(R.string.show_total_duration_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = showTotalDuration,
+                            onCheckedChange = AppSettings::setShowTotalDuration,
+                        )
+                    },
+                    onClick = { AppSettings.setShowTotalDuration(!showTotalDuration) },
                 )
             }
             val playerThemeTitle = stringResource(R.string.player_theme)

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import com.music.bitchord.ui.icons.SfIcons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
@@ -117,6 +118,9 @@ fun PlaylistPickerSheet(
     // By id rather than by value: the list is re-fetched under an open sheet,
     // and a refreshed row must stay ticked.
     var selected by remember { mutableStateOf(emptySet<String>()) }
+    // Find a playlist: narrows the list as it's typed. Ticks on playlists it
+    // hides are kept, so a search can't quietly drop one already chosen.
+    var query by remember { mutableStateOf("") }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -214,16 +218,21 @@ fun PlaylistPickerSheet(
                     )
 
                     else -> {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 6.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
+                        PlaylistSearchField(query = query, onQueryChange = { query = it })
+                        val shown = remember(playlists, query) { filterPlaylists(playlists, query) { it.title } }
+                        if (shown.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.no_playlists_match, query.trim()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                            )
+                        }
                         LazyColumn(
                             modifier = Modifier.weight(1f),
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
-                            items(playlists, key = { it.playlistId }) { playlist ->
+                            items(shown, key = { it.playlistId }) { playlist ->
                                 val ticked = playlist.playlistId in selected
                                 PlaylistRow(
                                     playlist = playlist,
@@ -236,6 +245,55 @@ fun PlaylistPickerSheet(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Find a playlist: the search box over the picker's list. */
+@Composable
+private fun PlaylistSearchField(query: String, onQueryChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.find_a_playlist),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (query.isNotEmpty()) {
+            IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.clear),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }

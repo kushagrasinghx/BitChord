@@ -198,6 +198,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Płynne przejścia między utworami</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Przegląd Automix</string>
     <string name="skip_silence">Pomiń ciszę</string>
     <string name="skip_silence_subtitle">Przycinanie przerw dłuższych niż sekunda</string>
     <string name="skip_silence_float_subtitle">Niedostępne przy 32-bitowym wyjściu float</string>

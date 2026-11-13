@@ -201,6 +201,7 @@
     <string name="crossfade">Fundido cruzado</string>
     <string name="crossfade_subtitle">Mezcla una pista con la siguiente</string>
     <string name="automix">Mezcla automática [BETA]</string>
+    <string name="automix_overview">Resumen de mezcla automática</string>
     <string name="automix_performance">Rendimiento de mezcla automática</string>
     <string name="automix_performance_subtitle">Define cuánta CPU puede usar el análisis en segundo plano</string>
     <string name="automix_performance_warning">El rendimiento alto analiza más rápido, pero puede consumir más batería y calentar el teléfono.</string>

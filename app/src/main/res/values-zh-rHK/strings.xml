@@ -195,6 +195,7 @@
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
     <string name="automix">Automix [測試版]</string>
+    <string name="automix_overview">Automix 概覽</string>
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
     <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>

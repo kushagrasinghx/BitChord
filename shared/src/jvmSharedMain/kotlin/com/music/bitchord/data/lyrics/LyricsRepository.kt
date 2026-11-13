@@ -232,7 +232,8 @@ object LyricsRepository {
             LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(title, artist)
             LyricsSource.GENIUS -> Genius.lyrics(title, artist)
         }
-        return found
+        // An instrumental's "pure music, please enjoy" is no lyrics, whoever relays it.
+        return found?.takeUnless(KuGou::isInstrumentalNotice)
     }
 
     /**

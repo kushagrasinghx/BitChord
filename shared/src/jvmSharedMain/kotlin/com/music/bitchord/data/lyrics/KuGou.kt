@@ -144,6 +144,16 @@ object KuGou {
         return lines.isNotEmpty() && lines.all { INSTRUMENTAL.containsMatchIn(it) }
     }
 
+    /**
+     * The same notice once parsed, from whichever source relays KuGou's or
+     * QQ's catalogue (BetterLyrics Portato is QQ's): [LyricsRepository] asks
+     * this of every answer, so none of them sings it.
+     */
+    fun isInstrumentalNotice(lines: List<LyricLine>): Boolean {
+        val sung = lines.map { it.text.trim() }.filter { it.isNotEmpty() }
+        return sung.isNotEmpty() && sung.all { INSTRUMENTAL.containsMatchIn(it) }
+    }
+
     private val STAMP = Regex("""\[\d{2}:\d{2}\.\d{2,3}]""")
     private val INSTRUMENTAL = Regex("""纯音乐.*欣赏""")
     private val STAMPED = Regex("""\[\d{2}:\d{2}\.\d{2,3}].*""")

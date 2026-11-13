@@ -2881,6 +2881,15 @@ private fun CurrentLyricLine(
     // own text direction so alignment and sweep geometry match what Compose would
     // produce for that paragraph.  LTR rows keep the chevron on the right; RTL
     // rows put it on the left (mirrored) and right-align the text.
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val lyricsBlur by PlayerSettings.lyricsBlur.collectAsStateWithLifecycle()
+    val glowing = !reduceAnimation && !reduceDynamicBlur && lyricsBlur &&
+        renderEffectBlurSupported
+    val glow by animateFloatAsState(
+        targetValue = if (glowing) GLOW_ALPHA else 0f,
+        animationSpec = tween(durationMillis = 420),
+        label = "stripLyricGlow",
+    )
     val stripRtl = isRtl(text)
 
     Row(
@@ -2950,6 +2959,8 @@ private fun CurrentLyricLine(
                     dimAlpha = UNSUNG_ALPHA_STRIP,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    glowAlpha = if (itemIndex == index) glow else 0f,
+                    feather = itemIndex == index,
                     rise = false,
                     modifier = fading,
                 )

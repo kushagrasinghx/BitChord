@@ -733,6 +733,8 @@
     <string name="spotify_canvas_setup">Set up Spotify</string>
     <string name="spotify_canvas_setup_description">To use Spotify Canvas, provide your Spotify sp_dc cookie.</string>
     <string name="spotify_canvas_setup_steps">1. Sign in at open.spotify.com in a browser.\n2. Open Developer Tools, then Application and Cookies.\n3. Copy the value of the sp_dc cookie.\n4. Paste it below.</string>
+    <string name="disable_spotify_canvas">Disable Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Never use Spotify Canvas. Animated artwork comes only from Apple Music</string>
     <string name="spotify_canvas_auto_hide">Auto-hide player controls</string>
     <string name="spotify_canvas_auto_hide_subtitle">Collapse the half-player after 5 seconds while Spotify Canvas is playing</string>
     <string name="prioritize_spotify_canvas">Prioritize Spotify Canvas</string>

@@ -1063,9 +1063,11 @@ class PlaybackService : MediaLibraryService() {
             if (isPlaying) {
                 pushDiscordPresence(exoPlayer)
                 startLyricsTicker()
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onIsPlayingChanged(true) { player }
             } else {
                 clearDiscordPresence()
                 stopLyricsTicker()
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onIsPlayingChanged(false) { player }
             }
         }
 
@@ -1118,6 +1120,7 @@ class PlaybackService : MediaLibraryService() {
                 // The watch extrapolates its progress ring from the last
                 // position it was given, the same way Discord does.
                 WearBridge.republish(this@PlaybackService, exoPlayer)
+                com.music.bitchord.sponsorblock.SponsorBlockManager.checkAndSkip(newPosition.positionMs) { target -> exoPlayer.seekTo(target) }
             }
         }
 
@@ -4363,6 +4366,10 @@ class PlaybackService : MediaLibraryService() {
         scheduleForeignCachePurge()
         mediaItem?.mediaId?.let { id ->
             resolveLocalBitrate(id, mediaItem)
+        }
+        mediaItem?.let { item ->
+            val song = item.toSong()
+            com.music.bitchord.sponsorblock.SponsorBlockManager.onTrackChanged(item.mediaId, song.isVideo || song.isVideoOrigin) { player }
         }
 
         // A crossfade handoff never fires [formatListener] for the entering
@@ -7996,6 +8003,7 @@ class PlaybackService : MediaLibraryService() {
 
     private fun observeSettings() {
         scope.launch {
+        scope.launch {
             AppSettings.autoMixArtwork.collect {
                 if (autoMixArtworkGeneration?.let { !allowsAnyAutoMixArtwork(it) } == true) {
                     autoMixArtworkJob?.cancel()
@@ -8010,7 +8018,11 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
-            AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
+            AppSettings.skipSilence.collect { on ->
+                eachPlayer { it.skipSilenceEnabled = on }
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onEnabledChanged(on) { player }
+            }
+        }
         }
         scope.launch {
             // The queue as it stands is re-judged at once, rather than at the
@@ -8605,6 +8617,7 @@ class PlaybackService : MediaLibraryService() {
         invalidateQueueUndo()
         queueUndoRestoreBatch = null
         queueUndoMutationSettled = null
+        com.music.bitchord.sponsorblock.SponsorBlockManager.reset()
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a

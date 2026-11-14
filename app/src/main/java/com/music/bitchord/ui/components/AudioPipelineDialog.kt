@@ -65,6 +65,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.dsd.DsdFilter
 import com.music.bitchord.playback.dsd.DsdFormat
@@ -102,7 +103,7 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  * output) is the one path where it reaches the DAC unchanged, and every DSP
  * stage is bypassed there, so only the source itself can make it inexact.
  */
-private fun bitExactVerdict(
+internal fun bitExactVerdict(
     dsd: Boolean,
     bitPerfect: BitPerfectOutput.Status,
     outputExact: Boolean,
@@ -110,6 +111,8 @@ private fun bitExactVerdict(
     loudnessActive: Boolean,
     eqActive: Boolean,
     spatialActive: Boolean,
+    bluetooth: Boolean = false,
+    bluetoothCodec: String? = null,
 ): String = when {
     // Not a fault to fix: there is no DSD output path (native DSD or DoP)
     // here, so the PCM conversion is a deviation every DSD track carries,
@@ -130,6 +133,7 @@ private fun bitExactVerdict(
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
+    bluetooth -> "No — lossy Bluetooth${bluetoothCodec?.let { " ($it)" }.orEmpty()} re-encode"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
@@ -447,6 +451,8 @@ fun AudioPipelineDialog(
                         loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                         eqActive = eqEnabled,
                         spatialActive = spatialAudio,
+                        bluetooth = outputStatus.routeKind == AudioRouting.Kind.BLUETOOTH,
+                        bluetoothCodec = outputStatus.bluetoothTelemetry?.codecName,
                     ),
                 )
             }

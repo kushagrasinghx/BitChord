@@ -457,11 +457,14 @@ object BoundedContextPersistence {
         val localPath: String? = null,
         val localDateAddedSeconds: Long? = null,
         val localDateModifiedSeconds: Long? = null,
+        val trackNumber: Int? = null,
         val sourceQuality: String? = null,
+        val sourceHiRes: Boolean = false,
         val isExplicit: Boolean? = null,
         val playbackSource: String? = null,
         val playbackSourceType: String? = null,
         val playbackSourceId: String? = null,
+        val feedbackToken: String? = null,
     ) {
         fun toSong(): Song? {
             if (videoId.isBlank()) return null
@@ -491,11 +494,14 @@ object BoundedContextPersistence {
                 localPath = localPath,
                 localDateAddedSeconds = localDateAddedSeconds,
                 localDateModifiedSeconds = localDateModifiedSeconds,
+                trackNumber = trackNumber,
                 sourceQuality = sourceQuality,
+                sourceHiRes = sourceHiRes,
                 isExplicit = isExplicit,
                 playbackSource = playbackSource,
                 playbackSourceType = sourceType,
                 playbackSourceId = playbackSourceId,
+                feedbackToken = feedbackToken,
             )
         }
 
@@ -521,11 +527,14 @@ object BoundedContextPersistence {
                 localPath = song.localPath,
                 localDateAddedSeconds = song.localDateAddedSeconds,
                 localDateModifiedSeconds = song.localDateModifiedSeconds,
+                trackNumber = song.trackNumber,
                 sourceQuality = song.sourceQuality,
+                sourceHiRes = song.sourceHiRes,
                 isExplicit = song.isExplicit,
                 playbackSource = song.playbackSource,
                 playbackSourceType = song.playbackSourceType?.name,
                 playbackSourceId = song.playbackSourceId,
+                feedbackToken = song.feedbackToken,
             )
         }
     }

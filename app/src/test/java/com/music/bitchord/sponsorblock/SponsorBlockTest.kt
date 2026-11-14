@@ -75,4 +75,32 @@ class SponsorBlockTest {
         SponsorBlockManager.checkAndSkip(2500) { skippedTo = it }
         assertEquals(5030L, skippedTo) // Skips again if entered anew
     }
+
+    @Test
+    fun backToBackSegmentsDoNotFalselyWhitelistOnSkipLanding() {
+        val intro = SponsorSegment("uuid-intro", SponsorBlockCategory.INTRO, 0, 5000)
+        val sponsor = SponsorSegment("uuid-sponsor", SponsorBlockCategory.SPONSOR, 5000, 10000)
+        SponsorBlockManager.setSegmentsForTest("test-vid", listOf(intro, sponsor))
+
+        // Normal check skips intro to 5030ms
+        var skippedTo = -1L
+        SponsorBlockManager.checkAndSkip(1000) { skippedTo = it }
+        assertEquals(5030L, skippedTo)
+
+        // ExoPlayer emits onPositionDiscontinuity at 5030ms
+        // It must NOT whitelist the second segment, but chain-skip it
+        skippedTo = -1L
+        SponsorBlockManager.onUserSeek(5030) { skippedTo = it }
+        assertEquals(10030L, skippedTo)
+    }
+
+    @Test
+    fun restartFromZeroSkipsIntroEvenIfIntroStartsSlightlyPastZero() {
+        val intro = SponsorSegment("uuid-intro", SponsorBlockCategory.INTRO, 400, 6000)
+        SponsorBlockManager.setSegmentsForTest("test-vid", listOf(intro))
+
+        var skippedTo = -1L
+        SponsorBlockManager.onUserSeek(0) { skippedTo = it }
+        assertEquals(6030L, skippedTo)
+    }
 }

@@ -3663,10 +3663,11 @@ class PlaybackService : MediaLibraryService() {
         mediaItem?.mediaId?.let { id ->
             resolveLocalBitrate(id, mediaItem)
         }
-        mediaItem?.let { item ->
-            val song = item.toSong()
-            com.music.bitchord.sponsorblock.SponsorBlockManager.onTrackChanged(item.mediaId, song.isVideo || song.isVideoOrigin) { player }
-        }
+        val song = mediaItem?.toSong()
+        com.music.bitchord.sponsorblock.SponsorBlockManager.onTrackChanged(
+            videoId = mediaItem?.mediaId,
+            isVideo = song?.isVideo == true || song?.isVideoOrigin == true,
+        ) { player }
 
         // A crossfade handoff never fires [formatListener] for the entering
         // track — [CrossfadeController] starts its decoder during ARMING,

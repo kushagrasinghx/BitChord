@@ -1509,12 +1509,12 @@ private fun planTransitionInner(
         ?: MixOutAnchor(finalMixAnchor, "content_end", 0.0)
     val hasInteriorMixOut = mixOutAnchor.time < finalMixAnchor - 1
 
-    if (albumSequential && sameAlbum(currentTrack, nextTrack) && !hasInteriorMixOut) {
+    if (albumSequential && sameAlbum(currentTrack, nextTrack)) {
         val transitionStart = max(0.0, length - 0.45)
         val started = playbackTime >= transitionStart
         return TransitionPlan(
             shouldStart = started,
-            markerVisible = true,
+            markerVisible = false,
             transitionStart = transitionStart,
             transitionEnd = length,
             fadeSeconds = 0.12,

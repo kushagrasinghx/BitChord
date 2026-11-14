@@ -23,6 +23,7 @@ object SponsorBlockManager {
     private const val SKIP_LEAD_MS = 30L
     private const val REPEAT_GUARD_MS = 1500L
     private const val RESTART_THRESHOLD_MS = 1000L
+    private val YOUTUBE_ID_REGEX = Regex("^[a-zA-Z0-9_-]{11}$")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -34,6 +35,7 @@ object SponsorBlockManager {
     private var lastSkippedUuid: String? = null
     private var lastSkipTimeMs = 0L
     private var userWhitelistedUuid: String? = null
+    private var pendingSkipTargetMs: Long? = null
 
     private fun enabled() = AppSettings.skipSilence.value
 
@@ -43,9 +45,10 @@ object SponsorBlockManager {
         activeSegments = emptyList()
         lastSkippedUuid = null
         userWhitelistedUuid = null
+        pendingSkipTargetMs = null
 
         val id = videoId?.trim().orEmpty()
-        if (id.length != 11 || '/' in id || ':' in id) {
+        if (!YOUTUBE_ID_REGEX.matches(id)) {
             currentVideoId = null
             return
         }
@@ -105,7 +108,21 @@ object SponsorBlockManager {
      * is whitelisted and played without auto-skipping.
      */
     fun onUserSeek(positionMs: Long, seekTo: ((targetMs: Long) -> Unit)? = null) {
-        val segment = activeSegments.firstOrNull { it.contains(positionMs) }
+        // If this seek matches our own pending programmatic skip landing, clear the pending
+        // target and immediately check for any chained segments without whitelisting.
+        val pending = pendingSkipTargetMs
+        if (pending != null) {
+            if (abs(positionMs - pending) < 1500L) {
+                pendingSkipTargetMs = null
+                seekTo?.let { checkAndSkip(positionMs, it) }
+                return
+            }
+            pendingSkipTargetMs = null
+        }
+
+        val segment = activeSegments.firstOrNull {
+            it.contains(positionMs) || (positionMs < RESTART_THRESHOLD_MS && it.startMs < RESTART_THRESHOLD_MS)
+        }
         if (segment == null) {
             userWhitelistedUuid = null
             return
@@ -116,7 +133,9 @@ object SponsorBlockManager {
             userWhitelistedUuid = null
             lastSkippedUuid = segment.uuid
             lastSkipTimeMs = System.currentTimeMillis()
-            seekTo?.invoke(segment.endMs + SKIP_LEAD_MS)
+            val target = segment.endMs + SKIP_LEAD_MS
+            pendingSkipTargetMs = target
+            seekTo?.invoke(target)
         } else {
             // Rule 2: Deliberate interior seek into the segment
             userWhitelistedUuid = segment.uuid
@@ -142,8 +161,10 @@ object SponsorBlockManager {
 
         lastSkippedUuid = segment.uuid
         lastSkipTimeMs = now
+        val target = segment.endMs + SKIP_LEAD_MS
+        pendingSkipTargetMs = target
         Log.i(TAG, "Skipping ${segment.category.key} ${segment.startMs}-${segment.endMs}ms")
-        seekTo(segment.endMs + SKIP_LEAD_MS)
+        seekTo(target)
     }
 
     fun reset() {
@@ -155,6 +176,7 @@ object SponsorBlockManager {
         activeSegments = emptyList()
         lastSkippedUuid = null
         userWhitelistedUuid = null
+        pendingSkipTargetMs = null
     }
 
     internal fun setSegmentsForTest(videoId: String, segments: List<SponsorSegment>) {
@@ -162,5 +184,6 @@ object SponsorBlockManager {
         activeSegments = segments
         lastSkippedUuid = null
         userWhitelistedUuid = null
+        pendingSkipTargetMs = null
     }
 }

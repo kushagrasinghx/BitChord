@@ -98,10 +98,12 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  *    AudioTrack route can carry. [outputExact] is the sink's own verdict on
  *    that; see `PrecisionAudioSink.publishOutputExactness`.
  *
- * Exactness here stops at the app: Android's mixer may still resample what
- * leaves it. The exclusive output ([bitPerfect], set under Settings → Bit-perfect
- * output) is the one path where it reaches the DAC unchanged, and every DSP
- * stage is bypassed there, so only the source itself can make it inexact.
+ * Exactness here stops at the app and at integer sample values: Android's
+ * mixer may still resample what leaves it, and a lossy decoder that happens to
+ * emit integer PCM (no encoder priming) is not detected. The exclusive output
+ * ([bitPerfect], set under Settings → Bit-perfect output) is the one path where
+ * the samples reach the DAC unchanged, and every DSP stage is bypassed there.
+ * The verdict below therefore says "integer-exact", not "source lossless".
  */
 internal fun bitExactVerdict(
     dsd: Boolean,
@@ -122,9 +124,10 @@ internal fun bitExactVerdict(
         "No — ${bitPerfect.sourceBits}-bit / ${rateText(bitPerfect.sourceRateHz)} converted to " +
             "${bitPerfect.deviceName}'s max"
     // Every DSP stage is bypassed on the exclusive output, so the only
-    // question left is whether the source itself was integer PCM.
+    // question left is whether the samples are integer-exact; the source's
+    // own losslessness is not observable at the sink.
     bitPerfect.active && bitPerfect.exact && bitPerfect.verified ->
-        "Yes — bit-perfect to ${bitPerfect.deviceName}"
+        "Yes — integer-exact to ${bitPerfect.deviceName}"
     // The Android mixer request cannot be read back through public APIs;
     // report the uncertainty rather than claiming bit-perfect output.
     bitPerfect.active && bitPerfect.exact ->

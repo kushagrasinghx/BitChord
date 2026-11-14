@@ -23,6 +23,25 @@ class AudioPipelineVerdictTest {
     }
 
     @Test
+    fun verifiedExclusiveOutputDoesNotClaimSourceLosslessness() {
+        val verdict = bitExactVerdict(
+            dsd = false,
+            bitPerfect = BitPerfectOutput.Status(
+                active = true,
+                deviceName = "USB DAC",
+                exact = true,
+                verified = true,
+            ),
+            outputExact = false,
+            outputExactDetail = null,
+            loudnessActive = false,
+            eqActive = false,
+            spatialActive = false,
+        )
+        assertEquals("Yes — integer-exact to USB DAC", verdict)
+    }
+
+    @Test
     fun wiredIntegerExactOutputKeepsThePositiveVerdict() {
         val verdict = bitExactVerdict(
             dsd = false,

@@ -932,9 +932,11 @@ class PlaybackService : MediaLibraryService() {
             if (isPlaying) {
                 pushDiscordPresence(exoPlayer)
                 startLyricsTicker()
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onIsPlayingChanged(true) { player }
             } else {
                 clearDiscordPresence()
                 stopLyricsTicker()
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onIsPlayingChanged(false) { player }
             }
         }
 
@@ -982,6 +984,9 @@ class PlaybackService : MediaLibraryService() {
                 // The watch extrapolates its progress ring from the last
                 // position it was given, the same way Discord does.
                 WearBridge.republish(this@PlaybackService, exoPlayer)
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onUserSeek(newPosition.positionMs) { target ->
+                    exoPlayer.seekTo(target)
+                }
             }
         }
 
@@ -3658,6 +3663,11 @@ class PlaybackService : MediaLibraryService() {
         mediaItem?.mediaId?.let { id ->
             resolveLocalBitrate(id, mediaItem)
         }
+        val song = mediaItem?.toSong()
+        com.music.bitchord.sponsorblock.SponsorBlockManager.onTrackChanged(
+            videoId = mediaItem?.mediaId,
+            isVideo = song?.isVideo == true || song?.isVideoOrigin == true,
+        ) { player }
 
         // A crossfade handoff never fires [formatListener] for the entering
         // track — [CrossfadeController] starts its decoder during ARMING,
@@ -6893,7 +6903,7 @@ class PlaybackService : MediaLibraryService() {
                             SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
                             SilenceSkippingAudioProcessor.DEFAULT_MAX_SILENCE_TO_KEEP_DURATION_US,
                             SilenceSkippingAudioProcessor.DEFAULT_MIN_VOLUME_TO_KEEP_PERCENTAGE,
-                            SilenceSkippingAudioProcessor.DEFAULT_SILENCE_THRESHOLD_LEVEL,
+                            SILENCE_THRESHOLD_LEVEL,
                         ),
                         SonicAudioProcessor(),
                     ),
@@ -7261,7 +7271,10 @@ class PlaybackService : MediaLibraryService() {
 
     private fun observeSettings() {
         scope.launch {
-            AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
+            AppSettings.skipSilence.collect { on ->
+                eachPlayer { it.skipSilenceEnabled = on }
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onEnabledChanged(on) { player }
+            }
         }
         scope.launch {
             // The queue as it stands is re-judged at once, rather than at the
@@ -7851,6 +7864,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        com.music.bitchord.sponsorblock.SponsorBlockManager.reset()
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a
@@ -9587,8 +9601,11 @@ class PlaybackService : MediaLibraryService() {
         /** Upper bound per range; [PlayerClient.rangeBytesFor] narrows it per client. */
         const val STREAM_CHUNK_BYTES = 1L * 1024 * 1024
 
-        /** Shortest gap "skip silence" is allowed to touch. */
-        const val MIN_SILENCE_US = 1_000_000L
+        /** Shortest gap "skip silence" is allowed to touch: 3.5s keeps musical rests/beat gaps intact. */
+        const val MIN_SILENCE_US = 3_500_000L
+
+        /** Amplitude floor for silence; below ExoPlayer's default 2544 so instrument decays aren't cut. */
+        const val SILENCE_THRESHOLD_LEVEL: Short = 400
 
         /** How long the loop mix waits for a song's synced lyrics before planning on the vocal mask. */
         const val LOOP_MIX_LYRICS_TIMEOUT_MS = 10_000L

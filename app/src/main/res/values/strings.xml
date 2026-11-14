@@ -281,8 +281,8 @@
     <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
     <string name="automix_mode_performance">Performance</string>
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
-    <string name="skip_silence">Skip silence</string>
-    <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
+    <string name="skip_silence">Skip silence &amp; non-music</string>
+    <string name="skip_silence_subtitle">Trim gaps longer than 3 seconds and skip non-music segments</string>
     <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>
     <string name="content_preferences">Content Preferences</string>
     <string name="hide_recents">Hide Recents</string>

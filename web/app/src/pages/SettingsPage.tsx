@@ -1,4 +1,4 @@
-import { ChevronRight, Users } from 'lucide-react';
+import { ChevronRight, Radio, Users } from 'lucide-react';
 import { lazy, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { SiApplemusic, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
@@ -16,6 +16,7 @@ import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegrat
 import { settingsUi } from './settingsStyles';
 
 const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
+const SourcesSettings = lazy(() => import('@/shell/SourcesSettings').then((m) => ({ default: m.SourcesSettings })));
 
 /** An integration's coloured glyph, as on the Extension page. */
 function Glyph({ Icon, color, ink }: { Icon: ComponentType<{ size?: number }>; color: string; ink?: string }) {
@@ -63,10 +64,12 @@ export default function SettingsPage() {
   const automix = usePlayer((s) => s.automix);
   const automixBars = usePlayer((s) => s.automixBars);
   const showNerdStats = usePlayer((s) => s.showNerdStats);
+  const directStream = usePlayer((s) => s.directStream);
   const shareHistory = useHistorySettings((s) => s.share);
   const setShareHistory = useHistorySettings((s) => s.setShare);
-  const { setAutoplay, setCrossfade, setAutomix, setAutomixBars, setShowNerdStats } = usePlayer.getState();
+  const { setAutoplay, setCrossfade, setAutomix, setAutomixBars, setShowNerdStats, setDirectStream } = usePlayer.getState();
   const [lyrics, setLyrics] = useState(false);
+  const [sources, setSources] = useState(false);
   const present = extension.state === 'present';
   const discordText =
     discord.state === 'ready' && discord.discord.connected
@@ -138,6 +141,22 @@ export default function SettingsPage() {
           />
         </section>
 
+        <h2 className={settingsUi.sectionHeader}>Music Sources & Addons</h2>
+        <section className={settingsUi.group}>
+          <LinkRow
+            to="/settings/addons"
+            icon={<Glyph Icon={Radio} color="#8b5cf6" />}
+            title="Source Addons"
+            value="Custom streams & lossless"
+          />
+          <Toggle
+            label="Direct Stream"
+            detail="Give addons priority and search them first from the first note. Switches to YouTube Opus if unavailable."
+            checked={directStream}
+            onChange={setDirectStream}
+          />
+        </section>
+
         <h2 className={settingsUi.sectionHeader}>Playback</h2>
         <section className={settingsUi.group}>
           <Toggle
@@ -199,6 +218,11 @@ export default function SettingsPage() {
           </div>
         </section>
       </div>
+      {sources && (
+        <Suspense fallback={null}>
+          <SourcesSettings onClose={() => setSources(false)} />
+        </Suspense>
+      )}
       {lyrics && (
         <Suspense fallback={null}>
           <LyricsSettings onClose={() => setLyrics(false)} />

@@ -44,6 +44,7 @@ export interface StreamStats {
   channels: number | null;
   /** "direct" (googlevideo URLs, by range) or "SABR". */
   mode: 'direct' | 'SABR';
+  client?: string | null;
 }
 
 /** A music video's picture: a video-only DASH manifest over the same response's direct URLs. */
@@ -108,7 +109,13 @@ export class YouTubeEngine {
   }
 
   private async ensurePlayer(): Promise<shaka.Player> {
-    if (this.player) return this.player;
+    if (this.player) {
+      if (this.player.getMediaElement() !== this.audio) {
+        this.resetAudioElement();
+        await this.player.attach(this.audio);
+      }
+      return this.player;
+    }
     shaka.polyfill.installAll();
     if (!shaka.Player.isBrowserSupported()) throw new Error('This browser can’t play YouTube streams (no Media Source Extensions)');
     const player = new shaka.Player();
@@ -116,33 +123,31 @@ export class YouTubeEngine {
       manifest: { disableVideo: true, disableText: true, disableThumbnails: true },
       abr: { enabled: false },
       preferredAudioCodecs: this.preferredCodecs,
-      // Based on Kira's streaming settings, with one measured change.
-      //
-      // The SABR server paces delivery and answers requests past what it's
-      // willing to send with no media; Shaka treats those as failures. Kira
-      // lets Shaka retry them (8 attempts, exponential backoff), but a Shaka
-      // retry re-sends the same request object, and googlevideo builds the
-      // SABR body once, in a request filter. So every retry replays a stale
-      // body: the old player time and the cold-start PO token minted before
-      // the real one was ready (measured: retries a minute later still carried
-      // the body built at 0.4s). With no Shaka-level retries, the failure
-      // callback restarts streaming instead, which builds a fresh request.
       streaming: {
-        bufferingGoal: 120,
-        rebufferingGoal: 0.01,
-        bufferBehind: 300,
-        retryParameters: { maxAttempts: 1, baseDelay: 1000, backoffFactor: 1, fuzzFactor: 0.5, timeout: 30_000 },
-        // A refusal is handled by moving to the next client (onShakaError);
-        // retrying it would only collect more 403s.
+        bufferingGoal: 20,
+        rebufferingGoal: 0.5,
+        bufferBehind: 60,
+        retryParameters: { maxAttempts: 2, baseDelay: 500, backoffFactor: 1.5, fuzzFactor: 0.3, timeout: 15_000 },
         failureCallback: (error: shaka.util.Error) => {
           if (!isRefusal(error)) player.retryStreaming(RETRY_STREAMING_SECONDS);
         },
       },
     });
+    this.resetAudioElement();
     await player.attach(this.audio);
     player.addEventListener('error', (event) => this.onShakaError((event as unknown as { detail: shaka.util.Error }).detail));
     this.player = player;
     return player;
+  }
+
+  private resetAudioElement() {
+    this.audio.pause();
+    if (this.audio.src || this.audio.getAttribute('src')) {
+      this.audio.removeAttribute('src');
+      this.audio.src = '';
+      this.audio.load();
+    }
+    this.audio.crossOrigin = 'anonymous';
   }
 
   /** Pays the cold costs before the first tap (InnerTubeXResolver.warm): the session, the player script, BotGuard. */
@@ -211,6 +216,112 @@ export class YouTubeEngine {
     }
   }
 
+  /**
+   * Loads a direct stream URL (from an addon provider or custom source) into this deck.
+   */
+  async loadDirectUrl(
+    url: string,
+    metadata: { videoId: string; title: string; author: string; format?: string; codec?: string; bitrate?: number },
+    { startSec = 0, autoplay = true } = {},
+  ): Promise<LoadedTrack> {
+    const generation = ++this.generation;
+    this.loading = true;
+    const started = performance.now();
+    trackLog.i(`loading addon stream: ${url.slice(0, 60)}...`, metadata.videoId);
+    try {
+      const player = await this.ensurePlayer();
+      await player.unload();
+      this.adapter?.dispose();
+      this.adapter = null;
+      this.current = { videoId: metadata.videoId, client: 'DIRECT' as any, signed: false };
+      this.direct = null;
+
+      const isDirectFile = /\.(flac|mp3|m4a|aac|ogg|opus|wav)($|\?)/i.test(url) || url.includes('/stream-audio/');
+      if (isDirectFile) {
+        await this.attachDirectAudio(url, startSec);
+      } else {
+        try {
+          await timed('addon stream load', metadata.videoId, () => player.load(url, startSec));
+        } catch (shakaErr) {
+          trackLog.w(`Shaka player fallback to direct audio: ${String(shakaErr)}`, metadata.videoId);
+          await this.attachDirectAudio(url, startSec);
+        }
+      }
+
+      this.checkCurrent(generation);
+
+      if (autoplay) {
+        await this.audio.play().catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === 'NotAllowedError') {
+            trackLog.w('autoplay was blocked by the browser; waiting for a tap', metadata.videoId);
+          } else throw error;
+        });
+      }
+      await this.firstAudio(generation);
+
+      trackLog.i(`playing via addon stream, first audio after ${Math.round(performance.now() - started)}ms`, metadata.videoId);
+
+      const isFlac = metadata.format?.includes('FLAC') || url.includes('.flac');
+      const codec = metadata.codec || (isFlac ? 'FLAC' : 'MP3');
+      const bitrateKbps = metadata.bitrate || (isFlac ? 1411 : 320);
+
+      return {
+        videoId: metadata.videoId,
+        title: metadata.title,
+        author: metadata.author,
+        durationSec: Math.round(this.audio.duration || 0),
+        thumbnails: [],
+        client: 'Addon' as any,
+        format: metadata.format || 'Addon Audio',
+        stream: {
+          codec,
+          itag: null,
+          bitrateKbps,
+          sampleRateHz: 44100,
+          channels: 2,
+          mode: 'direct',
+        },
+        loudnessDb: null,
+      };
+    } catch (error) {
+      this.resetAudioElement();
+      if (this.player && this.player.getMediaElement() !== this.audio) {
+        try {
+          await this.player.attach(this.audio);
+        } catch {}
+      }
+      if (!(error instanceof SupersededError)) {
+        trackLog.w(`loadDirectUrl failed: ${describe(error)}`, metadata.videoId);
+      }
+      throw error;
+    } finally {
+      if (generation === this.generation) this.loading = false;
+    }
+  }
+
+  private async attachDirectAudio(url: string, startSec: number): Promise<void> {
+    if (this.player && this.player.getMediaElement() === this.audio) {
+      await this.player.detach().catch(() => {});
+    }
+    this.audio.crossOrigin = 'anonymous';
+    this.audio.src = url;
+    if (startSec > 0) {
+      if (this.audio.readyState >= 1) {
+        this.audio.currentTime = startSec;
+      } else {
+        this.audio.addEventListener(
+          'loadedmetadata',
+          () => {
+            try {
+              this.audio.currentTime = startSec;
+            } catch {}
+          },
+          { once: true },
+        );
+      }
+    }
+  }
+
   private checkCurrent(generation: number) {
     if (generation !== this.generation) throw new SupersededError('Replaced by a newer load');
   }
@@ -238,7 +349,7 @@ export class YouTubeEngine {
       player.load(`data:application/dash+xml;base64,${btoa(manifest)}`, startSec, 'application/dash+xml'),
     );
     this.checkCurrent(generation);
-    const selected = this.selectAudio(player);
+    const selected = this.selectAudio(player, info);
     const format = `${selected.label} ${mode}`;
     if (direct) this.direct = resolved;
 
@@ -264,7 +375,7 @@ export class YouTubeEngine {
         .sort((a, b) => b.width - a.width),
       client,
       format,
-      stream: { ...selected.stats, mode },
+      stream: { ...selected.stats, mode, client },
       loudnessDb: info.player_config?.audio_config?.loudness_db ?? null,
     };
   }
@@ -391,29 +502,66 @@ export class YouTubeEngine {
   }
 
   /** Picks Opus 251 (else AAC 140): the preferred codec's highest bitrate, avoiding DRC renditions. */
-  private selectAudio(player: shaka.Player): { label: string; stats: Omit<StreamStats, 'mode'> } {
+  private selectAudio(player: shaka.Player, info?: YT.VideoInfo): { label: string; stats: Omit<StreamStats, 'mode'> } {
+    const adaptiveFormats = info?.streaming_data?.adaptive_formats ?? [];
     const tracks = player.getVariantTracks().filter((t) => !/drc/i.test(t.originalAudioId ?? ''));
-    const statsOf = (t: shaka.extern.Track) => ({
-      codec: codecName(t.audioCodec),
-      itag: (t.originalAudioId ?? '').split('-')[0] || null,
-      bitrateKbps: Math.round((t.audioBandwidth ?? t.bandwidth) / 1000) || null,
-      sampleRateHz: t.audioSamplingRate,
-      channels: t.channelsCount,
-    });
+
+    const statsOf = (t: shaka.extern.Track) => {
+      const itagNum = parseInt((t.originalAudioId ?? '').split('-')[0] || '0', 10);
+      const ytFormat = adaptiveFormats.find((f) => f.itag === itagNum);
+
+      const rawCodec = t.audioCodec || ytFormat?.mime_type || '';
+      const codec = codecName(rawCodec) || (rawCodec.includes('opus') ? 'Opus' : rawCodec.includes('mp4a') ? 'AAC' : null);
+
+      const sampleRateHz = t.audioSamplingRate || ytFormat?.audio_sample_rate || (codec === 'Opus' ? 48000 : 44100);
+      const channels = t.channelsCount || ytFormat?.audio_channels || 2;
+      const bitrateKbps =
+        Math.round((t.audioBandwidth ?? t.bandwidth ?? 0) / 1000) ||
+        Math.round((ytFormat?.average_bitrate ?? ytFormat?.bitrate ?? 0) / 1000) ||
+        null;
+
+      return {
+        codec,
+        itag: itagNum ? String(itagNum) : (t.originalAudioId ?? '').split('-')[0] || null,
+        bitrateKbps,
+        sampleRateHz,
+        channels,
+      };
+    };
+
     for (const codec of this.preferredCodecs) {
       const best = tracks
-        .filter((t) => t.audioCodec?.startsWith(codec))
+        .filter((t) => t.audioCodec?.startsWith(codec) || (codec === 'opus' && t.originalAudioId?.includes('251')))
         .sort((a, b) => (b.audioBandwidth ?? b.bandwidth) - (a.audioBandwidth ?? a.bandwidth))[0];
       if (best) {
-        if (!best.active) player.selectVariantTrack(best, true);
-        const itag = (best.originalAudioId ?? '').split('-')[0];
-        return { label: `${itag} ${codec} ${Math.round((best.audioBandwidth ?? best.bandwidth) / 1000)}kbps`, stats: statsOf(best) };
+        if (!best.active) player.selectVariantTrack(best, false);
+        const stats = statsOf(best);
+        return { label: `${stats.itag ?? ''} ${stats.codec ?? codec} ${stats.bitrateKbps ?? ''}kbps`.trim(), stats };
       }
     }
     const active = player.getVariantTracks().find((t) => t.active);
-    return active
-      ? { label: `${active.originalAudioId} ${active.audioCodec}`, stats: statsOf(active) }
-      : { label: 'unknown', stats: { codec: null, itag: null, bitrateKbps: null, sampleRateHz: null, channels: null } };
+    if (active) {
+      const stats = statsOf(active);
+      return { label: `${stats.itag ?? active.originalAudioId} ${stats.codec ?? active.audioCodec}`, stats };
+    }
+
+    const bestYt = adaptiveFormats.find((f) => f.itag === 251) || adaptiveFormats.find((f) => f.itag === 140) || adaptiveFormats.find((f) => f.has_audio);
+    if (bestYt) {
+      const raw = bestYt.mime_type || '';
+      const codec = raw.includes('opus') ? 'Opus' : raw.includes('mp4a') ? 'AAC' : 'Audio';
+      return {
+        label: `${bestYt.itag} ${codec}`,
+        stats: {
+          codec,
+          itag: String(bestYt.itag),
+          bitrateKbps: Math.round((bestYt.average_bitrate ?? bestYt.bitrate ?? 0) / 1000) || null,
+          sampleRateHz: bestYt.audio_sample_rate || 48000,
+          channels: bestYt.audio_channels || 2,
+        },
+      };
+    }
+
+    return { label: 'unknown', stats: { codec: null, itag: null, bitrateKbps: null, sampleRateHz: null, channels: null } };
   }
 
   /** Resolves once the element has data to play, or rejects after the timeout. */
@@ -421,17 +569,30 @@ export class YouTubeEngine {
     const audio = this.audio;
     if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return Promise.resolve();
     return new Promise((resolve, reject) => {
-      const done = () => {
+      const cleanup = () => {
         clearTimeout(timer);
         audio.removeEventListener('canplay', done);
+        audio.removeEventListener('playing', done);
+        audio.removeEventListener('error', onError);
+      };
+      const done = () => {
+        cleanup();
         if (generation !== this.generation) reject(new SupersededError('Replaced by a newer load'));
         else resolve();
       };
+      const onError = () => {
+        cleanup();
+        const err = audio.error;
+        const msg = err ? `Audio playback error (${err.code}): ${err.message || 'unsupported source'}` : 'Audio failed to load';
+        reject(new Error(msg));
+      };
       const timer = setTimeout(() => {
-        audio.removeEventListener('canplay', done);
+        cleanup();
         reject(new Error(`no audio within ${FIRST_AUDIO_TIMEOUT_MS / 1000}s`));
       }, FIRST_AUDIO_TIMEOUT_MS);
       audio.addEventListener('canplay', done);
+      audio.addEventListener('playing', done);
+      audio.addEventListener('error', onError);
     });
   }
 
@@ -443,6 +604,10 @@ export class YouTubeEngine {
    */
   private onShakaError(error: shaka.util.Error) {
     const current = this.current;
+    if (current && (current.client as string) === 'DIRECT') {
+      trackLog.w(`Addon stream error: ${describe(error)}`, current.videoId);
+      return;
+    }
     const line = `Shaka error ${error.code} (severity ${error.severity}): ${describe(error)}`;
     if (!isRefusal(error)) {
       trackLog.d(line, current?.videoId ?? null);
@@ -471,6 +636,7 @@ export class YouTubeEngine {
     await this.player?.unload();
     this.adapter?.dispose();
     this.adapter = null;
+    this.resetAudioElement();
   }
 }
 

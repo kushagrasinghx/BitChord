@@ -761,11 +761,32 @@ object YtMusicRepository {
     private suspend fun albumPageOf(albumResponse: JsonObject): SongPage {
         val metadata = pageOf(albumResponse)
         val playlist = albumPlaylistOf(albumResponse, metadata.songs.size) ?: return metadata
-        return pageOf(playlist).copy(
+        val listing = pageOf(playlist)
+        return listing.copy(
+            songs = withPlaysFrom(metadata.songs, listing.songs),
             library = metadata.library,
             header = metadata.header,
             description = metadata.description,
         )
+    }
+
+    /**
+     * [songs] with each one's play count taken from the album's own rows,
+     * which state it ("52M plays") where the backing playlist's rows don't.
+     * By video id, else by title: a track with a music video can be listed
+     * under the video's id on one and the song's on the other.
+     */
+    internal fun withPlaysFrom(albumRows: List<Song>, songs: List<Song>): List<Song> {
+        val counted = albumRows.filter { it.plays != null }
+        if (counted.isEmpty()) return songs
+        val byId = counted.associate { it.videoId to it.plays }
+        val byTitle = counted.groupBy { it.title.trim().lowercase() }
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single().plays }
+        return songs.map { song ->
+            if (song.plays != null) song
+            else song.copy(plays = byId[song.videoId] ?: byTitle[song.title.trim().lowercase()])
+        }
     }
 
     /**

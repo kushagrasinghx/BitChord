@@ -727,6 +727,14 @@ object InnertubeParser {
         val artist = parts.firstOrNull {
             !it.matches(DURATION) && it.lowercase(Locale.ROOT) !in TYPE_WORDS && !it.matches(TALLY)
         }
+        // That tally, kept: an album's rows give it a flex column of its own,
+        // an artist's Top songs fold it into the subtitle.
+        val plays = columns.drop(1).asSequence()
+            .flatMap {
+                it.o("musicResponsiveListItemFlexColumnRenderer").o("text").runs().split(" • ")
+            }
+            .map { it.trim() }
+            .firstOrNull { it.matches(PLAYS) }
 
         // The artist/album names in the subtitle carry browse endpoints; pull
         // them out so the long-press menu can open those pages.
@@ -774,6 +782,7 @@ object InnertubeParser {
             // episode, whose art is a widescreen still too: it is listened to,
             // and a "video" is dropped from the All tab's results.
             isVideo = !episode && (rowType == "video" || thumbnails.isNotSquare()),
+            plays = plays,
             isExplicit = renderer.hasExplicitBadge(),
             // Extract the "Remove from history" feedback token from the row's menu, if present.
             feedbackToken = extractFeedbackToken(renderer),
@@ -1749,6 +1758,8 @@ object InnertubeParser {
             """hours?|minutes?|seconds?)\b.*""",
         RegexOption.IGNORE_CASE,
     )
+    /** A track's own tally, "12M plays" or "1.4M views", and nothing after it. */
+    private val PLAYS = Regex("""[\d.,]+\s*[KMB]?\s+(plays|views)""", RegexOption.IGNORE_CASE)
     /** Header words that mark a page as a release, whose rows share its credit. */
     private val RELEASE_WORDS = setOf("album", "single", "ep")
     private val HEADER_RENDERERS = listOf(

@@ -330,6 +330,11 @@ fun SongRow(
      */
     showSourceQuality: Boolean = false,
     /**
+     * Follows the artist with the track's play count ([Song.plays]) where the
+     * row has one: an album's own track listing.
+     */
+    showPlays: Boolean = false,
+    /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
      */
@@ -354,6 +359,7 @@ fun SongRow(
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
             showSourceQuality = showSourceQuality,
+            showPlays = showPlays,
             trailing = trailing,
         )
     }
@@ -495,6 +501,7 @@ private fun SongRowContent(
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
+    showPlays: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
@@ -579,6 +586,7 @@ private fun SongRowContent(
             Spacer(Modifier.height(2.dp))
             val subtitle = listOfNotNull(
                 song.artist.takeIf { it.isNotBlank() },
+                song.plays.takeIf { showPlays },
                 song.downloadFormat,
             ).joinToString(" · ")
             val quality = if (showSourceQuality) song.sourceQualityBadge() else null

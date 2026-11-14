@@ -916,6 +916,7 @@ private fun BitChordApp(
     }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
+    val spotifyPlaylistResults by viewModel.spotifyPlaylistResults.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
@@ -3515,6 +3516,26 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                             )
                             TAB_SEARCH -> SearchScreen(
+                                spotifyPlaylists = spotifyPlaylistResults.map { playlist ->
+                                    ShelfItem(
+                                        title = playlist.name,
+                                        subtitle = playlist.owner ?: context.getString(R.string.spotify),
+                                        thumbnailUrl = playlist.imageUrl,
+                                        videoId = null,
+                                        browseId = SPOTIFY_PAGE_PREFIX + playlist.id,
+                                    )
+                                },
+                                onSpotifyPlaylistClick = { item ->
+                                    item.browseId?.let { id ->
+                                        viewModel.openDetail(
+                                            browseId = id,
+                                            title = item.title,
+                                            subtitle = item.subtitle,
+                                            thumbnailUrl = item.thumbnailUrl,
+                                            type = BrowseType.PLAYLIST,
+                                        )
+                                    }
+                                },
                                 query = query,
                                 onQueryChange = viewModel::onQueryChange,
                                 filter = filter,

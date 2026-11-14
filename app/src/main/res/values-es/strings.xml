@@ -1443,4 +1443,5 @@
     <string name="sleep_timer_fade_out_subtitle">Baja el volumen poco a poco en los últimos 30 segundos</string>
     <string name="disable_spotify_canvas">Desactivar Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">No usar nunca Spotify Canvas. Las portadas animadas vendrán de las demás fuentes</string>
+    <string name="artist_on_spotify">En Spotify</string>
 </resources>

@@ -1471,4 +1471,5 @@
     <string name="sleep_timer_fade_out_subtitle">Senkt die Lautstärke in den letzten 30 Sekunden langsam ab</string>
     <string name="disable_spotify_canvas">Spotify Canvas deaktivieren</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas nie verwenden. Animierte Cover kommen dann aus den anderen Quellen</string>
+    <string name="artist_on_spotify">Auf Spotify</string>
 </resources>

@@ -1448,4 +1448,5 @@
     <string name="sleep_timer_fade_out_subtitle">Menurunkan volume perlahan selama 30 detik terakhir</string>
     <string name="disable_spotify_canvas">Nonaktifkan Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Jangan pernah gunakan Spotify Canvas. Sampul animasi berasal dari sumber lain</string>
+    <string name="artist_on_spotify">Di Spotify</string>
 </resources>

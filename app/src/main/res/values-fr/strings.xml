@@ -1472,4 +1472,5 @@
     <string name="sleep_timer_fade_out_subtitle">Baisse progressivement le volume pendant les 30 dernières secondes</string>
     <string name="disable_spotify_canvas">Désactiver Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Ne jamais utiliser Spotify Canvas. Les pochettes animées viennent des autres sources</string>
+    <string name="artist_on_spotify">Sur Spotify</string>
 </resources>

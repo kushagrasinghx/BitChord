@@ -1471,4 +1471,5 @@
     <string name="sleep_timer_fade_out_subtitle">आख़िरी 30 सेकंड में आवाज़ धीरे-धीरे कम करता है</string>
     <string name="disable_spotify_canvas">Spotify Canvas बंद करें</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas कभी इस्तेमाल न करें। एनिमेटेड कवर बाकी स्रोतों से आएँगे</string>
+    <string name="artist_on_spotify">Spotify पर</string>
 </resources>

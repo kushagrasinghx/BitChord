@@ -1321,4 +1321,5 @@
     <string name="sleep_timer_fade_out_subtitle">마지막 30초 동안 볼륨을 서서히 줄입니다</string>
     <string name="disable_spotify_canvas">Spotify Canvas 사용 안 함</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas를 사용하지 않습니다. 움직이는 아트워크는 다른 소스에서 가져옵니다</string>
+    <string name="artist_on_spotify">Spotify에서</string>
 </resources>

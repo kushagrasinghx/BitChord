@@ -1503,4 +1503,5 @@
     <string name="sleep_timer_fade_out_subtitle">Плавно уменьшает громкость в последние 30 секунд</string>
     <string name="disable_spotify_canvas">Отключить Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Никогда не использовать Spotify Canvas. Анимированные обложки берутся из других источников</string>
+    <string name="artist_on_spotify">В Spotify</string>
 </resources>

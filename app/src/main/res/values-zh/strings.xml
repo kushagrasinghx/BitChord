@@ -1448,4 +1448,5 @@
     <string name="sleep_timer_fade_out_subtitle">在最后 30 秒内逐渐降低音量</string>
     <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">从不使用 Spotify Canvas。动态封面将来自其他来源</string>
+    <string name="artist_on_spotify">Spotify 上</string>
 </resources>

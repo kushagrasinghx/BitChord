@@ -12,7 +12,9 @@ package com.music.bitchord.ui.components.backdrop.effects
 import androidx.annotation.FloatRange
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.RenderEffect
 import com.music.bitchord.ui.components.backdrop.BackdropEffectScope
+import com.music.bitchord.ui.components.backdrop.cachedEffect
 import com.music.bitchord.ui.components.backdrop.isRenderEffectSupported
 
 fun BackdropEffectScope.blur(
@@ -28,11 +30,15 @@ fun BackdropEffectScope.blur(
         }
     }
 
-    renderEffect =
+    val input = renderEffect
+    renderEffect = cachedEffect(BlurKey(input, radius, edgeTreatment)) {
         BlurEffect(
-            renderEffect,
+            input,
             radius,
             radius,
             edgeTreatment
         )
+    }
 }
+
+private data class BlurKey(val input: RenderEffect?, val radius: Float, val edgeTreatment: TileMode)

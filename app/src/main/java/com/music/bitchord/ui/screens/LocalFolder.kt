@@ -234,16 +234,27 @@ fun rememberLocalFolderGroups(
     tab: LocalFolderTab,
     songs: List<Song>,
     query: String,
-): List<LocalGroup> = remember(browseId, tab, songs, folder.collections, folder.playlists, query) {
-    fun LocalGroup.matches() = query.isBlank() ||
-        title.contains(query, ignoreCase = true) ||
-        subtitle.contains(query, ignoreCase = true)
-    when (tab) {
-        LocalFolderTab.SONGS -> emptyList()
-        LocalFolderTab.ARTISTS -> LocalGroups.artistsOf(browseId, songs).filter { it.matches() }
-        LocalFolderTab.ALBUMS -> LocalGroups.albumsOf(browseId, songs, folder.collections).filter { it.matches() }
-        LocalFolderTab.PLAYLISTS -> folder.playlists.filter { it.matches() }
-        LocalFolderTab.FOLDERS -> LocalGroups.foldersOf(browseId, songs).filter { it.matches() }
+): List<LocalGroup> {
+    // Grouped once per listing and tab, then narrowed per keystroke: grouping
+    // walks and sorts the whole folder, and nothing it reads changes as the
+    // filter is typed into, so only the cheap narrowing is keyed on [query].
+    val groups = remember(browseId, tab, songs, folder.collections, folder.playlists) {
+        when (tab) {
+            LocalFolderTab.SONGS -> emptyList()
+            LocalFolderTab.ARTISTS -> LocalGroups.artistsOf(browseId, songs)
+            LocalFolderTab.ALBUMS -> LocalGroups.albumsOf(browseId, songs, folder.collections)
+            LocalFolderTab.PLAYLISTS -> folder.playlists
+            LocalFolderTab.FOLDERS -> LocalGroups.foldersOf(browseId, songs)
+        }
+    }
+    return remember(groups, query) {
+        if (query.isBlank()) {
+            groups
+        } else {
+            groups.filter {
+                it.title.contains(query, ignoreCase = true) || it.subtitle.contains(query, ignoreCase = true)
+            }
+        }
     }
 }
 

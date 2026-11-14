@@ -178,7 +178,7 @@ fun UpdateAvailableDialog(
                             .fillMaxWidth()
                             .height(DOWNLOAD_ROW_HEIGHT)
                             .clip(RoundedCornerShape(DOWNLOAD_ROW_HEIGHT / 2))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+                            .vibrantBackground(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
                     ) {
                         if (downloading != null && downloading.fraction > 0f) {
                             Box(
@@ -211,7 +211,8 @@ fun UpdateAvailableDialog(
                         text = stringResource(R.string.whats_new),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
+                            .padding(top = 12.dp)
+                            .vibrancy(MaterialTheme.colorScheme.onSurface),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.W600,
@@ -289,7 +290,7 @@ internal fun AlertAction(
             .fillMaxWidth()
             .height(ACTION_HEIGHT)
             // iOS washes the whole row instead of drawing a ripple inside it.
-            .background(
+            .vibrantBackground(
                 if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f) else Color.Transparent,
             )
             .clickable(
@@ -308,6 +309,9 @@ internal fun AlertAction(
             ),
             color = (if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                 .copy(alpha = if (enabled) 1f else 0.4f),
+            modifier = Modifier.vibrancy(
+                if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            ),
         )
     }
 }
@@ -319,6 +323,6 @@ internal fun AlertRule(modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .height(0.5.dp)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+            .vibrantBackground(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
     )
 }

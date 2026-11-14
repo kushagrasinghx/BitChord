@@ -255,8 +255,13 @@ class DownloadService : Service() {
 
         const val ACTION_CANCEL_ALL = "com.music.bitchord.download.CANCEL_ALL"
 
-        /** Four updates a second is smooth; the shade coalesces anything faster anyway. */
-        const val PROGRESS_REFRESH_MS = 250L
+        /**
+         * Two updates a second. Each one builds a notification on the main
+         * thread and crosses to the system server, and a shade bar that moves
+         * every half second still reads as moving; four a second bought nothing
+         * a listener could see for twice the main-thread work.
+         */
+        const val PROGRESS_REFRESH_MS = 500L
 
         /**
          * How many tracks are fetched at once.

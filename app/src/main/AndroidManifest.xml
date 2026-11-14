@@ -75,6 +75,11 @@
         android:theme="@style/Theme.BitChord"
         tools:targetApi="34">
 
+        <activity
+            android:name=".ui.performance.FrameDiagnosticsActivity"
+            android:enabled="${performanceDiagnostics}"
+            android:exported="false" />
+
         <!--
           Lets a release build be sampled with simpleperf or Perfetto from adb,
           so jank is measured on the build users get rather than on a debug

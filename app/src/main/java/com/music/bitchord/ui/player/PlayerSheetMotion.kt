@@ -121,6 +121,7 @@ class PlayerSheetMotion(
      * stood, a visible stall halfway home.
      */
     private var closing = false
+    private var overlayAttached = false
 
     private fun travel(): Float =
         dock.sheetTravel.takeIf { it > 0f } ?: (windowInfo?.containerSize?.height ?: 0).toFloat()
@@ -171,7 +172,7 @@ class PlayerSheetMotion(
     /** A tap on the mini player. */
     fun open() {
         if (shown()) {
-            // Tapped while still on its way down: back up from where it is.
+            // A tap during dismissal returns from the current position.
             if (closing && holding) {
                 settle?.cancel()
                 reopening()
@@ -183,12 +184,23 @@ class PlayerSheetMotion(
             }
             return
         }
+        startOpening(raise = true)
+    }
+
+    /** Direct opens (widget/deep link) have already raised the host. */
+    fun onOverlayShown() {
+        if (overlayAttached) return
+        overlayAttached = true
+        if (!holding && !closing) startOpening(raise = false)
+    }
+
+    private fun startOpening(raise: Boolean) {
         settle?.cancel()
         closing = false
         val travel = travel()
         held = travel
         // Raised already open: [held] is what slides it up.
-        setShown(true)
+        if (raise) setShown(true)
         settle = scope.launch {
             // The sheet's window takes a frame or two to exist. Started before
             // then, the first stretch of the slide would happen to nothing.
@@ -319,6 +331,7 @@ class PlayerSheetMotion(
 
     /** From the host, once the sheet has left composition. */
     fun onSheetGone() {
+        overlayAttached = false
         closing = false
         sheetSampleAt = Float.NaN
         sheetVelocity = 0f

@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.data.listentogether.PartyMember
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
@@ -85,7 +86,7 @@ private fun MemberDrawerRow(member: PartyMember, isYou: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (isYou) 0.10f else 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = if (isYou) 0.10f else 0.05f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -93,7 +94,7 @@ private fun MemberDrawerRow(member: PartyMember, isYou: Boolean) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             if (member.avatarUrl != null) {
@@ -107,6 +108,7 @@ private fun MemberDrawerRow(member: PartyMember, isYou: Boolean) {
                     text = member.displayName.take(1).uppercase(),
                     style = MaterialTheme.typography.labelLarge,
                     color = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.vibrancy(),
                 )
             }
         }
@@ -120,6 +122,7 @@ private fun MemberDrawerRow(member: PartyMember, isYou: Boolean) {
                 color = Color.White.copy(alpha = if (isYou) 1f else 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             // "Away" rather than "offline": the slot is still theirs, and the
             // server holds it through a grace period precisely so a tunnel or
@@ -137,6 +140,7 @@ private fun MemberDrawerRow(member: PartyMember, isYou: Boolean) {
                     text = subtitle,
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.vibrancy(),
                 )
             }
         }
@@ -151,7 +155,7 @@ private fun ManageRow(code: String?, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -166,14 +170,14 @@ private fun ManageRow(code: String?, onClick: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Settings,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(20.dp).vibrancy(),
             )
         }
         Spacer(Modifier.width(13.dp))
@@ -184,6 +188,7 @@ private fun ManageRow(code: String?, onClick: () -> Unit) {
                 color = Color.White.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             if (code != null) {
                 Spacer(Modifier.height(2.dp))
@@ -193,6 +198,7 @@ private fun ManageRow(code: String?, onClick: () -> Unit) {
                     color = Color.White.copy(alpha = 0.55f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.vibrancy(),
                 )
             }
         }
@@ -200,7 +206,7 @@ private fun ManageRow(code: String?, onClick: () -> Unit) {
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(),
         )
     }
 }

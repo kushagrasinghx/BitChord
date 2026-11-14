@@ -632,7 +632,7 @@ private fun SleepTimerPicker(palette: ArtworkPalette, onBack: () -> Unit) {
             },
             onBack = onBack,
         )
-        HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
+        HorizontalDivider(thickness = 0.5.dp, color = palette.divider, modifier = Modifier.vibrancy(palette.divider))
 
         // Finishing the song is the one people reach for at the end of a
         // listen, so it leads rather than sitting under the durations.
@@ -749,7 +749,7 @@ private fun CustomSleepTimerPage(
             subtitle = stringResource(R.string.pause_after_a_while),
             onBack = onBack,
         )
-        HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
+        HorizontalDivider(thickness = 0.5.dp, color = palette.divider, modifier = Modifier.vibrancy(palette.divider))
 
         Text(
             text = sleepDuration(minutes),
@@ -788,7 +788,7 @@ private fun CustomSleepTimerPage(
             ) { minutes += SleepTimer.STEP_MINUTES }
         }
         Spacer(Modifier.height(16.dp))
-        HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
+        HorizontalDivider(thickness = 0.5.dp, color = palette.divider, modifier = Modifier.vibrancy(palette.divider))
         ActionRow(SfIcons.SleepTimer, stringResource(R.string.start_sleep_timer), accent = palette.accent) {
             onStart(minutes)
         }
@@ -901,6 +901,7 @@ internal fun ActionRow(
     }
     val foreground = MaterialTheme.colorScheme.onBackground
     val alpha = if (enabled) 1f else 0.4f
+    fun dimmed(color: Color): Modifier = if (enabled) Modifier else Modifier.vibrancy(color)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -912,14 +913,14 @@ internal fun ActionRow(
             imageVector = icon,
             contentDescription = null,
             tint = (tint ?: foreground).copy(alpha = alpha),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(22.dp).then(dimmed(tint ?: foreground)),
         )
         Spacer(Modifier.width(18.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
             color = foreground.copy(alpha = alpha),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).then(dimmed(foreground)),
         )
         if (value != null) {
             Spacer(Modifier.width(12.dp))
@@ -928,6 +929,7 @@ internal fun ActionRow(
                 style = MaterialTheme.typography.bodyLarge,
                 color = accent.copy(alpha = alpha),
                 maxLines = 1,
+                modifier = dimmed(accent),
             )
         }
     }

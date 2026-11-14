@@ -163,6 +163,10 @@ object BitChordIcons {
      * box is the viewport, the baseline sits at the font's ascent share of
      * it, and the advance is centred. So they keep the font's own optical
      * size and weight against one another at any icon size.
+     *
+     * Explore is filled, as Home and Library beside it are: square_grid_2x2's
+     * four rounded squares without the counters cut out of them, so the grid
+     * keeps the outline glyph's exact size and spacing.
      */
     val TabExplore: ImageVector by lazy {
         fontGlyph(

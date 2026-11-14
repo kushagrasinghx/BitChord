@@ -30,6 +30,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
@@ -40,6 +42,8 @@ private const val maxBounceVelocity = 10_000f
 private const val highVelocityThreshold = 5_000f
 private const val normalBounceStiffness = 247f
 private const val fastBounceStiffness = 130f
+private const val flingPullReleaseMultiplier = 4f
+private const val freshPullThresholdPx = 0.5f
 
 /**
  * Converts raw pull distance to UIKit's self-limiting rubber-band curve.
@@ -58,15 +62,13 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-private class IosOverscrollEffect : OverscrollEffect {
+internal class IosOverscrollEffect : OverscrollEffect {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
     private var containerHeightPx = 0f
-
-    // The release bounce runs outside the scrollable's scroll mutex, so a new drag
-    // doesn't cancel it on its own. Tracked here so a touch can catch the content.
-    private var settleJobs: List<Job> = emptyList()
+    private var settling: Job? = null
+    private var gestureGeneration = 0L
 
     override val isInProgress: Boolean
         get() = rawPullX.floatValue != 0f || rawPullY.floatValue != 0f
@@ -76,14 +78,16 @@ private class IosOverscrollEffect : OverscrollEffect {
         source: NestedScrollSource,
         performScroll: (Offset) -> Offset,
     ): Offset {
-        // A finger landing mid-bounce takes over from wherever the content is, like
-        // UIScrollView; otherwise the spring keeps overwriting the drag each frame.
-        if (source == NestedScrollSource.UserInput) stopSettling()
-
-        // When pulling back from an existing stretch, settle the stretch before
-        // allowing the list itself to scroll. This keeps the motion continuous.
-        val paidX = payDown(rawPullX, delta.x)
-        val paidY = payDown(rawPullY, delta.y)
+        if (source == NestedScrollSource.UserInput) {
+            gestureGeneration++
+            cancelSettle()
+        }
+        // A fling should clear existing stretch quickly, before its decay
+        // spends its momentum there. Foundation's native effect uses the same
+        // multiplier. Finger-driven recovery remains one-to-one.
+        val releaseMultiplier = if (source == NestedScrollSource.SideEffect) flingPullReleaseMultiplier else 1f
+        val paidX = payDown(rawPullX, delta.x, releaseMultiplier)
+        val paidY = payDown(rawPullY, delta.y, releaseMultiplier)
         val remaining = Offset(delta.x - paidX, delta.y - paidY)
         val consumed = performScroll(remaining)
         val leftover = remaining - consumed
@@ -93,11 +97,14 @@ private class IosOverscrollEffect : OverscrollEffect {
         var stretchedX = 0f
         var stretchedY = 0f
         if (source == NestedScrollSource.UserInput) {
-            if (leftover.x != 0f) {
+            // Small rounding remainders must not create phantom edge tension
+            // during otherwise ordinary scrolling. Once a real pull exists,
+            // keep following even subpixel finger movement continuously.
+            if (leftover.x != 0f && (rawPullX.floatValue != 0f || abs(leftover.x) > freshPullThresholdPx)) {
                 rawPullX.floatValue += leftover.x
                 stretchedX = leftover.x
             }
-            if (leftover.y != 0f) {
+            if (leftover.y != 0f && (rawPullY.floatValue != 0f || abs(leftover.y) > freshPullThresholdPx)) {
                 rawPullY.floatValue += leftover.y
                 stretchedY = leftover.y
             }
@@ -109,35 +116,49 @@ private class IosOverscrollEffect : OverscrollEffect {
         velocity: Velocity,
         performFling: suspend (Velocity) -> Velocity,
     ) {
+        val generation = ++gestureGeneration
+        cancelSettle()
         val consumed = performFling(velocity)
+        // Compose can finish the old fling after a new drag has taken over.
+        // That fling must not start a bounce underneath the new finger.
+        if (generation != gestureGeneration) return
         val leftover = velocity - consumed
-        stopSettling()
+        cancelSettle()
         if (!isInProgress && leftover == Velocity.Zero) return
 
         coroutineScope {
-            val jobs = listOf(
-                launch { settle(rawPullX, leftover.x) },
-                launch { settle(rawPullY, leftover.y) },
-            )
-            settleJobs = jobs
-            jobs.forEach { it.join() }
-            if (settleJobs === jobs) settleJobs = emptyList()
+            val animation = coroutineContext.job
+            settling = animation
+            try {
+                joinAll(
+                    launch { settle(rawPullX, leftover.x) },
+                    launch { settle(rawPullY, leftover.y) },
+                )
+            } finally {
+                if (settling === animation) settling = null
+            }
         }
     }
 
-    private fun stopSettling() {
-        if (settleJobs.isEmpty()) return
-        settleJobs.forEach { it.cancel() }
-        settleJobs = emptyList()
+    private fun cancelSettle() {
+        // This spring runs after performFling releases the list's scroll mutex,
+        // so starting a new list drag does not cancel it automatically.
+        settling?.cancel()
+        settling = null
     }
 
-    private fun payDown(pull: MutableFloatState, delta: Float): Float {
+    private fun payDown(pull: MutableFloatState, delta: Float, releaseMultiplier: Float): Float {
         val current = pull.floatValue
         if (current == 0f || delta == 0f || sign(current) == sign(delta)) return 0f
-        val target = current + delta
-        val next = if (sign(target) != sign(current)) 0f else target
-        pull.floatValue = next
-        return next - current
+        val target = current + delta * releaseMultiplier
+        return if (sign(target) != sign(current)) {
+            pull.floatValue = 0f
+            -current / releaseMultiplier
+        } else {
+            pull.floatValue = target
+            // Return input units exactly when all of this delta was used.
+            delta
+        }
     }
 
     private suspend fun settle(pull: MutableFloatState, leftoverVelocity: Float) {

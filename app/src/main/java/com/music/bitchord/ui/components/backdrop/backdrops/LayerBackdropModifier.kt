@@ -33,8 +33,15 @@ private class LayerBackdropElement(
 
     override fun update(node: LayerBackdropNode) {
         if (node.backdrop != backdrop) {
+            // Vendored fix: hand the new backdrop the coordinates the old one had.
+            // They are otherwise only set on the next global positioning, which a
+            // swap alone does not cause — the app's backdrop is rebuilt on every
+            // theme change, and until something moved, everything sampling it
+            // drew nothing and its luminance went unread.
+            val coordinates = node.backdrop.layerCoordinates
             node.backdrop.layerCoordinates = null
             node.backdrop = backdrop
+            backdrop.layerCoordinates = coordinates
         }
         node.invalidateDraw()
     }

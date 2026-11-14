@@ -14,7 +14,6 @@ package com.music.bitchord.ui.components.floatingtabbar
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -37,12 +36,13 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.ContinuousCornerShape
 import com.music.bitchord.ui.components.LocalAppBackdrop
+import com.music.bitchord.ui.components.glassRim
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
 import com.music.bitchord.ui.components.backdrop.effects.lens
-import com.music.bitchord.ui.components.backdrop.highlight.Highlight
 import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -497,13 +497,16 @@ internal fun Modifier.pillPlacement(center: () -> Offset, size: () -> Size): Mod
         }
     }
 
-/** The flat pill: a fill and nothing else. */
+/**
+ * The flat pill: a fill and nothing else. Cut to the lifted pill's continuous
+ * capsule, so the hand-off between the two changes the material and not the shape.
+ */
 @Composable
 internal fun FlatSelectionPill(
     color: Color,
     modifier: Modifier,
 ) {
-    val shape = remember { RoundedCornerShape(percent = 50) }
+    val shape = remember { ContinuousCornerShape(percent = 50) }
     Box(modifier.background(color, shape))
 }
 
@@ -530,7 +533,7 @@ internal fun GlassSelectionPill(
     modifier: Modifier,
 ) {
     val page = LocalAppBackdrop.current
-    val shape = remember { RoundedCornerShape(percent = 50) }
+    val shape = remember { ContinuousCornerShape(percent = 50) }
     val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
     val backdrop = remember(page, barGlass, tabRow, fillColor, glassPerformance) {
         SelectionPillBackdrop(page, barGlass, tabRow) {
@@ -539,27 +542,27 @@ internal fun GlassSelectionPill(
         }
     }
     Box(
-        modifier.drawBackdrop(
-            backdrop = backdrop,
-            shape = { shape },
-            effects = {
-                if (!glassPerformance && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    lens(
-                        refractionHeight = LENS_HEIGHT.toPx() * motion.glassPresence,
-                        refractionAmount = LENS_AMOUNT.toPx() * motion.material,
-                        chromaticAberration = true,
-                    )
-                }
-            },
-            highlight = {
-                val alpha = motion.material * rimOf(motion.glassPresence)
-                if (alpha > 0f) Highlight.Default.copy(alpha = alpha) else null
-            },
-            shadow = {
-                val alpha = motion.material * rimOf(motion.glassPresence)
-                if (alpha > 0f) PILL_SHADOW.copy(alpha = alpha) else null
-            },
-        ),
+        modifier
+            // The bar's own glass edge, faded with the shadow as the pill lands.
+            .glassRim(shape) { motion.material * rimOf(motion.glassPresence) }
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    if (!glassPerformance && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        lens(
+                            refractionHeight = LENS_HEIGHT.toPx() * motion.glassPresence,
+                            refractionAmount = LENS_AMOUNT.toPx() * motion.material,
+                            chromaticAberration = true,
+                        )
+                    }
+                },
+                highlight = null,
+                shadow = {
+                    val alpha = motion.material * rimOf(motion.glassPresence)
+                    if (alpha > 0f) PILL_SHADOW.copy(alpha = alpha) else null
+                },
+            ),
     )
 }
 

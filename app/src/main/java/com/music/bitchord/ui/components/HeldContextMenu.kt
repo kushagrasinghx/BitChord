@@ -9,7 +9,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -201,7 +200,7 @@ fun <T : Any> HeldContextMenu(
                     .pointerInput(Unit) {}
                     .clip(cardShape)
                     .background(plate)
-                    .border(0.5.dp, hairline, cardShape)
+                    .vibrantBorder(0.5.dp, hairline, cardShape)
                     .then(
                         if (onPreviewClick != null) {
                             Modifier.clickable(enabled = open) { onPreviewClick(menuItem) }
@@ -226,7 +225,8 @@ fun <T : Any> HeldContextMenu(
                     .pointerInput(Unit) {}
                     // The same frosted plate the held item sits on, so the
                     // item and its menu read as one thing lifted off the page.
-                    .iosMenuPanel(fillOverride = plate, rimOverride = hairline)
+                    .iosMenuPanel(fillOverride = plate, rimOverride = Color.Transparent)
+                    .vibrantBorder(0.5.dp, hairline, IosMenuShape)
                     .padding(vertical = 8.dp),
             ) {
                 // Added onto the plate, on a dark one only: see [IosMenuPopover].

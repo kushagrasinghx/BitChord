@@ -153,10 +153,7 @@ object LocalGroups {
                 if (name == null || name.lowercase(Locale.ROOT) in claimed) return@mapNotNull null
                 album(folderId, name, group)
             }
-        return (asked + derived).sortedWith(
-            compareByDescending<LocalGroup> { it.downloadId != null }
-                .thenBy { it.title.lowercase(Locale.ROOT) },
-        )
+        return (asked + derived).sortedByLowercaseTitle(leading = { it.downloadId != null })
     }
 
     /**
@@ -166,7 +163,20 @@ object LocalGroups {
     fun artistsOf(folderId: String, songs: List<Song>): List<LocalGroup> =
         songs.groupBy { it.artist }
             .map { (name, group) -> artist(folderId, name, group) }
-            .sortedBy { it.title.lowercase(Locale.ROOT) }
+            .sortedByLowercaseTitle()
+
+    /**
+     * By title lowercased in the root locale, after any [leading] groups. Each
+     * title is lowercased once up front rather than inside the comparator,
+     * which would allocate two strings per comparison — tens of thousands of
+     * them for a large library's Artists tab.
+     */
+    private fun List<LocalGroup>.sortedByLowercaseTitle(
+        leading: (LocalGroup) -> Boolean = { false },
+    ): List<LocalGroup> =
+        map { it.title.lowercase(Locale.ROOT) to it }
+            .sortedWith(compareByDescending<Pair<String, LocalGroup>> { leading(it.second) }.thenBy { it.first })
+            .map { it.second }
 
     /**
      * The Folders tab: every directory on the device holding any of [songs],
@@ -257,7 +267,10 @@ fun Song.matchesSearch(query: String): Boolean =
 /** A device folder's running order, per the sort its top bar menu picked. */
 fun List<Song>.sortedForLibrary(order: LocalMusicSort): List<Song> = when (order) {
     LocalMusicSort.TITLE_ASC -> sortedByTitle()
-    LocalMusicSort.TITLE_DESC -> sortedWith(compareByDescending<Song> { it.title.lowercase(Locale.ROOT) })
+    // Lowercased once per row, not once per comparison; see sortedByLowercaseTitle.
+    LocalMusicSort.TITLE_DESC -> map { it.title.lowercase(Locale.ROOT) to it }
+        .sortedByDescending { it.first }
+        .map { it.second }
     LocalMusicSort.DATE_ADDED -> sortedWith(
         compareByDescending<Song> { it.localDateAddedSeconds ?: Long.MIN_VALUE }
             .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title },

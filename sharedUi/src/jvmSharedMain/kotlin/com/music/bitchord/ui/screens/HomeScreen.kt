@@ -283,13 +283,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
         if (index == 1 && onMoodClick != null) {
             item(key = "find-your-mood") { FindYourMoodShelf(onMoodClick, onMoodsShowAll) }
         }
-        item(key = shelf.title + index) {
+        // Typed by which shelf it draws, so a shelf scrolling in
+        // reuses one of its own kind rather than rebuilding another's insides.
+        val listShelf = shelf.layout == ShelfLayout.LIST ||
+            (index == 0 && shelf.title.equals(RECENTS_TITLE, ignoreCase = true))
+        val type = when {
+            listShelf -> "shelf-list"
+            else -> "shelf"
+        }
+        item(key = shelf.title + index, contentType = type) {
             val openItem: (ShelfItem) -> Unit = { item -> onItemClick(item, shelf.title) }
             // Listen again and Quick picks are lists on the web player, as
             // Recents is here: one pager for all three.
-            if (shelf.layout == ShelfLayout.LIST ||
-                (index == 0 && shelf.title.equals(RECENTS_TITLE, ignoreCase = true))
-            ) {
+            if (listShelf) {
                 RecentShelf(
                     shelf = shelf,
                     onItemClick = openItem,

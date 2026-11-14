@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,32 +104,7 @@ fun rememberArtworkPalette(
     artPx: Int = CARD_ART_PX,
     keyColors: ArtworkKeyColors? = null,
 ): ArtworkPalette {
-    val scheme = MaterialTheme.colorScheme
-    val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
-    // Always asked, so the composable call is unconditional; handed nothing to
-    // read when the colours are already in hand.
-    val decoded = rememberArtworkSeed(if (keyColors == null) imageUrl else null, artPx)
-    val seed = keyColors?.toSeed() ?: decoded
-    // Whether the colours were there from the first frame. If they were, there
-    // is nothing to crossfade *from* and animating would only put a delay in
-    // front of a surface that could already be right.
-    val knownUpFront = remember(imageUrl) { decoded != null }
-
-    val target = seed?.toPalette(dark) ?: ArtworkPalette(
-        background = scheme.background,
-        wash = scheme.background,
-        elevated = scheme.surfaceVariant,
-        accent = scheme.primary,
-        onBackground = scheme.onBackground,
-        onBackgroundVariant = scheme.onSurfaceVariant,
-        divider = scheme.outline,
-    )
-
-    val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
-        snap()
-    } else {
-        tween(TINT_FADE_MS)
-    }
+    val (target, spec) = artworkPaletteTarget(imageUrl, dark, artPx, keyColors)
     return ArtworkPalette(
         background = animateColorAsState(target.background, spec, label = "tintBackground").value,
         wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
@@ -140,6 +116,75 @@ fun rememberArtworkPalette(
         ).value,
         divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
     )
+}
+
+/**
+ * [rememberArtworkPalette]'s [ArtworkPalette.background] alone, crossfading the
+ * same way, as a state for the caller to read where it draws.
+ *
+ * For a caller that wants the one colour and is too big to recompose for it.
+ * A colour read off [rememberArtworkPalette] is read in its caller's own
+ * scope, so every frame of a crossfade re-ran the whole caller — the app's
+ * root, for the bars that fade into a detail page's colour. Read through
+ * this state inside the bars instead, a frame of the fade reaches the bars
+ * and nothing else.
+ */
+@Composable
+fun rememberArtworkBackground(
+    imageUrl: String?,
+    dark: Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f,
+    artPx: Int = CARD_ART_PX,
+    keyColors: ArtworkKeyColors? = null,
+): State<Color> {
+    val (target, spec) = artworkPaletteTarget(imageUrl, dark, artPx, keyColors)
+    return animateColorAsState(target.background, spec, label = "tintBackground")
+}
+
+/** What [rememberArtworkPalette] is fading towards, and how. */
+@Composable
+private fun artworkPaletteTarget(
+    imageUrl: String?,
+    dark: Boolean,
+    artPx: Int,
+    keyColors: ArtworkKeyColors?,
+): Pair<ArtworkPalette, AnimationSpec<Color>> {
+    val scheme = MaterialTheme.colorScheme
+    val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
+    // Always asked, so the composable call is unconditional; handed nothing to
+    // read when the colours are already in hand.
+    val decoded = rememberArtworkSeed(if (keyColors == null) imageUrl else null, artPx)
+    val seed = keyColors?.toSeed() ?: decoded
+    // Whether the colours were there from the first frame. If they were, there
+    // is nothing to crossfade *from* and animating would only put a delay in
+    // front of a surface that could already be right.
+    val knownUpFront = remember(imageUrl) { decoded != null }
+    // When this artwork was first asked for. Colours that arrive while the
+    // surface is still arriving itself — a page fading in, a sheet sliding up
+    // — are cut to rather than faded into: the surface's own entrance carries
+    // the change, and a fade on top of it recomposed everything tinted from
+    // this palette on every frame of that entrance, the moment the frame
+    // budget is already spent on the transition.
+    val askedAt = remember(imageUrl) { System.nanoTime() }
+
+    val target = seed?.toPalette(dark) ?: ArtworkPalette(
+        background = scheme.background,
+        wash = scheme.background,
+        elevated = scheme.surfaceVariant,
+        accent = scheme.primary,
+        onBackground = scheme.onBackground,
+        onBackgroundVariant = scheme.onSurfaceVariant,
+        divider = scheme.outline,
+    )
+
+    // Only artwork's colours arriving; a surface going back to the theme's —
+    // a page popped back to a tab — still fades out of the artwork's.
+    val arriving = seed != null && System.nanoTime() - askedAt < ARRIVAL_WINDOW_MS * 1_000_000L
+    val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront || arriving) {
+        snap()
+    } else {
+        tween(TINT_FADE_MS)
+    }
+    return target to spec
 }
 
 /**
@@ -192,6 +237,12 @@ private const val PALETTE_PX = 128
 
 /** Short: this is a surface settling into its colour, not an effect in itself. */
 private const val TINT_FADE_MS = 260
+
+/**
+ * How long after artwork is first asked for its colours are still cut to
+ * rather than faded into — about as long as a page's or a sheet's entrance.
+ */
+private const val ARRIVAL_WINDOW_MS = 250L
 
 /**
  * The raw artwork colours: what the page is mostly made of, its brightest

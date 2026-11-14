@@ -91,6 +91,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.music.bitchord.ui.components.TintedIcon
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -134,6 +138,8 @@ import com.music.bitchord.data.lyrics.LyricAlignment
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.lyrics.translationLanguageName
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBlendMode
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -558,7 +564,8 @@ internal fun LyricsStatusWithChange(
                     } else {
                         Modifier
                     },
-                ),
+                )
+                .vibrancy(LocalPlayerTint.current),
         )
     }
 }
@@ -1466,49 +1473,18 @@ internal fun TranslationToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val active = showingTranslation || state is LyricsTranslationUiState.Loading
-    val chrome = LocalPlayerChrome.current
-    val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> chromeWhite(0.42f)
-        active -> Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f)
-        else -> chromeWhite(0.78f)
-    }
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
+    LyricsToggleButton(
+        icon = Icons.Rounded.Translate,
+        contentDescription = stringResource(
+            if (showingTranslation) Res.string.show_original_lyrics
+            else Res.string.translate_lyrics,
+        ),
+        state = state,
+        showing = showingTranslation,
+        enabled = enabled,
+        onClick = onClick,
         label = "translateDisc",
     )
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .additiveChrome(chrome)
-            .background(Color.White.copy(alpha = discAlpha))
-            .clickable(
-                enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (state is LyricsTranslationUiState.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                color = tint,
-                strokeWidth = 1.7.dp,
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.Translate,
-                contentDescription = stringResource(
-                    if (showingTranslation) Res.string.show_original_lyrics
-                    else Res.string.translate_lyrics,
-                ),
-                tint = tint,
-                modifier = Modifier.size(19.dp),
-            )
-        }
-    }
 }
 
 /** The left-hand companion to [TranslationToggleButton], producing Latin script. */
@@ -1519,46 +1495,139 @@ internal fun RomanizationToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val active = showingRomanization || state is LyricsTranslationUiState.Loading
-    val chrome = LocalPlayerChrome.current
+    LyricsToggleButton(
+        icon = Icons.Rounded.Language,
+        contentDescription = stringResource(
+            if (showingRomanization) Res.string.show_original_lyrics
+            else Res.string.romanize_lyrics,
+        ),
+        state = state,
+        showing = showingRomanization,
+        enabled = enabled,
+        onClick = onClick,
+        label = "romanizeDisc",
+    )
+}
+
+/**
+ * The translate and romanize discs: on while [showing] or fetching, faint
+ * while there is nothing to do.
+ *
+ * In [GlassControls], a circle of the player's glass instead of the faint
+ * disc: its glyph turns over light content, and on it fills whole at the
+ * liked star's strength with the glyph — or the spinner — cut out of it,
+ * the favourite's look and the lyrics and queue buttons'.
+ */
+@Composable
+private fun LyricsToggleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    state: LyricsTranslationUiState,
+    showing: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    label: String,
+) {
+    val glass = LocalGroupGlass.current
+    val tone = glass?.rememberGlyphTone()
+    val loading = state is LyricsTranslationUiState.Loading
+    val active = showing || loading
+    val base = LocalPlayerTint.current
+    val chrome = glass == null && LocalPlayerChrome.current
     val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> chromeWhite(0.42f)
-        active -> Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f)
-        else -> chromeWhite(0.78f)
+        !enabled || state is LyricsTranslationUiState.SameLanguage -> if (glass == null) chromeWhite(0.42f) else base.copy(alpha = 0.42f)
+        active && glass == null -> Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f)
+        else -> if (glass == null) chromeWhite(0.78f) else base.copy(alpha = 0.78f)
     }
     val discAlpha by animateFloatAsState(
         targetValue = if (active) 0.34f else 0.18f,
-        label = "romanizeDisc",
+        label = label,
+    )
+    val lit = animateFloatAsState(
+        targetValue = if (active && glass != null) 1f else 0f,
+        animationSpec = LitSpring,
+        label = "${label}Lit",
     )
     Box(
         modifier = Modifier
             .size(34.dp)
+            .then(if (glass != null) with(glass) { Modifier.glassSurface(CircleShape) } else Modifier)
+            // After the glass: it draws its outline just outside its edge.
             .clip(CircleShape)
-            .additiveChrome(chrome)
-            .background(Color.White.copy(alpha = discAlpha))
+            .then(
+                if (glass == null) Modifier.additiveChrome(chrome).background(Color.White.copy(alpha = discAlpha))
+                else Modifier,
+            )
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-            ),
+            )
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        if (state is LyricsTranslationUiState.Loading) {
+        // Read as the glyph is drawn, so the glass's turn redraws it alone.
+        val glyphTint = if (tone == null) {
+            remember(tint) { ColorProducer { tint } }
+        } else {
+            remember(tint, tone) { ColorProducer { lerp(tint, Color.Black.copy(alpha = tint.alpha), tone.darkness) } }
+        }
+        LyricsToggleGlyph(
+            icon = icon,
+            loading = loading,
+            tint = glyphTint,
+            spinnerColor = tint,
+            glyphModifier = if (glass == null) Modifier else Modifier.toneVibrancy(tone, tint),
+            modifier = Modifier
+                .then(if (tone != null) with(tone) { Modifier.glyphArea() } else Modifier)
+                .graphicsLayer {
+                    alpha = 1f - lit.value.coerceIn(0f, 1f)
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                },
+        )
+        LitLayer(
+            lit = lit,
+            tint = base,
+            fill = { color -> drawCircle(color) },
+            scaleFrom = 1f,
+        ) { glyphModifier ->
+            LyricsToggleGlyph(
+                icon = icon,
+                loading = loading,
+                tint = CutOutTint,
+                spinnerColor = Color.Black,
+                glyphModifier = Modifier,
+                modifier = glyphModifier,
+            )
+        }
+    }
+}
+
+/** A [LyricsToggleButton]'s glyph, or its spinner while a request is in flight. */
+@Composable
+private fun LyricsToggleGlyph(
+    icon: ImageVector,
+    loading: Boolean,
+    tint: ColorProducer,
+    spinnerColor: Color,
+    /** On the glyph itself: its vibrancy. */
+    glyphModifier: Modifier,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        if (loading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                color = tint,
+                modifier = Modifier.size(16.dp).then(glyphModifier),
+                color = spinnerColor,
                 strokeWidth = 1.7.dp,
             )
         } else {
-            Icon(
-                imageVector = Icons.Rounded.Language,
-                contentDescription = stringResource(
-                    if (showingRomanization) Res.string.show_original_lyrics
-                    else Res.string.romanize_lyrics,
-                ),
+            TintedIcon(
+                imageVector = icon,
+                contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(19.dp).then(glyphModifier),
             )
         }
     }
@@ -1705,7 +1774,7 @@ private fun LyricsSkeleton(modifier: Modifier = Modifier) {
                                         startX = startX,
                                         endX = startX + band,
                                     )
-                                    onDrawBehind { drawRect(brush) }
+                                    onDrawBehind { drawRect(brush, blendMode = vibrantBlendMode(Color.White)) }
                                 },
                         )
                     }
@@ -2038,6 +2107,7 @@ internal fun LyricsPanel(
                     text = stringResource(Res.string.no_lyrics_for_track),
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.vibrancy(),
                 )
             }
         }
@@ -2055,6 +2125,11 @@ internal fun LyricsPanel(
             // below takes taps at the initial pass, so while a pick is open it
             // would swallow every choice before the row ever saw it.
             .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
+            // Outside the fade: its DstIn mask needs an offscreen layer, and
+            // anything blended inside that would be adding onto transparency.
+            // Composited as one, every line, dot and pick in the list is added
+            // onto the artwork — the unsung words at their dim alpha included.
+            .vibrancy()
             .fadingEdges(),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
@@ -2839,7 +2914,7 @@ private fun CurrentLyricLine(
                 imageVector = BitChordIcons.ChevronRight,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(14.dp).vibrancy(),
             )
         }
         return
@@ -2962,11 +3037,10 @@ private fun CurrentLyricLine(
                     glowAlpha = if (itemIndex == index) glow else 0f,
                     feather = itemIndex == index,
                     rise = false,
-                    modifier = fading,
+                    modifier = Modifier.vibrancy().then(fading),
                 )
             } else {
                 Text(
-                    modifier = fading,
                     text = lineText,
                     style = voiceStyle(
                         stripStyle.copy(
@@ -2978,6 +3052,7 @@ private fun CurrentLyricLine(
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.vibrancy().then(fading),
                 )
             }
         }
@@ -2989,7 +3064,7 @@ private fun CurrentLyricLine(
                 imageVector = BitChordIcons.ChevronRight,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(14.dp).vibrancy(),
             )
         } else {
             Spacer(Modifier.width(6.dp))
@@ -2999,6 +3074,7 @@ private fun CurrentLyricLine(
                 tint = Color.White.copy(alpha = 0.5f),
                 modifier = Modifier
                     .size(14.dp)
+                    .vibrancy()
                     .graphicsLayer { scaleX = -1f },
             )
         }
@@ -3030,6 +3106,7 @@ private fun LyricsUnavailableLine(trackKey: Any, modifier: Modifier = Modifier) 
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .padding(vertical = 4.dp)
+            .vibrancy()
             .graphicsLayer { this.alpha = alpha },
     )
 }
@@ -3043,7 +3120,7 @@ private fun LyricsLoadingLine(text: String, modifier: Modifier = Modifier) {
         color = Color.White.copy(alpha = 0.55f),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier.padding(vertical = 4.dp),
+        modifier = modifier.padding(vertical = 4.dp).vibrancy(),
     )
 }
 

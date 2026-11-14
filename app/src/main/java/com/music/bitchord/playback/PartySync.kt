@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -220,17 +221,27 @@ class PartySync(
                 }
         }
         jobs += scope.launch {
-            while (true) {
-                delay(TICK_MS)
-                // The screen is the only thing that opens this socket otherwise,
-                // and a party outlives the screen. A process restarted by the
-                // system into a party it is still a member of has the membership
-                // but no connection, and would sit silently out of step; this is
-                // what puts it back. Idempotent — it returns immediately when a
-                // socket is already up, or when there is no party.
-                if (ListenTogether.state.value.inParty) ListenTogether.ensureConnected()
-                reconcile()
-            }
+            // Only ticks while there is a party to follow. Outside one, every
+            // tick was a main-thread wakeup whose reconcile did nothing but
+            // reset fields already at rest — the collector above makes that
+            // same reset on the way out, as the code going null is a new key.
+            ListenTogether.state
+                .map { it.inParty }
+                .distinctUntilChanged()
+                .collectLatest { inParty ->
+                    if (!inParty) return@collectLatest
+                    while (true) {
+                        delay(TICK_MS)
+                        // The screen is the only thing that opens this socket otherwise,
+                        // and a party outlives the screen. A process restarted by the
+                        // system into a party it is still a member of has the membership
+                        // but no connection, and would sit silently out of step; this is
+                        // what puts it back. Idempotent — it returns immediately when a
+                        // socket is already up, or when there is no party.
+                        if (ListenTogether.state.value.inParty) ListenTogether.ensureConnected()
+                        reconcile()
+                    }
+                }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.ui.components.vibrantBackground
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -250,7 +251,7 @@ fun PlayerDrawer(
                     .padding(bottom = 12.dp)
                     .size(width = 36.dp, height = 4.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.25f)),
+                    .vibrantBackground(Color.White.copy(alpha = 0.25f)),
             )
             Text(
                 text = title,

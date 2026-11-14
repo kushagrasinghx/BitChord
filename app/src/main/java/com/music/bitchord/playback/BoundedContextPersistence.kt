@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.common.util.concurrent.ListenableFuture
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
@@ -11,7 +12,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 /**
  * Durable state for the logical bounded CONTEXT queue.
@@ -39,120 +39,75 @@ object BoundedContextPersistence {
         val positionMs: Long,
     )
 
-    private lateinit var prefs: SharedPreferences
+    private lateinit var store: PlaybackSnapshotStore<State>
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
         explicitNulls = false
     }
 
-    @Synchronized
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        initStores(
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
+            context.getSharedPreferences("${PREFS_NAME}_progress", Context.MODE_PRIVATE),
+        )
     }
 
-    /** Test-only dependency injection; production uses [init]. */
-    @Synchronized
-    internal fun initForTesting(testPrefs: SharedPreferences) {
-        prefs = testPrefs
-        writer = Executor { it.run() }
+    internal fun initForTesting(
+        snapshots: SharedPreferences,
+        progress: SharedPreferences,
+        writer: Executor = Executor { it.run() },
+    ) = initStores(snapshots, progress, writer)
+
+    private fun initStores(
+        snapshots: SharedPreferences,
+        progress: SharedPreferences,
+        writer: Executor = playbackPersistenceWriter,
+    ) {
+        store = PlaybackSnapshotStore(
+            snapshots, progress, KEY_STATE,
+            encode = ::encode,
+            decode = ::decode,
+            initialProgress = { it.initialProgress() },
+            legacyProgress = { prefs, state ->
+                val initial = state.initialProgress()
+                if (prefs.getString(KEY_CURRENT_ENTRY_ID, null) == initial.entryId) {
+                    initial.copy(positionMs = prefs.getLong(KEY_POSITION, state.positionMs).coerceAtLeast(0L))
+                } else initial
+            },
+            writer = writer,
+        )
     }
 
-    /**
-     * Encoding the canonical list is O(collection) and the service saves on
-     * every track change and queue edit, so [save] only records the newest
-     * state on the caller's (main) thread. One background writer encodes and
-     * stores whatever is newest when it gets there; a burst of saves costs one
-     * encode.
-     */
-    private var writer: Executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "bounded-context-save").apply { isDaemon = true }
-    }
-    private var pending: State? = null
+    private fun State.initialProgress() = PlaybackProgress(
+        index = currentIndex,
+        entryId = entries.getOrNull(currentIndex)?.song?.queueEntryId,
+        positionMs = positionMs,
+    )
 
-    /** Bumped by every clear and synchronous write, so an older queued write is dropped. */
-    private var generation = 0L
+    /** The O(collection) validation, conversion, encoding and commit all run on the writer. */
+    fun save(state: State) = store.save(state)
 
-    fun save(state: State) {
-        synchronized(this) {
-            val queued = pending != null
-            pending = state
-            if (queued) return
-        }
-        writer.execute(::flushPending)
-    }
-
-    private fun flushPending() {
-        val (state, startedAt) = synchronized(this) {
-            val next = pending ?: return
-            pending = null
-            next to generation
-        }
-        val encoded = encode(state) ?: return
-        synchronized(this) {
-            if (startedAt != generation) return
-            write(state, encoded).apply()
-        }
-    }
-
-    fun saveImmediately(state: State) {
-        synchronized(this) {
-            generation += 1
-            pending = null
-        }
-        val encoded = encode(state) ?: return
-        synchronized(this) { write(state, encoded).commit() }
-    }
-
-    private fun write(state: State, encoded: String): SharedPreferences.Editor =
-        prefs.edit()
-            .putString(KEY_STATE, encoded)
-            .putString(KEY_CURRENT_ENTRY_ID, state.entries.getOrNull(state.currentIndex)?.song?.queueEntryId)
-            .putLong(KEY_POSITION, state.positionMs.coerceAtLeast(0L))
-
-    /**
-     * Update only the cheap progress scalars for the entry that was persisted.
-     *
-     * A progress callback can race a queue replacement.  Comparing the callback's
-     * entry id with the id written beside the last snapshot prevents an old player
-     * from moving the new queue's position.  Deliberately no state decoding or JSON
-     * encoding happens here.
-     */
-    @Synchronized
+    /** A stale player callback cannot advance a newly installed queue. */
     fun savePlaybackState(currentEntryId: String?, positionMs: Long) {
-        if (currentEntryId.isNullOrBlank() || !prefs.contains(KEY_STATE)) return
-        if (runCatching { prefs.getString(KEY_CURRENT_ENTRY_ID, null) }.getOrNull() != currentEntryId) return
-        prefs.edit()
-            .putLong(KEY_POSITION, positionMs.coerceAtLeast(0L))
-            .apply()
+        if (currentEntryId.isNullOrBlank()) return
+        store.updateProgress { saved ->
+            saved.progress.takeIf { it.entryId == currentEntryId }
+                ?.copy(positionMs = positionMs.coerceAtLeast(0L))
+        }
     }
 
-    /** A malformed snapshot is treated as absent by design. */
-    @Synchronized
     fun load(): State? {
-        val raw = runCatching { prefs.getString(KEY_STATE, null) }.getOrNull() ?: return null
-        val state = decode(raw) ?: return null
-        val currentEntryId = state.entries[state.currentIndex].song.queueEntryId
-        val scalarEntryId = runCatching { prefs.getString(KEY_CURRENT_ENTRY_ID, null) }.getOrNull()
-        if (currentEntryId != scalarEntryId) return state
-        val positionMs = runCatching { prefs.getLong(KEY_POSITION, state.positionMs) }.getOrNull()
-            ?: return state
-        return state.copy(positionMs = positionMs.coerceAtLeast(0L))
+        val saved = store.load() ?: return null
+        val state = saved.snapshot
+        return if (state.initialProgress().entryId == saved.progress.entryId) {
+            state.copy(positionMs = saved.progress.positionMs)
+        } else state
     }
 
-    @Synchronized
-    fun clear() {
-        generation += 1
-        pending = null
-        prefs.edit().clear().apply()
-    }
+    fun clear() = store.clear()
 
-    @Synchronized
-    fun clearImmediately() {
-        generation += 1
-        pending = null
-        prefs.edit().clear().commit()
-    }
+    fun flush(): ListenableFuture<Boolean> = store.flush()
 
     /** Visible to JVM tests; the Android wrapper above remains the only writer. */
     internal fun encode(state: State): String? = runCatching {

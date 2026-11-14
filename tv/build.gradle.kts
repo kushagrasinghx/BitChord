@@ -87,6 +87,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // The phone app's frame diagnostics compile in from the shared sources;
+        // the TV build never records them.
+        buildConfigField("boolean", "PERFORMANCE_DIAGNOSTICS", "false")
+
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
@@ -319,6 +323,8 @@ dependencies {
     // The scheduled check behind "Keep playlists updated"; see PlaylistSync.
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    // Read by the shared frame diagnostics, which report whether a baseline profile was compiled in.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 

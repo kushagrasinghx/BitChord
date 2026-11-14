@@ -73,6 +73,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.guava.future
 import com.music.bitchord.playback.audio.DspChain
 import com.music.bitchord.playback.cast.CastController
@@ -2184,7 +2185,7 @@ class PlaybackService : MediaLibraryService() {
                 activePlayer.removeMediaItems(oldTail, activePlayer.mediaItemCount)
             }
             if (currentIndex > 0) activePlayer.removeMediaItems(0, currentIndex)
-            saveQueueSnapshotImmediately(activePlayer)
+            saveRestartBoundary(activePlayer)
         }
     }
 
@@ -2799,7 +2800,7 @@ class PlaybackService : MediaLibraryService() {
             BoundedContextRequests.discard(requestToken)
             return
         }
-        BoundedContextPersistence.clearImmediately()
+        BoundedContextPersistence.clear()
         boundedEditState = BoundedQueueEdits.invalidateContext(boundedEditState)
 
         val source = request.source
@@ -2905,7 +2906,7 @@ class PlaybackService : MediaLibraryService() {
             songs = emptyList(),
             continuationToken = null,
         )
-        BoundedContextPersistence.clearImmediately()
+        BoundedContextPersistence.clear()
         boundedContextWindow = null
         boundedContextToken = null
         boundedContextSource = null
@@ -6093,27 +6094,27 @@ class PlaybackService : MediaLibraryService() {
         savePlaybackState(player)
     }
 
-    /** Make the newly installed radio queue the durable cold-start boundary. */
-    private fun saveQueueSnapshotImmediately(player: ExoPlayer) {
+    /** Capture the new radio restart boundary; the session acknowledges it after [persistenceResult]. */
+    private fun saveRestartBoundary(player: ExoPlayer) {
         if (ListenTogether.state.value.inParty) return
         if (player.mediaItemCount == 0) {
             persistedQueueStart = 0
-            LastPlayed.clearImmediately()
-            BoundedContextPersistence.clearImmediately()
+            LastPlayed.clear()
+            BoundedContextPersistence.clear()
             return
         }
         val range = LastPlayed.window(player.mediaItemCount, player.currentMediaItemIndex)
         persistedQueueStart = range.first
-        LastPlayed.saveQueueImmediately(
-            songs = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).toSong() },
-            index = player.currentMediaItemIndex,
+        LastPlayed.saveQueue(
+            songs = range.map { player.getMediaItemAt(it).toSong() },
+            index = player.currentMediaItemIndex - range.first,
             positionMs = player.currentPosition,
         )
-        saveBoundedContextSnapshot(player, immediately = true)
+        saveBoundedContextSnapshot(player)
     }
 
     /** Capture logical state and only the materialized bounded projection. */
-    private fun saveBoundedContextSnapshot(player: ExoPlayer, immediately: Boolean = false) {
+    private fun saveBoundedContextSnapshot(player: ExoPlayer) {
         if (ListenTogether.state.value.inParty) return
         val window = boundedContextWindow ?: return
         val context = boundedContextRegistry.snapshot() ?: return
@@ -6138,7 +6139,7 @@ class PlaybackService : MediaLibraryService() {
             currentIndex = currentIndex - range.first,
             positionMs = player.currentPosition,
         )
-        if (immediately) BoundedContextPersistence.saveImmediately(state) else BoundedContextPersistence.save(state)
+        BoundedContextPersistence.save(state)
     }
 
     /** Drop every service-side reference that could resurrect the former queue. */
@@ -6152,8 +6153,23 @@ class PlaybackService : MediaLibraryService() {
         repeatAllStashSeed = null
         sessionSongHistory.clear()
         persistedQueueStart = 0
-        LastPlayed.clearImmediately()
+        LastPlayed.clear()
     }
+
+    /**
+     * Queue-boundary commands acknowledge durability after the background writer
+     * finishes. Waiting in their returned future keeps Media3's main looper free
+     * and preserves begin/replace/commit ordering for controllers that await it.
+     */
+    private fun persistenceResult(): ListenableFuture<SessionResult> = Futures.transform(
+        Futures.allAsList(LastPlayed.flush(), BoundedContextPersistence.flush()),
+        { results ->
+            SessionResult(
+                if (results?.all { it } == true) SessionResult.RESULT_SUCCESS else SessionError.ERROR_UNKNOWN,
+            )
+        },
+        MoreExecutors.directExecutor(),
+    )
 
     /** Persist index and position without touching or serializing queue contents. */
     private fun savePlaybackState(player: ExoPlayer) {
@@ -6185,7 +6201,7 @@ class PlaybackService : MediaLibraryService() {
     private fun restoreBoundedQueueOrLast(player: ExoPlayer): Boolean {
         val persisted = BoundedContextPersistence.load()
         if (persisted != null && restoreBoundedQueue(player, persisted)) return true
-        if (persisted != null) BoundedContextPersistence.clearImmediately()
+        if (persisted != null) BoundedContextPersistence.clear()
         return restoreLastQueue(player)
     }
 
@@ -8694,15 +8710,27 @@ class PlaybackService : MediaLibraryService() {
             args: Bundle,
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
-                ACTION_START_BOUNDED_CONTEXT -> startBoundedContext(args)
-                ACTION_CLEAR_BOUNDED_CONTEXT -> clearBoundedContext()
+                ACTION_START_BOUNDED_CONTEXT -> {
+                    startBoundedContext(args)
+                    return persistenceResult()
+                }
+                ACTION_CLEAR_BOUNDED_CONTEXT -> {
+                    clearBoundedContext()
+                    return persistenceResult()
+                }
                 ACTION_TOGGLE_AUTOPLAY -> toggleAutoplayFromNotification()
                 ACTION_TOGGLE_SHUFFLE -> toggleShuffleFromSession()
                 ACTION_START_STATION -> startStationFromSession()
                 ACTION_REVERT_TO_ORIGINAL -> revertCurrentToOriginal()
                 ACTION_SWAP_TO_VERSION -> swapCurrentToVersion(args)
-                ACTION_BEGIN_RADIO_QUEUE -> beginRadioQueue()
-                ACTION_COMMIT_RADIO_QUEUE -> player?.let(::saveQueueSnapshotImmediately)
+                ACTION_BEGIN_RADIO_QUEUE -> {
+                    beginRadioQueue()
+                    return persistenceResult()
+                }
+                ACTION_COMMIT_RADIO_QUEUE -> {
+                    player?.let(::saveRestartBoundary)
+                    return persistenceResult()
+                }
                 ACTION_UPGRADE_QUALITY -> upgradeQualityNow()
                 ACTION_SWAP_VERSION -> {
                     val bundle = args.getBundle(EXTRA_SWAP_MEDIA_ITEM)

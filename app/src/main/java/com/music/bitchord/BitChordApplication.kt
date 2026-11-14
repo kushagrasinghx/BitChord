@@ -34,6 +34,7 @@ import com.music.bitchord.playback.BoundedContextPersistence
 import com.music.bitchord.playback.OriginalVersion
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.AndroidStreamHooks
+import com.music.bitchord.data.innertube.potoken.PoTokenWebView
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
@@ -181,6 +182,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // suspend call chain that reaches it (a track's canvas lookup) has
         // one to hand — see SpotifyToken's doc for why.
         SpotifyToken.init(this)
+        // That WebView and the BotGuard one behind PoTokens would otherwise pay
+        // Chromium's one-off start-up on the main thread whenever the first of
+        // them is built — usually mid-animation. This moves it to just after
+        // the first frame; see PoTokenWebView.warmUpAfterFirstFrame.
+        PoTokenWebView.warmUpAfterFirstFrame(this)
         // A sideloaded update is just a new APK over the old one, so app data —
         // including whatever the old build left in the image cache — survives
         // it untouched. Wipe that on the first launch of a higher versionCode so

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.music.bitchord.ui.components.vibrancy
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
 import java.util.Locale
@@ -142,7 +143,7 @@ fun ReplayCreditCard(
                     letterSpacing = 1.4.sp,
                     lineHeight = 13.sp,
                     color = Color.White.copy(alpha = 0.72f),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).vibrancy(),
                 )
                 Spacer(Modifier.width(10.dp))
                 Icon(
@@ -173,6 +174,7 @@ fun ReplayCreditCard(
                 fontWeight = FontWeight.W700,
                 letterSpacing = 1.8.sp,
                 color = Color.White.copy(alpha = 0.65f),
+                modifier = Modifier.vibrancy(),
             )
 
             // Weighted either side rather than pinned to the foot, so the figure
@@ -193,6 +195,7 @@ fun ReplayCreditCard(
                             color = Color.White.copy(alpha = 0.6f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.vibrancy(),
                         )
                     }
                 }
@@ -213,6 +216,7 @@ fun ReplayCreditCard(
                             // under it — the one misalignment on the card that
                             // catches the eye every time.
                             textAlign = TextAlign.End,
+                            modifier = Modifier.vibrancy(),
                         )
                         Embossed(text = memberSince, size = 12.sp)
                     }
@@ -254,6 +258,7 @@ private fun Embossed(text: String, size: TextUnit) {
  */
 @Composable
 fun RankBadge(rank: Int, accent: Color, modifier: Modifier = Modifier) {
+    val color = if (rank == 1) accent else Color.White.copy(alpha = 0.45f)
     Text(
         text = rank.toString(),
         style = if (rank == 1) {
@@ -262,8 +267,8 @@ fun RankBadge(rank: Int, accent: Color, modifier: Modifier = Modifier) {
             MaterialTheme.typography.titleMedium
         },
         fontWeight = FontWeight.W800,
-        color = if (rank == 1) accent else Color.White.copy(alpha = 0.45f),
-        modifier = modifier.width(28.dp),
+        color = color,
+        modifier = modifier.width(28.dp).vibrancy(color),
     )
 }
 

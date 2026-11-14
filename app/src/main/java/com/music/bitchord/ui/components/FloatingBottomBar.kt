@@ -267,7 +267,10 @@ fun FloatingBottomBar(
                     )
                 },
             )
-            .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, pillShape)
+            // The glass draws its own edge; the hairline is for the other materials.
+            .then(
+                if (useGlass && !reduceDynamicBlur) Modifier else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, pillShape),
+            )
             .padding(horizontal = PILL_INSET, vertical = PILL_INSET),
     ) {
         if (tabWidthPx > 0f) {
@@ -338,20 +341,14 @@ fun FloatingBottomBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A real glass pill samples whatever artwork is behind it, not the
-            // theme's surface color, so a fixed onSurfaceVariant gray can lose
-            // contrast against it. Glass mode reads luminance off the surface
-            // color instead and picks pure black or white, same as the tint
-            // Echo's floating nav bar uses for its own liquid glass.
-            val glassTint = glassContentColor()
-            val adaptiveTint = if (useGlass) glassTint else null
+            val glassTint = if (useGlass) glassContentColor() else null
             tabs.forEachIndexed { index, tab ->
                 BottomBarItem(
                     tab = tab,
                     selected = index == selectedIndex,
                     glassSpec = glassSpec,
-                    selectedTint = adaptiveTint,
-                    unselectedTint = adaptiveTint?.copy(alpha = 0.65f),
+                    selectedTint = glassTint,
+                    unselectedTint = glassTint?.copy(alpha = 0.65f),
                     onClick = { onTabSelected(index) },
                     onActiveTabTap = onActiveTabTap,
                     modifier = Modifier.weight(1f),

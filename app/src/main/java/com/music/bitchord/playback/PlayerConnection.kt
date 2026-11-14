@@ -332,21 +332,39 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             refreshCurrentQueueItem: Boolean = false,
         ) {
             val item = player.currentMediaItem
+            // Every conversion below is a new Song, and Song comes from a module
+            // Compose doesn't analyse, so a row handed one compares it by
+            // identity: a new instance equal to the old one still recomposes
+            // every row and every reader of the playing track. An entry that
+            // converts to the same value keeps the instance it already had.
             if (rebuildQueue) {
-                queueSnapshot = (0 until player.mediaItemCount)
-                    .map { player.getMediaItemAt(it).toSong() }
+                val previous = queueSnapshot
+                // Keyed the way [onTimelineChanged] below tells entries apart:
+                // the entry id where the queue assigned one, else the video.
+                val byEntry = previous.associateBy { it.queueEntryId ?: it.videoId }
+                val rebuilt = (0 until player.mediaItemCount).map { index ->
+                    val fresh = player.getMediaItemAt(index).toSong()
+                    byEntry[fresh.queueEntryId ?: fresh.videoId]?.takeIf { it == fresh } ?: fresh
+                }
+                queueSnapshot = if (
+                    rebuilt.size == previous.size && rebuilt.indices.all { rebuilt[it] === previous[it] }
+                ) previous else rebuilt
             } else if (refreshCurrentQueueItem && item != null) {
                 val index = player.currentMediaItemIndex
                 if (index in queueSnapshot.indices) {
-                    queueSnapshot = queueSnapshot.toMutableList().also { it[index] = item.toSong() }
+                    val fresh = item.toSong()
+                    if (fresh != queueSnapshot[index]) {
+                        queueSnapshot = queueSnapshot.toMutableList().also { it[index] = fresh }
+                    }
                 }
             }
+            val current = item?.toSong()?.let { fresh -> state.song?.takeIf { it == fresh } ?: fresh }
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
             val playing = player.isPlaying
             position.report(player.currentPosition.coerceAtLeast(0L), isPlaying = playing)
             state = state.copy(
-                song = item?.toSong(),
+                song = current,
                 isPlaying = playing,
                 durationMs = player.duration.coerceAtLeast(0L),
                 error = error,

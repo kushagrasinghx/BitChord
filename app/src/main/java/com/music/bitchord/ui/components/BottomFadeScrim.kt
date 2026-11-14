@@ -3,7 +3,6 @@ package com.music.bitchord.ui.components
 import androidx.compose.animation.core.EaseInCubic
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,8 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -72,8 +71,12 @@ fun BottomFadeScrim(
      * The colour to fade in — whatever the page is painting at the foot of the
      * screen. The theme's background on a tab, and on a detail page the tint
      * its wash has settled into down here rather than the wash itself.
+     *
+     * A reader, called as the strip draws: a detail page's colour crossfades
+     * in, and read by the caller every frame of that would recompose the
+     * caller — the app's root — to repaint a gradient.
      */
-    pageColor: Color = MaterialTheme.colorScheme.background,
+    pageColor: () -> Color = MaterialTheme.colorScheme.background.let { { it } },
 ) {
     // The gesture bar sits below the tab pill and wants covering too, so it is
     // added on rather than being part of the fade's own run.
@@ -86,25 +89,26 @@ fun BottomFadeScrim(
         label = "bottomScrimHeight",
     )
 
-    val brush = remember(pageColor) {
-        Brush.verticalGradient(
-            // A cubic ease-in rather than a straight ramp: the alpha then holds
-            // under a few percent for the first half of the strip, which is what
-            // stops the eye from finding the line where the layer starts. Its
-            // whole run is spent arriving — the same curve the blur it replaced
-            // ramped its radius along, so the strip reads at the same weight.
-            colorStops = Array(STOPS) { i ->
-                val t = i / (STOPS - 1f)
-                t to pageColor.copy(alpha = EaseInCubic.transform(t))
-            },
-        )
-    }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .background(brush),
+            .drawWithCache {
+                // Rebuilt when the colour it reads changes, and only then.
+                val color = pageColor()
+                val brush = Brush.verticalGradient(
+                    // A cubic ease-in rather than a straight ramp: the alpha then holds
+                    // under a few percent for the first half of the strip, which is what
+                    // stops the eye from finding the line where the layer starts. Its
+                    // whole run is spent arriving — the same curve the blur it replaced
+                    // ramped its radius along, so the strip reads at the same weight.
+                    colorStops = Array(STOPS) { i ->
+                        val t = i / (STOPS - 1f)
+                        t to color.copy(alpha = EaseInCubic.transform(t))
+                    },
+                )
+                onDrawBehind { drawRect(brush) }
+            },
     )
 }
 

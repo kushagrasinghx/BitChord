@@ -157,6 +157,8 @@ import com.music.bitchord.ui.theme.stableStatusBarInsets
 import com.music.bitchord.ui.theme.rememberArtworkTopBandLuminance
 import com.music.bitchord.ui.theme.topBandScrimAlpha
 import com.music.bitchord.ui.LyricsProviderState
+import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.components.vibrancy
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -175,11 +177,9 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
-import com.music.bitchord.ui.components.optimizedHazeEffect
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -1796,6 +1796,11 @@ fun NowPlayingScreen(
         }
     }
 
+    // On the background of whichever shape of the player is up, for the like
+    // and menu buttons' glass to bend — see [PlayerGlass].
+    val playerGlass = LocalPlayerGlass.current
+    val glassBackdrop = remember(playerGlass) { playerGlass?.run { Modifier.glassBackdrop() } ?: Modifier }
+
     // Docking into the mini player — see [PlayerDock]. Both shapes of the
     // player take part: the portrait sleeve morphs into the cover (see the
     // sleeve), the landscape one is carried and scaled onto it (see
@@ -2092,7 +2097,7 @@ fun NowPlayingScreen(
                     background = { backgroundModifier ->
                         // The whole screen is the sheets' frost source: there is
                         // no full-bleed banner here to be it instead.
-                        fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze))
+                        fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze).then(glassBackdrop))
                     },
                     artwork = { artworkModifier ->
                         LandscapeArtwork(
@@ -2352,182 +2357,8 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged { playerBounds = it }
-                    .then(dockHost)
-                    .background(Color.Black),
+                    .then(dockHost),
             ) {
-                // Three themes, one rule between them: a full-screen Spotify Canvas
-                // is its own backdrop until a panel opens.
-                //
-                // Simple: the blurred still cover the lyrics and queue use, under the
-                // main player as well — square or portrait clip, or still art. The
-                // banner and the clip each feather their own bottom edge into it.
-                // It is one image blurred once per song off the main thread, so
-                // nothing here is re-blurred while the player opens, closes or
-                // collapses, or while a clip plays over it.
-                //
-                // Legacy mesh is the whole backdrop on every page, so the lyrics and
-                // queue panels must not crossfade the blurred artwork over it.
-                //
-                // Default: the artwork's own mesh under the main player, with the
-                // blurred cover fading in over it for the lyrics and queue, which
-                // have no sleeve for a mesh to carry on from.
-                val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
-                    playerTheme == PlayerTheme.LEGACY
-                val artworkMeshBackdrop = !tabletArtworkBackdrop && playerTheme == PlayerTheme.DEFAULT
-                val fullArtworkBackdropAlpha by animateFloatAsState(
-                    targetValue = if (
-                        !legacyMeshBackdrop &&
-                        (tabletArtworkBackdrop || fullArtworkBlurImage != null) &&
-                        (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
-                        (!artworkMeshBackdrop || lyricsOpen || queueOpen)
-                    ) 1f else 0f,
-                    animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-                    label = "fullArtworkBackdropCrossfade",
-                )
-                if (legacyMeshBackdrop) {
-                    // v1.5's backdrop, restored verbatim: no seam, because the blobs
-                    // are not anchored to anything on screen — they fill the player and
-                    // the artwork simply sits on top of them. Keyed on the track, so
-                    // they drift when the player opens and on every skip, then rest.
-                    LegacyMeshBackdrop(
-                        imageUrl = remoteArt,
-                        canvasFrame = { canvasFrame },
-                        trackKey = song.videoId,
-                        modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
-                    )
-                }
-                if (artworkMeshBackdrop) {
-                    // Hung from where the picture stops, so the screen carries on in
-                    // the colours the artwork ended in: the banner's bottom edge, or
-                    // a portrait clip's or its still's. Left there as the player
-                    // collapses rather than following the sleeve down, since above
-                    // the seam the mesh holds one colour, so a seam left behind a
-                    // collapsed sleeve shows nothing at all.
-                    //
-                    // Stays mounted under a full-screen Spotify Canvas, undrawn, for
-                    // a panel opening over it to find ready.
-                    PlayerMeshBackdrop(
-                        trackKey = song.videoId,
-                        imageUrl = remoteArt,
-                        canvasFrame = { canvasFrame },
-                        seamTarget = {
-                            val stillBottom = stillBottomPx()
-                            when {
-                                clipPortrait -> clipBottom
-                                stillBottom > 0f -> with(density) { stillBottom.toDp() }
-                                heroMode -> heroHeight
-                                else -> 0.dp
-                            }
-                        },
-                        // Whole until the blurred cover has covered it, rather than
-                        // the two fading through each other and dipping toward the
-                        // black beneath, and out of the frame altogether after that.
-                        alpha = {
-                            if (spotifyCanvasPresentation || fullArtworkBackdropAlpha >= 1f) 0f else 1f
-                        },
-                    )
-                }
-                fullArtworkBlurContent(
-                    Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
-                )
-
-                // Mount once, behind the controls. A known portrait aspect changes the
-                // invisible view to full-player bounds before its first frame is shown.
-                if (heroMode && heroHeight > 0.dp) {
-                    heroClipMounted?.let { clip ->
-                        val stillStart = remember(clip.url) { stillAtMount() }
-                        CanvasArtworkPlayer(
-                            canvas = clip,
-                            isPlaying = isPlaying,
-                            // Paused for the whole collapse into the queue/lyrics panel
-                            // and back, not just once it hands off to the still frame at
-                            // p >= 0.5 — see [CanvasArtworkPlayer.pausedForTransition].
-                            // And for the whole trip to or from the mini player.
-                            //
-                            // The panels asked first: a collapse a tap asked for is
-                            // paused from the tap, and this screen doesn't then listen
-                            // for the sleeve's first frame of movement as well.
-                            //
-                            // Not for the drawers, popups and ⋯ menu over a
-                            // full-screen Spotify Canvas, though: that is the whole
-                            // screen, and keeps playing under them, blurred live.
-                            pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
-                                collapseStarted || dockMoving || (overlayOpen.value && !clipFullscreen),
-                            // Spotify's 9:16 Canvas is the phone background, so it
-                            // covers every edge. Other providers retain the contained
-                            // portrait treatment introduced for motion cover art.
-                            contentMode = if (clipFullscreen) {
-                                CanvasContentMode.CROP
-                            } else {
-                                CanvasContentMode.FIT_PORTRAIT
-                            },
-                            alignPortraitTop = clipPortrait,
-                            onAspectRatioChanged = { canvasAspect = it },
-                            portraitRevealBounds = playerBounds,
-                            // Gone by the half, where [heroClip] lets it go — and the
-                            // still sleeve collapsing over it takes exactly the cover
-                            // this gives up, so the two never leave a gap or a pop
-                            // between them.
-                            // And with the rest of the player as it docks: a
-                            // TextureView doesn't reliably take the fade from a
-                            // Compose layer around it.
-                            //
-                            // Out of sight altogether while its still stands in for it.
-                            presentationAlpha = {
-                                if (stillTakesOver()) 0f
-                                else clipTransitionAlpha()
-                            },
-                            // A full-screen Spotify Canvas holds its frame for a beat
-                            // once the player has come all the way up, rather than
-                            // setting off with the end of the movement.
-                            resumeDelayMs = if (clipFullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
-                            startPositionMs = stillStart?.positionMs ?: 0L,
-                            revealInstantly = stillStart != null,
-                            captureStill = stillMoving && !clipFullscreen,
-                            onStillCaptured = onStillCaptured,
-                            onResumed = onClipResumed,
-                            onRenderedChanged = { canvasRendered = it },
-                            // Frames only for a mesh that will use them.
-                            frameCapturePx = if (tintsOffClip && !clipFullscreen && !tabletArtworkBackdrop) {
-                                CANVAS_FRAME_CAPTURE_PX
-                            } else {
-                                0
-                            },
-                            onFrameCaptured = {
-                                if (!clipFullscreen && !tabletArtworkBackdrop &&
-                                    !lyricsOpen && !queueOpen && !queueDragging
-                                ) canvasFrame = it
-                            },
-                            // The full-screen Spotify video has no mesh to re-tint.
-                            // Keeping this null also removes the old three-second GPU
-                            // readback cadence from this provider alone.
-                            refreshFrameEveryMs = if (
-                                clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
-                                queueDragging || dockMoving
-                            ) {
-                                null
-                            } else {
-                                meshRefreshMs
-                            },
-                            onCoverChanged = { canvasCover.floatValue = it },
-                            bottomFade = when {
-                                clipFullscreen -> 0f
-                                clipPortrait -> clipFadeFraction
-                                else -> HERO_FADE_FRACTION
-                            },
-                            bottomFadeEndPx = if (clipPortrait) with(density) { clipBottom.toPx() }
-                                else null,
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .then(
-                                    if (clipFullscreen || clipPortrait) Modifier.fillMaxSize()
-                                    else Modifier.fillMaxWidth().height(heroHeight),
-                                )
-                                .hazeSource(playerHaze),
-                        )
-                    }
-                }
-
                 // This transparent top gradient is always present while the modal
                 // player owns the system bar. Its opacity follows the actual top-band
                 // artwork, rather than changing the status-bar glyph colour per cover.
@@ -2555,111 +2386,288 @@ fun NowPlayingScreen(
                 }
                 // Painted by the handle strip rather than laid out here — see there.
 
-                if (artworkMeshBackdrop && clipPortrait && canvasAspect < PORTRAIT_SCRIM_MAX_ASPECT) {
-                    // A clip tall enough to run on under the controls stays visible
-                    // through them; a plain scrim protects text and touch targets
-                    // without erasing the video. A 3:4 cover has stopped by then.
-                    Box(
-                        Modifier.matchParentSize()
-                            .graphicsLayer {
-                                alpha = canvasCover.floatValue * (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
-                            }
-                            .background(PortraitClipScrim),
+                // The player's background, everything under its controls, in one box
+                // for the glass controls to sample — see [PlayerGlass]. The black under
+                // the pictures is here rather than on the player for the same reason:
+                // a backdrop with nothing under them blurs their edges into nothing.
+                Box(Modifier.matchParentSize().then(glassBackdrop).background(Color.Black)) {
+                    // Three themes, one rule between them: a full-screen Spotify Canvas
+                    // is its own backdrop until a panel opens.
+                    //
+                    // Simple: the blurred still cover the lyrics and queue use, under the
+                    // main player as well — square or portrait clip, or still art. The
+                    // banner and the clip each feather their own bottom edge into it.
+                    // It is one image blurred once per song off the main thread, so
+                    // nothing here is re-blurred while the player opens, closes or
+                    // collapses, or while a clip plays over it.
+                    //
+                    // Legacy mesh is the whole backdrop on every page, so the lyrics and
+                    // queue panels must not crossfade the blurred artwork over it.
+                    //
+                    // Default: the artwork's own mesh under the main player, with the
+                    // blurred cover fading in over it for the lyrics and queue, which
+                    // have no sleeve for a mesh to carry on from.
+                    val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
+                        playerTheme == PlayerTheme.LEGACY
+                    val artworkMeshBackdrop = !tabletArtworkBackdrop && playerTheme == PlayerTheme.DEFAULT
+                    val fullArtworkBackdropAlpha by animateFloatAsState(
+                        targetValue = if (
+                            !legacyMeshBackdrop &&
+                            (tabletArtworkBackdrop || fullArtworkBlurImage != null) &&
+                            (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
+                            (!artworkMeshBackdrop || lyricsOpen || queueOpen)
+                        ) 1f else 0f,
+                        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+                        label = "fullArtworkBackdropCrossfade",
                     )
-                }
+                    if (legacyMeshBackdrop) {
+                        // v1.5's backdrop, restored verbatim: no seam, because the blobs
+                        // are not anchored to anything on screen — they fill the player and
+                        // the artwork simply sits on top of them. Keyed on the track, so
+                        // they drift when the player opens and on every skip, then rest.
+                        LegacyMeshBackdrop(
+                            imageUrl = remoteArt,
+                            canvasFrame = { canvasFrame },
+                            trackKey = song.videoId,
+                            modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
+                        )
+                    }
+                    if (artworkMeshBackdrop) {
+                        // Hung from where the picture stops, so the screen carries on in
+                        // the colours the artwork ended in: the banner's bottom edge, or
+                        // a portrait clip's or its still's. Left there as the player
+                        // collapses rather than following the sleeve down, since above
+                        // the seam the mesh holds one colour, so a seam left behind a
+                        // collapsed sleeve shows nothing at all.
+                        //
+                        // Stays mounted under a full-screen Spotify Canvas, undrawn, for
+                        // a panel opening over it to find ready.
+                        PlayerMeshBackdrop(
+                            trackKey = song.videoId,
+                            imageUrl = remoteArt,
+                            canvasFrame = { canvasFrame },
+                            seamTarget = {
+                                val stillBottom = stillBottomPx()
+                                when {
+                                    clipPortrait -> clipBottom
+                                    stillBottom > 0f -> with(density) { stillBottom.toDp() }
+                                    heroMode -> heroHeight
+                                    else -> 0.dp
+                                }
+                            },
+                            // Whole until the blurred cover has covered it, rather than
+                            // the two fading through each other and dipping toward the
+                            // black beneath, and out of the frame altogether after that.
+                            alpha = {
+                                if (spotifyCanvasPresentation || fullArtworkBackdropAlpha >= 1f) 0f else 1f
+                            },
+                        )
+                    }
+                    fullArtworkBlurContent(
+                        Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
+                    )
 
-                // Spotify Canvas keeps its pixels sharp across the whole phone. Pure
-                // glass blur belongs only under the temporary lower control deck,
-                // above the video. When the deck slides away this layer leaves with
-                // it as well.
-                AnimatedVisibility(
-                    visible = spotifyCanvasPresentation && spotifyCanvasControlsOpen,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.56f),
-                    enter = fadeIn(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideIn(),
-                    exit = fadeOut(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideOut(),
-                ) {
-                    // Subscribe only while Spotify's glass layer exists. Static art and
-                    // non-Spotify motion covers do not observe this new state at all.
-                    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                // Flat, too, while a drawer or the ⋯ menu is up: those
-                                // blur the playing Canvas live themselves, and the
-                                // deck's glass under them would be a second live blur
-                                // of the same video for a deck nobody can see.
-                                if (reduceDynamicBlur || !renderEffectBlurSupported || overlayOpen.value) {
-                                    // A real backdrop RenderEffect is unavailable on
-                                    // older Android versions and intentionally skipped
-                                    // when dynamic blur is reduced. Retain the deck's
-                                    // contrast without paying for a fake blur path,
-                                    // while keeping the same progressive top edge as
-                                    // the live glass surface.
-                                    Modifier.background(
-                                        Brush.verticalGradient(
-                                            0.00f to Color.Transparent,
-                                            SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black.copy(alpha = 0.40f),
-                                            1.00f to Color.Black.copy(alpha = 0.40f),
-                                        ),
-                                    )
+                    // Mount once, behind the controls. A known portrait aspect changes the
+                    // invisible view to full-player bounds before its first frame is shown.
+                    if (heroMode && heroHeight > 0.dp) {
+                        heroClipMounted?.let { clip ->
+                            val stillStart = remember(clip.url) { stillAtMount() }
+                            CanvasArtworkPlayer(
+                                canvas = clip,
+                                isPlaying = isPlaying,
+                                // Paused for the whole collapse into the queue/lyrics panel
+                                // and back, not just once it hands off to the still frame at
+                                // p >= 0.5 — see [CanvasArtworkPlayer.pausedForTransition].
+                                // And for the whole trip to or from the mini player.
+                                //
+                                // The panels asked first: a collapse a tap asked for is
+                                // paused from the tap, and this screen doesn't then listen
+                                // for the sleeve's first frame of movement as well.
+                                //
+                                // Not for the drawers, popups and ⋯ menu over a
+                                // full-screen Spotify Canvas, though: that is the whole
+                                // screen, and keeps playing under them, blurred live.
+                                pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
+                                    collapseStarted || dockMoving || (overlayOpen.value && !clipFullscreen),
+                                // Spotify's 9:16 Canvas is the phone background, so it
+                                // covers every edge. Other providers retain the contained
+                                // portrait treatment introduced for motion cover art.
+                                contentMode = if (clipFullscreen) {
+                                    CanvasContentMode.CROP
                                 } else {
-                                    Modifier.optimizedHazeEffect(
-                                        state = playerHaze,
-                                        // Do not use HazeMaterials with Transparent:
-                                        // that preset treats transparent RGB as black
-                                        // and replaces its alpha with a dark 0.8 tint.
-                                        style = HazeStyle(
-                                            backgroundColor = Color.Transparent,
-                                            tints = emptyList(),
-                                            // Canvas stays sharp above the deck; the
-                                            // lower glass needs stronger separation
-                                            // from a moving video than static artwork.
-                                            blurRadius = 48.dp,
-                                            noiseFactor = 0f,
-                                            fallbackTint = HazeTint(Color.Transparent),
-                                        ),
-                                    ) {
-                                        // This is a continuously changing video, so a
-                                        // full third-resolution backdrop is still more
-                                        // detail than a 48dp blur can preserve. At 18%
-                                        // this processes roughly 30% of the pixels used
-                                        // by optimizedHazeEffect's normal 33% path.
-                                        inputScale = HazeInputScale.Fixed(0.18f)
-                                        canDrawArea = { true }
-                                        mask = Brush.verticalGradient(
-                                            0.00f to Color.Transparent,
-                                            SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black,
-                                            1.00f to Color.Black,
-                                        )
-                                    }
+                                    CanvasContentMode.FIT_PORTRAIT
                                 },
-                            ),
-                    )
-                }
+                                alignPortraitTop = clipPortrait,
+                                onAspectRatioChanged = { canvasAspect = it },
+                                portraitRevealBounds = playerBounds,
+                                // Gone by the half, where [heroClip] lets it go — and the
+                                // still sleeve collapsing over it takes exactly the cover
+                                // this gives up, so the two never leave a gap or a pop
+                                // between them.
+                                // And with the rest of the player as it docks: a
+                                // TextureView doesn't reliably take the fade from a
+                                // Compose layer around it.
+                                //
+                                // Out of sight altogether while its still stands in for it.
+                                presentationAlpha = {
+                                    if (stillTakesOver()) 0f
+                                    else clipTransitionAlpha()
+                                },
+                                // A full-screen Spotify Canvas holds its frame for a beat
+                                // once the player has come all the way up, rather than
+                                // setting off with the end of the movement.
+                                resumeDelayMs = if (clipFullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
+                                startPositionMs = stillStart?.positionMs ?: 0L,
+                                revealInstantly = stillStart != null,
+                                captureStill = stillMoving && !clipFullscreen,
+                                onStillCaptured = onStillCaptured,
+                                onResumed = onClipResumed,
+                                onRenderedChanged = { canvasRendered = it },
+                                // Frames only for a mesh that will use them.
+                                frameCapturePx = if (tintsOffClip && !clipFullscreen && !tabletArtworkBackdrop) {
+                                    CANVAS_FRAME_CAPTURE_PX
+                                } else {
+                                    0
+                                },
+                                onFrameCaptured = if (!tintsOffClip || clipFullscreen || tabletArtworkBackdrop) null else {
+                                    { canvasFrame = it }
+                                },
+                                // The full-screen Spotify video has no mesh to re-tint.
+                                // Keeping this null also removes the old three-second GPU
+                                // readback cadence from this provider alone.
+                                refreshFrameEveryMs = if (
+                                    clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
+                                    queueDragging || dockMoving
+                                ) {
+                                    null
+                                } else {
+                                    meshRefreshMs
+                                },
+                                onCoverChanged = { canvasCover.floatValue = it },
+                                bottomFade = when {
+                                    clipFullscreen -> 0f
+                                    clipPortrait -> clipFadeFraction
+                                    else -> HERO_FADE_FRACTION
+                                },
+                                bottomFadeEndPx = if (clipPortrait) with(density) { clipBottom.toPx() }
+                                    else null,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .then(
+                                        if (clipFullscreen || clipPortrait) Modifier.fillMaxSize()
+                                        else Modifier.fillMaxWidth().height(heroHeight),
+                                    )
+                                    .hazeSource(playerHaze),
+                            )
+                        }
+                    }
 
-                // While the control deck is up, the whole Canvas sits under a flat 50%
-                // dim so the buttons and text read against any clip. It fades out as
-                // the deck collapses to the full-screen video, and back in with the
-                // deck, on the deck's own timing. Alpha is read in the draw phase, so
-                // the fade never recomposes the player. Drawn above the glass deck, not
-                // under it: the deck's blur samples the video layer itself, so a dim
-                // beneath it never reached the glass and the deck stayed bright.
-                val spotifyCanvasDim = animateFloatAsState(
-                    targetValue = if (spotifyCanvasPresentation && spotifyCanvasControlsOpen) 0.5f else 0f,
-                    animationSpec = tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS),
-                    label = "spotifyCanvasDim",
-                )
-                val spotifyCanvasDimShowing by remember { derivedStateOf { spotifyCanvasDim.value > 0f } }
-                if (spotifyCanvasPresentation || spotifyCanvasDimShowing) {
-                    Box(
-                        Modifier.matchParentSize()
-                            .graphicsLayer { alpha = spotifyCanvasDim.value }
-                            .background(Color.Black),
+                    if (artworkMeshBackdrop && clipPortrait && canvasAspect < PORTRAIT_SCRIM_MAX_ASPECT) {
+                        // A clip tall enough to run on under the controls stays visible
+                        // through them; a plain scrim protects text and touch targets
+                        // without erasing the video. A 3:4 cover has stopped by then.
+                        Box(
+                            Modifier.matchParentSize()
+                                .graphicsLayer {
+                                    alpha = canvasCover.floatValue * (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
+                                }
+                                .background(PortraitClipScrim),
+                        )
+                    }
+
+                    // Spotify Canvas keeps its pixels sharp across the whole phone. Pure
+                    // glass blur belongs only under the temporary lower control deck,
+                    // above the video. When the deck slides away this layer leaves with
+                    // it as well.
+                    AnimatedVisibility(
+                        visible = spotifyCanvasPresentation && spotifyCanvasControlsOpen,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.56f),
+                        enter = fadeIn(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideIn(),
+                        exit = fadeOut(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideOut(),
+                    ) {
+                        // Subscribe only while Spotify's glass layer exists. Static art and
+                        // non-Spotify motion covers do not observe this new state at all.
+                        val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    // Flat, too, while a drawer or the ⋯ menu is up: those
+                                    // blur the playing Canvas live themselves, and the
+                                    // deck's glass under them would be a second live blur
+                                    // of the same video for a deck nobody can see.
+                                    if (reduceDynamicBlur || !renderEffectBlurSupported || overlayOpen.value) {
+                                        // A real backdrop RenderEffect is unavailable on
+                                        // older Android versions and intentionally skipped
+                                        // when dynamic blur is reduced. Retain the deck's
+                                        // contrast without paying for a fake blur path,
+                                        // while keeping the same progressive top edge as
+                                        // the live glass surface.
+                                        Modifier.background(
+                                            Brush.verticalGradient(
+                                                0.00f to Color.Transparent,
+                                                SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black.copy(alpha = 0.40f),
+                                                1.00f to Color.Black.copy(alpha = 0.40f),
+                                            ),
+                                        )
+                                    } else {
+                                        Modifier.optimizedHazeEffect(
+                                            state = playerHaze,
+                                            // Do not use HazeMaterials with Transparent:
+                                            // that preset treats transparent RGB as black
+                                            // and replaces its alpha with a dark 0.8 tint.
+                                            style = HazeStyle(
+                                                backgroundColor = Color.Transparent,
+                                                tints = emptyList(),
+                                                // Canvas stays sharp above the deck; the
+                                                // lower glass needs stronger separation
+                                                // from a moving video than static artwork.
+                                                blurRadius = 48.dp,
+                                                noiseFactor = 0f,
+                                                fallbackTint = HazeTint(Color.Transparent),
+                                            ),
+                                        ) {
+                                            // This is a continuously changing video, so a
+                                            // full third-resolution backdrop is still more
+                                            // detail than a 48dp blur can preserve. At 18%
+                                            // this processes roughly 30% of the pixels used
+                                            // by optimizedHazeEffect's normal 33% path.
+                                            inputScale = HazeInputScale.Fixed(0.18f)
+                                            canDrawArea = { true }
+                                            mask = Brush.verticalGradient(
+                                                0.00f to Color.Transparent,
+                                                SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black,
+                                                1.00f to Color.Black,
+                                            )
+                                        }
+                                    },
+                                ),
+                        )
+                    }
+
+                    // While the control deck is up, the whole Canvas sits under a flat 50%
+                    // dim so the buttons and text read against any clip. It fades out as
+                    // the deck collapses to the full-screen video, and back in with the
+                    // deck, on the deck's own timing. Alpha is read in the draw phase, so
+                    // the fade never recomposes the player. Drawn above the glass deck, not
+                    // under it: the deck's blur samples the video layer itself, so a dim
+                    // beneath it never reached the glass and the deck stayed bright.
+                    val spotifyCanvasDim = animateFloatAsState(
+                        targetValue = if (spotifyCanvasPresentation && spotifyCanvasControlsOpen) 0.5f else 0f,
+                        animationSpec = tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS),
+                        label = "spotifyCanvasDim",
                     )
+                    val spotifyCanvasDimShowing by remember { derivedStateOf { spotifyCanvasDim.value > 0f } }
+                    if (spotifyCanvasPresentation || spotifyCanvasDimShowing) {
+                        Box(
+                            Modifier.matchParentSize()
+                                .graphicsLayer { alpha = spotifyCanvasDim.value }
+                                .background(Color.Black),
+                        )
+                    }
                 }
 
                 Column(
@@ -3376,6 +3384,7 @@ fun NowPlayingScreen(
                                         tint = Color.White.copy(alpha = 0.35f),
                                         modifier = Modifier
                                             .size(40.dp)
+                                            .vibrancy()
                                             .graphicsLayer {
                                                 val scale = 1f - 0.5f * p()
                                                 scaleX = scale
@@ -3469,15 +3478,9 @@ fun NowPlayingScreen(
                                         onStillCaptured = onStillCaptured,
                                         onResumed = onClipResumed,
                                         onRenderedChanged = { canvasRendered = it },
-                                        frameCapturePx = if (tintsOffClip && !tabletArtworkBackdrop) {
-                                            CANVAS_FRAME_CAPTURE_PX
-                                        } else {
-                                            0
-                                        },
-                                        onFrameCaptured = {
-                                            if (!tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
-                                                canvasFrame = it
-                                            }
+                                        frameCapturePx = if (tintsOffClip && !tabletArtworkBackdrop) CANVAS_FRAME_CAPTURE_PX else 0,
+                                        onFrameCaptured = if (!tintsOffClip || tabletArtworkBackdrop) null else {
+                                            { canvasFrame = it }
                                         },
                                         refreshFrameEveryMs = if (
                                             tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
@@ -3788,66 +3791,66 @@ fun NowPlayingScreen(
                                 }
                             }
                             Spacer(Modifier.width(10.dp))
-                            // Beside the credits rather than down in the toggle row:
-                            // liking is about *this song*, and the row below is about
-                            // how the queue plays. Guests get nothing to tap, since
-                            // there's no account to record it against — except on a
-                            // local file or a finished download, whose star is the
-                            // device's own Liked playlist and needs no account.
-                            if (signedIn || song.localUri != null) {
-                                val liked = likeStatus == LikeStatus.LIKE
+                            // In the player's glass, the two sharing one sample of it.
+                            GlassControlsRow {
+                                // Beside the credits rather than down in the toggle row:
+                                // liking is about this song. Local files and finished
+                                // downloads use the device's own Liked playlist.
+                                if (signedIn || song.localUri != null) {
+                                    val liked = likeStatus == LikeStatus.LIKE
+                                    CircleGlyph(
+                                        icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                                        contentDescription = stringResource(
+                                            if (liked) Res.string.remove_from_liked else Res.string.like,
+                                        ),
+                                        onClick = onToggleLike,
+                                        active = liked,
+                                        haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                // While the lyrics are up the menu glyph becomes the share
+                                // entry: the same pick mode a long-press on a line opens,
+                                // only on phones where a card can actually be made. While
+                                // picking it is the way back out again — the bar below
+                                // already holds Share.
+                                // Only once the sleeve has fully collapsed: the moment it starts
+                                // coming back the glyph is the menu again.
+                                // And only while the half player under the lyrics is tucked
+                                // away: with it up, the screen is the player again and the
+                                // glyph is its menu. A pick in progress keeps its Close
+                                // whichever way the controls are.
+                                val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
+                                    !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
                                 CircleGlyph(
-                                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
-                                    contentDescription = stringResource(
-                                        if (liked) Res.string.remove_from_liked else Res.string.like,
-                                    ),
-                                    onClick = onToggleLike,
-                                    active = liked,
-                                    haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            // While the lyrics are up the menu glyph becomes the share
-                            // entry: the same pick mode a long-press on a line opens,
-                            // only on phones where a card can actually be made. While
-                            // picking it is the way back out again — the bar below
-                            // already holds Share.
-                            // Only once the sleeve has fully collapsed: the moment it starts
-                            // coming back the glyph is the menu again.
-                            // And only while the half player under the lyrics is tucked
-                            // away: with it up, the screen is the player again and the
-                            // glyph is its menu. A pick in progress keeps its Close
-                            // whichever way the controls are.
-                            val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
-                                !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
-                            CircleGlyph(
-                                icon = when {
-                                    showRevertCue -> Icons.AutoMirrored.Rounded.Undo
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
-                                    lyricsShareGlyphVisible -> Icons.Rounded.IosShare
-                                    else -> Icons.Rounded.MoreHoriz
-                                },
-                                contentDescription = stringResource(
-                                    when {
-                                        showRevertCue -> Res.string.more
-                                        lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
-                                        lyricsShareGlyphVisible -> Res.string.share
-                                        else -> Res.string.more
+                                    icon = when {
+                                        showRevertCue -> Icons.AutoMirrored.Rounded.Undo
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
+                                        lyricsShareGlyphVisible -> Icons.Rounded.IosShare
+                                        else -> Icons.Rounded.MoreHoriz
                                     },
-                                ),
-                                onClick = when {
-                                    showRevertCue -> onOpenMenu
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
-                                    lyricsShareGlyphVisible -> lyricPicker.beginPicking
-                                    else -> onOpenMenu
-                                },
-                                haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
-                                    Haptic.Select
-                                } else {
-                                    Haptic.Tap
-                                },
-                                modifier = Modifier.menuAnchor(),
-                            )
+                                    contentDescription = stringResource(
+                                        when {
+                                            showRevertCue -> Res.string.more
+                                            lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
+                                            lyricsShareGlyphVisible -> Res.string.share
+                                            else -> Res.string.more
+                                        },
+                                    ),
+                                    onClick = when {
+                                        showRevertCue -> onOpenMenu
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
+                                        lyricsShareGlyphVisible -> lyricPicker.beginPicking
+                                        else -> onOpenMenu
+                                    },
+                                    haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
+                                        Haptic.Select
+                                    } else {
+                                        Haptic.Tap
+                                    },
+                                    modifier = Modifier.menuAnchor(),
+                                )
+                            }
                         }
 
                         // [lyricsOpen] asked first: a close has already hidden the
@@ -3916,31 +3919,36 @@ fun NowPlayingScreen(
                                 label = "translateFade",
                             )
                             if (translateFade > 0.01f && !lyricPicker.picking) {
+                                // The two in the player's glass, on one sample taken
+                                // across the foot of the panel they sit at either end of.
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.BottomStart)
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
                                         .graphicsLayer { alpha = translateFade },
                                 ) {
-                                    RomanizationToggleButton(
-                                        state = lyricsTranslation.romanizationState,
-                                        showingRomanization = lyricsTranslation.showingRomanization,
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleRomanization,
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .graphicsLayer { alpha = translateFade },
-                                ) {
-                                    TranslationToggleButton(
-                                        state = lyricsTranslation.translationState,
-                                        showingTranslation = lyricsTranslation.showingTranslation,
-                                        // Not tappable on the way out: a disc at 20%
-                                        // opacity is on its way to gone, not a target.
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleTranslation,
-                                    )
+                                    GlassControls {
+                                        Box(Modifier.fillMaxWidth()) {
+                                            Box(Modifier.align(Alignment.BottomStart)) {
+                                                RomanizationToggleButton(
+                                                    state = lyricsTranslation.romanizationState,
+                                                    showingRomanization = lyricsTranslation.showingRomanization,
+                                                    enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                                    onClick = lyricsTranslation.toggleRomanization,
+                                                )
+                                            }
+                                            Box(Modifier.align(Alignment.BottomEnd)) {
+                                                TranslationToggleButton(
+                                                    state = lyricsTranslation.translationState,
+                                                    showingTranslation = lyricsTranslation.showingTranslation,
+                                                    // Not tappable on the way out: a disc at 20%
+                                                    // opacity is on its way to gone, not a target.
+                                                    enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                                    onClick = lyricsTranslation.toggleTranslation,
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             // The bar arrives and leaves without a transition of its own:

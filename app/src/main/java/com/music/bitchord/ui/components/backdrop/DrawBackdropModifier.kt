@@ -11,6 +11,7 @@ package com.music.bitchord.ui.components.backdrop
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.setValue
@@ -50,6 +51,12 @@ import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import com.music.bitchord.ui.components.backdrop.shadow.ShadowElement
 
 private val DefaultHighlight = { Highlight.Default }
+
+/**
+ * Off only in a frame recording pricing the glass's clip to its shape. Read in
+ * the layer block, so turning it off and on reaches every surface.
+ */
+internal val backdropClipForDiagnostics = androidx.compose.runtime.mutableStateOf(true)
 private val DefaultShadow = { Shadow.Default }
 private val DefaultOnDrawBackdrop: DrawScope.(DrawScope.() -> Unit) -> Unit = { it() }
 
@@ -84,7 +91,8 @@ fun Modifier.drawPlainBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = 1f
+                backdropScale = 1f,
+                clipShape = null
             )
         )
 }
@@ -107,7 +115,11 @@ fun Modifier.drawBackdrop(
     // processes far fewer pixels. Pixel-sized effect parameters (blur radius, lens
     // refraction) must be pre-multiplied by the same factor by the caller; the blur
     // hides the upscaling. 1f keeps the original full resolution behavior.
-    backdropScale: Float = 1f
+    backdropScale: Float = 1f,
+    // Vendored addition: what the surface's layer clips to, when not [shape]. A
+    // surface whose effect draws its own anti-aliased edge needs only a cheap clip
+    // around it, where a clip to an arbitrary path is a mask on every draw inside.
+    clipShape: (() -> Shape)? = null
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -159,7 +171,8 @@ fun Modifier.drawBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = backdropScale.coerceIn(0.05f, 1f)
+                backdropScale = backdropScale.coerceIn(0.05f, 1f),
+                clipShape = clipShape
             )
         )
 }
@@ -174,7 +187,8 @@ private class DrawBackdropElement(
     val onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     val onDrawSurface: (DrawScope.() -> Unit)?,
     val onDrawFront: (DrawScope.() -> Unit)?,
-    val backdropScale: Float
+    val backdropScale: Float,
+    val clipShape: (() -> Shape)?
 ) : ModifierNodeElement<DrawBackdropNode>() {
 
     override fun create(): DrawBackdropNode {
@@ -188,7 +202,8 @@ private class DrawBackdropElement(
             onDrawBackdrop = onDrawBackdrop,
             onDrawSurface = onDrawSurface,
             onDrawFront = onDrawFront,
-            backdropScale = backdropScale
+            backdropScale = backdropScale,
+            clipShape = clipShape
         )
     }
 
@@ -206,7 +221,9 @@ private class DrawBackdropElement(
         node.onDrawSurface = onDrawSurface
         node.onDrawFront = onDrawFront
         node.backdropScale = backdropScale
+        node.clipShape = clipShape
         node.invalidateDrawCache()
+        node.redraw()
     }
 
     override fun InspectorInfo.inspectableProperties() {
@@ -236,6 +253,7 @@ private class DrawBackdropElement(
         if (onDrawSurface != other.onDrawSurface) return false
         if (onDrawFront != other.onDrawFront) return false
         if (backdropScale != other.backdropScale) return false
+        if (clipShape != other.clipShape) return false
 
         return true
     }
@@ -251,6 +269,7 @@ private class DrawBackdropElement(
         result = 31 * result + (onDrawSurface?.hashCode() ?: 0)
         result = 31 * result + (onDrawFront?.hashCode() ?: 0)
         result = 31 * result + backdropScale.hashCode()
+        result = 31 * result + (clipShape?.hashCode() ?: 0)
         return result
     }
 }
@@ -265,7 +284,8 @@ private class DrawBackdropNode(
     var onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     var onDrawSurface: (DrawScope.() -> Unit)?,
     var onDrawFront: (DrawScope.() -> Unit)?,
-    var backdropScale: Float
+    var backdropScale: Float,
+    var clipShape: (() -> Shape)?
 ) : LayoutModifierNode, DrawModifierNode, GlobalPositionAwareModifierNode, ObserverModifierNode, Modifier.Node() {
 
     private val effectScope =
@@ -275,16 +295,41 @@ private class DrawBackdropNode(
         }
 
     private var graphicsLayer: GraphicsLayer? = null
+    private var effectsDirty = true
 
+    // Vendored change: upstream renders the surface's content offscreen. Its
+    // label and glyph layers then blend against a transparent buffer instead of
+    // the glass drawn just below them, and plus-lighter content (see the app's
+    // Modifier.vibrancy) loses the glass it is meant to add onto. Nothing here
+    // needs the buffer: the layer only clips, and any alpha is applied by the
+    // separate layerBlock layer outside it.
     private val layoutLayerBlock: GraphicsLayerScope.() -> Unit = {
-        clip = true
-        shape = shapeProvider.shape
-        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+        clip = backdropClipForDiagnostics.value
+        shape = clipShape?.invoke() ?: shapeProvider.shape
     }
 
     private var layoutCoordinates: LayoutCoordinates? by mutableStateOf(null, neverEqualPolicy())
 
     private var padding by mutableFloatStateOf(0f)
+
+    /**
+     * Vendored addition, bumped by [redraw] and read in [draw].
+     *
+     * An update hands the node a new backdrop or new drawing, but did not get it
+     * drawn: the automatic invalidation, and an explicit `invalidateDraw()`, both
+     * missed the layer this node draws into — it places its own content in a
+     * layer of its own, so it is both the layout and the draw at that point in
+     * the chain. A surface over a [LayerBackdrop] is redrawn anyway, by the
+     * coordinates it reads as it draws; one over a flat backdrop reads nothing
+     * and kept the picture it was first drawn with, so a theme change left a
+     * segmented control's glass in the old theme. A state read in [draw] is
+     * observed in exactly the layer it was read in.
+     */
+    private var drawVersion by mutableIntStateOf(0)
+
+    fun redraw() {
+        drawVersion++
+    }
 
     private val recordBackdropBlock: (DrawScope.() -> Unit) = {
         val canvas = drawContext.canvas
@@ -370,8 +415,11 @@ private class DrawBackdropNode(
     }
 
     override fun ContentDrawScope.draw() {
-        if (effectScope.update(this, backdropScale)) {
-            updateEffects()
+        // Read so that [redraw] invalidates the layer this is drawn into.
+        drawVersion
+        if (effectScope.update(this, backdropScale) || effectsDirty) {
+            observeEffects()
+            effectsDirty = false
         }
 
         onDrawBehind?.invoke(this)
@@ -405,10 +453,13 @@ private class DrawBackdropNode(
 
     override fun onObservedReadsChanged() {
         invalidateDrawCache()
+        redraw()
     }
 
     fun invalidateDrawCache() {
-        observeEffects()
+        // Build once with the draw's current size/density, rather than once
+        // during an update using old geometry and again on the next draw.
+        effectsDirty = true
     }
 
     private fun observeEffects() {
@@ -427,7 +478,7 @@ private class DrawBackdropNode(
         val graphicsContext = requireGraphicsContext()
         graphicsLayer = graphicsContext.createGraphicsLayer()
 
-        observeEffects()
+        effectsDirty = true
     }
 
     override fun onDetach() {
@@ -438,6 +489,7 @@ private class DrawBackdropNode(
         }
 
         effectScope.reset()
+        effectsDirty = true
         layoutCoordinates = null
         exportedBackdrop?.layerCoordinates = null
     }

@@ -39,6 +39,10 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
     override var renderEffect: RenderEffect? = null
 
     private val runtimeShaderCache = RuntimeShaderCacheImpl()
+    private val effectCache = EffectChainCache<RenderEffect>()
+
+    internal fun cachedEffect(key: Any, create: () -> RenderEffect): RenderEffect =
+        effectCache.obtain(key, create)
 
     override fun obtainRuntimeShader(key: String, string: String): RuntimeShader {
         return runtimeShaderCache.obtainRuntimeShader(key, string)
@@ -71,7 +75,12 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
     fun apply(effects: BackdropEffectScope.() -> Unit) {
         padding = 0f
         renderEffect = null
-        effects()
+        effectCache.begin()
+        try {
+            effects()
+        } finally {
+            effectCache.end()
+        }
     }
 
     fun reset() {
@@ -82,5 +91,9 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
         padding = 0f
         renderEffect = null
         runtimeShaderCache.clear()
+        effectCache.clear()
     }
 }
+
+internal fun BackdropEffectScope.cachedEffect(key: Any, create: () -> RenderEffect): RenderEffect =
+    (this as BackdropEffectScopeImpl).cachedEffect(key, create)

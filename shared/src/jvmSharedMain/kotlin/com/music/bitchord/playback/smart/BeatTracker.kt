@@ -86,6 +86,12 @@ class BeatTracker(
                 val file = File(modelPath())
                 val options = OrtSession.SessionOptions().apply {
                     setIntraOpNumThreads(threads)
+                    // Idle pool threads sleep instead of spinning for the next
+                    // job. Spinning holds a core at full load between the
+                    // graph's operators — a core the UI's render thread wants
+                    // while a track is analysed in the middle of a scroll —
+                    // to save microseconds on an analysis that takes seconds.
+                    addConfigEntry("session.intra_op.allow_spinning", "0")
                     setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
                     // ORT's arena allocator keeps every block it has ever needed, which for this
                     // graph is tens of megabytes of native heap retained for the life of the

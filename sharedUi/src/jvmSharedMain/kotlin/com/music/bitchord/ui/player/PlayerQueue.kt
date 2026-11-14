@@ -76,6 +76,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
@@ -439,7 +441,7 @@ private fun QueueHeading(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).vibrancy(),
         )
         trailing()
     }
@@ -452,6 +454,7 @@ private fun QueueClearButton(style: TextStyle, locked: Boolean, onClear: () -> U
         style = style,
         color = Color.White.copy(alpha = if (locked) 0.25f else 0.75f),
         modifier = Modifier
+            .vibrancy()
             .clip(RoundedCornerShape(percent = 50))
             .clickable(enabled = !locked, onClick = onClear)
             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -470,7 +473,7 @@ private fun AutoplayHeading(hasTracks: Boolean, modifier: Modifier = Modifier) {
             BitChordIcons.Infinity,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(18.dp).vibrancy(),
         )
         Spacer(Modifier.width(8.dp))
         Column {
@@ -485,6 +488,7 @@ private fun AutoplayHeading(hasTracks: Boolean, modifier: Modifier = Modifier) {
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),
+                modifier = Modifier.vibrancy(),
             )
         }
     }
@@ -740,7 +744,7 @@ private fun InlineQueueRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
+            .vibrantBackground(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
             // Disabled rather than ignored: a tap that ripples and then does
             // nothing reads as the app having missed it.
             .clickable(enabled = !locked, onClick = onClick)
@@ -754,6 +758,7 @@ private fun InlineQueueRow(
                 tint = Color.White.copy(alpha = 0.4f),
                 modifier = Modifier
                     .size(20.dp)
+                    .vibrancy()
                     // The glyph sits well inset in its own box; this pulls it
                     // back to the row's edge.
                     .offset(x = (-4).dp)
@@ -779,7 +784,7 @@ private fun InlineQueueRow(
                 .trackArtSize(44.dp, song.isVideo)
                 .clip(RoundedCornerShape(6.dp))
                 .thumbnailBorder(RoundedCornerShape(6.dp))
-                .background(Color.White.copy(alpha = 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = 0.08f)),
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -787,6 +792,7 @@ private fun InlineQueueRow(
                 song = song,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
+                modifier = Modifier.vibrancy(),
             )
             Text(
                 text = song.artist,
@@ -794,6 +800,7 @@ private fun InlineQueueRow(
                 color = Color.White.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
         }
         if (isCurrent) {
@@ -817,7 +824,7 @@ private fun InlineQueueRow(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.remove_from_queue),
                     tint = Color.White.copy(alpha = 0.55f),
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(18.dp).vibrancy(),
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.animation.Crossfade
@@ -62,7 +63,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.music.bitchord.ui.components.ExplicitBadge
-import com.music.bitchord.ui.components.menuAnchor
+import com.music.bitchord.ui.components.vibrancy
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.stableStatusBarInsets
@@ -333,7 +334,7 @@ internal fun LandscapeArtwork(
                     imageVector = BitChordIcons.MusicNote,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.35f),
-                    modifier = Modifier.fillMaxSize(0.36f),
+                    modifier = Modifier.fillMaxSize(0.36f).vibrancy(),
                 )
             }
             AsyncImage(
@@ -487,28 +488,29 @@ internal fun LandscapeCredits(
             }
         }
         Spacer(Modifier.width(10.dp))
-        // Same gate as the portrait player's: no account to like against for a
-        // guest — but a local file or a finished download is liked on the
-        // device, which needs none.
-        if (signedIn || song.localUri != null) {
-            val liked = likeStatus == LikeStatus.LIKE
+        // In the player's glass, as the portrait player's are.
+        GlassControlsRow {
+            // Local files and finished downloads use the device's own Liked playlist.
+            if (signedIn || song.localUri != null) {
+                val liked = likeStatus == LikeStatus.LIKE
+                CircleGlyph(
+                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                    contentDescription = stringResource(
+                        if (liked) Res.string.remove_from_liked else Res.string.like,
+                    ),
+                    onClick = onToggleLike,
+                    active = liked,
+                    haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             CircleGlyph(
-                icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
-                contentDescription = stringResource(
-                    if (liked) Res.string.remove_from_liked else Res.string.like,
-                ),
-                onClick = onToggleLike,
-                active = liked,
-                haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(Res.string.more),
+                onClick = onOpenMenu,
+                modifier = Modifier.menuAnchor(),
             )
-            Spacer(Modifier.width(8.dp))
         }
-        CircleGlyph(
-            icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
-            contentDescription = stringResource(Res.string.more),
-            onClick = onOpenMenu,
-            modifier = Modifier.menuAnchor(),
-        )
     }
 }
 
@@ -555,7 +557,7 @@ internal fun LandscapeLyricsPane(
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier.align(Alignment.Center).vibrancy(),
                 )
             }
         }
@@ -566,27 +568,30 @@ internal fun LandscapeLyricsPane(
         if (picking) {
             Box(Modifier.fillMaxWidth()) { pickBar() }
         } else {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Fixed slots either side whether or not the toggles are drawn, so
-            // the status line stays centred as lyrics arrive.
-            Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
-            Box(
+        // The toggles either end in the player's glass, on one sample of the row.
+        GlassControls {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                LyricsStatusWithChange(
-                    status = status,
-                    onStatusClick = onStatusClick,
-                )
+                // Fixed slots either side whether or not the toggles are drawn, so
+                // the status line stays centred as lyrics arrive.
+                Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LyricsStatusWithChange(
+                        status = status,
+                        onStatusClick = onStatusClick,
+                    )
+                }
+                Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
             }
-            Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
         }
         }
     }

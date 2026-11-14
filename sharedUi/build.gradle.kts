@@ -102,6 +102,11 @@ kotlin {
     }
 }
 
+composeCompiler {
+    // :shared's models, which the compiler can't see into — see the file.
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose-stability.conf"))
+}
+
 android {
     namespace = "com.music.bitchord.sharedui"
     compileSdk = 36

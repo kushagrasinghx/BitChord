@@ -19,9 +19,9 @@ import androidx.compose.ui.unit.toSize
  *
  * Opening and closing the player is one movement on screen: the sheet's
  * artwork travels between its own place and the mini player's cover while the
- * rest of the player fades — see the sleeve in [NowPlayingScreen]. The two are
- * in different windows on a phone (the player is a modal sheet over the page),
- * so nothing here is shared layout; it is the two ends of the movement, each
+ * rest of the player fades — see the sleeve in [NowPlayingScreen]. The host can
+ * use the activity's window or a modal window, so nothing here assumes shared
+ * layout; it is the two ends of the movement, each
  * reported by the side that owns it, and met in screen coordinates.
  *
  * Read in layout and draw only. Nothing in it is worth a recomposition: a
@@ -116,6 +116,28 @@ class PlayerDock {
     // player: a full redraw, liquid glass and all, for a cover that hadn't
     // changed.
     private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0f }
+
+    /**
+     * Whether the player hides the page entirely: all the way up, and in its
+     * portrait shape, whose black floor is opaque edge to edge. The landscape
+     * player's floor is the artwork's blur, which nothing promises is opaque.
+     *
+     * The host stops drawing the page while this holds. Everything under the
+     * player — the feed, the glass bars, the top blur — otherwise went on
+     * redrawing behind it on every frame the player animated, and each glass
+     * surface re-ran its whole sample, blur and lens for a page no one could
+     * see. Derived, like [coversMiniArt], so the page hears about it when it
+     * flips and not on every frame of the sheet's travel.
+     */
+    val coversPage: Boolean
+        get() = coversPageState.value
+
+    // Under a pixel rather than exactly zero: a sheet at rest can sit a
+    // fraction of a pixel off its anchor, and a cover that waited for zero
+    // would never come.
+    private val coversPageState = derivedStateOf {
+        attached && sheetTravel > 0f && (offset()?.let { it < 1f } == true)
+    }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */

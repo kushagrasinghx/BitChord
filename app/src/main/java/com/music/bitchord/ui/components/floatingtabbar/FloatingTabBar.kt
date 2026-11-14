@@ -505,8 +505,10 @@ private fun SharedTransitionScope.InlineTab(
                 color = colors.backgroundColor,
                 shape = shapes.tabBarShape
             )
-            .clip(shapes.tabBarShape)
+            // The surface before the clip: a glass surface draws its outline
+            // just outside its edge, and the clip would cut that away.
             .then(tabBarContentModifier())
+            .clip(shapes.tabBarShape)
             .clickable(
                 onClick = {
                     onInlineTabClick()
@@ -564,8 +566,8 @@ private fun SharedTransitionScope.InlineStandaloneTab(
                 color = colors.backgroundColor,
                 shape = shapes.standaloneTabShape
             )
-            .clip(shapes.standaloneTabShape)
             .then(tabBarContentModifier())
+            .clip(shapes.standaloneTabShape)
             .clickable(
                 onClick = standaloneTab.onClick,
                 indication = standaloneTab.indication?.invoke(),
@@ -846,8 +848,8 @@ private fun SharedTransitionScope.ExpandedTabs(
                         color = colors.backgroundColor,
                         shape = shapes.tabBarShape
                     )
-                    .clip(shapes.tabBarShape)
                     .then(tabBarContentModifier())
+                    .clip(shapes.tabBarShape)
                     .padding(contentPadding)
                     .animateContentSize()
             ) {
@@ -1025,8 +1027,8 @@ private fun SharedTransitionScope.ExpandedStandaloneTab(
                 color = colors.backgroundColor,
                 shape = shapes.standaloneTabShape
             )
-            .clip(shapes.standaloneTabShape)
             .then(tabBarContentModifier())
+            .clip(shapes.standaloneTabShape)
             .clickable(
                 onClick = standaloneTab.onClick,
                 indication = standaloneTab.indication?.invoke(),

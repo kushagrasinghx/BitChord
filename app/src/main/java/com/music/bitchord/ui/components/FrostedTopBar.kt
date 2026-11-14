@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -202,6 +203,14 @@ fun FrostedTopBar(
         label = "topBarDivider",
     )
 
+    // One sample of the page for every glass control on the bar — see
+    // [GlassStrip] — taken over the row they share.
+    val strip = if (useFloatingChrome && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur) {
+        rememberGlassStrip()
+    } else {
+        null
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -215,7 +224,8 @@ fun FrostedTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(stableStatusBarInsets())
-                .height(TopBarContentHeight),
+                .height(TopBarContentHeight)
+                .then(if (strip != null) Modifier.liquidGlassStrip(strip) else Modifier),
         ) {
             /* Temporarily hidden: keep the scrolling center-title implementation
              * intact so it can be restored without rebuilding its transitions.
@@ -292,6 +302,7 @@ fun FrostedTopBar(
                     ArtworkPageBackButton(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
+                        strip = strip,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -329,12 +340,16 @@ fun FrostedTopBar(
             ) {
                 if (accessory != null) {
                     Box(Modifier.weight(1f)) {
-                        AccessoryPill(content = accessory)
+                        if (useFloatingChrome) {
+                            ArtworkPageAccessory(hazeState = backButtonHazeState, strip = strip, content = accessory)
+                        } else {
+                            AccessoryPill(content = accessory)
+                        }
                     }
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    ArtworkPageActions(hazeState = backButtonHazeState, strip = strip, content = actions)
                 } else {
                     actions()
                 }
@@ -351,27 +366,32 @@ fun FrostedTopBar(
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val tone = rememberGlassTone(strip)
     val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
-        glassContentColor()
+        glassContentProducer(tone)
     } else {
-        MaterialTheme.colorScheme.onSurface
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        remember(onSurface) { ColorProducer { onSurface } }
     }
 
     IconButton(
         onClick = onClick,
         modifier = modifier
             .size(TOP_CONTROL_SIZE)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, strip = strip)),
     ) {
-        Icon(
+        TintedIcon(
             SfIcons.ArrowBack,
             contentDescription = stringResource(R.string.back),
             tint = contentColor,
+            // What is under the glyph, not the whole circle round it.
+            modifier = Modifier.glassToneArea(tone),
         )
     }
 }
@@ -380,12 +400,17 @@ private fun ArtworkPageBackButton(
 @Composable
 private fun ArtworkPageActions(
     hazeState: HazeState?,
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val tone = rememberGlassTone(strip)
     ActionsRow(
         modifier = modifier
-            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+            .glassToneArea(tone)
+            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState, strip = strip))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
             // its new width in a single frame.
@@ -404,7 +429,20 @@ private fun ArtworkPageActions(
         // Apple's pill is as tall as its back button, 44pt, where the actions'
         // own 48dp touch targets stood it 4dp taller than the circle beside it.
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
-            content()
+            if (glass) {
+                // The actions are set in the theme's onSurface and primary, each in
+                // its own place; on glass both follow what the pill is showing,
+                // crossfading as it turns. The theme being all they read, that
+                // recomposes them each frame of a turn — a few glyphs, and only
+                // then.
+                val glassContent = glassContentColorFading(tone)
+                MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(onSurface = glassContent, primary = glassContent),
+                    content = content,
+                )
+            } else {
+                content()
+            }
         }
     }
 }
@@ -438,6 +476,45 @@ private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
         }
     }
 }
+
+/**
+ * The bar's accessory — the Search tab's field — on the same surface as the
+ * controls either side of it, at their height: a squircle pill of the bar's
+ * glass, its glyphs and words in what the glass shows.
+ */
+@Composable
+private fun ArtworkPageAccessory(hazeState: HazeState?, strip: GlassStrip?, content: @Composable () -> Unit) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val shape = remember { SquirclePillShape() }
+    val tone = rememberGlassTone(strip)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(TOP_CONTROL_SIZE)
+            .glassToneArea(tone)
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, strip = strip)),
+    ) {
+        CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
+            if (glass) {
+                val glassContent = glassContentColor(tone)
+                MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(
+                        onBackground = glassContent,
+                        onSurfaceVariant = glassContent.copy(alpha = ACCESSORY_HINT_ALPHA),
+                        primary = glassContent,
+                    ),
+                    content = content,
+                )
+            } else {
+                content()
+            }
+        }
+    }
+}
+
+/** The field's hint and glyphs on glass, against its typed text at full strength. */
+private const val ACCESSORY_HINT_ALPHA = 0.6f
 
 /**
  * The bar's accessory — the Search tab's field — as a squircle pill at the
@@ -489,27 +566,31 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
+    strip: GlassStrip?,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     return Modifier
-        .clip(shape)
         .then(
             when {
-                useLiquidGlass -> Modifier.liquidGlass(shape)
-                reduceDynamicBlur || hazeState == null -> Modifier.background(container)
-                else -> Modifier.optimizedHazeEffect(
+                // Clipped after the glass, not before: it draws its outline just
+                // outside its edge.
+                useLiquidGlass -> Modifier.liquidGlass(shape, strip = strip).clip(shape)
+                reduceDynamicBlur || hazeState == null -> Modifier.clip(shape).background(container)
+                else -> Modifier.clip(shape).optimizedHazeEffect(
                     state = hazeState,
                     style = HazeMaterials.regular(container),
                 )
             },
         )
-        // Keep the same explicit hairline as FloatingBottomBar. Liquid glass
-        // also has its refractive highlight, but the navbar retains this edge
-        // so these surfaces do as well.
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        // The same explicit hairline as FloatingBottomBar, and dropped with it
+        // under liquid glass: that brings its own edge, and the bars do not
+        // wear both.
+        .then(
+            if (useLiquidGlass && !reduceDynamicBlur) Modifier else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape),
+        )
 }
 
 /**

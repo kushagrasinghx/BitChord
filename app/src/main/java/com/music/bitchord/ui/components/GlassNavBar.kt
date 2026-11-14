@@ -34,13 +34,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,8 @@ import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -116,9 +119,6 @@ fun GlassNavBar(
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
     // lambda, which the tab bar sees as a changed argument and recomposes on.
     val pillShape = remember { RoundedCornerShape(percent = 50) }
-    val contentColor = glassContentColor()
-    val selectedColor = contentColor
-    val unselectedColor = contentColor.copy(alpha = 0.65f)
     val haptics = rememberHaptics()
 
     // The tab content lambdas below are captured once per contentKey and held
@@ -136,7 +136,18 @@ fun GlassNavBar(
     // A factory, not a value — see the note in FloatingTabBar's header. Each of
     // the three surfaces gets its own glass modifier and so its own shape cache.
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
-    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
+    //
+    // All of them share one sample of the page, taken over the whole bar — see
+    // [GlassStrip]. Not under "reduce dynamic blur", where the glass is filled
+    // solid and samples nothing.
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val strip = if (reduceDynamicBlur) null else rememberGlassStrip()
+    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape, strip = strip) }
+    // Each tab reads what the glass shows behind its own glyph and label, and
+    // turns the two together — see [GlassTone]. One reading over the whole bar
+    // averaged a bright cover under one tab in with the dark page under the
+    // rest.
+    val tabTones = List(tabs.size) { key(it) { rememberGlassTone(strip) } }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -145,7 +156,8 @@ fun GlassNavBar(
             .windowInsetsPadding(floatingBarInsets)
             .padding(horizontal = NAV_BAR_GUTTER)
             .padding(bottom = NAV_BAR_LIFT)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .then(if (strip != null) Modifier.liquidGlassStrip(strip) else Modifier),
         tabBarContentModifier = glassSurface,
         inlineAccessory = song?.let { current ->
             { accessoryModifier, _ ->
@@ -154,7 +166,6 @@ fun GlassNavBar(
                     isInline = true,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
-                    contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -163,7 +174,10 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
-                    modifier = accessoryModifier.then(glassSurface()),
+                    strip = strip,
+                    // Glass first: the slot's modifier ends in a clip, which
+                    // would cut away the outline the glass draws outside its edge.
+                    modifier = glassSurface().then(accessoryModifier),
                 )
             }
         },
@@ -174,7 +188,6 @@ fun GlassNavBar(
                     isInline = false,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
-                    contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -183,7 +196,8 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
-                    modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
+                    strip = strip,
+                    modifier = glassSurface().then(accessoryModifier).fillMaxWidth(),
                 )
             }
         },
@@ -225,13 +239,13 @@ fun GlassNavBar(
         ),
         // Held too: this is declared `Any?`, so a fresh list every pass is a
         // changed argument by identity and defeats skipping on its own.
-        contentKey = remember(selectedIndex, tabs, contentColor) {
-            listOf(selectedIndex, tabs, contentColor)
+        contentKey = remember(selectedIndex, tabs, tabTones) {
+            listOf(selectedIndex, tabs, tabTones)
         },
     ) {
         tabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
-            val tint = if (isSelected) selectedColor else unselectedColor
+            val tone = tabTones[index]
             val onClick = {
                 if (isSelected) {
                     onActiveTabTap()
@@ -244,11 +258,14 @@ fun GlassNavBar(
                 standaloneTab(
                     key = index,
                     icon = {
-                        Icon(
+                        TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE),
+                            tint = glassContentProducer(tone, tabAlpha(isSelected)),
+                            modifier = Modifier
+                                .size(TAB_ICON_SIZE)
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     onClick = onClick,
@@ -257,24 +274,30 @@ fun GlassNavBar(
                 tab(
                     key = index,
                     icon = {
-                        Icon(
+                        TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE),
+                            tint = glassContentProducer(tone, tabAlpha(isSelected)),
+                            modifier = Modifier
+                                .size(TAB_ICON_SIZE)
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     title = {
-                        Text(
+                        BasicText(
                             text = tab.label,
-                            style = tabLabelStyle(),
-                            color = tint,
+                            style = LocalTextStyle.current.merge(tabLabelStyle()),
+                            color = glassContentProducer(tone, tabAlpha(isSelected)),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             // The library's Tab stacks the glyph and the label
                             // with nothing between them; the plain bar spaces
                             // them, and this is where that gap goes.
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP),
+                            modifier = Modifier
+                                .padding(top = TAB_ICON_LABEL_GAP)
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     onClick = onClick,
@@ -283,6 +306,9 @@ fun GlassNavBar(
         }
     }
 }
+
+/** How strongly a tab's glyph and label take the glass's content colour. */
+private fun tabAlpha(selected: Boolean): Float = if (selected) 1f else 0.65f
 
 /**
  * The now playing controls docked into [GlassNavBar] as its accessory.
@@ -304,7 +330,6 @@ private fun GlassNowPlaying(
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
-    contentColor: Color,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -313,6 +338,8 @@ private fun GlassNowPlaying(
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
+    /** The bar's sample, which the row's glyphs and words read — see [GlassTone]. */
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -323,6 +350,19 @@ private fun GlassNowPlaying(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "accessoryPressScale",
     )
+    // The words, the play button and the skip button each read what the glass
+    // shows behind them alone: across the row the glass can be over a dark page
+    // at one end and a white cover at the other, and one reading turned the lot.
+    val textTone = rememberGlassTone(strip)
+    val playTone = rememberGlassTone(strip)
+    val nextTone = if (isInline) null else rememberGlassTone(strip)
+    // Read where the glyphs and words are drawn, so a turn redraws them alone
+    // rather than recomposing this whole row on every frame of its crossfade.
+    val contentColor = glassContentProducer(textTone)
+    val secondaryColor = glassContentProducer(textTone, ACCESSORY_SECONDARY_ALPHA)
+    val playColor = glassContentProducer(playTone)
+    val nextColor = glassContentProducer(nextTone, if (controlsLocked) 0.3f else 1f)
+    val themeContent = glassContentColor()
 
     val titleStyle = MaterialTheme.typography.titleMedium.copy(
         fontSize = ACCESSORY_TITLE_SIZE,
@@ -423,66 +463,82 @@ private fun GlassNowPlaying(
                 }
             }
             Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-            // Title and artist at both densities, as Apple Music has them, in its
-            // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
-            // row shares its width with the tab pill and the Search circle, so
-            // a long line fades out at its end, as Apple's does.
-            Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
-                )
-            }
-            if (isLoading) {
-                Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        color = contentColor,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
-                    )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f),
+            ) {
+                // Title and artist at both densities, as Apple Music has them, in its
+                // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
+                // row shares its width with the tab pill and the Search circle, so
+                // a long line fades out at its end, as Apple's does.
+                Column(Modifier.weight(1f)) {
+                    // Read over the lines' own width, not the column's: a short
+                    // title ends well before a cover under the transport.
+                    Column(Modifier.glassToneArea(textTone)) {
+                        val secondaryVibrancy = Modifier.glassVibrancy(textTone, themeContent)
+                        ExplicitSongTitle(
+                            song = song,
+                            style = titleStyle,
+                            color = contentColor,
+                            badgeColor = secondaryColor,
+                            badgeModifier = secondaryVibrancy,
+                            fadeOverflow = true,
+                        )
+                        FadingLine(
+                            text = song.artist,
+                            style = artistStyle,
+                            color = secondaryColor,
+                            modifier = secondaryVibrancy,
+                        )
+                    }
                 }
-            } else {
-                IconButton(
-                    onClick = {
-                        haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
-                        onPlayPause()
-                    },
-                    modifier = Modifier.size(glyphSlot),
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = contentColor,
-                        modifier = Modifier.size(glyphSize),
-                    )
+                if (isLoading) {
+                    Box(Modifier.size(glyphSlot).glassToneArea(playTone), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            // Cut over rather than crossfaded: shown only for a moment.
+                            color = glassContentColor(playTone),
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = {
+                            haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
+                            onPlayPause()
+                        },
+                        modifier = Modifier.size(glyphSlot),
+                    ) {
+                        TintedIcon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            tint = playColor,
+                            modifier = Modifier.size(glyphSize).glassToneArea(playTone),
+                        )
+                    }
                 }
-            }
-            // Dropped inline: the collapsed row is sharing its width with the
-            // tab pill and the Search circle, and the title is what has to
-            // survive that, not a second transport button.
-            if (!isInline) {
-                // Glyph centres 44dp apart, as Apple's are.
-                Spacer(Modifier.width(4.dp))
-                IconButton(
-                    onClick = {
-                        haptics.play(Haptic.SkipNext)
-                        onNext()
-                    },
-                    enabled = !controlsLocked,
-                    modifier = Modifier.size(glyphSlot),
-                ) {
-                    MiniPlayerNextGlyph(
-                        tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
-                    )
+                // Dropped inline: the collapsed row is sharing its width with the
+                // tab pill and the Search circle, and the title is what has to
+                // survive that, not a second transport button.
+                if (!isInline) {
+                    // Glyph centres 44dp apart, as Apple's are.
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(
+                        onClick = {
+                            haptics.play(Haptic.SkipNext)
+                            onNext()
+                        },
+                        enabled = !controlsLocked,
+                        modifier = Modifier.size(glyphSlot),
+                    ) {
+                        MiniPlayerNextGlyph(
+                            tint = nextColor,
+                            // Dimmed while the controls are locked, and added onto the bar then.
+                            modifier = Modifier
+                                .glassToneArea(nextTone)
+                                .then(if (controlsLocked) Modifier.glassVibrancy(nextTone, themeContent) else Modifier),
+                        )
+                    }
                 }
             }
         }
@@ -517,6 +573,9 @@ private val ACCESSORY_TITLE_WEIGHT = FontWeight.W700
 private val ACCESSORY_TITLE_TRACKING = 0.15.sp
 private val ACCESSORY_ARTIST_SIZE = 12.sp
 private val ACCESSORY_ARTIST_TRACKING = 0.35.sp
+
+/** The artist line and the explicit badge, against the title. */
+private const val ACCESSORY_SECONDARY_ALPHA = 0.7f
 
 /** The accessory's artwork, about Apple's 30pt at both densities, and its corner. */
 private val ACCESSORY_ART_SIZE = 30.4.dp

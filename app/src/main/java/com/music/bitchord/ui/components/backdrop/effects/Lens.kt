@@ -12,13 +12,16 @@ package com.music.bitchord.ui.components.backdrop.effects
 import androidx.annotation.FloatRange
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceAtLeast
 import androidx.compose.ui.util.fastCoerceAtMost
 import com.music.bitchord.ui.components.backdrop.BackdropEffectScope
+import com.music.bitchord.ui.components.backdrop.cachedEffect
 import com.music.bitchord.ui.components.backdrop.internal.RoundedRectRefractionShaderString
 import com.music.bitchord.ui.components.backdrop.internal.RoundedRectRefractionWithDispersionShaderString
 import com.music.bitchord.ui.components.backdrop.internal.RuntimeShaderEffect
+import com.music.bitchord.ui.components.backdrop.internal.chain
 import com.music.bitchord.ui.components.backdrop.isRuntimeShaderSupported
 
 fun BackdropEffectScope.lens(
@@ -34,38 +37,57 @@ fun BackdropEffectScope.lens(
         padding = (padding - refractionHeight).fastCoerceAtLeast(0f)
     }
 
-    val cornerRadii = cornerRadii
-    val effect =
-        if (cornerRadii != null) {
-            val shader =
-                if (!chromaticAberration) {
-                    obtainRuntimeShader(
-                        "Refraction",
-                        RoundedRectRefractionShaderString
-                    )
-                } else {
-                    obtainRuntimeShader(
-                        "RefractionWithDispersion",
-                        RoundedRectRefractionWithDispersionShaderString
-                    )
-                }
-            shader.apply {
-                setFloatUniform("size", size.width, size.height)
-                setFloatUniform("offset", -padding, -padding)
-                setFloatUniform("cornerRadii", cornerRadii)
-                setFloatUniform("refractionHeight", refractionHeight)
-                setFloatUniform("refractionAmount", -refractionAmount)
-                setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
-                if (chromaticAberration) {
-                    setFloatUniform("chromaticAberration", 1f)
-                }
+    val cornerRadii = cornerRadii ?: throwUnsupportedSDFException()
+    val input = renderEffect
+    // RuntimeShader RenderEffects retain a snapshot of their uniforms. Reuse
+    // that snapshot only when every value supplied to the shader still matches.
+    val key = LensKey(
+        input, size.width, size.height, padding,
+        cornerRadii[0], cornerRadii[1], cornerRadii[2], cornerRadii[3],
+        refractionHeight, refractionAmount, depthEffect, chromaticAberration,
+    )
+    renderEffect = cachedEffect(key) {
+        val shader =
+            if (!chromaticAberration) {
+                obtainRuntimeShader(
+                    "Refraction",
+                    RoundedRectRefractionShaderString
+                )
+            } else {
+                obtainRuntimeShader(
+                    "RefractionWithDispersion",
+                    RoundedRectRefractionWithDispersionShaderString
+                )
             }
-            RuntimeShaderEffect(shader, "content")
-        } else {
-            throwUnsupportedSDFException()
+        shader.apply {
+            setFloatUniform("size", size.width, size.height)
+            setFloatUniform("offset", -padding, -padding)
+            setFloatUniform("cornerRadii", cornerRadii)
+            setFloatUniform("refractionHeight", refractionHeight)
+            setFloatUniform("refractionAmount", -refractionAmount)
+            setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
+            if (chromaticAberration) {
+                setFloatUniform("chromaticAberration", 1f)
+            }
         }
-    effect(effect)
+        input.chain(RuntimeShaderEffect(shader, "content"))
+    }
 }
+
+internal data class LensKey(
+    val input: RenderEffect?,
+    val width: Float,
+    val height: Float,
+    val padding: Float,
+    val topLeft: Float,
+    val topRight: Float,
+    val bottomRight: Float,
+    val bottomLeft: Float,
+    val refractionHeight: Float,
+    val refractionAmount: Float,
+    val depthEffect: Boolean,
+    val chromaticAberration: Boolean,
+)
 
 // Vendored change: support for io.github.kyant0:shapes' RoundedRectangularShape was
 // dropped so the vendored sources have no external dependency; this app only passes

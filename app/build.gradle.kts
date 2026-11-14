@@ -67,6 +67,7 @@ val addonAuthServer: String = (
 
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
+val performanceDiagnostics = providers.gradleProperty("bitchord.performanceDiagnostics").orNull == "true"
 
 android {
     namespace = "com.music.bitchord"
@@ -81,6 +82,8 @@ android {
         targetSdk = 36
         versionCode = rootProject.extra["bitchordVersionCode"] as Int
         versionName = rootProject.extra["bitchordVersionName"] as String
+        buildConfigField("boolean", "PERFORMANCE_DIAGNOSTICS", performanceDiagnostics.toString())
+        manifestPlaceholders["performanceDiagnostics"] = performanceDiagnostics.toString()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -241,6 +244,11 @@ kotlin {
     }
 }
 
+composeCompiler {
+    // :shared's models, which the compiler can't see into — see the file.
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose-stability.conf"))
+}
+
 /*
  * NewPipeExtractor ships its own org.schabi.newpipe.extractor.utils.Utils, and
  * app/src/main/java carries a patched copy at the same package path (see that
@@ -304,6 +312,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // Already present at runtime through Compose; diagnostics also uses its public verifier API.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // ---- Media playback: Media3 / ExoPlayer ----

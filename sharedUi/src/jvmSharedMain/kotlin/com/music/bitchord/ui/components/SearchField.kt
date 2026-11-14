@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,7 +41,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 /**
  * True where a search field sits on a surface its host draws — the top bar's
  * pill — so the field draws no fill of its own and takes that surface's height
- * rather than its own 46dp.
+ * rather than its own 44dp.
  */
 val LocalSearchFieldOnSurface = staticCompositionLocalOf { false }
 
@@ -80,8 +79,8 @@ fun SearchField(
                 } else {
                     // Fixed height prevents the row from growing when text is entered
                     Modifier
-                        .height(46.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+                        .height(44.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, remember { SquirclePillShape() })
                 },
             )
             // Asymmetric: the magnifier is a button now and wants a real touch

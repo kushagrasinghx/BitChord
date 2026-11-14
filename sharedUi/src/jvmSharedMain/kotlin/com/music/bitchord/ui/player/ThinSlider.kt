@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MixBlend
+import com.music.bitchord.ui.components.vibrantBlendMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -187,7 +188,8 @@ fun ThinSlider(
                 .height(height),
         ) {
             val radius = CornerRadius(size.height / 2f)
-            drawRoundRect(color = inactiveColor, cornerRadius = radius)
+            // Every part of the bar is added onto the backdrop — see vibrantBlendMode.
+            drawRoundRect(color = inactiveColor, cornerRadius = radius, blendMode = vibrantBlendMode(inactiveColor))
             // Between the two track colours, and drawn *under* the played fill:
             // once the playhead reaches the window the transition is no longer
             // upcoming, and the ordinary progress colour taking it over is what
@@ -224,6 +226,7 @@ fun ThinSlider(
                         ),
                         size = size,
                         cornerRadius = radius,
+                        blendMode = vibrantBlendMode(markerColor),
                     )
                 }
             }
@@ -250,6 +253,7 @@ fun ThinSlider(
                         size.height,
                     ),
                     cornerRadius = radius,
+                    blendMode = vibrantBlendMode(activeColor),
                 )
             }
         }
@@ -486,6 +490,7 @@ private fun MixSheen(height: Dp, color: Color) {
             // with: a plain rect bared square corners wherever the sweep
             // crossed the rounded ends.
             cornerRadius = CornerRadius(size.height / 2f),
+            blendMode = vibrantBlendMode(color),
         )
     }
 }

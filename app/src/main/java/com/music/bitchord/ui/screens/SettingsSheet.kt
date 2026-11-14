@@ -5,6 +5,8 @@ import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
 import androidx.annotation.StringRes
 import android.content.Intent
+import com.music.bitchord.BuildConfig
+import com.music.bitchord.ui.performance.FrameDiagnosticsActivity
 import android.media.AudioFormat
 import android.media.audiofx.AudioEffect
 import android.net.Uri
@@ -96,6 +98,7 @@ import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -144,8 +147,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import com.music.bitchord.ui.components.GlassSegmentedControl
+import com.music.bitchord.ui.components.LocalGlassFloor
 import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.isLiquidGlassActive
+import com.music.bitchord.ui.components.rememberGlassFloor
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.SearchField
@@ -1365,6 +1372,17 @@ fun SettingsScreen(
         }
 
         if (shows(SettingsCategory.PERFORMANCE)) SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
+            if (BuildConfig.PERFORMANCE_DIAGNOSTICS) {
+                row("Frame diagnostics", "jank", "frames", "diagnostics") {
+                    SettingsRow(
+                        icon = SfIcons.Performance,
+                        title = "Frame diagnostics",
+                        subtitle = "Record and share frame timings; compare rendering and refresh rate.",
+                        trailing = { Chevron() },
+                        onClick = { context.startActivity(Intent(context, FrameDiagnosticsActivity::class.java)) },
+                    )
+                }
+            }
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
             row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth") {
                 SettingsRow(
@@ -2547,7 +2565,11 @@ internal fun SettingsGroup(
             .clip(GroupShape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        content()
+        // What the glass in the card's controls shows through to.
+        CompositionLocalProvider(
+            LocalGlassFloor provides rememberGlassFloor(MaterialTheme.colorScheme.surfaceVariant),
+            content = content,
+        )
     }
     if (footer != null) {
         Text(
@@ -2837,8 +2859,9 @@ internal fun DestructiveRow(
 }
 
 /**
- * Sliding pill selector, for the handful of settings with two or three states —
- * and the Search tab's source switcher. See [PillSegmentedControl].
+ * Sliding pill selector, for the handful of settings with two or three states
+ * and the Search tab's source switcher: a [PillSegmentedControl], or a
+ * [GlassSegmentedControl] while Liquid Glass is on.
  */
 @Composable
 internal fun SegmentedControl(
@@ -2848,6 +2871,10 @@ internal fun SegmentedControl(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    if (isLiquidGlassActive()) {
+        GlassSegmentedControl(options, selectedIndex, onSelect, modifier, enabled)
+        return
+    }
     PillSegmentedControl(options, selectedIndex, onSelect, modifier, enabled)
 }
 

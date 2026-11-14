@@ -307,12 +307,16 @@ export class YouTubeEngine {
     if (this.player && this.player.getMediaElement() === this.audio) {
       await this.player.detach().catch(() => {});
     }
+    if (this.audio.srcObject) {
+      this.audio.srcObject = null;
+    }
     if (url.startsWith('/api/stream-audio') || url.includes('/stream-audio')) {
       this.audio.removeAttribute('crossorigin');
     } else {
       this.audio.crossOrigin = 'anonymous';
     }
     this.audio.src = url;
+    this.audio.load();
     if (startSec > 0) {
       if (this.audio.readyState >= 1) {
         this.audio.currentTime = startSec;

@@ -12,14 +12,15 @@ const DEV_ORIGIN = 'http://localhost:5173';
  * this list, and it becomes externally_connectable (Chromium), the relay's
  * content-script matches (Firefox) and the DNR rules' initiatorDomains.
  *
- * bitchord.in and its pages.dev address always, and the dev server too except in a store build
+ * The pages.dev address and bitchord.in always, and the dev server too except in a store build
  * (BITCHORD_STORE_BUILD=1), so a published extension never answers a page on
  * localhost. BITCHORD_SITE_ORIGINS (comma-separated) replaces the list. The
- * first origin is the one the popup and homepage_url link to.
+ * first origin (the pages.dev address, since bitchord.in is currently
+ * broken) is the one the popup's "Open BitChord" button and homepage_url link to.
  */
 export const SITE_ORIGINS: string[] = (
   process.env.BITCHORD_SITE_ORIGINS ??
-  [PRODUCTION_ORIGIN, PAGES_ORIGIN, ...(process.env.BITCHORD_STORE_BUILD === '1' ? [] : [DEV_ORIGIN])].join(',')
+  [PAGES_ORIGIN, PRODUCTION_ORIGIN, ...(process.env.BITCHORD_STORE_BUILD === '1' ? [] : [DEV_ORIGIN])].join(',')
 )
   .split(',')
   .map((o) => o.trim().replace(/\/+$/, ''))

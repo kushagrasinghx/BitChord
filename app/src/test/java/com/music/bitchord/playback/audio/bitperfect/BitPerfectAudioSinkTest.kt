@@ -358,6 +358,10 @@ class BitPerfectAudioSinkTest {
         assertTrue(sink.handleBuffer(more, 100_000, 1))
         assertEquals(8192L + 208, second.written)
         assertEquals(75_000, sink.getCurrentPositionUs(false))
+        second.advance(6000)
+        assertFalse("the resumed tail must not be counted as new frames", sink.hasPendingData())
+        sink.playToEndOfStream()
+        assertTrue(sink.isEnded())
     }
 
     @Test

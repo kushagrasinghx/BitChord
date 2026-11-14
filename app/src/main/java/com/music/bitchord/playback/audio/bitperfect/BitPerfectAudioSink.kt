@@ -494,7 +494,9 @@ internal class BitPerfectAudioSink(
     private fun writeResumeTail(): Boolean {
         val tail = resumeTail ?: return true
         val active = transport ?: return false
-        handOver(active, tail)
+        // These frames were already counted in writtenFrames before [suspend]
+        // took them; handing them to the new device must not add them again.
+        handOver(active, tail, countAsWritten = false)
         startIfReady()
         if (tail.hasRemaining()) return false
         resumeTail = null
@@ -538,18 +540,22 @@ internal class BitPerfectAudioSink(
 
     private fun writeOutput() {
         val active = transport ?: return
-        val taken = handOver(active, output)
-        if (taken > 0) writtenFrames += taken / outputFrameBytes
+        handOver(active, output)
         startIfReady()
     }
 
     /** Writes what [active] takes of [buffer], keeping a copy in [recent] for a later [suspend]. */
-    private fun handOver(active: BitPerfectTransport, buffer: ByteBuffer): Int {
+    private fun handOver(
+        active: BitPerfectTransport,
+        buffer: ByteBuffer,
+        countAsWritten: Boolean = true,
+    ): Int {
         val start = buffer.position()
         val taken = active.write(buffer)
         if (taken > 0) {
             recent?.record(buffer, start, taken)
             transportFrames += taken / outputFrameBytes
+            if (countAsWritten) writtenFrames += taken / outputFrameBytes
         }
         return taken
     }

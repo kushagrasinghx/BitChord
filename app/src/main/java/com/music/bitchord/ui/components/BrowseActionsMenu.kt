@@ -17,6 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.PlaylistDetails
+import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.download.DownloadState
@@ -151,6 +153,12 @@ fun BrowseActionsMenu(
      */
     onRenameInSheet: (() -> Unit)? = null,
     startRenaming: Boolean = false,
+    /**
+     * Set for a playlist on YouTube, and Rename becomes Edit playlist: its
+     * description and who can see it too — see [RenamePlaylistForm].
+     */
+    loadPlaylistDetails: (suspend () -> PlaylistDetails?)? = null,
+    onSavePlaylist: ((title: String?, description: String?, privacy: PlaylistPrivacy?) -> Unit)? = null,
 ) {
     var renaming by remember { mutableStateOf(startRenaming) }
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -163,6 +171,8 @@ fun BrowseActionsMenu(
             onBack = { renaming = false },
             onRename = onRename,
             modifier = modifier,
+            loadDetails = loadPlaylistDetails,
+            onSave = onSavePlaylist,
         )
         return
     }
@@ -262,7 +272,8 @@ fun BrowseActionsMenu(
                 )
             }
             if (onRename != null) {
-                ActionRow(SfIcons.Pencil, stringResource(R.string.rename)) {
+                val label = if (onSavePlaylist != null) R.string.edit_playlist else R.string.rename
+                ActionRow(SfIcons.Pencil, stringResource(label)) {
                     if (onRenameInSheet != null) {
                         onRenameInSheet()
                     } else {

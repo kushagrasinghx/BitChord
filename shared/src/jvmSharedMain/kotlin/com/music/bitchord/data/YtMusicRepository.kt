@@ -4,6 +4,7 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
+import com.music.bitchord.data.model.PlaylistDetails
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.isExactArtistMatch
 import com.music.bitchord.data.model.normalizedArtistName
@@ -1114,6 +1115,27 @@ object YtMusicRepository {
 
     suspend fun renamePlaylist(playlistId: String, title: String): Result<Unit> =
         call("playlist:rename") { Innertube.renamePlaylist(playlistId, title) }
+
+    suspend fun editPlaylist(
+        playlistId: String,
+        title: String? = null,
+        description: String? = null,
+        privacy: PlaylistPrivacy? = null,
+    ): Result<Unit> = call("playlist:edit") {
+        Innertube.editPlaylistDetails(playlistId, title, description, privacy)
+    }
+
+    /**
+     * What the Edit playlist sheet opens on: the playlist's description and
+     * its privacy, off its own page's first response.
+     */
+    suspend fun playlistDetails(browseId: String): Result<PlaylistDetails> =
+        browseSongs(browseId).map { page ->
+            PlaylistDetails(
+                description = page.description.orEmpty(),
+                privacy = page.header?.subtitle?.let(PlaylistPrivacy::fromHeader),
+            )
+        }
 
     suspend fun deletePlaylist(playlistId: String): Result<Unit> =
         call("playlist:delete") { Innertube.deletePlaylist(playlistId) }

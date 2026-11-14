@@ -1104,6 +1104,39 @@ object Innertube {
         }
     }
 
+    /**
+     * Name, description and privacy in one edit, each sent only when given —
+     * the Edit playlist sheet passes only what changed.
+     */
+    suspend fun editPlaylistDetails(
+        playlistId: String,
+        title: String? = null,
+        description: String? = null,
+        privacy: PlaylistPrivacy? = null,
+    ) {
+        if (title == null && description == null && privacy == null) return
+        editPlaylist(playlistId) {
+            title?.let {
+                addJsonObject {
+                    put("action", "ACTION_SET_PLAYLIST_NAME")
+                    put("playlistName", it)
+                }
+            }
+            description?.let {
+                addJsonObject {
+                    put("action", "ACTION_SET_PLAYLIST_DESCRIPTION")
+                    put("playlistDescription", it)
+                }
+            }
+            privacy?.let {
+                addJsonObject {
+                    put("action", "ACTION_SET_PLAYLIST_PRIVACY")
+                    put("playlistPrivacy", it.apiValue)
+                }
+            }
+        }
+    }
+
     /** A fresh client-playback-nonce, identifying one play of one track. */
     fun newCpn(): String = (1..16).map { CPN_ALPHABET.random() }.joinToString("")
 

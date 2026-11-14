@@ -151,6 +151,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.withoutVideos
+import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
@@ -5191,6 +5192,13 @@ private fun BitChordApp(
                     browseMenuOrigin = null
                 },
                 startRenaming = browseRenameInSheet,
+                loadPlaylistDetails = playlist?.let { p -> suspend { viewModel.playlistDetails(p) } },
+                onSavePlaylist = playlist?.let { p ->
+                    { title: String?, description: String?, privacy: PlaylistPrivacy? ->
+                        browseActions = null
+                        viewModel.editPlaylist(p, title, description, privacy)
+                    }
+                },
                 onPlayNext = act(playSongsNext),
                 onAddToQueue = act(addSongsToQueue),
                 onPlay = act { songs ->

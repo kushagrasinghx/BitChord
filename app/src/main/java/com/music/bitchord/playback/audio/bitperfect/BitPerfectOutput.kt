@@ -210,8 +210,7 @@ internal object BitPerfectOutput {
         if (usbOutput) directReleasedAtMs = 0L
         return !usbOutput
     }
-    private val failed = HashSet<String>()
-    private var failedFor: String? = null
+    private val failures = FailedOpenCache()
 
     /** Whether a sink asking for this stream now could get the exclusive output. */
     @Synchronized
@@ -225,7 +224,7 @@ internal object BitPerfectOutput {
             BitPerfectMode.USB_ANDROID -> {
                 if (Build.VERSION.SDK_INT < 34) return false
                 val device = MixerTransport.usbDevice(manager) ?: return false
-                if (key(mode, device.id, sampleRate, channels, sourceBits) in currentFailures(mode, device.id)) {
+                if (failures.contains(failureScope(mode, device.id), key(mode, device.id, sampleRate, channels, sourceBits))) {
                     return false
                 }
                 MixerTransport.bestFormat(manager, device, sampleRate, channels, sourceBits, AppSettings.convertForLimitedDac.value) != null
@@ -233,14 +232,21 @@ internal object BitPerfectOutput {
             // Nothing short of opening a stream says whether Android will grant
             // exclusive mode, so the first track of each format finds out.
             BitPerfectMode.DAP_EXCLUSIVE -> Build.VERSION.SDK_INT >= 27 &&
-                key(mode, NO_DEVICE, sampleRate, channels, sourceBits) !in currentFailures(mode, NO_DEVICE)
+                !failures.contains(
+                    failureScope(mode, NO_DEVICE),
+                    key(mode, NO_DEVICE, sampleRate, channels, sourceBits),
+                )
             // Permission is asked for by the service when the mode is chosen or a
             // DAC is attached; until it is granted, tracks use normal output.
             BitPerfectMode.USB_DIRECT -> {
                 val usb = UsbDirectDevices.manager(context) ?: return false
                 val device = UsbDirectDevices.audioDevice(usb) ?: return false
                 if (!usb.hasPermission(device)) return false
-                if (key(mode, device.deviceId, sampleRate, channels, sourceBits) in currentFailures(mode, device.deviceId)) {
+                if (failures.contains(
+                        failureScope(mode, device.deviceId),
+                        key(mode, device.deviceId, sampleRate, channels, sourceBits),
+                    )
+                ) {
                     return false
                 }
                 val raw = UsbDirectDevices.rawDescriptors(usb, device) ?: return false
@@ -342,7 +348,10 @@ internal object BitPerfectOutput {
                 UsbDirectDevices.manager(context)?.let(UsbDirectDevices::audioDevice)?.deviceId ?: NO_DEVICE
             else -> NO_DEVICE
         }
-        currentFailures(mode, deviceId).add(key(mode, deviceId, sampleRate, channels, sourceBits))
+        failures.mark(
+            failureScope(mode, deviceId),
+            key(mode, deviceId, sampleRate, channels, sourceBits),
+        )
         Log.i(TAG, "Bit-perfect output unavailable ($reason) for $sampleRate Hz/$channels ch/$sourceBits-bit")
         _status.value = Status(fallbackReason = reason)
         recomputeReady()
@@ -359,14 +368,8 @@ internal object BitPerfectOutput {
         recomputeReady()
     }
 
-    private fun currentFailures(mode: BitPerfectMode, deviceId: Int): MutableSet<String> {
-        val scope = "$mode/$deviceId/${AppSettings.convertForLimitedDac.value}"
-        if (failedFor != scope) {
-            failed.clear()
-            failedFor = scope
-        }
-        return failed
-    }
+    private fun failureScope(mode: BitPerfectMode, deviceId: Int): String =
+        "$mode/$deviceId/${AppSettings.convertForLimitedDac.value}"
 
     private fun key(mode: BitPerfectMode, deviceId: Int, rate: Int, channels: Int, bits: Int) =
         "$mode/$deviceId/$rate/$channels/$bits"

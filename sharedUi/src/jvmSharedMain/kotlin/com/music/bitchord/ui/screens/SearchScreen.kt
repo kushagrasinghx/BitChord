@@ -71,6 +71,7 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
@@ -80,6 +81,7 @@ import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.ShelfRow
 import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SearchField
@@ -169,6 +171,13 @@ fun SearchScreen(
      * about the results, and the switcher would just push them down.
      */
     sourceSwitcher: (@Composable () -> Unit)? = null,
+    /**
+     * Spotify's public playlists for this search, as cards in a row under the
+     * top result; empty when not signed in to Spotify. Opened through
+     * [onSpotifyPlaylistClick], since they're Spotify's, not YouTube's.
+     */
+    spotifyPlaylists: List<ShelfItem> = emptyList(),
+    onSpotifyPlaylistClick: (ShelfItem) -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -187,6 +196,14 @@ fun SearchScreen(
     // previous scroll position (or a previous result page's position).
     LaunchedEffect(scrollResetTrigger) {
         if (scrollResetTrigger > 0) listState.scrollToItem(0)
+    }
+    // Spotify's playlists answer after YouTube's rows are up, and a lazy list
+    // keeps its place on the first row showing — so with no top result, the
+    // row arrived above the top of the screen and stayed hidden. Brought into
+    // view when it arrives, unless the list has been scrolled down already.
+    val hasSpotifyRow = spotifyPlaylists.isNotEmpty()
+    LaunchedEffect(hasSpotifyRow) {
+        if (hasSpotifyRow && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
     }
     // A non-empty suggestion list means the field is mid-edit — see
     // MainViewModel.suggestions. Nothing below it is worth showing while it is
@@ -343,6 +360,33 @@ fun SearchScreen(
                                     onPlaylist = { onTopResultPlaylist(topResult.song) },
                                     onLongPress = { onSongLongPress(topResult.song) },
                                 )
+                            }
+                        }
+                    }
+                    if (spotifyPlaylists.isNotEmpty() &&
+                        (filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS)
+                    ) {
+                        item(key = "search:spotify-playlists") {
+                            Column {
+                                Text(
+                                    text = stringResource(Res.string.spotify_playlists),
+                                    modifier = Modifier.padding(
+                                        start = PAGE_GUTTER,
+                                        end = PAGE_GUTTER,
+                                        top = 16.dp,
+                                        bottom = 6.dp,
+                                    ),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                ShelfRow(
+                                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    items(spotifyPlaylists, key = { it.browseId ?: it.title }) { playlist ->
+                                        ShelfCard(item = playlist, onClick = { onSpotifyPlaylistClick(playlist) })
+                                    }
+                                }
                             }
                         }
                     }

@@ -102,6 +102,19 @@ export class AddonManager {
     return newAddon;
   }
 
+  static toStreamableUrl(url: string, codec = 'FLAC'): string {
+    if (!url) return url;
+    // NetEase NOS and other upstream CDNs return Content-Type: audio/mpeg for .flac files,
+    // which triggers MEDIA_ERR_SRC_NOT_SUPPORTED in Chrome.
+    // Routing through /api/stream-audio fixes the MIME type to audio/flac with range streaming.
+    const isDirectFlac = url.includes('.flac') || codec.toUpperCase() === 'FLAC';
+    const isExternalCdn = url.startsWith('http://') || url.startsWith('https://');
+    if (isDirectFlac && isExternalCdn && !url.includes('/stream-audio')) {
+      return `/api/stream-audio?url=${encodeURIComponent(url)}&type=audio%2Fflac`;
+    }
+    return url;
+  }
+
   static toggleAddon(id: string, enabled: boolean): void {
     const updated = this.getAddons().map((a) => (a.id === id ? { ...a, enabled } : a));
     this.saveAddons(updated);
@@ -351,7 +364,22 @@ export class AddonManager {
             }
           }
 
-          const matched = list.find((t) => isMatch(t.title, t.artist, t.duration_sec ?? t.duration));
+          // Sort list so exact title matches and non-remixes come first
+          const sortedList = [...list].sort((a, b) => {
+            const cleanA = cleanStr(a.title);
+            const cleanB = cleanStr(b.title);
+            const target = cleanStr(rawTitle);
+
+            const exactA = cleanA === target ? 1 : 0;
+            const exactB = cleanB === target ? 1 : 0;
+            if (exactA !== exactB) return exactB - exactA;
+
+            const isFluffA = /lofi|remix|slowed|reverb|flip|cover|mashup/i.test(a.title) ? 1 : 0;
+            const isFluffB = /lofi|remix|slowed|reverb|flip|cover|mashup/i.test(b.title) ? 1 : 0;
+            return isFluffA - isFluffB;
+          });
+
+          const matched = sortedList.find((t) => isMatch(t.title, t.artist, t.duration_sec ?? t.duration));
 
           if (matched) {
             if (matched.streamURL) {
@@ -359,7 +387,7 @@ export class AddonManager {
               if (works) {
                 this.recordAddonSuccess(addon.id);
                 return saveAndReturn({
-                  streamUrl: matched.streamURL,
+                  streamUrl: this.toStreamableUrl(matched.streamURL, 'FLAC'),
                   addonName: addon.name,
                   format: 'Lossless Audio',
                   codec: 'FLAC',
@@ -401,7 +429,7 @@ export class AddonManager {
                     : 1411);
 
                 return saveAndReturn({
-                  streamUrl: resolvedUrl,
+                  streamUrl: this.toStreamableUrl(resolvedUrl, codecLabel),
                   addonName: addon.name,
                   format: formatLabel,
                   codec: codecLabel,
@@ -496,7 +524,7 @@ export class AddonManager {
 
           this.recordAddonSuccess(addon.id);
           return saveAndReturn({
-            streamUrl: streamUrlToUse,
+            streamUrl: this.toStreamableUrl(streamUrlToUse, streamCodec || 'FLAC'),
             addonName: addon.name,
             format: streamFormat,
             codec: streamCodec || 'FLAC',

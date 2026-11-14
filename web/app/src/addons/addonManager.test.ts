@@ -183,7 +183,8 @@ describe('AddonManager', () => {
 
     const resolved = await AddonManager.resolveStream(track);
     expect(resolved).not.toBeNull();
-    expect(resolved?.streamUrl).toBe('https://example.com/working.flac');
+    expect(resolved?.streamUrl).toContain('/api/stream-audio?url=');
+    expect(resolved?.streamUrl).toContain('working.flac');
     expect(resolved?.format).toBe('Lossless Audio');
   });
 
@@ -244,7 +245,8 @@ describe('AddonManager', () => {
 
     const resolved = await AddonManager.resolveStream(track);
     expect(resolved).not.toBeNull();
-    expect(resolved?.streamUrl).toBe('https://example.com/starboy.flac');
+    expect(resolved?.streamUrl).toContain('/api/stream-audio?url=');
+    expect(resolved?.streamUrl).toContain('starboy.flac');
     expect(resolved?.codec).toBe('FLAC');
   });
 
@@ -596,7 +598,8 @@ describe('AddonManager', () => {
 
     const resolved = await AddonManager.resolveStream(track);
     expect(resolved).not.toBeNull();
-    expect(resolved?.streamUrl).toBe('https://m801.music.126.net/stream.flac');
+    expect(resolved?.streamUrl).toContain('/api/stream-audio?url=');
+    expect(resolved?.streamUrl).toContain('m801.music.126.net');
     expect(resolved?.format).toBe('Master Hi-Res Lossless · 24-bit / 96 kHz (Studio Master)');
     expect(resolved?.codec).toBe('FLAC');
     expect(resolved?.bitrate).toBe(4608); // 24 * 96000 * 2 / 1000

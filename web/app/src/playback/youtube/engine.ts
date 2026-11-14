@@ -236,7 +236,7 @@ export class YouTubeEngine {
       this.current = { videoId: metadata.videoId, client: 'DIRECT' as any, signed: false };
       this.direct = null;
 
-      const isDirectFile = /\.(flac|mp3|m4a|aac|ogg|opus|wav)($|\?)/i.test(url) || url.includes('/stream-audio/');
+      const isDirectFile = /\.(flac|mp3|m4a|aac|ogg|opus|wav)($|\?)/i.test(url) || url.includes('/stream-audio');
       if (isDirectFile) {
         await this.attachDirectAudio(url, startSec);
       } else {
@@ -261,7 +261,11 @@ export class YouTubeEngine {
 
       trackLog.i(`playing via addon stream, first audio after ${Math.round(performance.now() - started)}ms`, metadata.videoId);
 
-      const isFlac = metadata.format?.includes('FLAC') || url.includes('.flac');
+      const isFlac =
+        metadata.format?.includes('FLAC') ||
+        url.includes('.flac') ||
+        url.includes('type=audio%2Fflac') ||
+        url.includes('type=audio/flac');
       const codec = metadata.codec || (isFlac ? 'FLAC' : 'MP3');
       const bitrateKbps = metadata.bitrate || (isFlac ? 1411 : 320);
 
@@ -303,7 +307,11 @@ export class YouTubeEngine {
     if (this.player && this.player.getMediaElement() === this.audio) {
       await this.player.detach().catch(() => {});
     }
-    this.audio.crossOrigin = 'anonymous';
+    if (url.startsWith('/api/stream-audio') || url.includes('/stream-audio')) {
+      this.audio.removeAttribute('crossorigin');
+    } else {
+      this.audio.crossOrigin = 'anonymous';
+    }
     this.audio.src = url;
     if (startSec > 0) {
       if (this.audio.readyState >= 1) {

@@ -3,6 +3,8 @@ package com.music.bitchord.data.spotify
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.SpotifyCanvasQuery
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -195,8 +197,15 @@ object SpotifyLibrary {
      * for the artist page's On Spotify row. Found through the playlist search
      * and narrowed by [playlistsAbout].
      */
-    suspend fun artistPlaylists(artist: String): List<SpotifyPlaylist> =
-        playlistsAbout(artist, searchPlaylists("This Is $artist"))
+    suspend fun artistPlaylists(artist: String): List<SpotifyPlaylist> = coroutineScope {
+        // Two searches: a "This Is" search rarely lists the artist's Radio.
+        val thisIs = async { runCatching { searchPlaylists("This Is $artist") } }
+        val radio = async { runCatching { searchPlaylists("$artist Radio") } }
+        val found = listOf(thisIs.await(), radio.await())
+        // Only when both failed is it a failure; one answering is enough.
+        if (found.all { it.isFailure }) throw found.first().exceptionOrNull()!!
+        playlistsAbout(artist, found.flatMap { it.getOrDefault(emptyList()) }.distinctBy { it.id })
+    }
 
     @Volatile private var searchOperation: Pair<String, String>? = null
     @Volatile private var searchCheckedAt = 0L
@@ -309,7 +318,7 @@ object SpotifyLibrary {
  * Of [found], the playlists Spotify itself made about [artist]: owned by
  * Spotify, named with the artist's whole name (ignoring case and accents,
  * so "Beyonce" finds "This Is Beyoncé" but "Radio" doesn't find "Radiohead").
- * "This Is <artist>" leads; the rest keep the search's order.
+ * "This Is <artist>" leads, then "<artist> Radio"; the rest keep the search's order.
  */
 internal fun playlistsAbout(artist: String, found: List<SpotifyPlaylist>): List<SpotifyPlaylist> {
     val name = foldForMatch(artist)
@@ -318,7 +327,14 @@ internal fun playlistsAbout(artist: String, found: List<SpotifyPlaylist>): List<
     val about = found.filter { playlist ->
         playlist.owner.equals("Spotify", ignoreCase = true) && whole.containsMatchIn(foldForMatch(playlist.name))
     }
-    return about.sortedByDescending { foldForMatch(it.name) == "this is $name" }
+    // This Is first, then the artist's Radio, then the rest in the search's order.
+    return about.sortedBy {
+        when (foldForMatch(it.name)) {
+            "this is $name" -> 0
+            "$name radio" -> 1
+            else -> 2
+        }
+    }
 }
 
 private fun foldForMatch(text: String): String =

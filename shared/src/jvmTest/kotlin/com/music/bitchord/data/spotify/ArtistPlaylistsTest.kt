@@ -9,12 +9,16 @@ class ArtistPlaylistsTest {
     @Test
     fun `Spotify's own playlists about the artist, This Is first`() {
         val found = listOf(
+            p("Radiohead Live"),
             p("Radiohead Radio"),
             p("This Is Radiohead"),
             p("This Is Radiohead", owner = "sean burke"),
             p("Alternative 90s"),
         )
-        assertEquals(listOf("This Is Radiohead", "Radiohead Radio"), playlistsAbout("Radiohead", found).map { it.name })
+        assertEquals(
+            listOf("This Is Radiohead", "Radiohead Radio", "Radiohead Live"),
+            playlistsAbout("Radiohead", found).map { it.name },
+        )
     }
 
     @Test

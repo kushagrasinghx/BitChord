@@ -230,8 +230,14 @@ internal object BitPerfectOutput {
                 MixerTransport.bestFormat(manager, device, sampleRate, channels, sourceBits, AppSettings.convertForLimitedDac.value) != null
             }
             // Nothing short of opening a stream says whether Android will grant
-            // exclusive mode, so the first track of each format finds out.
+            // exclusive mode, so the first track of each format finds out. A DAP
+            // must have a wired output; opening device 0 without one would play
+            // the speaker while the status says exclusive.
             BitPerfectMode.DAP_EXCLUSIVE -> Build.VERSION.SDK_INT >= 27 &&
+                manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+                    it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET
+                } &&
                 !failures.contains(
                     failureScope(mode, NO_DEVICE),
                     key(mode, NO_DEVICE, sampleRate, channels, sourceBits),

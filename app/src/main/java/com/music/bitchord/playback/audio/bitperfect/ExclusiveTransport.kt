@@ -129,8 +129,8 @@ internal class ExclusiveTransport private constructor(
             val outputs = manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val wired = outputs.firstOrNull {
                 it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
-            }
-            val offered = wired?.sampleRates?.takeIf { it.isNotEmpty() }?.toList() ?: BitPerfectPcm.STANDARD_RATES
+            } ?: throw BitPerfectTransportException("no_wired_output")
+            val offered = wired.sampleRates.takeIf { it.isNotEmpty() }?.toList() ?: BitPerfectPcm.STANDARD_RATES
             val rates = if (convert) BitPerfectPcm.rankRates(rate, offered + rate).take(MAX_RATE_ATTEMPTS) else listOf(rate)
             val depths = if (convert) listOf(32, 24, 16).filter { it <= sourceBits } else listOf(sourceBits)
             var openedRate = rate
@@ -139,7 +139,7 @@ internal class ExclusiveTransport private constructor(
             search@ for (candidate in rates) {
                 for (bits in depths) {
                     try {
-                        handle = ExclusiveNative.open(candidate, channels, bits, wired?.id ?: 0)
+                        handle = ExclusiveNative.open(candidate, channels, bits, wired.id)
                         openedRate = candidate
                         break@search
                     } catch (error: IllegalStateException) {

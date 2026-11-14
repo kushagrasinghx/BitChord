@@ -49,6 +49,12 @@ data class Song(
     /** A music-video upload rather than the catalogue track. */
     val isVideo: Boolean = false,
     /**
+     * YouTube Music's tally for the track as its row states it — "12M plays",
+     * or "1.4M views" for a video. Album pages and an artist's Top songs carry
+     * one; search, playlist and queue rows don't, so this is null there.
+     */
+    val plays: String? = null,
+    /**
      * True for a video upload and for its manually selected catalogue match.
      * The latter remains video-origin so playback policies such as AutoMix do
      * not mistake a converted video for a normal music track.

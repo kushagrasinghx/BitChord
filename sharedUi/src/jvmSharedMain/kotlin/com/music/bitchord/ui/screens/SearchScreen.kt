@@ -197,6 +197,14 @@ fun SearchScreen(
     LaunchedEffect(scrollResetTrigger) {
         if (scrollResetTrigger > 0) listState.scrollToItem(0)
     }
+    // Spotify's playlists answer after YouTube's rows are up, and a lazy list
+    // keeps its place on the first row showing — so with no top result, the
+    // row arrived above the top of the screen and stayed hidden. Brought into
+    // view when it arrives, unless the list has been scrolled down already.
+    val hasSpotifyRow = spotifyPlaylists.isNotEmpty()
+    LaunchedEffect(hasSpotifyRow) {
+        if (hasSpotifyRow && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
     // A non-empty suggestion list means the field is mid-edit — see
     // MainViewModel.suggestions. Nothing below it is worth showing while it is
     // up: the results are for whatever was searched before this edit began,

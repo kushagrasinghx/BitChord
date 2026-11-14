@@ -59,4 +59,13 @@ class PlayCountTest {
         assertNull(songs(row("ddddddddddd", "Track", "Artist", "Album")).single().plays)
         assertNull(songs(row("eeeeeeeeeee", "Track", "50 Cent", "Album")).single().plays)
     }
+
+    @Test
+    fun `an album listed from its backing playlist keeps the album rows' play counts`() {
+        val album = songs(row("aaaaaaaaaaa", "Burn the Witch", "", "52M plays"), row("bbbbbbbbbbb", "Daydreaming", "", "81M plays"))
+        val playlist = songs(row("aaaaaaaaaaa", "Burn the Witch", "Radiohead"), row("bbbbbbbbbbb", "Daydreaming", "Radiohead"))
+        val merged = com.music.bitchord.data.YtMusicRepository.withPlaysFrom(album, playlist)
+        assertEquals(listOf("52M plays", "81M plays"), merged.map { it.plays })
+        assertEquals(listOf("Radiohead", "Radiohead"), merged.map { it.artist })
+    }
 }

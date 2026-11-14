@@ -346,8 +346,12 @@ internal object QuickJsExecutor {
                 val rawResult = qjs.evaluate<String>("__spine_resolved_json")
                 TrackLog.d(TAG, "  callExport result (${rawResult.length} chars): ${rawResult.take(500)}")
                 rawResult
-            }.onFailure {
-                TrackLog.e(TAG, "  ✗ callExport FAILED for $moduleId.$functionName: ${it.message}", it)
+            }.onFailure { failure ->
+                // runCatching also catches cancellation. Re-throw it so the
+                // caller's deadline/coroutine cancellation actually stops the
+                // evaluation instead of being reported as a module error.
+                if (failure is kotlinx.coroutines.CancellationException) throw failure
+                TrackLog.e(TAG, "  ✗ callExport FAILED for $moduleId.$functionName: ${failure.message}", failure)
             }
         }
 

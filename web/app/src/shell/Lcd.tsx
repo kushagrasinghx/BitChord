@@ -14,6 +14,7 @@ import { useUi } from '@/state/ui';
 import { useHasVideo } from '@/state/video';
 import { albumPageFor, artistPageFor } from './nowPlayingLinks';
 import { MixWindowHighlight, StreamBadge, describeStream } from './NerdStats';
+import { AudioQualityBadge } from './AudioQualityBadge';
 import { useScrubber } from './useScrubber';
 
 // The title and each artist: plain until hovered, then underlined on their own.
@@ -179,6 +180,11 @@ export function Lcd() {
             {showNerdStats && nowPlaying && (
               <span className="ml-2 flex-none">
                 <StreamBadge nowPlaying={nowPlaying} />
+              </span>
+            )}
+            {nowPlaying && (
+              <span className="ml-2 flex-none">
+                <AudioQualityBadge compact />
               </span>
             )}
           </span>

@@ -28,23 +28,14 @@ export function NerdStats() {
 }
 
 /**
- * Compact, high-visibility stream stats badge showing codec, sample rate, bitrate, and source.
+ * Stream stats text showing codec, sample rate, bitrate, and source as simple normal text.
  */
 export function StreamBadge({ nowPlaying, className = '' }: { nowPlaying: NowPlaying; className?: string }) {
   const text = describeStream(nowPlaying);
   if (!text) return null;
-  const isLossless = text.includes('FLAC') || text.includes('Lossless');
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-mono leading-none tracking-tight transition-colors ${
-        isLossless
-          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.15)]'
-          : 'bg-white/10 text-secondary border border-white/10'
-      } ${className}`}
-      title={text}
-    >
-      <span className={`size-1.5 rounded-full ${isLossless ? 'bg-emerald-400 animate-pulse' : 'bg-primary/40'}`} />
-      <span className="truncate max-w-[280px]">{text}</span>
+    <span className={`text-secondary type-[500_11px/14px] tabular-nums truncate ${className}`} title={text}>
+      {text}
     </span>
   );
 }

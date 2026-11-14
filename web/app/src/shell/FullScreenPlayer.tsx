@@ -30,6 +30,7 @@ import { MeshBackdrop } from './MeshBackdrop';
 import { albumPageFor } from './nowPlayingLinks';
 import { UpNext } from './UpNext';
 import { MixWindowHighlight, NerdStats } from './NerdStats';
+import { AudioQualityBadge } from './AudioQualityBadge';
 import { useScrubber } from './useScrubber';
 import { VideoQuality } from './VideoQuality';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
@@ -372,6 +373,9 @@ export function FullScreenPlayer() {
           </div>
 
           <Scrubber />
+          <div className="mt-2.5 mb-1 flex justify-center">
+            <AudioQualityBadge />
+          </div>
           <Transport />
         </section>
 

@@ -262,6 +262,12 @@ internal fun PlayerScrubber(
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = timeColor,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        PlayerSettings.setShowTotalDuration(!showTotalDuration)
+                    },
                 )
             }
             // Pinned to the box's own centre rather than squeezed into the gap

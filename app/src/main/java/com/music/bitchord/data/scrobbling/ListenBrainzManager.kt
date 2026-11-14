@@ -2,6 +2,7 @@ package com.music.bitchord.data.scrobbling
 
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,7 +24,7 @@ object ListenBrainzManager {
         if (token.isBlank() || song == null) return false
         return withContext(Dispatchers.IO) {
             try {
-                val durationMs = durationMsOverride ?: parseDurationMs(song.durationText)
+                val durationMs = durationMsOverride ?: song.durationText.durationMillis()
                 // The API rejects a zero/negative duration_ms, and it is
                 // optional — so only send it when it is actually known.
                 val durationPart = if (durationMs > 0) "\"duration_ms\":$durationMs," else ""
@@ -70,7 +71,7 @@ object ListenBrainzManager {
         if (token.isBlank() || song == null) return false
         return withContext(Dispatchers.IO) {
             try {
-                val durationMs = durationMsOverride ?: parseDurationMs(song.durationText)
+                val durationMs = durationMsOverride ?: song.durationText.durationMillis()
                 val durationPart = if (durationMs > 0) "\"duration_ms\":$durationMs," else ""
                 val releaseName = song.albumName.orEmpty()
                 val releasePart = if (releaseName.isBlank()) "" else "\"release_name\":\"${escapeJson(releaseName)}\","
@@ -107,15 +108,6 @@ object ListenBrainzManager {
                 false
             }
         }
-    }
-
-    private fun parseDurationMs(text: String?): Long {
-        if (text == null) return 0L
-        val parts = text.split(":")
-        if (parts.size != 2) return 0L
-        val minutes = parts[0].toLongOrNull() ?: return 0L
-        val seconds = parts[1].toLongOrNull() ?: return 0L
-        return (minutes * 60 + seconds) * 1000
     }
 
     private fun escapeJson(s: String): String = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")

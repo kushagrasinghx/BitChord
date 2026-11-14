@@ -56,7 +56,7 @@ object CrashLog {
     }
 
     /** Writes the crash and the buffered log to [file]. */
-    fun dump(file: File, throwable: Throwable) {
+    private fun dump(file: File, throwable: Throwable) {
         file.parentFile?.mkdirs()
         file.printWriter().use { out ->
             out.println("=== Neiro crash report ===")

@@ -274,18 +274,31 @@ internal class BitPerfectAudioSink(
         }
         val active = transport ?: return
         try {
-            if (!flushOutput()) return
-            if (!stopped) {
-                active.stop()
-                stopped = true
-            }
+            finishEndOfStream(active)
         } catch (error: BitPerfectTransportException) {
             throw writeException(error)
         }
     }
 
-    override fun isEnded(): Boolean =
-        (transport == null && !suspended) || (endOfStream && stopped && !hasPendingData())
+    override fun isEnded(): Boolean {
+        // The transport is non-blocking. Media3 offers no further buffer after
+        // EOS, so if the final chunk did not fit, keep handing it over here as
+        // the device plays room free. Called on the playback thread, like every
+        // other sink method.
+        if (endOfStream && !stopped) {
+            transport?.let { active ->
+                runCatching { finishEndOfStream(active) }
+                    .onFailure { error ->
+                        if (error is BitPerfectTransportException) {
+                            pendingFailure = error
+                        } else {
+                            Log.w(TAG, "end-of-stream drain failed", error)
+                        }
+                    }
+            }
+        }
+        return (transport == null && !suspended) || (endOfStream && stopped && !hasPendingData())
+    }
 
     override fun hasPendingData(): Boolean {
         val held = output.hasRemaining() || resumeTail != null
@@ -505,6 +518,16 @@ internal class BitPerfectAudioSink(
 
     /** Stream frames played so far, on this device and the ones before it. */
     private fun playedFrames(active: BitPerfectTransport): Long = framesBase + active.playedFrames()
+
+    /** Hands the transport the final chunk once it has room, then ends it. */
+    private fun finishEndOfStream(active: BitPerfectTransport): Boolean {
+        if (!flushOutput()) return false
+        if (!stopped) {
+            active.stop()
+            stopped = true
+        }
+        return true
+    }
 
     /**
      * Plays out the stream the transport was opened for, so a new format can

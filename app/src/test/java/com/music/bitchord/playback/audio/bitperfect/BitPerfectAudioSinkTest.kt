@@ -365,6 +365,30 @@ class BitPerfectAudioSinkTest {
     }
 
     @Test
+    fun endOfStreamDrainRetriesAsTheTransportPlays() {
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val sink = BitPerfectAudioSink(outputs) { 0L }
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+
+        // More than the fake DAC's 8192-frame queue: the tail stays in the sink.
+        assertFalse(sink.handleBuffer(pcm16(10_000), 0, 1))
+        val transport = outputs.opened.single()
+        assertEquals(8192L, transport.written)
+
+        sink.playToEndOfStream()
+        assertFalse(sink.isEnded())
+        assertFalse(transport.stopped)
+
+        transport.advance(8192)
+        assertFalse(sink.isEnded())
+        assertTrue("the tail is accepted once the queue has room", transport.stopped)
+
+        transport.advance(1808)
+        assertTrue(sink.isEnded())
+    }
+
+    @Test
     fun mixerOutputIsNeverReleasedIdle() {
         var now = 0L
         val outputs = FakeOutputs()

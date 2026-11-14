@@ -709,9 +709,17 @@ internal class LyricPlayhead(
 }
 
 @Composable
-internal fun rememberLyricPlayhead(position: PlaybackPosition): LyricPlayhead {
-    val offset = PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+internal fun rememberLyricPlayhead(position: PlaybackPosition, videoId: String): LyricPlayhead {
+    val offset = rememberLyricsOffsetMs(videoId)
     return remember(position, offset) { LyricPlayhead(position, offset) }
+}
+
+/** The offset the lyrics of [videoId] run at: the global one plus the song's own. */
+@Composable
+internal fun rememberLyricsOffsetMs(videoId: String): State<Int> {
+    val global = PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val songs = PlayerSettings.songLyricsOffsets.collectAsStateWithLifecycle()
+    return remember(videoId, global, songs) { derivedStateOf { global.value + (songs.value[videoId] ?: 0) } }
 }
 
 private fun nanosToMs(nanos: Long): Double = nanos / 1_000_000.0

@@ -84,6 +84,8 @@
     <string name="lyrics_offset">가사 오프셋</string>
     <string name="lyrics_offset_description">양수 값은 가사를 더 늦게 표시합니다</string>
     <string name="lyrics_offset_reset">재설정</string>
+    <string name="lyrics_offset_this_song">이번 곡</string>
+    <string name="lyrics_offset_all_songs">모든 곡</string>
     <string name="lyrics_provider_current">현재 제공자</string>
     <string name="lyrics_provider_fetching">가사를 가져오는 중…</string>
     <string name="lyrics_provider_found">가사 찾음 · 눌러서 사용</string>

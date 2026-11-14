@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,14 +72,24 @@ private val DrawerMaxWidth = 640.dp
 private const val StepMs = 100
 private const val DismissDragFraction = 0.25f
 
-/** A player drawer for shifting all synced lyrics against the playback clock. */
+/**
+ * A player drawer for shifting synced lyrics against the playback clock: this
+ * song's own offset, or the one under every song (a Bluetooth delay). The two add up.
+ */
 @Composable
 internal fun LyricsOffsetSheet(
+    videoId: String,
     hazeState: HazeState,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val offsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    var thisSong by remember { mutableStateOf(true) }
+    val globalMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val songOffsets by PlayerSettings.songLyricsOffsets.collectAsStateWithLifecycle()
+    val offsetMs = if (thisSong) songOffsets[videoId] ?: 0 else globalMs
+    val setOffsetMs: (Int) -> Unit = {
+        if (thisSong) PlayerSettings.setSongLyricsOffsetMs(videoId, it) else PlayerSettings.setLyricsOffsetMs(it)
+    }
     val haptics = rememberHaptics()
     var drag by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableIntStateOf(0) }
@@ -177,6 +189,22 @@ internal fun LyricsOffsetSheet(
                         .fillMaxWidth()
                         .padding(start = 4.dp, top = 3.dp, bottom = 14.dp),
                 )
+                Row(
+                    modifier = Modifier
+                        .padding(bottom = 12.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.05f))
+                        .padding(3.dp),
+                ) {
+                    ScopePill(stringResource(Res.string.lyrics_offset_this_song), selected = thisSong) {
+                        haptics.play(Haptic.Select)
+                        thisSong = true
+                    }
+                    ScopePill(stringResource(Res.string.lyrics_offset_all_songs), selected = !thisSong) {
+                        haptics.play(Haptic.Select)
+                        thisSong = false
+                    }
+                }
 
                 Column(
                     modifier = Modifier
@@ -205,11 +233,11 @@ internal fun LyricsOffsetSheet(
                             enabled = offsetMs > MIN_LYRICS_OFFSET_MS,
                         ) {
                             haptics.play(Haptic.Select)
-                            PlayerSettings.setLyricsOffsetMs(offsetMs - StepMs)
+                            setOffsetMs(offsetMs - StepMs)
                         }
                         ThinSlider(
                             value = offsetToFraction(offsetMs),
-                            onValueChange = { PlayerSettings.setLyricsOffsetMs(fractionToOffset(it)) },
+                            onValueChange = { setOffsetMs(fractionToOffset(it)) },
                             idleHeight = 6.dp,
                             activeHeight = 10.dp,
                             modifier = Modifier.weight(1f),
@@ -220,7 +248,7 @@ internal fun LyricsOffsetSheet(
                             enabled = offsetMs < MAX_LYRICS_OFFSET_MS,
                         ) {
                             haptics.play(Haptic.Select)
-                            PlayerSettings.setLyricsOffsetMs(offsetMs + StepMs)
+                            setOffsetMs(offsetMs + StepMs)
                         }
                     }
                 }
@@ -234,13 +262,27 @@ internal fun LyricsOffsetSheet(
                         .clip(CircleShape)
                         .clickable(enabled = offsetMs != 0) {
                             haptics.play(Haptic.Tap)
-                            PlayerSettings.setLyricsOffsetMs(0)
+                            setOffsetMs(0)
                         }
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                 )
             }
         }
     }
+}
+
+@Composable
+private fun ScopePill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White.copy(alpha = if (selected) 0.95f else 0.55f),
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = if (selected) 0.14f else 0f))
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @Composable

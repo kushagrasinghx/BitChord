@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">Эта песня</string>
+    <string name="lyrics_offset_all_songs">Все песни</string>
     <string name="lyrics_provider_current">Текущий источник</string>
     <string name="lyrics_provider_fetching">Загрузка текста…</string>
     <string name="lyrics_provider_found">Текст найден · Нажмите, чтобы использовать</string>

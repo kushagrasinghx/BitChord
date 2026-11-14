@@ -52,7 +52,7 @@ export function AudioQualityBadge({ className = '' }: { className?: string }) {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className={`group inline-flex items-center gap-1.5 h-5 px-2.5 rounded-full bg-white/[0.12] hover:bg-white/[0.2] active:bg-white/[0.28] backdrop-blur-md transition-colors duration-150 cursor-pointer select-none text-white/90 ${className}`}
+        className={`group inline-flex items-center gap-1.5 h-[18px] px-1.5 rounded-[4px] bg-white/[0.12] hover:bg-white/[0.2] active:bg-white/[0.28] backdrop-blur-md transition-colors duration-150 cursor-pointer select-none text-white/90 ${className}`}
         title={`Audio Quality: ${label} (Click for details)`}
         aria-label={`Audio Quality: ${label}`}
       >
@@ -148,7 +148,7 @@ export function AudioQualityBadge({ className = '' }: { className?: string }) {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="mt-4 w-full h-8.5 rounded-full bg-white/10 hover:bg-white/16 active:bg-white/22 text-xs font-medium text-white transition-colors cursor-pointer"
+              className="mt-4 w-full h-8.5 rounded-pill bg-white/10 hover:bg-white/16 active:bg-white/22 text-xs font-medium text-white transition-colors cursor-pointer"
             >
               Done
             </button>

@@ -1401,12 +1401,12 @@ fun NowPlayingScreen(
     // Spotify Canvas is the player background on a phone, preserving its legacy
     // behavior independently of either artwork preference. The animated-art
     // option adds full bleed for other actual canvases; it never promotes
-    // static artwork. Other providers' still artwork keeps answering to the
-    // general full-bleed preference exactly as before.
+    // static artwork. Other providers' still artwork only uses the general
+    // preference when animated-art mode is off.
     // A music video sits in the card's place at its own 16:9, never full bleed.
     val heroMode = !videoMode && (
         spotifyCanvasOnPhone ||
-            ((fullBleedArt || (extendAnimatedArt && canvas != null)) && playerFillsWindow(windowWidth))
+            ((fullBleedArt && !extendAnimatedArt) || (extendAnimatedArt && canvas != null)) && playerFillsWindow(windowWidth)
         )
 
     // Whether there's a still image to blow out — a placeholder tile is a card

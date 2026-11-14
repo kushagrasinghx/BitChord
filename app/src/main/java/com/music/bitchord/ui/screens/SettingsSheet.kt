@@ -1139,13 +1139,15 @@ fun SettingsScreen(
                         icon = SfIcons.Fullscreen,
                         title = fullScreenCoverArtTitle,
                         subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
+                        enabled = !extendAnimatedArtwork,
                         trailing = {
                             IosSwitch(
                                 checked = fullBleedArtwork,
+                                enabled = !extendAnimatedArtwork,
                                 onCheckedChange = AppSettings::setFullBleedArtwork,
                             )
                         },
-                        onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                        onClick = if (extendAnimatedArtwork) null else ({ AppSettings.setFullBleedArtwork(!fullBleedArtwork) }),
                     )
                 }
             }
@@ -1158,13 +1160,15 @@ fun SettingsScreen(
                     icon = SfIcons.Fullscreen,
                     title = fullScreenDetailCoverTitle,
                     subtitle = stringResource(R.string.full_screen_detail_cover_subtitle),
+                    enabled = !extendAnimatedArtwork,
                     trailing = {
                         IosSwitch(
                             checked = fullBleedDetailArtwork,
+                            enabled = !extendAnimatedArtwork,
                             onCheckedChange = AppSettings::setFullBleedDetailArtwork,
                         )
                     },
-                    onClick = { AppSettings.setFullBleedDetailArtwork(!fullBleedDetailArtwork) },
+                    onClick = if (extendAnimatedArtwork) null else ({ AppSettings.setFullBleedDetailArtwork(!fullBleedDetailArtwork) }),
                 )
             }
             val extendAnimatedArtworkTitle = stringResource(R.string.extend_animated_artwork)

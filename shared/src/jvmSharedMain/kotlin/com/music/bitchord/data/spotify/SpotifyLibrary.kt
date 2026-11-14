@@ -1,6 +1,7 @@
 package com.music.bitchord.data.spotify
 
 import com.music.bitchord.data.Http
+import com.music.bitchord.data.canvas.SpotifyCanvasQuery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -165,6 +166,85 @@ object SpotifyLibrary {
         largestSource(root.obj("data")?.obj("playlistV2")?.obj("images"))
     }
 
+    /**
+     * Public playlists for [query], as Spotify's own search lists them — the
+     * web player's Playlists tab (`searchPlaylists`), or failing that the few
+     * its All tab (`searchDesktop`) carries. Neither has a hash this file can
+     * keep: Spotify renames them with every web player release, so both are
+     * read off its current scripts — see [searchHash].
+     */
+    suspend fun searchPlaylists(query: String): List<SpotifyPlaylist> = withContext(Dispatchers.IO) {
+        val (operation, hash) = searchHash()
+            ?: throw IllegalStateException("Spotify's search isn't available right now")
+        val variables = buildJsonObject {
+            put("searchTerm", query)
+            put("offset", 0)
+            put("limit", if (operation == SEARCH_PLAYLISTS) 20 else 10)
+            put("numberOfTopResults", 5)
+            put("includeAudiobooks", false)
+            put("includePreReleases", false)
+            put("includeAuthors", false)
+            put("includeArtistHasConcertsField", false)
+            put("includeLocalConcertsField", false)
+        }
+        parseSearchPlaylists(gql(operation, hash, variables, authHeaders()))
+    }
+
+    @Volatile private var searchOperation: Pair<String, String>? = null
+    @Volatile private var searchCheckedAt = 0L
+
+    /**
+     * Which search to ask, and its hash: read off the web player — its main
+     * bundle, then the search page's own chunk, which the player loads on
+     * demand and which is where the search queries are declared; its file
+     * name is in the bundle's chunk table. Remembered for hours when found
+     * and half an hour when not, so searching never becomes a 4 MB download
+     * per query.
+     */
+    @Synchronized
+    private fun searchHash(): Pair<String, String>? {
+        val age = System.currentTimeMillis() - searchCheckedAt
+        val ttl = if (searchOperation != null) SEARCH_FOUND_TTL_MS else SEARCH_MISSED_TTL_MS
+        if (searchCheckedAt != 0L && age < ttl) return searchOperation
+        searchCheckedAt = System.currentTimeMillis()
+        val html = get("https://open.spotify.com/") ?: return searchOperation
+        val bundle = WEB_PLAYER_BUNDLE.find(html)?.value?.let(::get) ?: return searchOperation
+        val sources = sequenceOf(bundle) + searchChunks(bundle)
+        for (source in sources) {
+            findSearch(source)?.let {
+                searchOperation = it
+                return it
+            }
+        }
+        return searchOperation
+    }
+
+    /** The search page's chunk, as the bundle's table names it (`4406:"xpui-routes-search"`, `4406:"bdb477e8"`). */
+    private fun searchChunks(bundle: String): Sequence<String> {
+        val id = SEARCH_ROUTE.find(bundle)?.groupValues?.get(1) ?: return emptySequence()
+        return Regex("""\b$id:"([0-9a-f]{8})"""").findAll(bundle).map { it.groupValues[1] }.distinct()
+            .mapNotNull { get("$WEB_PLAYER_CDN/xpui-routes-search.$it.js") }
+    }
+
+    /** The Playlists tab's query when the script declares it, else the All tab's. */
+    internal fun findSearch(script: String): Pair<String, String>? =
+        SpotifyCanvasQuery.findQueryHash(script, SEARCH_PLAYLISTS)?.let { SEARCH_PLAYLISTS to it }
+            ?: SpotifyCanvasQuery.findQueryHash(script, SEARCH_DESKTOP)?.let { SEARCH_DESKTOP to it }
+
+    private fun get(url: String): String? = runCatching {
+        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        Http.client.newCall(request).execute().use { if (it.isSuccessful) it.body?.string() else null }
+    }.getOrNull()
+
+    private const val SEARCH_PLAYLISTS = "searchPlaylists"
+    private const val SEARCH_DESKTOP = "searchDesktop"
+    private const val WEB_PLAYER_CDN = "https://open.spotifycdn.com/cdn/build/web-player"
+    private val WEB_PLAYER_BUNDLE =
+        Regex("""https://open\.spotifycdn\.com/cdn/build/web-player/web-player\.[0-9a-f]+\.js""")
+    private val SEARCH_ROUTE = Regex("""(\d+):"xpui-routes-search"""")
+    private const val SEARCH_FOUND_TTL_MS = 12L * 60 * 60 * 1000
+    private const val SEARCH_MISSED_TTL_MS = 30L * 60 * 1000
+
     private fun likedPage(headers: Map<String, String>, offset: Int): Triple<List<SpotifyTrack>, Int, Int> {
         val variables = buildJsonObject {
             put("offset", offset)
@@ -214,6 +294,32 @@ object SpotifyLibrary {
         val error = root.arr("errors")?.firstOrNull()?.jsonObject?.str("message")
         if (!error.isNullOrBlank()) throw IllegalStateException(error)
         return root
+    }
+}
+
+/**
+ * Playlists from a search answer: `searchPlaylists` and `searchDesktop` both
+ * carry `searchV2.playlists`, each entry's playlist under `data` (or, in some
+ * answers, `item.data`). Anything not a playlist, or seen already, is skipped.
+ */
+internal fun parseSearchPlaylists(root: JsonObject): List<SpotifyPlaylist> {
+    val seen = HashSet<String>()
+    return root.obj("data")?.obj("searchV2")?.obj("playlists")?.arr("items").orEmpty().mapNotNull { entry ->
+        val wrapper = entry as? JsonObject ?: return@mapNotNull null
+        val data = wrapper.obj("data") ?: wrapper.obj("item")?.obj("data") ?: return@mapNotNull null
+        val type = data.str("__typename")
+        if (type != null && type != "Playlist") return@mapNotNull null
+        val uri = data.str("uri") ?: data.str("_uri") ?: return@mapNotNull null
+        if (!uri.startsWith(SPOTIFY_PAGE_PREFIX)) return@mapNotNull null
+        val name = data.str("name")?.trim().orEmpty()
+        val id = uri.removePrefix(SPOTIFY_PAGE_PREFIX)
+        if (name.isEmpty() || !seen.add(id)) return@mapNotNull null
+        SpotifyPlaylist(
+            id = id,
+            name = name,
+            owner = data.obj("ownerV2")?.obj("data")?.str("name"),
+            imageUrl = largestSource(data.obj("images")),
+        )
     }
 }
 

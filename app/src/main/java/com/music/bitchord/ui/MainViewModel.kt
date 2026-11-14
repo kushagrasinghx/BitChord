@@ -33,6 +33,7 @@ import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.data.spotify.SpotifyImporter
 import com.music.bitchord.data.spotify.SpotifyLibrary
+import com.music.bitchord.data.spotify.SpotifyPlaylist
 import com.music.bitchord.data.spotify.SpotifyTrack
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
@@ -184,6 +185,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _results = MutableStateFlow<UiState<List<SearchResult>>?>(null)
     val results: StateFlow<UiState<List<SearchResult>>?> = _results.asStateFlow()
+
+    /**
+     * Spotify's public playlists for the current search, shown as a row under
+     * the top result — empty unless signed in to Spotify, and on any tab but
+     * All and Playlists. See [searchSpotifyPlaylists].
+     */
+    private val _spotifyPlaylistResults = MutableStateFlow<List<SpotifyPlaylist>>(emptyList())
+    val spotifyPlaylistResults: StateFlow<List<SpotifyPlaylist>> = _spotifyPlaylistResults.asStateFlow()
+    private val newestSpotifySearch = AtomicLong(0L)
 
     /** The mixed YouTube Music result page is the fast, useful default. */
     private val _filter = MutableStateFlow(SearchFilter.ALL)
@@ -2337,6 +2347,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             searchSession = null
             _searchLoadingMore.value = false
             _results.value = null
+            searchSpotifyPlaylists("", _filter.value)
             return
         }
         val id = newestRequestId.incrementAndGet()
@@ -2344,6 +2355,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         searchSession = null
         _searchLoadingMore.value = false
         searchRequests.tryEmit(SearchRequest(query, _filter.value, id, anonymous))
+        searchSpotifyPlaylists(query, _filter.value)
+    }
+
+    /**
+     * Spotify's playlists for [query], beside YouTube's results rather than in
+     * them: a separate catalogue, opened as a Spotify playlist page. Not
+     * cancelled by the next search — for the reason [startSearchPipeline]
+     * gives — but a late answer to an older one is dropped.
+     */
+    private fun searchSpotifyPlaylists(query: String, filter: SearchFilter) {
+        val id = newestSpotifySearch.incrementAndGet()
+        _spotifyPlaylistResults.value = emptyList()
+        val signedIn = AppSettings.spotifySpdcToken.value.isNotBlank()
+        if (query.isBlank() || !signedIn || (filter != SearchFilter.ALL && filter != SearchFilter.PLAYLISTS)) return
+        viewModelScope.launch {
+            val found = runCatching { SpotifyLibrary.searchPlaylists(query.trim()) }.getOrDefault(emptyList())
+            if (id == newestSpotifySearch.get()) _spotifyPlaylistResults.value = found
+        }
     }
 
     /**

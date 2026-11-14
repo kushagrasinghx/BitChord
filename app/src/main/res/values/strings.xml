@@ -716,6 +716,8 @@
     <string name="sleep_timer">Sleep timer</string>
     <string name="sleep_timer_custom">Custom</string>
     <string name="start_sleep_timer">Start timer</string>
+    <string name="show_total_duration">Show total duration</string>
+    <string name="show_total_duration_subtitle">Show total track duration on the player progress bar instead of remaining time</string>
     <string name="sleep_timer_fade_out">Fade out before pausing</string>
     <string name="sleep_timer_fade_out_subtitle">Gradually lowers volume over the last 30 seconds</string>
     <string name="sources_no_lossless">No enabled source can provide lossless audio. Add an addon to play lossless files without transcoding.</string>

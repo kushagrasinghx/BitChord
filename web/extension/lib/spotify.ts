@@ -30,10 +30,16 @@ const CDN = 'https://open.spotifycdn.com/cdn/build/web-player/';
 const PATHFINDER = 'https://api-partner.spotify.com/pathfinder/v2/query';
 const CLIENT_TOKEN = 'https://clienttoken.spotify.com/v1/clienttoken';
 
-type Operation = 'libraryV3' | 'fetchPlaylist' | 'fetchLibraryTracks' | 'canvas' | 'searchTracks' | 'profileAttributes';
+type RequiredOperation = 'libraryV3' | 'fetchPlaylist' | 'fetchLibraryTracks' | 'canvas' | 'searchTracks' | 'profileAttributes';
+/**
+ * Read from the web player when it has them, with no known fallback: a missing
+ * one only switches its feature off, and doesn't count the read as partial.
+ */
+type OptionalOperation = 'searchPlaylists' | 'searchDesktop';
+type Operation = RequiredOperation | OptionalOperation;
 
 /** The last hashes known to work (SpotifyLibrary.kt, SpotifyCanvasQuery.kt, and the bundle on 2026-10-16). */
-const KNOWN_HASHES: Record<Operation, string> = {
+const KNOWN_HASHES: Record<RequiredOperation, string> = {
   libraryV3: '390c78e5b951029bad359785e69b07b536a509c581cbcd0aded5e5067f187455',
   fetchPlaylist: '21ea11a6ac75a5f3e01fd365d29c18e0a4a8b7dc09f89bbb5d73910190c6acaf',
   fetchLibraryTracks: '087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240',
@@ -41,7 +47,9 @@ const KNOWN_HASHES: Record<Operation, string> = {
   searchTracks: 'b02683192a98dde7966b5e6655a79eeb62713eab703eda9902c932818dd52751',
   profileAttributes: '08ffb4730af3746e04a8301396f20875dbbce10c75243803091a9274eacc8ac0',
 };
-const OPERATIONS = Object.keys(KNOWN_HASHES) as Operation[];
+const REQUIRED_OPERATIONS = Object.keys(KNOWN_HASHES) as RequiredOperation[];
+const OPTIONAL_OPERATIONS: OptionalOperation[] = ['searchPlaylists', 'searchDesktop'];
+const OPERATIONS: Operation[] = [...REQUIRED_OPERATIONS, ...OPTIONAL_OPERATIONS];
 
 /** DesktopSpotifyToken.TOTP_SECRETS: the fallback when the bundle can't be read. */
 const KNOWN_SECRET = { version: 12, codes: [107, 81, 49, 57, 67, 93, 87, 81, 69, 67, 40, 93, 48, 50, 46, 91, 94, 113, 41, 47] };
@@ -63,7 +71,8 @@ interface WebPlayer {
   clientVersion: string;
   /** Character codes of the newest secret, before the XOR the bundle applies. */
   secret: { version: number; codes: number[] };
-  hashes: Record<Operation, string>;
+  /** Optional operations the bundle didn't declare are absent. */
+  hashes: Partial<Record<Operation, string>>;
   /** Whether everything came from the live bundle; a partial read is retried sooner. */
   complete: boolean;
   at: number;
@@ -130,12 +139,17 @@ async function readWebPlayer(): Promise<WebPlayer> {
   }
   const secret = secretsIn(bundle)[0];
   const found = Object.fromEntries(OPERATIONS.map((op) => [op, queryHashIn(bundle, op) ?? queryHashIn(searchChunk, op)]));
-  const complete = !!secret && !!clientVersion && OPERATIONS.every((op) => found[op]);
+  const complete = !!secret && !!clientVersion && REQUIRED_OPERATIONS.every((op) => found[op]);
   if (!complete) console.warn('BitChord: Spotify web player read partially', { clientVersion: !!clientVersion, secret: secret?.version, found });
   return {
     clientVersion: clientVersion || '1.2.77.0',
     secret: secret ?? KNOWN_SECRET,
-    hashes: Object.fromEntries(OPERATIONS.map((op) => [op, found[op] ?? KNOWN_HASHES[op]])) as Record<Operation, string>,
+    hashes: Object.fromEntries(
+      OPERATIONS.flatMap((op) => {
+        const hash = found[op] ?? (op in KNOWN_HASHES ? KNOWN_HASHES[op as RequiredOperation] : null);
+        return hash ? [[op, hash]] : [];
+      }),
+    ),
     complete,
     at: Date.now(),
   };
@@ -342,6 +356,8 @@ async function gql(operation: Operation, variables: Json, retried = false): Prom
   const bearer = await accessToken();
   const player = await webPlayer();
   const clientTok = await clientToken();
+  const hash = player.hashes[operation];
+  if (!hash) throw new Error(`Spotify ${operation} isn't offered by this web player`);
   const response = await fetch(PATHFINDER, {
     method: 'POST',
     headers: {
@@ -354,7 +370,7 @@ async function gql(operation: Operation, variables: Json, retried = false): Prom
     body: JSON.stringify({
       variables,
       operationName: operation,
-      extensions: { persistedQuery: { version: 1, sha256Hash: player.hashes[operation] } },
+      extensions: { persistedQuery: { version: 1, sha256Hash: hash } },
     }),
   });
   if (response.status === 401 && !retried) {
@@ -480,6 +496,28 @@ export function parseSearchTracks(root: Json): SpotifyTrack[] {
   });
 }
 
+/** Playlists from a search answer: searchPlaylists and searchDesktop both carry `searchV2.playlists`. */
+export function parseSearchPlaylists(root: Json): SpotifyPlaylist[] {
+  const seen = new Set<string>();
+  return arr(path(root, 'data', 'searchV2', 'playlists', 'items')).flatMap((entry): SpotifyPlaylist[] => {
+    const data = obj(path(entry, 'data')) ?? obj(path(entry, 'item', 'data'));
+    if (!data || (str(data.__typename) && str(data.__typename) !== 'Playlist')) return [];
+    const uri = str(data.uri) ?? str(data._uri);
+    const name = str(data.name)?.trim();
+    const id = uri?.startsWith('spotify:playlist:') ? uri.split(':').pop()! : null;
+    if (!id || !name || seen.has(id)) return [];
+    seen.add(id);
+    return [
+      {
+        id,
+        name,
+        owner: str(path(data, 'ownerV2', 'data', 'name')),
+        imageUrl: sized(path(arr(path(data, 'images', 'items'))[0], 'sources')),
+      },
+    ];
+  });
+}
+
 /** SpotifyCanvasQuery.parse: a playable `.mp4`, or null. */
 export function parseCanvas(root: Json): string | null {
   const url = str(path(root, 'data', 'trackUnion', 'canvas', 'url'));
@@ -543,6 +581,33 @@ export async function searchTracks(query: string): Promise<SpotifyTrack[]> {
       includeAuthors: false,
     }),
   );
+}
+
+let rereadForSearch = false;
+
+/** Public playlists for [query], as Spotify's own search lists them. */
+export async function searchPlaylists(query: string): Promise<SpotifyPlaylist[]> {
+  const variables = {
+    searchTerm: query,
+    offset: 0,
+    limit: 20,
+    numberOfTopResults: 5,
+    includeAudiobooks: false,
+    includePreReleases: false,
+    includeAuthors: false,
+    includeArtistHasConcertsField: false,
+    includeLocalConcertsField: false,
+  };
+  let player = await webPlayer();
+  // A web player read before these were looked for (it's kept for hours) has
+  // neither: read it again, once per worker, before giving up.
+  if (!player.hashes.searchPlaylists && !player.hashes.searchDesktop && !rereadForSearch) {
+    rereadForSearch = true;
+    player = await webPlayer(true);
+  }
+  // searchPlaylists is the Playlists tab; searchDesktop, the All tab, carries a few too.
+  if (player.hashes.searchPlaylists) return parseSearchPlaylists(await gql('searchPlaylists', variables));
+  return parseSearchPlaylists(await gql('searchDesktop', { ...variables, limit: 10 }));
 }
 
 /** A track's canvas by Spotify id. Signed in only: anonymous tokens are shown none. */

@@ -964,10 +964,11 @@ object YtMusicRepository {
      * turns those features off.
      */
     const val PLAYLISTS_SHELF = "Playlists"
+    private const val LIBRARY_ALBUMS = "FEmusic_liked_albums"
 
     private val LIBRARY_FEEDS = listOf(
         PLAYLISTS_SHELF to LIBRARY_PLAYLISTS,
-        "Albums" to "FEmusic_liked_albums",
+        "Albums" to LIBRARY_ALBUMS,
         "Artists" to "FEmusic_library_corpus_track_artists",
         "Subscriptions" to "FEmusic_library_corpus_artists",
         "Podcasts" to "FEmusic_library_non_music_audio_list",
@@ -1025,6 +1026,11 @@ object YtMusicRepository {
      * playlist collections otherwise lose everything past YouTube's first
      * library-feed response.
      */
+    /** The albums saved to the library, as the Library tab's Albums shelf lists them. */
+    suspend fun libraryAlbums(): Result<List<ShelfItem>> = call("libraryAlbums") {
+        libraryItemsPaged(LIBRARY_ALBUMS)
+    }
+
     suspend fun userPlaylists(): Result<List<UserPlaylist>> = call("playlists") {
         InnertubeParser.parseUserPlaylists(libraryItemsPaged(LIBRARY_PLAYLISTS))
     }

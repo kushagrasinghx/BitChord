@@ -128,6 +128,10 @@
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
     <string name="spotify">Spotify</string>
+    <!-- Subtitle of the daylist card (the Spotify playlist it renames through the day) in Your playlists on Home. -->
+    <string name="home_daylist">Daylist · Spotify</string>
+    <!-- Home row of the library's own playlists. -->
+    <string name="home_your_playlists">Your playlists</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
     <string name="spotify_use_spdc_token">Use sp_dc token</string>
@@ -1343,4 +1347,8 @@
     <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
     <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta">Let\'s Celebrate</string>
+    <string name="home_your_albums">Your albums</string>
+    <string name="home_from_spotify">From Spotify</string>
+    <string name="home_connect_spotify">Connect Spotify</string>
+    <string name="home_connect_spotify_subtitle">See your Spotify playlists here</string>
 </resources>

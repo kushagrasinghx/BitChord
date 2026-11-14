@@ -154,6 +154,8 @@ fun HomeScreen(
     onTopPickLongPress: ((TopPick) -> Unit)? = null,
     /** A Find Your Mood tile, and its name. The shelf is only drawn when this is set. */
     onMoodClick: ((TopPickMood, String) -> Unit)? = null,
+    /** Show all on a row that has a page of its own ([HomeShelf.showAll]): your playlists. */
+    onShelfShowAll: ((HomeShelf) -> Unit)? = null,
     /** Find Your Mood's Show all: every mood and activity. */
     onMoodsShowAll: () -> Unit = {},
     /** Whether the Top Picks and mood artwork may animate — see [LocalArtworkMotion]. */
@@ -234,6 +236,7 @@ fun HomeScreen(
                         shelves = state.data,
                         onMoodClick = onMoodClick,
                         onMoodsShowAll = onMoodsShowAll,
+                        onShelfShowAll = onShelfShowAll,
                         onItemClick = onItemClick,
                         onItemLongPress = onItemLongPress,
                         currentSong = currentSong,
@@ -277,10 +280,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     isPlaying: Boolean,
     onMoodClick: ((TopPickMood, String) -> Unit)? = null,
     onMoodsShowAll: () -> Unit = {},
+    onShelfShowAll: ((HomeShelf) -> Unit)? = null,
 ) {
+    // Find Your Mood follows the lead shelf, as on Apple Music's Home, and the
+    // rows this app leads with right after it (your daylist, your playlists).
+    val moodAt = (1 until shelves.size).firstOrNull { !shelves[it].leading } ?: shelves.size
     shelves.forEachIndexed { index, shelf ->
-        // Find Your Mood follows the lead shelf, as on Apple Music's Home.
-        if (index == 1 && onMoodClick != null) {
+        if (index == moodAt && onMoodClick != null) {
             item(key = "find-your-mood") { FindYourMoodShelf(onMoodClick, onMoodsShowAll) }
         }
         item(key = shelf.title + index) {
@@ -304,9 +310,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
                     onItemLongPress = onItemLongPress,
                     currentSong = currentSong,
                     isPlaying = isPlaying,
+                    onShowAll = onShelfShowAll?.takeIf { shelf.showAll }?.let { open -> { open(shelf) } },
                 )
             }
         }
+    }
+    // Every row after the lead was one of this app's own: Find Your Mood goes last.
+    if (moodAt == shelves.size && shelves.size > 1 && onMoodClick != null) {
+        item(key = "find-your-mood") { FindYourMoodShelf(onMoodClick, onMoodsShowAll) }
     }
 }
 
@@ -737,9 +748,11 @@ internal fun Shelf(
     leadingCard: (@Composable () -> Unit)? = null,
     currentSong: Song? = null,
     isPlaying: Boolean = false,
+    /** Show all, beside the title, for a row with a page of its own. */
+    onShowAll: (() -> Unit)? = null,
 ) {
     Column(Modifier.padding(bottom = 26.dp)) {
-        SectionHeader(shelf.title, shelf.subtitle)
+        SectionHeader(shelf.title, shelf.subtitle, onShowAll = onShowAll)
         val isCurrentItem = shelf.items.playingItemMatcher(currentSong)
         ShelfRow(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),

@@ -476,6 +476,9 @@ object AppSettings {
     /** Home's Recents shelf. */
     val hideRecents = MutableStateFlow(false)
 
+    /** Home's Connect Spotify card, once its long-press has put it away. */
+    val hideSpotifyConnectCard = MutableStateFlow(false)
+
     /** Music videos come off the Home feed, along with any shelf left with nothing else on it. */
     val hideHomeVideos = MutableStateFlow(false)
 
@@ -1053,6 +1056,7 @@ object AppSettings {
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
         hideRecents.value = prefs.getBoolean(KEY_HIDE_RECENTS, false)
+        hideSpotifyConnectCard.value = prefs.getBoolean(KEY_HIDE_SPOTIFY_CONNECT_CARD, false)
         hideHomeVideos.value = prefs.getBoolean(KEY_HIDE_HOME_VIDEOS, false)
         hideTopPicks.value = prefs.getBoolean(KEY_HIDE_TOP_PICKS, false)
         hideHomeMoods.value = prefs.getBoolean(KEY_HIDE_HOME_MOODS, false)
@@ -1503,6 +1507,11 @@ object AppSettings {
     fun setHideRecents(value: Boolean) {
         hideRecents.value = value
         prefs.edit().putBoolean(KEY_HIDE_RECENTS, value).apply()
+    }
+
+    fun setHideSpotifyConnectCard(value: Boolean) {
+        hideSpotifyConnectCard.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SPOTIFY_CONNECT_CARD, value).apply()
     }
 
     fun setHideHomeVideos(value: Boolean) {
@@ -2345,6 +2354,7 @@ object AppSettings {
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
     private const val KEY_HIDE_RECENTS = "hide_recents"
+    private const val KEY_HIDE_SPOTIFY_CONNECT_CARD = "hide_spotify_connect_card"
     private const val KEY_HIDE_HOME_VIDEOS = "hide_home_videos"
     private const val KEY_HIDE_TOP_PICKS = "hide_top_picks"
     private const val KEY_HIDE_HOME_MOODS = "hide_home_moods"

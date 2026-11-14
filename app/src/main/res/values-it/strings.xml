@@ -1410,4 +1410,10 @@
     <string name="sleep_timer_fade_out_subtitle">Abbassa gradualmente il volume negli ultimi 30 secondi</string>
     <string name="disable_spotify_canvas">Disattiva Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Non usare mai Spotify Canvas. Le copertine animate arrivano dalle altre fonti</string>
+    <string name="home_daylist">Daylist · Spotify</string>
+    <string name="home_your_playlists">Le tue playlist</string>
+    <string name="home_your_albums">I tuoi album</string>
+    <string name="home_from_spotify">Da Spotify</string>
+    <string name="home_connect_spotify">Collega Spotify</string>
+    <string name="home_connect_spotify_subtitle">Vedi qui le tue playlist di Spotify</string>
 </resources>

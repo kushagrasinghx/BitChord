@@ -1448,4 +1448,10 @@
     <string name="sleep_timer_fade_out_subtitle">在最後 30 秒內逐漸降低音量</string>
     <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">永不使用 Spotify Canvas。動態封面會改由其他來源提供</string>
+    <string name="home_daylist">Daylist · Spotify</string>
+    <string name="home_your_playlists">你的播放清單</string>
+    <string name="home_your_albums">你的專輯</string>
+    <string name="home_from_spotify">來自 Spotify</string>
+    <string name="home_connect_spotify">連結 Spotify</string>
+    <string name="home_connect_spotify_subtitle">在這裡查看你的 Spotify 播放清單</string>
 </resources>

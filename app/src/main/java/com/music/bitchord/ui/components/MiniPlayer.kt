@@ -141,6 +141,9 @@ private val ART_CORNER = 8.dp
 /** Distance that makes a horizontal drag an intentional track change. */
 private val TRACK_SWIPE_THRESHOLD = 72.dp
 
+/** Distance a downward pull must travel before it dismisses the mini player. */
+private val DISMISS_SWIPE_THRESHOLD = 96.dp
+
 /**
  * How much further a drag may go sideways than up and still be a pull. A
  * thumb swiping up from the bottom of the screen travels on an arc, and judged
@@ -216,6 +219,7 @@ internal fun Modifier.miniPlayerGestures(
     /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
+    onDismiss: (() -> Boolean)? = null,
 ): Modifier {
     // Playback state updates can recompose the bar while a finger is down.
     // Keep the gesture coroutine alive through those updates while still
@@ -225,13 +229,16 @@ internal fun Modifier.miniPlayerGestures(
     val currentOnPrevious by rememberUpdatedState(onPrevious)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
     val scope = rememberCoroutineScope()
     // Read at draw only, in the layer below: a pull moves the bar without
     // recomposing it.
     val lift = remember { mutableFloatStateOf(0f) }
+    val dismissOffset = remember { mutableFloatStateOf(0f) }
     val settle = remember { arrayOfNulls<Job>(1) }
     return pointerInput(Unit) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
+        val dismissThreshold = DISMISS_SWIPE_THRESHOLD.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
         awaitEachGesture {
@@ -240,6 +247,7 @@ internal fun Modifier.miniPlayerGestures(
             // Up to the slop: which way this is heading, or nothing at all.
             var start: PointerInputChange? = null
             var vertical = false
+            var downward = false
             while (start == null) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
                     ?: return@awaitEachGesture
@@ -248,15 +256,48 @@ internal fun Modifier.miniPlayerGestures(
                 val moved = change.position - down.position
                 if (moved.getDistance() < viewConfiguration.touchSlop) continue
                 vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
-                // Downwards has nothing to do on the bar, and nor has a pull
-                // with no player to pull: left as they always were, a drag that
-                // ends inside the bar still counts as its tap.
-                if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
+                downward = moved.y > 0f && abs(moved.x) < moved.y * PULL_BIAS && currentOnDismiss != null
+                // Leave unsupported vertical drags unconsumed so taps and
+                // surrounding scroll gestures keep their existing behavior.
+                if (!vertical && !downward && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
                 if (vertical && currentPull == null) return@awaitEachGesture
                 change.consume()
                 start = change
             }
             val slopped = start ?: return@awaitEachGesture
+
+            if (downward) {
+                var dragged = (slopped.position.y - down.position.y).coerceAtLeast(0f)
+                dismissOffset.floatValue = dragged
+                val finished = drag(pointer) { change ->
+                    dragged = (dragged + change.positionChange().y).coerceAtLeast(0f)
+                    dismissOffset.floatValue = dragged
+                    change.consume()
+                }
+                val dismissed = finished && dragged >= dismissThreshold
+                val exitOffset = dismissThreshold * 1.5f
+                animate(
+                    initialValue = dismissOffset.floatValue,
+                    targetValue = if (dismissed) exitOffset else 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.8f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                ) { value, _ -> dismissOffset.floatValue = value }
+                val accepted = dismissed && currentOnDismiss?.invoke() == true
+                if (dismissed && !accepted) {
+                    animate(
+                        initialValue = dismissOffset.floatValue,
+                        targetValue = 0f,
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ) { value, _ -> dismissOffset.floatValue = value }
+                }
+                if (!accepted) dismissOffset.floatValue = 0f
+                return@awaitEachGesture
+            }
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
@@ -311,7 +352,11 @@ internal fun Modifier.miniPlayerGestures(
                 ) { value, _ -> lift.floatValue = value }
             }
         }
-    }.graphicsLayer { translationY = -lift.floatValue }
+    }.graphicsLayer {
+        translationY = -lift.floatValue + dismissOffset.floatValue
+        alpha = (1f - dismissOffset.floatValue / (DISMISS_SWIPE_THRESHOLD.toPx() * 1.5f))
+            .coerceIn(0f, 1f)
+    }
 }
 
 /**
@@ -365,6 +410,8 @@ fun MiniPlayer(
     /** Dragging the bar up into the player. */
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
+    /** Stop playback and dismiss this bar after a downward swipe. */
+    onDismiss: (() -> Boolean)? = null,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
@@ -389,6 +436,7 @@ fun MiniPlayer(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                onDismiss = onDismiss,
             )
             .clip(shape)
             .then(

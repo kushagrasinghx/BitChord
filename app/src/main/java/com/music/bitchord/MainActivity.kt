@@ -4267,6 +4267,17 @@ private fun BitChordApp(
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
+                            onDismiss = {
+                                if (refusedByHost()) {
+                                    false
+                                } else {
+                                    controller?.let { activeController ->
+                                        activeController.stop()
+                                        activeController.clearMediaItems()
+                                        true
+                                    } ?: false
+                                }
+                            },
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             hazeState = hazeState,

@@ -198,4 +198,6 @@
     <string name="search_library_empty">Busca las canciones de tu carpeta de Música local.</string>
     <string name="search_library_hint">Canciones, artistas y álbumes</string>
     <string name="search_library_no_results">Nada en Música local coincide con “%1$s”.</string>
+    <string name="library_search_hint">Buscar en tu biblioteca</string>
+    <string name="library_no_matches">Nada en tu biblioteca coincide con “%1$s”</string>
 </resources>

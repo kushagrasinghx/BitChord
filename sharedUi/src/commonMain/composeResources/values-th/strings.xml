@@ -198,4 +198,6 @@
     <string name="search_library_empty">ค้นหาเพลงในโฟลเดอร์เพลงในเครื่องของคุณ</string>
     <string name="search_library_hint">เพลง ศิลปิน และอัลบั้ม</string>
     <string name="search_library_no_results">ไม่มีอะไรในเพลงในเครื่องตรงกับ “%1$s”</string>
+    <string name="library_search_hint">ค้นหาในคลังเพลง</string>
+    <string name="library_no_matches">ไม่มีรายการในคลังเพลงที่ตรงกับ “%1$s”</string>
 </resources>

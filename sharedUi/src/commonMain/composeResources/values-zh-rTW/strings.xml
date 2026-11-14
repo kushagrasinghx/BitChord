@@ -198,4 +198,6 @@
     <string name="search_library_empty">搜尋本地音樂資料夾中的歌曲。</string>
     <string name="search_library_hint">歌曲、藝人和專輯</string>
     <string name="search_library_no_results">本地音樂中沒有與「%1$s」匹配的內容。</string>
+    <string name="library_search_hint">搜尋你的音樂庫</string>
+    <string name="library_no_matches">音樂庫中沒有符合「%1$s」的內容</string>
 </resources>

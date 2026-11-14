@@ -19,6 +19,7 @@ const KIND_LABEL: Record<MusicItem['kind'], string> = {
   album: 'Album',
   playlist: 'Playlist',
   'spotify-playlist': 'Spotify Playlist',
+  'deezer-playlist': 'Deezer Playlist',
   artist: 'Artist',
   episode: 'Episode',
   podcast: 'Podcast',

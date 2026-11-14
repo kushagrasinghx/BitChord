@@ -4,7 +4,17 @@
  * a YouTube.js node directly.
  */
 
-export type ItemKind = 'song' | 'video' | 'album' | 'playlist' | 'spotify-playlist' | 'artist' | 'episode' | 'podcast' | 'unknown';
+export type ItemKind =
+  | 'song'
+  | 'video'
+  | 'album'
+  | 'playlist'
+  | 'spotify-playlist'
+  | 'deezer-playlist'
+  | 'artist'
+  | 'episode'
+  | 'podcast'
+  | 'unknown';
 
 export interface ArtistRef {
   name: string;

@@ -23,10 +23,12 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Single track metadata extracted from a Spotify playlist. */
+/** Single track metadata extracted from a Spotify or Deezer playlist. */
 data class SpotifyImportTrack(
     val title: String,
     val artist: String,
+    val durationSec: Int? = null,
+    val album: String? = null,
 )
 
 /** The result of fetching and resolving a Spotify playlist's tracks. */
@@ -271,6 +273,8 @@ object SpotifyImporter {
                     val target = TrackMatcher.Target(
                         title = track.title,
                         artist = track.artist,
+                        durationSec = track.durationSec,
+                        album = track.album,
                     )
                     val bestMatch = TrackMatcher.best(candidates, target) ?: candidates.firstOrNull()
 

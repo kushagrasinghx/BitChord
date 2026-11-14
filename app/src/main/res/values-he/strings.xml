@@ -1462,4 +1462,13 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">התחבר כדי לטעון את רשימות ההשמעה שלך. ההשמעה מתבצעת דרך YouTube Music.</string>
+    <string name="deezer_sign_in">התחבר עם Deezer</string>
+    <string name="deezer_use_arl_token">השתמש באסימון ARL</string>
+    <string name="deezer_disconnect">התנתק</string>
+    <string name="deezer_library_subtitle">רשימות ההשמעה שלך מ-Deezer</string>
+    <string name="deezer_arl_setup_description">הדבק את עוגיית ה-arl של Deezer מדפדפן מחובר.</string>
+    <string name="deezer_arl_token_hint">אסימון arl</string>
+    <string name="deezer_favorite_tracks">שירים מועדפים</string>
 </resources>

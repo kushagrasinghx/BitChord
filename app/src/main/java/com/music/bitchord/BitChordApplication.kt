@@ -26,6 +26,7 @@ import com.music.bitchord.data.canvas.CanvasCache
 import com.music.bitchord.data.smb.SmbCoverFetcher
 import com.music.bitchord.data.webdav.WebDavCoilAuth
 import com.music.bitchord.data.canvas.SpotifyToken
+import com.music.bitchord.data.deezer.DeezerLibrary
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LastPlayed
@@ -94,6 +95,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The Spotify library and import live in the shared module; the tokens are the WebView's.
         SpotifyLibrary.auth = SpotifyLibrary.Auth {
             SpotifyToken.accessToken()?.let { SpotifyLibrary.Tokens(it, SpotifyToken.clientToken()) }
+        }
+        DeezerLibrary.auth = DeezerLibrary.Auth {
+            AppSettings.deezerArlToken.value.takeIf { it.isNotBlank() }
         }
         // The per-app language picker, which YouTube Music's `hl` follows.
         // Full tag (zh-Hant / zh-Hans preserved); Innertube maps to hl/gl.

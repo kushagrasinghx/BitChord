@@ -1434,4 +1434,13 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Masuk untuk memuat playlist Anda. Pemutaran menggunakan YouTube Music.</string>
+    <string name="deezer_sign_in">Masuk dengan Deezer</string>
+    <string name="deezer_use_arl_token">Gunakan token ARL</string>
+    <string name="deezer_disconnect">Putuskan</string>
+    <string name="deezer_library_subtitle">Playlist Deezer Anda</string>
+    <string name="deezer_arl_setup_description">Tempel cookie arl Deezer Anda dari sesi browser yang sudah login.</string>
+    <string name="deezer_arl_token_hint">Token arl</string>
+    <string name="deezer_favorite_tracks">Lagu favorit</string>
 </resources>

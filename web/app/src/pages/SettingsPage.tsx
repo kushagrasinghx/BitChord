@@ -1,7 +1,7 @@
 import { ChevronRight, Users } from 'lucide-react';
 import { lazy, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { MdOutlineExtension } from 'react-icons/md';
-import { SiApplemusic, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
+import { SiApplemusic, SiDeezer, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { useDiscord } from '@/extension/useDiscord';
@@ -12,7 +12,16 @@ import { useHistorySettings } from '@/playback/historyReporting';
 import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
-import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
+import {
+  AppleMusicIntegration,
+  AppleMusicToggles,
+  CanvasToggle,
+  DeezerIntegration,
+  DiscordIntegration,
+  LyricSourcesAccess,
+  SpotifyIntegration,
+  Toggle,
+} from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
 
 const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
@@ -92,6 +101,11 @@ export default function SettingsPage() {
             <Glyph Icon={SiSpotify} color="#1ed760" />
             <span className={settingsUi.integrationName}>Spotify</span>
             {present ? <SpotifyIntegration /> : <span className={settingsUi.value}>Needs the extension</span>}
+          </div>
+          <div className={settingsUi.integration}>
+            <Glyph Icon={SiDeezer} color="#a238ff" />
+            <span className={settingsUi.integrationName}>Deezer</span>
+            {present ? <DeezerIntegration /> : <span className={settingsUi.value}>Needs the extension</span>}
           </div>
           {present && discord.state === 'ready' && discord.discord.available && (
             <LinkRow to="/settings/discord" icon={<Glyph Icon={SiDiscord} color="#5865f2" />} title="Discord" value={discordText} />

@@ -135,6 +135,15 @@
     <string name="spotify_empty_playlists">No playlists on this account</string>
     <string name="spotify_empty_tracks">This playlist has no tracks</string>
     <string name="spotify_track_unavailable">Couldn\'t find that song on YouTube Music</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
+    <string name="deezer_sign_in">Sign in with Deezer</string>
+    <string name="deezer_use_arl_token">Use ARL token</string>
+    <string name="deezer_disconnect">Disconnect</string>
+    <string name="deezer_library_subtitle">Your Deezer playlists</string>
+    <string name="deezer_arl_setup_description">Paste your Deezer arl cookie from a signed-in browser session.</string>
+    <string name="deezer_arl_token_hint">arl token</string>
+    <string name="deezer_favorite_tracks">Favorite Tracks</string>
     <string name="account_scrobbling">Account &amp; scrobbling</string>
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>

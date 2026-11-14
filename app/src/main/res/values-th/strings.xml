@@ -1440,4 +1440,13 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">ลงชื่อเข้าใช้เพื่อโหลดเพลย์ลิสต์ของคุณ การเล่นเพลงจะใช้ YouTube Music</string>
+    <string name="deezer_sign_in">ลงชื่อเข้าใช้ด้วย Deezer</string>
+    <string name="deezer_use_arl_token">ใช้โทเค็น ARL</string>
+    <string name="deezer_disconnect">ตัดการเชื่อมต่อ</string>
+    <string name="deezer_library_subtitle">เพลย์ลิสต์ Deezer ของคุณ</string>
+    <string name="deezer_arl_setup_description">วางคุกกี้ arl ของ Deezer จากเบราว์เซอร์ที่ลงชื่อเข้าใช้แล้ว</string>
+    <string name="deezer_arl_token_hint">โทเค็น arl</string>
+    <string name="deezer_favorite_tracks">เพลงโปรด</string>
 </resources>

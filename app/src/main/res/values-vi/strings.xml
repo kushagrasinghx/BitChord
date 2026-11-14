@@ -1374,4 +1374,13 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Đăng nhập để tải danh sách phát của bạn. Phát nhạc qua YouTube Music.</string>
+    <string name="deezer_sign_in">Đăng nhập bằng Deezer</string>
+    <string name="deezer_use_arl_token">Dùng mã ARL</string>
+    <string name="deezer_disconnect">Ngắt kết nối</string>
+    <string name="deezer_library_subtitle">Danh sách phát Deezer của bạn</string>
+    <string name="deezer_arl_setup_description">Dán cookie arl Deezer từ phiên trình duyệt đã đăng nhập.</string>
+    <string name="deezer_arl_token_hint">Mã arl</string>
+    <string name="deezer_favorite_tracks">Bài hát yêu thích</string>
 </resources>

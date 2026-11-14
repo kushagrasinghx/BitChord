@@ -1435,4 +1435,13 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">サインインしてプレイリストを読み込みます。再生にはYouTube Musicを使用します。</string>
+    <string name="deezer_sign_in">Deezerでサインイン</string>
+    <string name="deezer_use_arl_token">ARLトークンを使用</string>
+    <string name="deezer_disconnect">接続を解除</string>
+    <string name="deezer_library_subtitle">Deezerのプレイリスト</string>
+    <string name="deezer_arl_setup_description">ログイン済みのブラウザからDeezerのarl Cookieを貼り付けてください。</string>
+    <string name="deezer_arl_token_hint">arlトークン</string>
+    <string name="deezer_favorite_tracks">お気に入りトラック</string>
 </resources>

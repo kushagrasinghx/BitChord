@@ -1396,4 +1396,13 @@
     <string name="bit_perfect_status_inexact">%1$s · non esatto: questa sorgente non è PCM lossless</string>
     <string name="bit_perfect_status_waiting">In attesa di un brano lossless su un\'uscita supportata</string>
     <string name="bit_perfect_status_unavailable">Non disponibile per questo brano (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Accedi per caricare le tue playlist. La riproduzione usa YouTube Music.</string>
+    <string name="deezer_sign_in">Accedi con Deezer</string>
+    <string name="deezer_use_arl_token">Usa token ARL</string>
+    <string name="deezer_disconnect">Disconnetti</string>
+    <string name="deezer_library_subtitle">Le tue playlist di Deezer</string>
+    <string name="deezer_arl_setup_description">Incolla il cookie arl di Deezer da una sessione del browser connessa.</string>
+    <string name="deezer_arl_token_hint">Token arl</string>
+    <string name="deezer_favorite_tracks">Brani preferiti</string>
 </resources>

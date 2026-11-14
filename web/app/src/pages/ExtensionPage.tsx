@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useState, type ComponentType } from 'react';
 import { FaChrome, FaFirefoxBrowser } from 'react-icons/fa';
-import { SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
+import { SiDeezer, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
 import type { Capability } from '@bitchord/shared/bridge';
 import { PageHeader } from '@/components/PageHeader';
 import { config } from '@/config';
@@ -9,7 +9,7 @@ import { useExtension, type ExtensionStatus } from '@/extension/useExtension';
 import { downloadUrl, useExtensionUpdate, usePublishedExtension, type PublishedExtension } from '@/extension/useExtensionUpdate';
 import { useYtAuth, type YtAuthStatus } from '@/extension/useYtAuth';
 import { PrefetchLink } from '@/components/PrefetchLink';
-import { DiscordIntegration, SpotifyIntegration } from './IntegrationSettings';
+import { DeezerIntegration, DiscordIntegration, SpotifyIntegration } from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
 
 type Browser = 'chrome' | 'firefox';
@@ -86,6 +86,7 @@ interface Integration {
 const INTEGRATIONS: Integration[] = [
   { name: 'YouTube Music', Icon: SiYoutubemusic, color: '#ff0033', capability: 'yt', ready: 'Playback ready · not signed in' },
   { name: 'Spotify', Icon: SiSpotify, color: '#1ed760', capability: 'spotify', ready: 'Not connected' },
+  { name: 'Deezer', Icon: SiDeezer, color: '#a238ff', capability: 'deezer', ready: 'Not connected' },
   { name: 'Discord', Icon: SiDiscord, color: '#5865f2', capability: 'discord', ready: 'Off' },
 ];
 
@@ -230,6 +231,8 @@ export default function ExtensionPage() {
               <span className={settingsUi.integrationName}>{integration.name}</span>
               {status.state === 'present' && integration.capability === 'spotify' ? (
                 <SpotifyIntegration />
+              ) : status.state === 'present' && integration.capability === 'deezer' ? (
+                <DeezerIntegration />
               ) : status.state === 'present' && integration.capability === 'discord' ? (
                 <DiscordIntegration />
               ) : (

@@ -28,6 +28,14 @@ import java.time.LocalDateTime
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.cancellation.CancellationException
+import com.music.bitchord.data.deezer.DEEZER_PAGE_PREFIX
+import com.music.bitchord.data.deezer.DeezerImporter
+import com.music.bitchord.data.deezer.DeezerLibrary
+import com.music.bitchord.data.deezer.DeezerTrack
+import com.music.bitchord.data.model.DEEZER_MISSING_PREFIX
+import com.music.bitchord.data.model.DEEZER_PENDING_PREFIX
+import com.music.bitchord.data.model.isMatchMissing
+import com.music.bitchord.data.model.isMatchPending
 import com.music.bitchord.data.model.SPOTIFY_MISSING_PREFIX
 import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
@@ -812,6 +820,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * control on it to have been tapped, so this is a no-op rather than a guess.
      */
     fun toggleLibrary(browseId: String) {
+        if (browseId.startsWith(SPOTIFY_PAGE_PREFIX) || browseId.startsWith(DEEZER_PAGE_PREFIX)) {
+            val page = _detailStack.value.firstOrNull { it.browseId == browseId } ?: return
+            val current = page.library ?: return
+            if (current.saved) return
+            val songs = (page.songs as? UiState.Success<List<Song>>)?.data ?: return
+            // Saving mid-match would keep only the songs found so far, and
+            // the page then reads as saved with no way to add the rest.
+            if (songs.any { it.isMatchPending }) return
+            val matchedSongs = songs.filterNot { it.isMatchMissing }
+            if (matchedSongs.isEmpty()) return
+            setSavedOnPage(browseId, true)
+            createPlaylistWithVideoIds(
+                title = page.title,
+                privacy = PlaylistPrivacy.PRIVATE,
+                videoIds = matchedSongs.map { it.videoId },
+                songs = matchedSongs,
+            ) { savedAs, _, _ ->
+                if (savedAs != null) {
+                    AppSettings.setExternalPlaylistSave(browseId, savedAs)
+                } else {
+                    setSavedOnPage(browseId, false)
+                }
+            }
+            return
+        }
         if (!requireSignIn()) return
         val current = _detailStack.value.firstOrNull { it.browseId == browseId }?.library ?: return
         val target = !current.saved
@@ -2717,6 +2750,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             openSpotifyPage(browseId, title, subtitle, thumbnailUrl)
             return
         }
+        if (browseId.startsWith(DEEZER_PAGE_PREFIX)) {
+            openDeezerPage(browseId, title, subtitle, thumbnailUrl)
+            return
+        }
         val resolved = browseTypeOf(browseId, type)
         _detailStack.value += DetailPage(
             browseId = browseId,
@@ -2890,6 +2927,74 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * before the last song has been found.
      */
     private fun openSpotifyPage(browseId: String, title: String, subtitle: String, thumbnailUrl: String?) {
+        val playlistId = browseId.removePrefix(SPOTIFY_PAGE_PREFIX)
+        openExternalPlaylistPage(
+            browseId = browseId,
+            title = title,
+            subtitle = subtitle,
+            thumbnailUrl = thumbnailUrl,
+            loadCover = { SpotifyLibrary.cover(playlistId) },
+            loadTracks = { onPage -> SpotifyLibrary.tracks(playlistId, onPage) },
+            trackId = SpotifyTrack::id,
+            trackImage = SpotifyTrack::imageUrl,
+            asPendingSong = { it.asPendingSong() },
+            matchTrack = { SpotifyImporter.matchTrack(it) },
+            missingPrefix = SPOTIFY_MISSING_PREFIX,
+        )
+    }
+
+    private fun SpotifyTrack.asPendingSong() = Song(
+        videoId = SPOTIFY_PENDING_PREFIX + id,
+        title = title,
+        artist = artist,
+        thumbnailUrl = imageUrl,
+        durationText = durationMs.takeIf { it > 0 }?.let { ms ->
+            "%d:%02d".format(ms / 60000, ms / 1000 % 60)
+        },
+        albumName = album,
+    )
+
+    private fun openDeezerPage(browseId: String, title: String, subtitle: String, thumbnailUrl: String?) {
+        val playlistId = browseId.removePrefix(DEEZER_PAGE_PREFIX)
+        openExternalPlaylistPage(
+            browseId = browseId,
+            title = title,
+            subtitle = subtitle,
+            thumbnailUrl = thumbnailUrl,
+            loadCover = { DeezerLibrary.cover(playlistId) },
+            loadTracks = { onPage -> DeezerLibrary.tracks(playlistId, onPage) },
+            trackId = DeezerTrack::id,
+            trackImage = DeezerTrack::imageUrl,
+            asPendingSong = { it.asPendingSong() },
+            matchTrack = { DeezerImporter.matchTrack(it) },
+            missingPrefix = DEEZER_MISSING_PREFIX,
+        )
+    }
+
+    private fun DeezerTrack.asPendingSong() = Song(
+        videoId = DEEZER_PENDING_PREFIX + id,
+        title = title,
+        artist = artist,
+        thumbnailUrl = imageUrl,
+        durationText = durationMs.takeIf { it > 0 }?.let { ms ->
+            "%d:%02d".format(ms / 60000, ms / 1000 % 60)
+        },
+        albumName = album,
+    )
+
+    private fun <T> openExternalPlaylistPage(
+        browseId: String,
+        title: String,
+        subtitle: String,
+        thumbnailUrl: String?,
+        loadCover: suspend () -> String?,
+        loadTracks: suspend ((List<T>) -> Unit) -> List<T>,
+        trackId: (T) -> String,
+        trackImage: (T) -> String?,
+        asPendingSong: (T) -> Song,
+        matchTrack: suspend (T) -> Song?,
+        missingPrefix: String,
+    ) {
         _detailStack.value += DetailPage(
             browseId = browseId,
             title = title,
@@ -2897,26 +3002,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             thumbnailUrl = thumbnailUrl,
             songs = UiState.Loading,
             type = BrowseType.PLAYLIST,
+            // Offered only once every track has been matched (set below), so
+            // a save can't capture a half-matched list. Already saved: shown now.
+            library = LibraryState(playlistId = browseId, saved = true).takeIf { isExternalPageSaved(browseId) },
         )
         viewModelScope.launch {
-            val playlistId = browseId.removePrefix(SPOTIFY_PAGE_PREFIX)
             fun open() = _detailStack.value.any { it.browseId == browseId }
             fun setSongs(songs: UiState<List<Song>>) {
                 _detailStack.value = _detailStack.value.map {
                     if (it.browseId == browseId) it.copy(songs = songs) else it
                 }
             }
-            // The list only had a thumbnail; the full-size cover replaces it
-            // once this page has asked for it.
             launch {
-                val cover = runCatching { SpotifyLibrary.cover(playlistId) }.getOrNull() ?: return@launch
+                val cover = runCatching { loadCover() }.getOrNull() ?: return@launch
                 _detailStack.value = _detailStack.value.map {
                     if (it.browseId == browseId) it.copy(thumbnailUrl = cover) else it
                 }
             }
             val tracks = runCatching {
-                SpotifyLibrary.tracks(playlistId) { soFar ->
-                    setSongs(UiState.Success(soFar.map { it.asPendingSong() }))
+                loadTracks { soFar ->
+                    setSongs(UiState.Success(soFar.map(asPendingSong)))
                 }
             }.getOrElse {
                 setSongs(UiState.Error(it.message ?: text(R.string.failed)))
@@ -2932,11 +3037,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     launch {
                         gate.withPermit {
                             if (!open()) return@withPermit
-                            val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
-                            val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
-                                ?: track.asPendingSong().let {
-                                    it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
-                                }
+                            val match = runCatching { matchTrack(track) }.getOrNull()
+                            val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: trackImage(track))
+                                ?: asPendingSong(track).copy(videoId = missingPrefix + trackId(track))
                             _detailStack.value = _detailStack.value.map { page ->
                                 val list = (page.songs as? UiState.Success<List<Song>>)?.data
                                 if (page.browseId == browseId && list != null && index < list.size) {
@@ -2947,19 +3050,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
+            _detailStack.value = _detailStack.value.map { page ->
+                if (page.browseId == browseId && page.library == null) {
+                    page.copy(library = LibraryState(playlistId = browseId, saved = false))
+                } else page
+            }
         }
     }
 
-    private fun SpotifyTrack.asPendingSong() = Song(
-        videoId = SPOTIFY_PENDING_PREFIX + id,
-        title = title,
-        artist = artist,
-        thumbnailUrl = imageUrl,
-        durationText = durationMs.takeIf { it > 0 }?.let { ms ->
-            "%d:%02d".format(ms / 60000, ms / 1000 % 60)
-        },
-        albumName = album,
-    )
+    /**
+     * Whether a Spotify or Deezer page was already saved and that playlist is
+     * still there. A local playlist is checked directly; an account playlist
+     * only once the Library has loaded the account's playlists, and trusted
+     * until then.
+     */
+    private fun isExternalPageSaved(browseId: String): Boolean {
+        val savedAs = AppSettings.externalPlaylistSave(browseId) ?: return false
+        return if (savedAs.startsWith("local:")) {
+            com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(savedAs) != null
+        } else {
+            _playlists.value.isEmpty() || _playlists.value.any { it.browseId == savedAs }
+        }
+    }
 
     /**
      * Pushes one album, playlist or artist out of a device folder as a page of

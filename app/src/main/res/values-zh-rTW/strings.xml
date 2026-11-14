@@ -1434,4 +1434,13 @@
     <string name="bit_perfect_status_inexact">%1$s · 不精確：此音源不是無損 PCM</string>
     <string name="bit_perfect_status_waiting">正在等待受支援輸出上的無損曲目</string>
     <string name="bit_perfect_status_unavailable">此曲目無法使用（%1$s）</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">登入以載入您的播放清單。播放使用 YouTube Music。</string>
+    <string name="deezer_sign_in">使用 Deezer 登入</string>
+    <string name="deezer_use_arl_token">使用 ARL 權杖</string>
+    <string name="deezer_disconnect">中斷連線</string>
+    <string name="deezer_library_subtitle">您的 Deezer 播放清單</string>
+    <string name="deezer_arl_setup_description">貼上已登入瀏覽器工作階段中的 Deezer arl Cookie。</string>
+    <string name="deezer_arl_token_hint">arl 權杖</string>
+    <string name="deezer_favorite_tracks">我的最愛歌曲</string>
 </resources>

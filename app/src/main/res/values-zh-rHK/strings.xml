@@ -1434,4 +1434,13 @@
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
     <string name="source_downloads_on">允許下載</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">登入以載入您的播放清單。播放使用 YouTube Music。</string>
+    <string name="deezer_sign_in">使用 Deezer 登入</string>
+    <string name="deezer_use_arl_token">使用 ARL 權杖</string>
+    <string name="deezer_disconnect">中斷連線</string>
+    <string name="deezer_library_subtitle">您的 Deezer 播放清單</string>
+    <string name="deezer_arl_setup_description">貼上已登入瀏覽器工作階段中的 Deezer arl Cookie。</string>
+    <string name="deezer_arl_token_hint">arl 權杖</string>
+    <string name="deezer_favorite_tracks">我的最愛歌曲</string>
 </resources>

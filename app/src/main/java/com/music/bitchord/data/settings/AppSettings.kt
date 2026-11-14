@@ -760,6 +760,7 @@ object AppSettings {
     val listenBrainzToken = MutableStateFlow("")
     val listenBrainzPrimaryArtistOnly = MutableStateFlow(false)
     val spotifySpdcToken = MutableStateFlow("")
+    val deezerArlToken = MutableStateFlow("")
 
     // ── Discord Rich Presence ───────────────────────────────────────────
 
@@ -1097,6 +1098,7 @@ object AppSettings {
         listenBrainzToken.value = prefs.getString(KEY_LISTENBRAINZ_TOKEN, "").orEmpty()
         listenBrainzPrimaryArtistOnly.value = prefs.getBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, false)
         spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
+        deezerArlToken.value = prefs.getString(KEY_DEEZER_ARL_TOKEN, "").orEmpty()
         replayGenres.value = prefs.getBoolean(KEY_REPLAY_GENRES, true)
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
@@ -1777,6 +1779,28 @@ object AppSettings {
         SpotifyToken.invalidate()
     }
 
+    fun setDeezerArlToken(value: String) {
+        deezerArlToken.value = value
+        prefs.edit().putString(KEY_DEEZER_ARL_TOKEN, value).apply()
+    }
+
+    /**
+     * The playlist a Spotify or Deezer page's matches were saved as, so that
+     * opening the page again shows it saved instead of offering a duplicate.
+     * Each entry is `pageBrowseId<TAB>savedBrowseId`.
+     */
+    fun externalPlaylistSave(pageBrowseId: String): String? =
+        prefs.getStringSet(KEY_EXTERNAL_PLAYLIST_SAVES, null).orEmpty()
+            .firstNotNullOfOrNull { entry ->
+                entry.split('\t', limit = 2).takeIf { it.size == 2 && it[0] == pageBrowseId }?.get(1)
+            }
+
+    fun setExternalPlaylistSave(pageBrowseId: String, savedBrowseId: String) {
+        val kept = prefs.getStringSet(KEY_EXTERNAL_PLAYLIST_SAVES, null).orEmpty()
+            .filterNot { it.startsWith("$pageBrowseId\t") }
+        prefs.edit().putStringSet(KEY_EXTERNAL_PLAYLIST_SAVES, (kept + "$pageBrowseId\t$savedBrowseId").toSet()).apply()
+    }
+
     fun setLastfmScrobbleEnabled(value: Boolean) {
         lastfmScrobbleEnabled.value = value
         if (!value) lastfmNowPlaying.value = false
@@ -2203,6 +2227,7 @@ object AppSettings {
         KEY_LASTFM_SECRET,
         KEY_LISTENBRAINZ_TOKEN,
         KEY_SPOTIFY_SPDC_TOKEN,
+        KEY_DEEZER_ARL_TOKEN,
         KEY_PAXSENIX_API_KEY,
     )
 
@@ -2224,6 +2249,8 @@ object AppSettings {
         KEY_LOCAL_MUSIC_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
         KEY_ONBOARDING_COMPLETE,
+        // Points at this device's local playlists, or the account's.
+        KEY_EXTERNAL_PLAYLIST_SAVES,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -2363,6 +2390,8 @@ object AppSettings {
     private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
     private const val KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY = "listenbrainz_primary_artist_only"
     private const val KEY_SPOTIFY_SPDC_TOKEN = "spotify_spdc_token"
+    private const val KEY_DEEZER_ARL_TOKEN = "deezer_arl_token"
+    private const val KEY_EXTERNAL_PLAYLIST_SAVES = "external_playlist_saves"
 
     private const val KEY_DISCORD_USERNAME = "discord_username"
     private const val KEY_DISCORD_NAME = "discord_name"

@@ -9,6 +9,43 @@ import kotlin.test.assertTrue
 
 class QueueWindowTest {
 
+    // #1548: with k tracks left to shuffle, a plain shuffle gave back their
+    // playlist order once in k!, half the time on a three-song playlist.
+
+    @Test
+    fun shuffleOnASmallPlaylistAlwaysMovesATrack() {
+        for (size in 3..5) for (seed in 0L until 300L) {
+            val window = QueueWindow(size, shuffleSeed = seed).startAt(0, shuffle = true)
+            val upcoming = window.upcoming(size).map { it.canonicalIndex }
+            assertNotEquals((1 until size).toList(), upcoming, "size $size seed $seed")
+        }
+    }
+
+    @Test
+    fun turningShuffleOnNearTheEndAlwaysReordersWhatIsLeft() {
+        for (seed in 0L until 300L) {
+            val window = QueueWindow(8).startAt(0, shuffle = false)
+            repeat(4) { window.advance() }
+            window.setShuffle(true, shuffleSeed = seed)
+            val upcoming = window.upcoming(8).map { it.canonicalIndex }
+            assertEquals(setOf(5, 6, 7), upcoming.toSet(), "seed $seed")
+            assertNotEquals(listOf(5, 6, 7), upcoming, "seed $seed")
+        }
+    }
+
+    @Test
+    fun aRepeatAllCycleIsNeverPlaylistOrderNorOpensOnTheLastTrack() {
+        for (seed in 0L until 300L) {
+            val window = QueueWindow(3, shuffleSeed = seed).startAt(0, shuffle = true)
+            val ahead = window.upcoming(5, repeatAll = true)
+            val firstCycle = listOf(0) + ahead.filter { it.cycleId == 0L }.map { it.canonicalIndex }
+            val nextCycle = ahead.filter { it.cycleId == 1L }.map { it.canonicalIndex }
+            assertEquals(3, nextCycle.size, "seed $seed")
+            assertNotEquals(listOf(0, 1, 2), nextCycle, "seed $seed")
+            assertNotEquals(firstCycle.last(), nextCycle.first(), "seed $seed")
+        }
+    }
+
     @Test
     fun canonicalStartPinsCurrentAndKeepsCanonicalOrder() {
         val window = QueueWindow(6).startAt(2, shuffle = false)

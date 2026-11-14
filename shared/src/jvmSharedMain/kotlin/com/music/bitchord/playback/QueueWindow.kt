@@ -558,7 +558,9 @@ class QueueWindow(
     private fun shuffledOrderAnchoredAt(anchor: Int, cycle: Long): IntArray {
         val rest = (0 until canonicalCount).filter { it != anchor }
             .shuffled(Random(seedForCycle(cycle)))
-        return (listOf(anchor) + rest).toIntArray()
+        val order = (listOf(anchor) + rest).toMutableList()
+        order.moveIfUnchanged { it != anchor && it !in consumed }
+        return order.toIntArray()
     }
 
     private fun orderForCycle(cycle: Long, previousFinal: Int?): IntArray {
@@ -574,7 +576,26 @@ class QueueWindow(
                 result[swapWith] = first
             }
         }
+        // The first track is held off the previous cycle's last; only the rest may move.
+        val pinned = if (previousFinal != null) result[0] else -1
+        result.moveIfUnchanged { it != pinned }
         return result.toIntArray()
+    }
+
+    /**
+     * Swaps the last two entries [movable] accepts when those entries came out
+     * of the shuffle in playlist order. With k tracks left to shuffle, a plain
+     * shuffle gives back the original order once in k! — half the time on a
+     * three-song playlist — and the shuffle looks as if it did nothing.
+     * The app's QueueShuffle has the same guard for the older queue path.
+     */
+    private fun MutableList<Int>.moveIfUnchanged(movable: (Int) -> Boolean) {
+        val positions = indices.filter { movable(this[it]) }
+        if (positions.size < 2) return
+        if (positions.zipWithNext().any { (a, b) -> this[a] > this[b] }) return
+        val a = positions[positions.size - 2]
+        val b = positions.last()
+        this[a] = this[b].also { this[b] = this[a] }
     }
 
     private fun seedForCycle(cycle: Long): Long =

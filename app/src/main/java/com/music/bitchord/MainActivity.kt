@@ -176,6 +176,7 @@ import com.music.bitchord.ui.navigation.AppRoute
 import com.music.bitchord.ui.screens.EqualizerPresetPage
 import com.music.bitchord.ui.screens.SettingsChoicePage
 import com.music.bitchord.ui.components.SpotifyImportAlert
+import com.music.bitchord.ui.components.CsvImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
 import com.music.bitchord.ui.screens.DriveBackupScreen
 import com.music.bitchord.ui.screens.DriveDevicesScreen
@@ -791,6 +792,7 @@ private fun BitChordApp(
     var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var showCsvImportDialog by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -3880,6 +3882,7 @@ private fun BitChordApp(
                                 onShelfItemLongPress = onBrowseLongPress,
                                 onNewPlaylist = { creatingPlaylist = true },
                                 onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                                onImportCsvPlaylist = { showCsvImportDialog = true },
                                 onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
                                 replay = {
                                     LibraryReplayEntry(
@@ -5348,6 +5351,34 @@ private fun BitChordApp(
                     }
                 },
                 onDismiss = { showSpotifyImportDialog = false },
+            )
+        }
+
+        if (showCsvImportDialog) {
+            BackHandler { showCsvImportDialog = false }
+            CsvImportAlert(
+                hazeState = hazeState,
+                signedIn = signedIn,
+                onImported = { title, privacy, songs ->
+                    viewModel.createPlaylistWithVideoIds(
+                        title,
+                        privacy,
+                        songs.map { it.videoId },
+                        songs,
+                    ) { browseId, pTitle, savedLocally ->
+                        showQueueNotice(
+                            context.getString(
+                                R.string.csv_import_done,
+                                pTitle,
+                                songs.size,
+                            ),
+                        )
+                        browseId?.let { id ->
+                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+                        }
+                    }
+                },
+                onDismiss = { showCsvImportDialog = false },
             )
         }
 

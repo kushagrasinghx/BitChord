@@ -373,9 +373,7 @@ export function FullScreenPlayer() {
           </div>
 
           <Scrubber />
-          <div className="mt-2.5 mb-1 flex justify-center">
-            <AudioQualityBadge />
-          </div>
+          <AudioQualityBadge />
           <Transport />
         </section>
 

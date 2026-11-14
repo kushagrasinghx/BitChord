@@ -30,11 +30,10 @@ import java.util.Locale
  *  - **USB:** USB-C headphones, USB DACs and USB audio accessories.
  *  - **HDMI:** HDMI, ARC and eARC (a TV, receiver or soundbar).
  *  - **Dock:** digital and analog docks.
- *  - **Bluetooth A2DP on LDAC, LHDC (V3/V4/V5), aptX Lossless or Samsung's
- *    SSC UHQ.** SBC, AAC, aptX, aptX HD, LC3 (LE Audio) and Opus are all lossy
- *    at bitrates well below CD audio, and do not count — nor does plain SSC,
- *    which tops out at 512 kbps; only its UHQ mode (24-bit/96 kHz, Galaxy S23
- *    and later with Buds3/Buds4) is in LDAC's class.
+ *  - **aptX Lossless on Bluetooth A2DP.** LDAC, LHDC, Samsung SSC/UHQ, SBC,
+ *    AAC, aptX, aptX HD, LC3 and Opus are lossy codecs — higher bitrates and
+ *    sample rates do not make them mathematically lossless — so they are
+ *    reported but never open this gate.
  *
  * The phone's own speaker, earpiece, hearing aids, casting and BLE Audio do
  * not count either. Bluetooth is only counted when Android names the codec,
@@ -155,15 +154,9 @@ object LosslessOutput {
      */
     internal fun isLosslessBluetoothCodec(name: String, sampleRateHz: Int? = null): Boolean {
         val codec = name.uppercase(Locale.ROOT)
-        // LDAC/LHDC have lossy low-bitrate modes. Without a bitrate API, the
-        // 88.2 kHz+ modes are the ones worth calling close to lossless.
-        if ("LDAC" in codec || "LHDC" in codec) {
-            return sampleRateHz != null && sampleRateHz >= 88_200
-        }
-        if ("APTX" in codec && "LOSSLESS" in codec) return true
-        if ("UHQ" in codec) return true
-        val samsung = SAMSUNG_NAMES.any { it in codec }
-        return samsung && sampleRateHz != null && sampleRateHz >= 88_200
+        // A high sample rate or bitrate does not make LDAC/LHDC/SSC lossless.
+        // aptX Lossless is the only A2DP codec this gate can honestly accept.
+        return "APTX" in codec && "LOSSLESS" in codec
     }
 
     private val SAMSUNG_NAMES = listOf("SSC", "SAMSUNG", "SCALABLE", "SEAMLESS")

@@ -36,9 +36,11 @@ class LosslessOutputTest {
     }
 
     @Test
-    fun `LDAC only counts in its high-resolution mode`() {
+    fun `lossy Bluetooth codecs never open the lossless gate`() {
         assertFalse(LosslessOutput.isLosslessBluetoothCodec("LDAC", 44_100))
-        assertTrue(LosslessOutput.isLosslessBluetoothCodec("LDAC", 96_000))
+        assertFalse(LosslessOutput.isLosslessBluetoothCodec("LDAC", 96_000))
+        assertFalse(LosslessOutput.isLosslessBluetoothCodec("LHDC V5", 96_000))
+        assertFalse(LosslessOutput.isLosslessBluetoothCodec("SSC UHQ", 96_000))
         assertTrue(LosslessOutput.isLosslessBluetoothCodec("aptX Lossless", 48_000))
     }
 

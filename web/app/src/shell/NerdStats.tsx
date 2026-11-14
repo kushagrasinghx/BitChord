@@ -4,6 +4,7 @@ import type { AutoDJSnapshot } from '@/playback/automix';
 import type { analyzer as Analyzer } from '@/playback/automix/analysis/analyzer';
 import type { NowPlaying } from '@/state/player';
 import { usePlayer } from '@/state/player';
+import { describeStream } from './nerdStatsFormat';
 
 /**
  * Stats for nerds, under the artist in the full-screen player (the phone's
@@ -17,27 +18,38 @@ export function NerdStats() {
   if (!show || !nowPlaying) return null;
   return (
     // The phone's shadow: free on the dark mesh, and what keeps it legible over a bright music video.
-    <div className="mt-1 flex min-w-0 flex-col gap-px type-[500_11px/14px] tabular-nums [text-shadow:0_1px_4px_rgb(0_0_0/0.55)]">
-      <span className="truncate text-secondary">{describeStream(nowPlaying) ?? 'Measuring the stream…'}</span>
+    <div className="mt-1.5 flex min-w-0 flex-col gap-1 type-[500_11px/14px] tabular-nums [text-shadow:0_1px_4px_rgb(0_0_0/0.55)]">
+      <div className="flex items-center gap-2">
+        <StreamBadge nowPlaying={nowPlaying} />
+      </div>
       {automix && <AutomixLine videoId={nowPlaying.videoId} />}
     </div>
   );
 }
 
-/** "Opus · 48 kHz · 141 kbps · Stereo · itag 251 · VISIONOS direct", as much as is known. */
-function describeStream(np: NowPlaying): string | null {
-  const s = np.stream;
-  if (!s) return null;
-  const parts = [
-    s.codec,
-    s.sampleRateHz ? `${+(s.sampleRateHz / 1000).toFixed(1)} kHz` : null,
-    s.bitrateKbps ? `${s.bitrateKbps} kbps` : null,
-    s.channels ? ({ 1: 'Mono', 2: 'Stereo' } as Record<number, string>)[s.channels] ?? `${s.channels} channels` : null,
-    s.itag ? `itag ${s.itag}` : null,
-    `${s.client} ${s.mode}`,
-  ];
-  return parts.filter(Boolean).join(' · ');
+/**
+ * Compact, high-visibility stream stats badge showing codec, sample rate, bitrate, and source.
+ */
+export function StreamBadge({ nowPlaying, className = '' }: { nowPlaying: NowPlaying; className?: string }) {
+  const text = describeStream(nowPlaying);
+  if (!text) return null;
+  const isLossless = text.includes('FLAC') || text.includes('Lossless');
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-mono leading-none tracking-tight transition-colors ${
+        isLossless
+          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+          : 'bg-white/10 text-secondary border border-white/10'
+      } ${className}`}
+      title={text}
+    >
+      <span className={`size-1.5 rounded-full ${isLossless ? 'bg-emerald-400 animate-pulse' : 'bg-primary/40'}`} />
+      <span className="truncate max-w-[280px]">{text}</span>
+    </span>
+  );
 }
+
+export { describeStream } from './nerdStatsFormat';
 
 /** Automix's line: both songs' analysis while it waits, the blend once one is planned. Both sides always named. */
 function AutomixLine({ videoId }: { videoId: string }) {

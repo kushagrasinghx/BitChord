@@ -50,3 +50,11 @@ AGENTS.md
 
 # Claude Code session files (launch configs, worktrees)
 .claude/
+
+# Local environment & secrets
+.env
+.env.*
+!.env.example
+*.local
+credentials*.json
+token*.json

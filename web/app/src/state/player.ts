@@ -1,5 +1,7 @@
 import type { DetectedExtension } from '@bitchord/shared/bridge';
 import { create } from 'zustand';
+import { AddonManager } from '@/addons/addonManager';
+import type { ResolvedAddonStream } from '@/addons/types';
 import type { Track } from '@/data/music/types';
 import { extensionQueryKey } from '@/extension/useExtension';
 import { artworkAtPixels } from '@/lib/artwork';
@@ -57,6 +59,8 @@ interface Settings {
   automixBars: number;
   /** Stats for nerds: the stream's codec, bitrate and sample rate, and what Automix is doing, under the artist. */
   showNerdStats: boolean;
+  /** Direct Stream: prioritize addon sources first, streaming from them directly before falling back to YouTube Opus. */
+  directStream: boolean;
 }
 
 interface PlayerState extends Settings {
@@ -102,6 +106,7 @@ interface PlayerState extends Settings {
   setAutomix: (on: boolean) => void;
   setAutomixBars: (bars: number) => void;
   setShowNerdStats: (on: boolean) => void;
+  setDirectStream: (on: boolean) => void;
 }
 
 // ---- Settings, kept across visits ---------------------------------------------------
@@ -117,21 +122,27 @@ const DEFAULT_SETTINGS: Settings = {
   automix: false,
   automixBars: 16,
   showNerdStats: false,
+  directStream: true,
 };
 
 function loadSettings(): Settings {
   try {
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>) };
+    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<Settings>;
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      directStream: parsed.directStream !== undefined ? Boolean(parsed.directStream) : true,
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
 function saveSettings(state: Settings) {
-  const { shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats } = state;
+  const { shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats, directStream } = state;
   localStorage.setItem(
     SETTINGS_KEY,
-    JSON.stringify({ shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats }),
+    JSON.stringify({ shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats, directStream }),
   );
 }
 
@@ -217,14 +228,21 @@ function applyVolumes() {
   if (graph) {
     // Routed through Web Audio: the elements stay at 1 and the graph carries volume and the fade.
     const now = graph.ctx.currentTime;
+    if (graph.ctx.state === 'suspended' && level > 0) {
+      void graph.ctx.resume();
+    }
     graph.master.gain.setTargetAtTime(level, now, 0.015);
     (decks ?? []).forEach((deck, n) => {
+      deck.audio.muted = false;
       deck.audio.volume = 1;
       graph!.decks[n]!.fader.gain.setTargetAtTime(deck.gain, now, 0.015);
     });
     return;
   }
-  for (const deck of decks ?? []) deck.audio.volume = level * deck.gain;
+  for (const deck of decks ?? []) {
+    deck.audio.muted = muted;
+    deck.audio.volume = level * deck.gain;
+  }
 }
 
 // ---- AutoMix (playback/automix): the two decks routed through Web Audio, mixed like a DJ ----
@@ -369,7 +387,11 @@ function syncAutomix() {
 
 function extensionReady(): boolean {
   const detected = queryClient.getQueryData<DetectedExtension | null>(extensionQueryKey);
-  return !!detected?.info.capabilities.includes('yt');
+  if (detected?.info?.capabilities?.includes('yt')) return true;
+  if (typeof window !== 'undefined' && (window as unknown as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id) {
+    return true;
+  }
+  return false;
 }
 
 const artistNames = (track: Track) => track.artists.map((a) => a.name).join(', ');
@@ -636,6 +658,11 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ showNerdStats });
     saveSettings(get());
   },
+
+  setDirectStream(directStream) {
+    set({ directStream });
+    saveSettings(get());
+  },
 }));
 
 // For browser-driven tests, next to __bcAudio.
@@ -666,6 +693,65 @@ function insertUser(tracks: Track[], source: QueueSource | null, isNext: boolean
 
 // ---- Loading and moving through the queue -------------------------------------------
 
+/**
+ * QualityUpgrade (prompt §second look, following Android's QualityUpgrade.kt):
+ * While a track plays on YouTube, patiently queries configured lossless addons
+ * in the background. If a matching lossless stream is found, seamlessly swaps
+ * to it mid-track at the current playback position without interrupting the listener.
+ */
+async function checkQualityUpgrade(track: Track, token: number): Promise<void> {
+  const addons = AddonManager.getAddons().filter((a) => a.enabled);
+  if (!addons.length) return;
+
+  const currentNow = usePlayer.getState().nowPlaying;
+  const currentStream = currentNow?.stream;
+  if (currentStream?.codec === 'FLAC' || currentNow?.streamInfo?.includes('Lossless')) return;
+
+  try {
+    trackLog.i(`Checking background lossless upgrade for "${track.title}"...`, track.videoId);
+    const addonStream = await AddonManager.resolveStream(track);
+    if (!addonStream) {
+      trackLog.i(`No lossless source found for "${track.title}"`, track.videoId);
+      return;
+    }
+
+    if (token !== loadToken) return;
+
+    const all = await getDecks();
+    const deck = all[active];
+    if (!deck || usePlayer.getState().nowPlaying?.videoId !== track.videoId) return;
+
+    const currentTime = deck.audio.currentTime || 0;
+    // Don't interrupt user if they have already listened to more than 15s of the song
+    if (currentTime > 15) return;
+
+    const isPlaying = !deck.audio.paused;
+
+    trackLog.i(`Upgrading to lossless (${addonStream.addonName} · ${addonStream.format}) at ${currentTime.toFixed(1)}s`, track.videoId);
+
+    const upgradedTrack = await deck.engine.loadDirectUrl(
+      addonStream.streamUrl,
+      {
+        videoId: track.videoId,
+        title: track.title || '',
+        author: (track.artists || []).map((a) => a.name).join(', '),
+        format: `${addonStream.addonName} · ${addonStream.format}`,
+        codec: addonStream.codec || 'FLAC',
+        bitrate: addonStream.bitrate || 1411,
+      },
+      { startSec: currentTime, autoplay: isPlaying },
+    );
+
+    if (token !== loadToken) return;
+
+    applyTrack(upgradedTrack, track);
+    usePlayer.setState({ status: isPlaying ? 'playing' : 'paused', error: null });
+    trackLog.i(`Successfully upgraded playback to lossless (${addonStream.format})`, track.videoId);
+  } catch (err) {
+    trackLog.w(`Quality upgrade skipped/failed (${String(err)}), keeping original stream`, track.videoId);
+  }
+}
+
 /** Loads queue[at] into the deck in front and plays it. `auto` marks a move the player made on its own. */
 async function startAt(at: number, { startSec = 0, auto = false, autoplay = true } = {}): Promise<void> {
   const state = usePlayer.getState();
@@ -674,30 +760,99 @@ async function startAt(at: number, { startSec = 0, auto = false, autoplay = true
   cancelCrossfade();
   const token = ++loadToken;
 
-  if (!extensionReady()) {
-    usePlayer.setState({
-      index: at,
-      nowPlaying: { ...hintOf(entry.track), title: entry.track.title || 'Can’t play this here yet' },
-      status: 'error',
-      error: 'YouTube playback needs the BitChord extension.',
-    });
-    return;
-  }
-
   usePlayer.setState({ index: at, nowPlaying: hintOf(entry.track), status: 'loading', error: null });
   updateMediaSession(usePlayer.getState().nowPlaying);
+
+  const { directStream } = state;
+  let addonStream: ResolvedAddonStream | null = null;
+
+  if (directStream) {
+    trackLog.i(`Direct Stream: prioritizing addon sources for "${entry.track.title}"`, entry.track.videoId);
+    try {
+      addonStream = await Promise.race([
+        AddonManager.resolveStream(entry.track),
+        new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+      ]);
+    } catch {
+      addonStream = null;
+    }
+  } else {
+    try {
+      addonStream = await Promise.race([
+        AddonManager.resolveStream(entry.track),
+        new Promise<null>((r) => setTimeout(() => r(null), 400)),
+      ]);
+    } catch {
+      addonStream = null;
+    }
+  }
+
+  if (token !== loadToken) return;
+
+  if (!addonStream && !extensionReady()) {
+    const detected = queryClient.getQueryData<DetectedExtension | null>(extensionQueryKey);
+    if (!detected) {
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    if (!addonStream && !extensionReady()) {
+      usePlayer.setState({
+        index: at,
+        nowPlaying: { ...hintOf(entry.track), title: entry.track.title || 'Can’t play this here yet' },
+        status: 'error',
+        error: 'YouTube playback needs the BitChord extension.',
+      });
+      return;
+    }
+  }
+
   try {
     const all = await getDecks();
     const deck = all[active]!;
     all[1 - active]!.engine.stop().catch(() => {});
     deck.gain = 1;
     applyVolumes();
-    const track = await deck.engine.load(entry.track.videoId, { startSec, autoplay });
+
+    let track: LoadedTrack;
+    if (addonStream) {
+      try {
+        track = await deck.engine.loadDirectUrl(
+          addonStream.streamUrl,
+          {
+            videoId: entry.track.videoId,
+            title: entry.track.title || '',
+            author: (entry.track.artists || []).map((a) => a.name).join(', '),
+            format: `${addonStream.addonName} · ${addonStream.format}`,
+            codec: addonStream.codec,
+            bitrate: addonStream.bitrate,
+          },
+          { startSec, autoplay },
+        );
+      } catch (addonErr) {
+        trackLog.w(`Addon stream load failed (${String(addonErr)}), switching to YouTube Opus fallback`, entry.track.videoId);
+        usePlayer.setState({ error: null, status: 'loading' });
+        track = await deck.engine.load(entry.track.videoId, { startSec, autoplay });
+      }
+    } else {
+      if (directStream) {
+        trackLog.i(`Direct Stream: not on addon, switching to YouTube Opus fallback`, entry.track.videoId);
+      }
+      track = await deck.engine.load(entry.track.videoId, { startSec, autoplay });
+    }
+
     if (token !== loadToken) return;
     applyTrack(track, entry.track);
-    if (!autoplay) usePlayer.setState({ status: 'paused' });
+    usePlayer.setState({ status: autoplay ? 'playing' : 'paused', error: null });
     afterTrackStarted();
     syncAutomix();
+
+    const nextEntry = state.queue[at + 1];
+    if (nextEntry) {
+      AddonManager.prefetchStream(nextEntry.track);
+    }
+
+    if (!addonStream && !directStream) {
+      void checkQualityUpgrade(entry.track, token);
+    }
   } catch (error) {
     if (token !== loadToken || (error instanceof Error && error.name === 'SupersededError')) return;
     const message = error instanceof Error ? error.message : String(error);
@@ -998,12 +1153,75 @@ function bindElement(deck: Deck, n: number) {
     if (usePlayer.getState().status === 'error' && status !== 'playing') return;
     usePlayer.setState({ status });
   };
-  element.addEventListener('playing', () => set('playing'));
+
+  let stallTimer: number | null = null;
+  const clearStall = () => {
+    if (stallTimer !== null) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+  };
+
+  element.addEventListener('playing', () => {
+    clearStall();
+    if (graph && graph.ctx.state === 'suspended') void graph.ctx.resume();
+    set('playing');
+  });
   element.addEventListener('pause', () => {
+    clearStall();
     if (!element.ended) set('paused');
   });
-  element.addEventListener('waiting', () => set('buffering'));
+  element.addEventListener('waiting', () => {
+    set('buffering');
+    const currentNow = usePlayer.getState().nowPlaying;
+    if (currentNow && (currentNow.stream?.client === 'Addon' || currentNow.stream?.mode === 'direct')) {
+      clearStall();
+      // Watchdog: If an addon stream stalls for more than 5s, auto-recover on YouTube Opus
+      stallTimer = window.setTimeout(() => {
+        if (!inFront() || usePlayer.getState().status !== 'buffering') return;
+        trackLog.w(`Addon stream stalled, recovering on YouTube Opus`, currentNow.videoId);
+        const currentTime = element.currentTime || 0;
+        const currentEntry = usePlayer.getState().queue[usePlayer.getState().index];
+        void deck.engine
+          .load(currentNow.videoId, { startSec: currentTime, autoplay: true })
+          .then((t) => {
+            applyTrack(t, currentEntry?.track);
+            usePlayer.setState({ status: 'playing', error: null });
+          })
+          .catch(() => {});
+      }, 5000);
+    }
+  });
+  element.addEventListener('error', () => {
+    clearStall();
+    if (!inFront() || holding) return;
+    const currentNow = usePlayer.getState().nowPlaying;
+    // Resilient fallback: If an addon stream encountered an error (e.g. 502/bad source/CORS),
+    // automatically fall back to YouTube Opus at currentTime instead of halting playback!
+    if (currentNow && (currentNow.stream?.client === 'Addon' || currentNow.stream?.mode === 'direct')) {
+      trackLog.w(`Addon stream error encountered (${element.error?.code}), recovering on YouTube Opus fallback`, currentNow.videoId);
+      const currentTime = element.currentTime || 0;
+      const currentEntry = usePlayer.getState().queue[usePlayer.getState().index];
+      void deck.engine
+        .load(currentNow.videoId, { startSec: currentTime, autoplay: true })
+        .then((t) => {
+          applyTrack(t, currentEntry?.track);
+          usePlayer.setState({ status: 'playing', error: null });
+        })
+        .catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          trackLog.e(`YouTube fallback also failed: ${message}`);
+          usePlayer.setState({ status: 'error', error: message });
+        });
+      return;
+    }
+    const err = element.error;
+    const message = err ? `Audio playback error (${err.code})` : 'Playback error';
+    trackLog.e(message);
+    usePlayer.setState({ status: 'error', error: message });
+  });
   element.addEventListener('ended', () => {
+    clearStall();
     if (!inFront() || holding) return;
     endedListeners.forEach((listener) => listener());
     // The track ran out before the crossfade's next one could start: give up
@@ -1017,6 +1235,7 @@ function bindElement(deck: Deck, n: number) {
     void advance(true).then(intent);
   });
   element.addEventListener('timeupdate', () => {
+    clearStall();
     if (!inFront()) return;
     maybeCrossfade();
     ensureAutoplay();

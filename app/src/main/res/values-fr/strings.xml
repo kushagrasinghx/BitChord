@@ -1474,4 +1474,8 @@
     <string name="disable_spotify_canvas_subtitle">Ne jamais utiliser Spotify Canvas. Les pochettes animées viennent des autres sources</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Vos playlists</string>
+    <string name="home_your_albums">Tes albums</string>
+    <string name="home_from_spotify">De Spotify</string>
+    <string name="home_connect_spotify">Connecter Spotify</string>
+    <string name="home_connect_spotify_subtitle">Retrouve ici tes playlists Spotify</string>
 </resources>

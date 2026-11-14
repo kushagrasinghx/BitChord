@@ -1505,4 +1505,8 @@
     <string name="disable_spotify_canvas_subtitle">Никогда не использовать Spotify Canvas. Анимированные обложки берутся из других источников</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Ваши плейлисты</string>
+    <string name="home_your_albums">Ваши альбомы</string>
+    <string name="home_from_spotify">Из Spotify</string>
+    <string name="home_connect_spotify">Подключить Spotify</string>
+    <string name="home_connect_spotify_subtitle">Здесь будут ваши плейлисты Spotify</string>
 </resources>

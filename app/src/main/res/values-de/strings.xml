@@ -1473,4 +1473,8 @@
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas nie verwenden. Animierte Cover kommen dann aus den anderen Quellen</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Deine Playlists</string>
+    <string name="home_your_albums">Deine Alben</string>
+    <string name="home_from_spotify">Von Spotify</string>
+    <string name="home_connect_spotify">Spotify verbinden</string>
+    <string name="home_connect_spotify_subtitle">Sieh hier deine Spotify-Playlists</string>
 </resources>

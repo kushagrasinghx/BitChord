@@ -1478,4 +1478,8 @@
     <string name="disable_spotify_canvas_subtitle">Nunca usar o Spotify Canvas. As capas animadas vêm das outras fontes</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Suas playlists</string>
+    <string name="home_your_albums">Seus álbuns</string>
+    <string name="home_from_spotify">Do Spotify</string>
+    <string name="home_connect_spotify">Conectar Spotify</string>
+    <string name="home_connect_spotify_subtitle">Veja aqui suas playlists do Spotify</string>
 </resources>

@@ -253,6 +253,7 @@ import com.music.bitchord.playback.QualityUpgrade
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
+import com.music.bitchord.ui.CONNECT_SPOTIFY_ID
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.SearchSource
 import com.music.bitchord.ui.components.BottomFadeScrim
@@ -3415,23 +3416,35 @@ private fun BitChordApp(
                                 listState = homeListState,
                                 // Your playlists' Show all: every one, on the Library's own
                                 // playlists page (the same grid, New playlist included).
-                                onShelfShowAll = {
-                                    navigator.push(
-                                        AppRoute.LibraryShowAll(
-                                            HomeShelf(
-                                                title = YtMusicRepository.PLAYLISTS_SHELF,
-                                                items = viewModel.playlists.value.map { playlist ->
-                                                    ShelfItem(
-                                                        title = playlist.title,
-                                                        subtitle = playlist.subtitle,
-                                                        thumbnailUrl = playlist.thumbnailUrl,
-                                                        videoId = null,
-                                                        browseId = playlist.browseId,
-                                                    )
-                                                },
+                                // Show all on the rows Home leads with: From Spotify opens the
+                                // Spotify page; Your albums and Your playlists, every one on
+                                // the Library's own grid (New playlist included).
+                                onShelfShowAll = { shelf ->
+                                    when (shelf.title) {
+                                        context.getString(R.string.home_from_spotify) ->
+                                            navigator.push(AppRoute.Spotify)
+                                        context.getString(R.string.home_your_albums) -> navigator.push(
+                                            AppRoute.LibraryShowAll(
+                                                HomeShelf(title = shelf.title, items = viewModel.savedAlbums.value),
                                             ),
-                                        ),
-                                    )
+                                        )
+                                        else -> navigator.push(
+                                            AppRoute.LibraryShowAll(
+                                                HomeShelf(
+                                                    title = YtMusicRepository.PLAYLISTS_SHELF,
+                                                    items = viewModel.playlists.value.map { playlist ->
+                                                        ShelfItem(
+                                                            title = playlist.title,
+                                                            subtitle = playlist.subtitle,
+                                                            thumbnailUrl = playlist.thumbnailUrl,
+                                                            videoId = null,
+                                                            browseId = playlist.browseId,
+                                                        )
+                                                    },
+                                                ),
+                                            ),
+                                        )
+                                    }
                                 },
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
@@ -3447,6 +3460,7 @@ private fun BitChordApp(
                                     // property declared in another module.
                                     val browseId = item.browseId
                                     when {
+                                        browseId == CONNECT_SPOTIFY_ID -> showSpotifyLogin = true
                                         song != null -> playRadio(
                                             song,
                                             QueueSource(shelfTitle, PlaybackSourceType.HOME),
@@ -3459,7 +3473,13 @@ private fun BitChordApp(
                                         )
                                     }
                                 },
-                                onItemLongPress = onShelfLongPress,
+                                onItemLongPress = { item ->
+                                    if (item.browseId == CONNECT_SPOTIFY_ID) {
+                                        viewModel.dismissSpotifyConnectCard()
+                                    } else {
+                                        onShelfLongPress(item)
+                                    }
+                                },
                                 onRetry = viewModel::loadHome,
                                 refreshing = MainViewModel.Feed.HOME in refreshing,
                                 onRefresh = { viewModel.refresh(MainViewModel.Feed.HOME) },
@@ -5945,6 +5965,8 @@ private fun BitChordApp(
                         onConnected = { token ->
                             AppSettings.setSpotifySpdcToken(token)
                             showSpotifyLogin = false
+                            // Home's From Spotify row (and the daylist) only load signed in.
+                            viewModel.refresh(MainViewModel.Feed.HOME)
                         },
                     )
                 }

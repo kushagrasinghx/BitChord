@@ -1456,4 +1456,8 @@
     <string name="disable_spotify_canvas_subtitle">ไม่ใช้ Spotify Canvas เลย ภาพปกเคลื่อนไหวจะมาจากแหล่งอื่นแทน</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">เพลย์ลิสต์ของคุณ</string>
+    <string name="home_your_albums">อัลบั้มของคุณ</string>
+    <string name="home_from_spotify">จาก Spotify</string>
+    <string name="home_connect_spotify">เชื่อมต่อ Spotify</string>
+    <string name="home_connect_spotify_subtitle">ดูเพลย์ลิสต์ Spotify ของคุณที่นี่</string>
 </resources>

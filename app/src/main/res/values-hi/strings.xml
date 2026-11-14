@@ -1473,4 +1473,8 @@
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas कभी इस्तेमाल न करें। एनिमेटेड कवर बाकी स्रोतों से आएँगे</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">आपकी प्लेलिस्ट</string>
+    <string name="home_your_albums">आपके एल्बम</string>
+    <string name="home_from_spotify">Spotify से</string>
+    <string name="home_connect_spotify">Spotify कनेक्ट करें</string>
+    <string name="home_connect_spotify_subtitle">अपनी Spotify प्लेलिस्ट यहाँ देखें</string>
 </resources>

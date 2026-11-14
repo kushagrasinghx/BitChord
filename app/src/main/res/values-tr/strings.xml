@@ -1430,4 +1430,8 @@
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas hiç kullanılmaz. Hareketli kapaklar diğer kaynaklardan gelir</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Çalma listelerin</string>
+    <string name="home_your_albums">Albümlerin</string>
+    <string name="home_from_spotify">Spotify’dan</string>
+    <string name="home_connect_spotify">Spotify’ı bağla</string>
+    <string name="home_connect_spotify_subtitle">Spotify çalma listelerini burada gör</string>
 </resources>

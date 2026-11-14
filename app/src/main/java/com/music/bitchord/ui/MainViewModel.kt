@@ -115,6 +115,12 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * The browse id of Home's Connect Spotify card: no page, a tap opens Spotify's
+ * sign-in instead (see MainActivity's Home onItemClick).
+ */
+const val CONNECT_SPOTIFY_ID = "bitchord:connect-spotify"
+
 /** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
 enum class SearchSource { YOUTUBE, LIBRARY, ADDONS }
 
@@ -1954,22 +1960,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * The "Your playlists" row Home leads with after Recently played, as
-     * Spotify's Home does: Spotify's daylist first (once Spotify is connected
-     * and has made one), then the library's playlists (signed in only). One
-     * row rather than two, so the daylist's single card doesn't sit alone.
-     * Both are fetched at once; either one missing just leaves it out.
+     * The rows Home leads with after Recently played, as Spotify's Home and
+     * the web player's do — the listener's own music first:
+     *
+     * - Your playlists: Spotify's daylist first (once Spotify is connected and
+     *   has made one), then the library's playlists (signed in only). One row,
+     *   so the daylist's single card doesn't sit alone.
+     * - Your albums: the albums saved to the library.
+     * - From Spotify: the listener's Spotify playlists — or, with Spotify not
+     *   connected, one card saying where to connect it (see
+     *   [CONNECT_SPOTIFY_ID]), unless that card was dismissed.
+     *
+     * All fetched at once; any one missing or failing just leaves its row out.
      */
     private suspend fun loadOwnShelf(identity: String?, stillCurrent: () -> Boolean) = coroutineScope {
+        val spotifyConnected = AppSettings.spotifySpdcToken.value.isNotBlank()
         val daylist = async {
-            if (AppSettings.spotifySpdcToken.value.isBlank()) null
-            else runCatching { SpotifyLibrary.daylist() }.getOrNull()
+            if (!spotifyConnected) null else runCatching { SpotifyLibrary.daylist() }.getOrNull()
+        }
+        val spotifyPlaylists = async {
+            if (!spotifyConnected) emptyList() else runCatching { SpotifyLibrary.playlists() }.getOrDefault(emptyList())
+        }
+        val albums = async {
+            if (!_signedIn.value) emptyList() else YtMusicRepository.libraryAlbums().getOrNull().orEmpty()
         }
         val playlists = if (_signedIn.value) YtMusicRepository.userPlaylists().getOrNull().orEmpty() else emptyList()
         val day = daylist.await()
+        val saved = albums.await()
+        val fromSpotify = spotifyPlaylists.await()
         if (!stillCurrent() || identity != listenerKey()) return@coroutineScope
         if (playlists.isNotEmpty()) _playlists.value = playlists
-        val items = listOfNotNull(
+        if (saved.isNotEmpty()) _savedAlbums.value = saved
+
+        val yours = listOfNotNull(
             day?.let {
                 ShelfItem(
                     title = it.name,
@@ -1988,27 +2011,90 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 browseId = playlist.browseId,
             )
         }
-        if (items.isEmpty()) return@coroutineScope
-        placeOwnShelf(
-            HomeShelf(
-                title = text(R.string.home_your_playlists),
-                items = items,
-                leading = true,
-                showAll = playlists.isNotEmpty(),
+        val spotifyRow = when {
+            fromSpotify.isNotEmpty() -> fromSpotify
+                // The daylist is already first in Your playlists.
+                .filter { it.id != SpotifyLibrary.DAYLIST_ID }
+                .take(homePlaylistsLimit)
+                .map { playlist ->
+                    ShelfItem(
+                        title = playlist.name,
+                        subtitle = playlist.owner ?: text(R.string.spotify),
+                        thumbnailUrl = playlist.imageUrl,
+                        videoId = null,
+                        browseId = SPOTIFY_PAGE_PREFIX + playlist.id,
+                    )
+                }
+            !spotifyConnected && _signedIn.value && !AppSettings.hideSpotifyConnectCard.value -> listOf(
+                ShelfItem(
+                    title = text(R.string.home_connect_spotify),
+                    subtitle = text(R.string.home_connect_spotify_subtitle),
+                    thumbnailUrl = null,
+                    videoId = null,
+                    browseId = CONNECT_SPOTIFY_ID,
+                ),
+            )
+            else -> emptyList()
+        }
+        placeOwnShelves(
+            listOfNotNull(
+                yours.takeIf { it.isNotEmpty() }?.let {
+                    HomeShelf(
+                        title = text(R.string.home_your_playlists),
+                        items = it,
+                        leading = true,
+                        showAll = playlists.isNotEmpty(),
+                    )
+                },
+                saved.takeIf { it.isNotEmpty() }?.let {
+                    HomeShelf(
+                        title = text(R.string.home_your_albums),
+                        items = it.take(homePlaylistsLimit),
+                        leading = true,
+                        showAll = true,
+                    )
+                },
+                spotifyRow.takeIf { it.isNotEmpty() }?.let {
+                    HomeShelf(
+                        title = text(R.string.home_from_spotify),
+                        items = it,
+                        leading = true,
+                        showAll = fromSpotify.isNotEmpty(),
+                    )
+                },
             ),
         )
     }
 
+    /** Library albums kept for Your albums' Show all, which lists them all. */
+    private val _savedAlbums = MutableStateFlow<List<ShelfItem>>(emptyList())
+    val savedAlbums: StateFlow<List<ShelfItem>> = _savedAlbums.asStateFlow()
+
     /**
-     * Puts the row this app adds to Home ([loadOwnShelf]) straight after
-     * Recently played, or first while that isn't in yet. Replaces an older
-     * copy of itself.
+     * Puts the rows this app adds to Home ([loadOwnShelf]) straight after
+     * Recently played, or first while that isn't in yet, in their own order.
+     * Replaces older copies of themselves, and drops one that has gone (the
+     * connect card, once Spotify is connected).
      */
-    private fun placeOwnShelf(shelf: HomeShelf) {
+    private fun placeOwnShelves(shelves: List<HomeShelf>) {
+        val own = setOf(
+            text(R.string.home_your_playlists),
+            text(R.string.home_your_albums),
+            text(R.string.home_from_spotify),
+        )
         val existing = (_home.value as? UiState.Success)?.data.orEmpty()
-            .filterNot { it.title == shelf.title }
+            .filterNot { it.title in own }
         val after = existing.indexOfFirst { it.title == homeRecentTitle } + 1
-        _home.value = UiState.Success(existing.take(after) + shelf + existing.drop(after))
+        _home.value = UiState.Success(existing.take(after) + shelves + existing.drop(after))
+    }
+
+    /** Hides Home's Connect Spotify card for good — its long-press. */
+    fun dismissSpotifyConnectCard() {
+        AppSettings.setHideSpotifyConnectCard(true)
+        val existing = (_home.value as? UiState.Success)?.data ?: return
+        _home.value = UiState.Success(
+            existing.filterNot { shelf -> shelf.items.any { it.browseId == CONNECT_SPOTIFY_ID } },
+        )
     }
 
     /**

@@ -1390,4 +1390,8 @@
     <string name="disable_spotify_canvas_subtitle">Không bao giờ dùng Spotify Canvas. Ảnh bìa động sẽ lấy từ các nguồn khác</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">Danh sách phát của bạn</string>
+    <string name="home_your_albums">Album của bạn</string>
+    <string name="home_from_spotify">Từ Spotify</string>
+    <string name="home_connect_spotify">Kết nối Spotify</string>
+    <string name="home_connect_spotify_subtitle">Xem danh sách phát Spotify của bạn tại đây</string>
 </resources>

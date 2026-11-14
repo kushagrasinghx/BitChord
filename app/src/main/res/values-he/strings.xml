@@ -1478,4 +1478,8 @@
     <string name="disable_spotify_canvas_subtitle">לעולם לא להשתמש ב־Spotify Canvas. עטיפות מונפשות יגיעו מהמקורות האחרים</string>
     <string name="home_daylist">Daylist · Spotify</string>
     <string name="home_your_playlists">הפלייליסטים שלך</string>
+    <string name="home_your_albums">האלבומים שלך</string>
+    <string name="home_from_spotify">מ־Spotify</string>
+    <string name="home_connect_spotify">חיבור Spotify</string>
+    <string name="home_connect_spotify_subtitle">הפלייליסטים שלך מ־Spotify יופיעו כאן</string>
 </resources>

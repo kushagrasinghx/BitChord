@@ -16,6 +16,10 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 
 /**
@@ -523,6 +527,16 @@ object AppSettings {
 
     /** Positive values delay synced lyrics; negative values bring them forward. */
     val lyricsOffsetMs = MutableStateFlow(0)
+
+    /**
+     * A song's own lyrics offset, added to [lyricsOffsetMs], by video id. The
+     * global one stays for what delays every song alike (a Bluetooth headset);
+     * this is for the one recording whose lyrics run early or late.
+     */
+    val songLyricsOffsets = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** The lyrics provider picked by hand for a song, by video id; used again the next time it plays. */
+    val songLyricsProviders = MutableStateFlow<Map<String, LyricsSource>>(emptyMap())
 
     /**
      * Which language the lyrics translate button translates *into*.
@@ -1067,6 +1081,10 @@ object AppSettings {
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        songLyricsOffsets.value = readSongMap(KEY_SONG_LYRICS_OFFSETS, Int.serializer())
+        songLyricsProviders.value = readSongMap(KEY_SONG_LYRICS_PROVIDERS, String.serializer())
+            .mapNotNull { (id, name) -> LyricsSource.entries.firstOrNull { it.name == name }?.let { id to it } }
+            .toMap()
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -1589,6 +1607,27 @@ object AppSettings {
         if (lyricsOffsetMs.value == normalized) return
         lyricsOffsetMs.value = normalized
         prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
+    }
+
+    fun setSongLyricsOffsetMs(videoId: String, value: Int) {
+        val normalized = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        if ((songLyricsOffsets.value[videoId] ?: 0) == normalized) return
+        songLyricsOffsets.value = songLyricsOffsets.value.withSongEntry(videoId, normalized.takeIf { it != 0 })
+        writeSongMap(KEY_SONG_LYRICS_OFFSETS, Int.serializer(), songLyricsOffsets.value)
+    }
+
+    fun setSongLyricsProvider(videoId: String, source: LyricsSource) {
+        songLyricsProviders.value = songLyricsProviders.value.withSongEntry(videoId, source)
+        writeSongMap(KEY_SONG_LYRICS_PROVIDERS, String.serializer(), songLyricsProviders.value.mapValues { it.value.name })
+    }
+
+    // JSON, not a delimited string: a video id can be a local file's URI, separators and all.
+    private fun <V> readSongMap(key: String, values: KSerializer<V>): Map<String, V> = runCatching {
+        Json.decodeFromString(MapSerializer(String.serializer(), values), prefs.getString(key, null) ?: "{}")
+    }.getOrDefault(emptyMap())
+
+    private fun <V> writeSongMap(key: String, values: KSerializer<V>, map: Map<String, V>) {
+        prefs.edit().putString(key, Json.encodeToString(MapSerializer(String.serializer(), values), map)).apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2357,6 +2396,8 @@ object AppSettings {
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
+    private const val KEY_SONG_LYRICS_OFFSETS = "song_lyrics_offsets"
+    private const val KEY_SONG_LYRICS_PROVIDERS = "song_lyrics_providers"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
@@ -2430,5 +2471,20 @@ object AppSettings {
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
 
+/** How many songs keep a per-song lyrics choice; the least recently set fall off first. */
+internal const val MAX_SONG_LYRICS_ENTRIES = 500
 
-
+/**
+ * This map with [id] set to [value] as its newest entry, or removed when [value]
+ * is null, keeping only the newest [max] entries.
+ */
+internal fun <V : Any> Map<String, V>.withSongEntry(
+    id: String,
+    value: V?,
+    max: Int = MAX_SONG_LYRICS_ENTRIES,
+): Map<String, V> {
+    val next = LinkedHashMap(this)
+    next.remove(id)
+    if (value != null) next[id] = value
+    return next.entries.drop((next.size - max).coerceAtLeast(0)).associate { it.key to it.value }
+}

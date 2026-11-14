@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">यह गाना</string>
+    <string name="lyrics_offset_all_songs">सभी गाने</string>
     <string name="lyrics_provider_current">मौजूदा प्रदाता</string>
     <string name="lyrics_provider_fetching">लिरिक्स लाए जा रहे हैं…</string>
     <string name="lyrics_provider_found">लिरिक्स मिल गए · इस्तेमाल करने के लिए टैप करें</string>

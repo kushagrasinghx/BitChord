@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">当前歌曲</string>
+    <string name="lyrics_offset_all_songs">所有歌曲</string>
     <string name="lyrics_provider_current">当前来源</string>
     <string name="lyrics_provider_fetching">正在获取歌词…</string>
     <string name="lyrics_provider_found">已找到歌词 · 点按以使用</string>

@@ -84,6 +84,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">This song</string>
+    <string name="lyrics_offset_all_songs">All songs</string>
     <string name="lyrics_provider_current">Current provider</string>
     <string name="lyrics_provider_fetching">Fetching lyrics…</string>
     <string name="lyrics_provider_found">Lyrics found · Tap to use</string>

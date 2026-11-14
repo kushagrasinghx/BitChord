@@ -104,13 +104,13 @@ export class AddonManager {
 
   static toStreamableUrl(url: string, codec = 'FLAC'): string {
     if (!url) return url;
-    // NetEase NOS and other upstream CDNs return Content-Type: audio/mpeg for .flac files,
-    // which triggers MEDIA_ERR_SRC_NOT_SUPPORTED in Chrome.
-    // Routing through /api/stream-audio fixes the MIME type to audio/flac with range streaming.
-    const isDirectFlac = url.includes('.flac') || codec.toUpperCase() === 'FLAC';
+    // Upstream CDNs (e.g. NetEase NOS) often have strict CORS or misconfigured Content-Type headers.
+    // Routing external audio streams through /api/stream-audio adds CORS headers and correct MIME type.
     const isExternalCdn = url.startsWith('http://') || url.startsWith('https://');
-    if (isDirectFlac && isExternalCdn && !url.includes('/stream-audio')) {
-      return `/api/stream-audio?url=${encodeURIComponent(url)}&type=audio%2Fflac`;
+    if (isExternalCdn && !url.includes('/stream-audio')) {
+      const isFlac = url.includes('.flac') || codec.toUpperCase() === 'FLAC';
+      const forcedType = isFlac ? 'audio/flac' : 'audio/mpeg';
+      return `/api/stream-audio?url=${encodeURIComponent(url)}&type=${encodeURIComponent(forcedType)}`;
     }
     return url;
   }

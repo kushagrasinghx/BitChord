@@ -55,6 +55,32 @@ class AudioPrecisionTest {
     }
 
     @Test
+    fun `direct PCM16 on a high-res source still reports the user preference`() {
+        val support = DirectAudioProbe.DirectSupport(
+            isDirectSupported = true,
+            isOffloadSupported = false,
+            supportsFloat = false,
+            supportsPcm24 = false,
+            supportsPcm16 = true,
+            description = "direct PCM16",
+        )
+        val result = OutputNegotiator.negotiate(
+            source = SourceDescriptor("PCM", 96_000, 2, 24),
+            decoderName = "test",
+            sampleRateHz = 96_000,
+            channelCount = 2,
+            routeKind = com.music.bitchord.playback.AudioRouting.Kind.USB,
+            deviceName = "USB DAC",
+            advertisedEncodings = listOf(android.media.AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(96_000),
+            requestedMode = OutputPcmMode.PCM_16,
+            directSupport = support,
+        )
+        assertEquals(com.music.bitchord.playback.audio.TransportType.AUDIO_TRACK_DIRECT, result.output.transport)
+        assertEquals(FallbackReason.USER_PREFERENCE, result.output.fallbackReason)
+    }
+
+    @Test
     fun `the limiter engages for spatial and echo processing`() {
         assertTrue(dspNeedsLimiter(false, spatialEnabled = true, false, false))
         assertTrue(dspNeedsLimiter(false, false, false, echoEngaged = true))

@@ -264,12 +264,15 @@ object OutputNegotiator {
         // Priority 3C: Direct PCM16
         if (directSupport.supportsPcm16) {
             val fallbackReason = when {
+                requestedMode == OutputPcmMode.PCM_16 && isSourceHighRes -> FallbackReason.USER_PREFERENCE
                 requestedMode == OutputPcmMode.PCM_16 -> FallbackReason.NONE
                 requestedMode == OutputPcmMode.FLOAT_32 -> FallbackReason.ROUTE_LIMITATION
                 isSourceHighRes -> FallbackReason.ROUTE_LIMITATION
                 else -> FallbackReason.NONE
             }
             val fallbackDetail = when {
+                requestedMode == OutputPcmMode.PCM_16 && isSourceHighRes ->
+                    "${source.bitDepth ?: "High-res"}-bit source reduced to direct 16-bit by the output setting"
                 requestedMode == OutputPcmMode.FLOAT_32 ->
                     "Route does not expose direct Float32 or 24-bit PCM (using direct 16-bit PCM)"
                 isSourceHighRes ->

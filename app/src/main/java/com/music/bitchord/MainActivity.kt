@@ -3755,13 +3755,18 @@ private fun BitChordApp(
                 // The top-bar footprint is transparent on every page so the
                 // shared app-level gradient is continuous; its controls float
                 // as separate circles in both the glass and blur materials.
+                val disableDetailGradients by AppSettings.disableDetailGradients.collectAsStateWithLifecycle()
                 val isDetailVisible = detail != null &&
                     (detail.type == BrowseType.ALBUM ||
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
                     !isLocalDetail
                 val chromePageColor = if (isDetailVisible) {
-                    detailPalette.background
+                    if (disableDetailGradients && (detail?.type == BrowseType.ALBUM || detail?.type == BrowseType.PLAYLIST)) {
+                        MaterialTheme.colorScheme.background
+                    } else {
+                        detailPalette.background
+                    }
                 } else {
                     MaterialTheme.colorScheme.background
                 }

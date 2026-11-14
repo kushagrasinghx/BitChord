@@ -1454,4 +1454,5 @@
     <string name="sleep_timer_fade_out_subtitle">ค่อยๆ ลดระดับเสียงในช่วง 30 วินาทีสุดท้าย</string>
     <string name="disable_spotify_canvas">ปิดใช้ Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">ไม่ใช้ Spotify Canvas เลย ภาพปกเคลื่อนไหวจะมาจากแหล่งอื่นแทน</string>
+    <string name="artist_on_spotify">บน Spotify</string>
 </resources>

@@ -2968,6 +2968,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // Only once the first page is on screen: [fillIn] appends to it,
             // and has nothing to append to before this.
             more?.let { fillIn(browseId, it, thumbnailUrl ?: artwork) }
+            if (resolved == BrowseType.ARTIST && state is UiState.Success) {
+                addArtistSpotifyShelf(browseId, name ?: title)
+            }
+        }
+    }
+
+    /**
+     * On Spotify, at the end of an artist's shelves: the playlists Spotify
+     * makes about them (This Is, Radio), which open as Spotify playlist pages.
+     * Signed in to Spotify only, and quiet when it finds none or can't reach
+     * Spotify; the page is already up, so this never holds it back.
+     */
+    private fun addArtistSpotifyShelf(browseId: String, artist: String) {
+        if (AppSettings.spotifySpdcToken.value.isBlank() || artist.isBlank()) return
+        viewModelScope.launch {
+            val found = runCatching { SpotifyLibrary.artistPlaylists(artist) }.getOrDefault(emptyList())
+            if (found.isEmpty()) return@launch
+            val title = text(R.string.artist_on_spotify)
+            val shelf = HomeShelf(
+                title = title,
+                items = found.map { playlist ->
+                    ShelfItem(
+                        title = playlist.name,
+                        subtitle = text(R.string.spotify),
+                        thumbnailUrl = playlist.imageUrl,
+                        videoId = null,
+                        browseId = SPOTIFY_PAGE_PREFIX + playlist.id,
+                    )
+                },
+            )
+            _detailStack.value = _detailStack.value.map {
+                if (it.browseId == browseId) it.copy(sections = it.sections.filterNot { s -> s.title == title } + shelf) else it
+            }
         }
     }
 

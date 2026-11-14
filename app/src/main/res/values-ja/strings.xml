@@ -1449,4 +1449,5 @@
     <string name="sleep_timer_fade_out_subtitle">最後の30秒で音量を徐々に下げます</string>
     <string name="disable_spotify_canvas">Spotify Canvasを無効にする</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvasを使用しません。アニメーションアートワークは他のソースから取得します</string>
+    <string name="artist_on_spotify">Spotify で</string>
 </resources>

@@ -1476,4 +1476,5 @@
     <string name="sleep_timer_fade_out_subtitle">מנמיך את עוצמת הקול בהדרגה ב־30 השניות האחרונות</string>
     <string name="disable_spotify_canvas">השבתת Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">לעולם לא להשתמש ב־Spotify Canvas. עטיפות מונפשות יגיעו מהמקורות האחרים</string>
+    <string name="artist_on_spotify">ב־Spotify</string>
 </resources>

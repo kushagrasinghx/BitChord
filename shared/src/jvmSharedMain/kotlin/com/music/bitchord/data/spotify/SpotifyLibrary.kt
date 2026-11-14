@@ -190,6 +190,14 @@ object SpotifyLibrary {
         parseSearchPlaylists(gql(operation, hash, variables, authHeaders()))
     }
 
+    /**
+     * Spotify's own playlists about [artist] — This Is, Radio, and the like —
+     * for the artist page's On Spotify row. Found through the playlist search
+     * and narrowed by [playlistsAbout].
+     */
+    suspend fun artistPlaylists(artist: String): List<SpotifyPlaylist> =
+        playlistsAbout(artist, searchPlaylists("This Is $artist"))
+
     @Volatile private var searchOperation: Pair<String, String>? = null
     @Volatile private var searchCheckedAt = 0L
 
@@ -296,6 +304,28 @@ object SpotifyLibrary {
         return root
     }
 }
+
+/**
+ * Of [found], the playlists Spotify itself made about [artist]: owned by
+ * Spotify, named with the artist's whole name (ignoring case and accents,
+ * so "Beyonce" finds "This Is Beyoncé" but "Radio" doesn't find "Radiohead").
+ * "This Is <artist>" leads; the rest keep the search's order.
+ */
+internal fun playlistsAbout(artist: String, found: List<SpotifyPlaylist>): List<SpotifyPlaylist> {
+    val name = foldForMatch(artist)
+    if (name.isEmpty()) return emptyList()
+    val whole = Regex("(^|[^\\p{L}\\p{N}])${Regex.escape(name)}($|[^\\p{L}\\p{N}])")
+    val about = found.filter { playlist ->
+        playlist.owner.equals("Spotify", ignoreCase = true) && whole.containsMatchIn(foldForMatch(playlist.name))
+    }
+    return about.sortedByDescending { foldForMatch(it.name) == "this is $name" }
+}
+
+private fun foldForMatch(text: String): String =
+    java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD)
+        .replace(Regex("\\p{M}+"), "")
+        .lowercase()
+        .trim()
 
 /**
  * Playlists from a search answer: `searchPlaylists` and `searchDesktop` both

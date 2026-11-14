@@ -42,6 +42,17 @@ class AudioPipelineVerdictTest {
     }
 
     @Test
+    fun directAudioTrackIsNotReportedAsVerifiedActive() {
+        val verdict = directStatusText(
+            bitPerfectDriver = null,
+            directPlaybackActual = true,
+            directPlaybackRejected = false,
+            directPlaybackSupported = true,
+        )
+        assertEquals("Requested (Direct AudioTrack; mixer bypass unverified)", verdict)
+    }
+
+    @Test
     fun wiredIntegerExactOutputKeepsThePositiveVerdict() {
         val verdict = bitExactVerdict(
             dsd = false,

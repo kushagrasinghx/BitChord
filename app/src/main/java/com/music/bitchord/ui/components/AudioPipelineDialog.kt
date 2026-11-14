@@ -105,6 +105,19 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  * the samples reach the DAC unchanged, and every DSP stage is bypassed there.
  * The verdict below therefore says "integer-exact", not "source lossless".
  */
+internal fun directStatusText(
+    bitPerfectDriver: String?,
+    directPlaybackActual: Boolean,
+    directPlaybackRejected: Boolean,
+    directPlaybackSupported: Boolean,
+): String = when {
+    bitPerfectDriver != null -> "Active ($bitPerfectDriver, bypasses mixer)"
+    directPlaybackActual -> "Requested (Direct AudioTrack; mixer bypass unverified)"
+    directPlaybackRejected -> "Rejected"
+    directPlaybackSupported -> "Supported (Framework Mixed)"
+    else -> "Not Supported (Mixed Path)"
+}
+
 internal fun bitExactVerdict(
     dsd: Boolean,
     bitPerfect: BitPerfectOutput.Status,
@@ -491,19 +504,13 @@ fun AudioPipelineDialog(
                 PipelineRow("Route", outputStatus.routeKind.name)
                 PipelineRow("Transport", bitPerfect.driver.takeIf { bitPerfect.active } ?: outputStatus.transportType.label)
 
-                val directStatusText = when {
-                    bitPerfect.active ->
-                        "Active (${bitPerfect.driver}, bypasses mixer)"
-                    outputStatus.directPlaybackActual ->
-                        "Active (Direct AudioTrack, Bypasses Mixer)"
-                    outputStatus.directPlaybackRejected ->
-                        "Rejected"
-                    outputStatus.directPlaybackSupported ->
-                        "Supported (Framework Mixed)"
-                    else ->
-                        "Not Supported (Mixed Path)"
-                }
-                PipelineRow("Direct", directStatusText)
+                val directText = directStatusText(
+                    bitPerfectDriver = bitPerfect.driver.takeIf { bitPerfect.active },
+                    directPlaybackActual = outputStatus.directPlaybackActual,
+                    directPlaybackRejected = outputStatus.directPlaybackRejected,
+                    directPlaybackSupported = outputStatus.directPlaybackSupported,
+                )
+                PipelineRow("Direct", directText)
                 PipelineRow(
                     if (bitPerfect.active) "Output" else "AudioTrack",
                     if (bitPerfect.active) "PCM${bitPerfect.outputBits} / ${rateText(bitPerfect.sampleRateHz)}" else audioTrackText,
@@ -513,7 +520,7 @@ fun AudioPipelineDialog(
                     bitPerfect.active ->
                         if (bitPerfect.dacLimited) "Bypassed (DAC max)" else "Bypassed (bit-perfect)"
                     outputStatus.directPlaybackActual ->
-                        "Direct path active; endpoint format not independently verified"
+                        "Direct AudioTrack requested; granted route not independently verified"
                     outputStatus.systemMixerRateHz != null -> {
                         val hal = outputStatus.halFormat
                         val mixerRate = outputStatus.systemMixerRateHz?.let(::rateText)

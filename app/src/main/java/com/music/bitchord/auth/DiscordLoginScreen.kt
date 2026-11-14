@@ -3,8 +3,10 @@ package com.music.bitchord.auth
 import android.annotation.SuppressLint
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -61,6 +63,40 @@ internal fun isAllowedDiscordWebUrl(url: String?): Boolean {
     return host == "discord.com" || host.endsWith(".discord.com") ||
         host == "discordapp.com" || host.endsWith(".discordapp.com")
 }
+
+/**
+ * Forgets the Discord login held by the in-app WebView. Discord keeps cookies
+ * and WebStorage separately from the app's encrypted token; disconnecting the
+ * account must clear both without touching Google's or Spotify's sessions in
+ * the same process-wide jar.
+ */
+fun clearDiscordWebSession() {
+    val cookies = runCatching { CookieManager.getInstance() }.getOrNull()
+    if (cookies != null) {
+        DISCORD_SESSION_ORIGINS.forEach { origin ->
+            val names = cookies.getCookie(origin)?.split(";")
+                ?.map { it.substringBefore("=").trim() }
+                ?.filter { it.isNotEmpty() }
+                .orEmpty()
+            for (name in names) {
+                val expired = "$name=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/"
+                cookies.setCookie(origin, expired)
+                cookies.setCookie(origin, "$expired; Domain=.discord.com")
+                cookies.setCookie(origin, "$expired; Domain=.discordapp.com")
+            }
+        }
+        runCatching { cookies.flush() }
+    }
+    runCatching {
+        val storage = WebStorage.getInstance()
+        DISCORD_SESSION_ORIGINS.forEach { storage.deleteOrigin(it) }
+    }
+}
+
+private val DISCORD_SESSION_ORIGINS = listOf(
+    "https://discord.com",
+    "https://discordapp.com",
+)
 
 /**
  * Discord user tokens are three dot-separated segments. This is a shape check,

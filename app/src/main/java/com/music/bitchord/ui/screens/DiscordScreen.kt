@@ -54,6 +54,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.auth.clearDiscordWebSession
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.discord.DiscordRPC
 import com.music.bitchord.data.discord.SuperProperties
@@ -388,7 +389,10 @@ fun DiscordScreen(
             SettingsGroup {
                 DestructiveRow(
                     label = stringResource(R.string.disconnect),
-                    onClick = { AppSettings.clearDiscordAccount() },
+                    onClick = {
+                        AppSettings.clearDiscordAccount()
+                        clearDiscordWebSession()
+                    },
                 )
             }
         }

@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -61,6 +62,12 @@ fun clearSpotifyWebSession() {
         }
     }
     cookies.flush()
+    // Spotify's player also keeps session data in WebStorage. Expiring the
+    // cookies alone leaves that behind for the next account on a shared device.
+    runCatching {
+        val storage = WebStorage.getInstance()
+        SPOTIFY_COOKIE_URLS.forEach { storage.deleteOrigin(it) }
+    }
 }
 
 /**

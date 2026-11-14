@@ -1382,6 +1382,7 @@ fun NowPlayingScreen(
         }
     }
     val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val extendAnimatedArt by PlayerSettings.extendAnimatedArtwork.collectAsStateWithLifecycle()
     // Full-bleed is a phone idiom. What the width has to rule out is a player
     // running a foot wider than the column of controls under it — edge to edge
     // meaning "a picture, and separately some controls" rather than "the
@@ -1397,13 +1398,15 @@ fun NowPlayingScreen(
     // API level now, and both layers answer to this.
     val spotifyCanvasOnPhone = canvas?.source == CanvasSource.SPOTIFY &&
         playerFillsWindow(windowWidth)
-    // Spotify Canvas is the player background on a phone, independent of the
-    // still-art full-bleed preference. Other providers and static artwork keep
-    // answering to that preference exactly as before.
+    // Spotify Canvas is the player background on a phone, preserving its legacy
+    // behavior independently of either artwork preference. The animated-art
+    // option adds full bleed for other actual canvases; it never promotes
+    // static artwork. Other providers' still artwork keeps answering to the
+    // general full-bleed preference exactly as before.
     // A music video sits in the card's place at its own 16:9, never full bleed.
     val heroMode = !videoMode && (
         spotifyCanvasOnPhone ||
-            (fullBleedArt && playerFillsWindow(windowWidth))
+            ((fullBleedArt || (extendAnimatedArt && canvas != null)) && playerFillsWindow(windowWidth))
         )
 
     // Whether there's a still image to blow out — a placeholder tile is a card

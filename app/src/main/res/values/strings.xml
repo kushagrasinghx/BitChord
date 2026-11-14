@@ -432,6 +432,8 @@
     <string name="light">Light</string>
     <string name="dark">Dark</string>
     <string name="full_screen_cover_art_subtitle">Runs the cover to the edges of the player instead of a square sleeve</string>
+    <string name="extend_animated_artwork">Extend animated artwork only</string>
+    <string name="extend_animated_artwork_subtitle">Extends animated canvas artwork to the player edges while keeping still covers square</string>
     <string name="full_screen_detail_cover">Full-screen album/playlist cover</string>
     <string name="full_screen_detail_cover_subtitle">Runs album and playlist covers to the edges of the page instead of a framed sleeve</string>
     <string name="show_total_duration">Show total duration</string>

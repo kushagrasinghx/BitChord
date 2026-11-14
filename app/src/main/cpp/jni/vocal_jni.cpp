@@ -44,6 +44,7 @@ Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeCompute(
     jfloatArray left,
     jfloatArray right,
     jdouble sample_rate) {
+  if (left == nullptr || right == nullptr) return nullptr;
   const jsize left_count = env->GetArrayLength(left);
   const jsize right_count = env->GetArrayLength(right);
 

@@ -130,7 +130,8 @@ export class AddonManager {
    * 1. Status is 200 or 206 (NOT 502/500/404/403).
    * 2. The response body is real audio data, NOT an HTML error page (e.g. Cloudflare Bad Gateway).
    */
-  static async verifyStreamUrl(url: string, timeoutMs = 1800): Promise<boolean> {
+  static async verifyStreamUrl(url: string, timeoutMs = 3000): Promise<boolean> {
+    const isDirectAudio = /\.(flac|mp3|m4a|aac|ogg|opus|wav)($|\?)/i.test(url);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -161,7 +162,9 @@ export class AddonManager {
       return true;
     } catch {
       clearTimeout(timer);
-      return false;
+      // For direct audio file URLs, CORS in JS fetch can fail or timeout across CDNs,
+      // while HTMLAudioElement can stream it without CORS.
+      return isDirectAudio;
     }
   }
 

@@ -722,8 +722,9 @@ async function checkQualityUpgrade(track: Track, token: number): Promise<void> {
     if (!deck || usePlayer.getState().nowPlaying?.videoId !== track.videoId) return;
 
     const currentTime = deck.audio.currentTime || 0;
-    // Don't interrupt user if they have already listened to more than 15s of the song
-    if (currentTime > 15) return;
+    const duration = deck.audio.duration || 0;
+    // Don't interrupt user if they are already well into the song (>45s or >50% through)
+    if (currentTime > 45 || (duration > 0 && currentTime / duration > 0.5)) return;
 
     const isPlaying = !deck.audio.paused;
 
@@ -771,7 +772,7 @@ async function startAt(at: number, { startSec = 0, auto = false, autoplay = true
     try {
       addonStream = await Promise.race([
         AddonManager.resolveStream(entry.track),
-        new Promise<null>((r) => setTimeout(() => r(null), 2000)),
+        new Promise<null>((r) => setTimeout(() => r(null), 3500)),
       ]);
     } catch {
       addonStream = null;
@@ -850,7 +851,7 @@ async function startAt(at: number, { startSec = 0, auto = false, autoplay = true
       AddonManager.prefetchStream(nextEntry.track);
     }
 
-    if (!addonStream && !directStream) {
+    if (!addonStream) {
       void checkQualityUpgrade(entry.track, token);
     }
   } catch (error) {

@@ -32,6 +32,7 @@ object SponsorBlockManager {
     private var tickerJob: Job? = null
     private var lastSkippedUuid: String? = null
     private var lastSkipTimeMs = 0L
+    private var userWhitelistedUuid: String? = null
 
     private fun enabled() = AppSettings.skipSilence.value
 
@@ -40,6 +41,7 @@ object SponsorBlockManager {
         fetchJob?.cancel()
         activeSegments = emptyList()
         lastSkippedUuid = null
+        userWhitelistedUuid = null
 
         val id = videoId?.trim().orEmpty()
         if (id.length != 11 || '/' in id || ':' in id) {
@@ -90,10 +92,30 @@ object SponsorBlockManager {
         if (playerProvider()?.isPlaying == true) onIsPlayingChanged(true, playerProvider)
     }
 
+    /**
+     * Called when the user manually seeks in playback.
+     * If the user seeks directly into a segment, whitelists that segment
+     * so they can listen to it without getting kicked out.
+     */
+    fun onUserSeek(positionMs: Long) {
+        val segment = activeSegments.firstOrNull { it.contains(positionMs) }
+        userWhitelistedUuid = segment?.uuid
+    }
+
     /** Seeks past the segment containing [currentPositionMs], if any. */
     fun checkAndSkip(currentPositionMs: Long, seekTo: (targetMs: Long) -> Unit) {
         if (!enabled() || activeSegments.isEmpty()) return
+
+        // Clear whitelist if playhead has naturally moved past the whitelisted segment
+        userWhitelistedUuid?.let { id ->
+            val wl = activeSegments.firstOrNull { it.uuid == id }
+            if (wl == null || !wl.contains(currentPositionMs)) {
+                userWhitelistedUuid = null
+            }
+        }
+
         val segment = activeSegments.firstOrNull { it.contains(currentPositionMs) } ?: return
+        if (segment.uuid == userWhitelistedUuid) return
         val now = System.currentTimeMillis()
         if (lastSkippedUuid == segment.uuid && abs(now - lastSkipTimeMs) < REPEAT_GUARD_MS) return
 
@@ -111,11 +133,13 @@ object SponsorBlockManager {
         currentVideoId = null
         activeSegments = emptyList()
         lastSkippedUuid = null
+        userWhitelistedUuid = null
     }
 
     internal fun setSegmentsForTest(videoId: String, segments: List<SponsorSegment>) {
         currentVideoId = videoId
         activeSegments = segments
         lastSkippedUuid = null
+        userWhitelistedUuid = null
     }
 }

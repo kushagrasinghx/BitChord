@@ -984,7 +984,7 @@ class PlaybackService : MediaLibraryService() {
                 // The watch extrapolates its progress ring from the last
                 // position it was given, the same way Discord does.
                 WearBridge.republish(this@PlaybackService, exoPlayer)
-                com.music.bitchord.sponsorblock.SponsorBlockManager.checkAndSkip(newPosition.positionMs) { target -> exoPlayer.seekTo(target) }
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onUserSeek(newPosition.positionMs)
             }
         }
 
@@ -6900,7 +6900,7 @@ class PlaybackService : MediaLibraryService() {
                             SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
                             SilenceSkippingAudioProcessor.DEFAULT_MAX_SILENCE_TO_KEEP_DURATION_US,
                             SilenceSkippingAudioProcessor.DEFAULT_MIN_VOLUME_TO_KEEP_PERCENTAGE,
-                            SilenceSkippingAudioProcessor.DEFAULT_SILENCE_THRESHOLD_LEVEL,
+                            SILENCE_THRESHOLD_LEVEL,
                         ),
                         SonicAudioProcessor(),
                     ),
@@ -9598,8 +9598,11 @@ class PlaybackService : MediaLibraryService() {
         /** Upper bound per range; [PlayerClient.rangeBytesFor] narrows it per client. */
         const val STREAM_CHUNK_BYTES = 1L * 1024 * 1024
 
-        /** Shortest gap "skip silence" is allowed to touch. */
-        const val MIN_SILENCE_US = 1_000_000L
+        /** Shortest gap "skip silence" is allowed to touch: 3.5s keeps musical rests/beat gaps intact. */
+        const val MIN_SILENCE_US = 3_500_000L
+
+        /** Amplitude floor for silence; below ExoPlayer's default 2544 so instrument decays aren't cut. */
+        const val SILENCE_THRESHOLD_LEVEL: Short = 400
 
         /** How long the loop mix waits for a song's synced lyrics before planning on the vocal mask. */
         const val LOOP_MIX_LYRICS_TIMEOUT_MS = 10_000L

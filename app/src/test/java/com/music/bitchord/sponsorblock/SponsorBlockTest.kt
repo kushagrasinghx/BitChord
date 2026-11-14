@@ -46,4 +46,27 @@ class SponsorBlockTest {
             assertEquals(it, SponsorBlockCategory.fromKey(it.key))
         }
     }
+
+    @Test
+    fun userManualSeekIntoSegmentWhitelistsIt() {
+        val segment = SponsorSegment("uuid-intro", SponsorBlockCategory.INTRO, 1000, 5000)
+        SponsorBlockManager.setSegmentsForTest("test-vid", listOf(segment))
+
+        // Normal check skips past segment
+        var skippedTo = -1L
+        SponsorBlockManager.checkAndSkip(2000) { skippedTo = it }
+        assertEquals(5030L, skippedTo)
+
+        // User explicitly seeks back into the intro
+        SponsorBlockManager.onUserSeek(2500)
+        skippedTo = -1L
+        SponsorBlockManager.checkAndSkip(2500) { skippedTo = it }
+        assertEquals(-1L, skippedTo) // Should NOT skip
+
+        // When playback advances beyond the intro, whitelist clears
+        SponsorBlockManager.checkAndSkip(6000) {}
+        skippedTo = -1L
+        SponsorBlockManager.checkAndSkip(2500) { skippedTo = it }
+        assertEquals(5030L, skippedTo) // Skips again if entered anew
+    }
 }

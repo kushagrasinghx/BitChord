@@ -22,6 +22,7 @@ object SponsorBlockManager {
     private const val TICKER_INTERVAL_MS = 300L
     private const val SKIP_LEAD_MS = 30L
     private const val REPEAT_GUARD_MS = 1500L
+    private const val RESTART_THRESHOLD_MS = 1000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -94,12 +95,32 @@ object SponsorBlockManager {
 
     /**
      * Called when the user manually seeks in playback.
-     * If the user seeks directly into a segment, whitelists that segment
-     * so they can listen to it without getting kicked out.
+     *
+     * Rule 1 (Restart from Beginning): If seeking to the very start (< 1000ms),
+     * the user intended to replay the song from start. Any starting segment is NOT
+     * whitelisted and immediately skipped past, taking [seekTo] target.
+     *
+     * Rule 2 (Interior Seek): If the user specifically scrubbed past 1000ms into the
+     * middle of a segment, they deliberately wanted to hear that section. That segment
+     * is whitelisted and played without auto-skipping.
      */
-    fun onUserSeek(positionMs: Long) {
+    fun onUserSeek(positionMs: Long, seekTo: ((targetMs: Long) -> Unit)? = null) {
         val segment = activeSegments.firstOrNull { it.contains(positionMs) }
-        userWhitelistedUuid = segment?.uuid
+        if (segment == null) {
+            userWhitelistedUuid = null
+            return
+        }
+
+        if (positionMs < RESTART_THRESHOLD_MS && segment.startMs < RESTART_THRESHOLD_MS) {
+            // Rule 1: User tapped Previous or dragged to start -> replay song, don't whitelist
+            userWhitelistedUuid = null
+            lastSkippedUuid = segment.uuid
+            lastSkipTimeMs = System.currentTimeMillis()
+            seekTo?.invoke(segment.endMs + SKIP_LEAD_MS)
+        } else {
+            // Rule 2: Deliberate interior seek into the segment
+            userWhitelistedUuid = segment.uuid
+        }
     }
 
     /** Seeks past the segment containing [currentPositionMs], if any. */

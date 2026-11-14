@@ -984,7 +984,9 @@ class PlaybackService : MediaLibraryService() {
                 // The watch extrapolates its progress ring from the last
                 // position it was given, the same way Discord does.
                 WearBridge.republish(this@PlaybackService, exoPlayer)
-                com.music.bitchord.sponsorblock.SponsorBlockManager.onUserSeek(newPosition.positionMs)
+                com.music.bitchord.sponsorblock.SponsorBlockManager.onUserSeek(newPosition.positionMs) { target ->
+                    exoPlayer.seekTo(target)
+                }
             }
         }
 

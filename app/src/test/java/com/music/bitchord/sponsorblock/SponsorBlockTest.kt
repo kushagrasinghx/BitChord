@@ -49,7 +49,7 @@ class SponsorBlockTest {
 
     @Test
     fun userManualSeekIntoSegmentWhitelistsIt() {
-        val segment = SponsorSegment("uuid-intro", SponsorBlockCategory.INTRO, 1000, 5000)
+        val segment = SponsorSegment("uuid-intro", SponsorBlockCategory.INTRO, 0, 5000)
         SponsorBlockManager.setSegmentsForTest("test-vid", listOf(segment))
 
         // Normal check skips past segment
@@ -57,9 +57,15 @@ class SponsorBlockTest {
         SponsorBlockManager.checkAndSkip(2000) { skippedTo = it }
         assertEquals(5030L, skippedTo)
 
-        // User explicitly seeks back into the intro
-        SponsorBlockManager.onUserSeek(2500)
+        // Rule 1: User seeks to 0 to restart the track -> skips immediately to music start, NOT whitelisted
         skippedTo = -1L
+        SponsorBlockManager.onUserSeek(0) { skippedTo = it }
+        assertEquals(5030L, skippedTo)
+
+        // Rule 2: User explicitly scrubs into the interior (e.g. 2500ms) -> whitelisted, no skip
+        skippedTo = -1L
+        SponsorBlockManager.onUserSeek(2500) { skippedTo = it }
+        assertEquals(-1L, skippedTo)
         SponsorBlockManager.checkAndSkip(2500) { skippedTo = it }
         assertEquals(-1L, skippedTo) // Should NOT skip
 

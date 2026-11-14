@@ -198,4 +198,6 @@
     <string name="search_library_empty">Recherche les titres de votre dossier Musique locale.</string>
     <string name="search_library_hint">Titres, artistes et albums</string>
     <string name="search_library_no_results">Rien dans Musique locale ne correspond à « %1$s ».</string>
+    <string name="library_search_hint">Rechercher dans ta bibliothèque</string>
+    <string name="library_no_matches">Rien dans ta bibliothèque ne correspond à « %1$s »</string>
 </resources>

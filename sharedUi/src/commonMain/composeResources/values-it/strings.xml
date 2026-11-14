@@ -198,4 +198,6 @@
     <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
     <string name="search_library_hint">Brani, artisti e album</string>
     <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+    <string name="library_search_hint">Cerca nella tua libreria</string>
+    <string name="library_no_matches">Niente nella tua libreria corrisponde a “%1$s”</string>
 </resources>

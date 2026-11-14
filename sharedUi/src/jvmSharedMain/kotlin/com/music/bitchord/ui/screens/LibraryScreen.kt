@@ -39,7 +39,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -58,6 +61,8 @@ import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PullToRefresh
+import com.music.bitchord.ui.components.SearchField
+import com.music.bitchord.ui.components.filterPlaylists
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.libraryGrid
 import com.music.bitchord.ui.components.librarySkeleton
@@ -121,6 +126,12 @@ fun LibraryScreen(
 ) {
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val onDevice = stringResource(Res.string.on_device)
+    // Search your library: narrows every shelf to the cards whose name holds
+    // each word typed. Replay and the folder links step aside while it does.
+    var query by rememberSaveable { mutableStateOf("") }
+    val searching = query.isNotBlank()
+    fun HomeShelf.matching(): HomeShelf =
+        if (searching) copy(items = filterPlaylists(items, query) { it.title }) else this
     PullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -142,13 +153,27 @@ fun LibraryScreen(
                     )
                 }
             }
-            item(key = "replay") { replay() }
-            if (links.isNotEmpty()) {
-                item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+            if (signedIn) {
+                item(key = "search") {
+                    SearchField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        onSubmit = {},
+                        placeholder = stringResource(Res.string.library_search_hint),
+                        modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+                    )
+                }
             }
-            if (deviceItems.isNotEmpty()) {
+            if (!searching) {
+                item(key = "replay") { replay() }
+                if (links.isNotEmpty()) {
+                    item(key = "links") { LibraryLinkList(links = links, onClick = onShelfItemClick) }
+                }
+            }
+            val deviceMatches = HomeShelf(title = onDevice, items = deviceItems).matching()
+            if (deviceMatches.items.isNotEmpty()) {
                 item(key = "shelf:$onDevice") {
-                    val onDeviceShelf = HomeShelf(title = onDevice, items = deviceItems)
+                    val onDeviceShelf = deviceMatches
                     LibraryGridShelf(
                         shelf = onDeviceShelf,
                         onItemClick = onShelfItemClick,
@@ -188,8 +213,14 @@ fun LibraryScreen(
                     // is exactly the account most in need of the button that
                     // makes one — so the row is drawn either way, empty but
                     // for the tile that creates the first playlist.
-                    val shelves = state.data.shelves
-                    if (shelves.none { it.title == PLAYLISTS }) {
+                    val shelves = state.data.shelves.map { it.matching() }
+                        .filter { !searching || it.items.isNotEmpty() }
+                    if (searching && shelves.isEmpty() && deviceMatches.items.isEmpty()) {
+                        item(key = "no-matches") {
+                            MessageState(stringResource(Res.string.library_no_matches, query.trim()))
+                        }
+                    }
+                    if (!searching && shelves.none { it.title == PLAYLISTS }) {
                         item(key = "shelf:$PLAYLISTS") {
                             val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
                             PlaylistShelf(

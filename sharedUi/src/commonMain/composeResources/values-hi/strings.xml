@@ -198,4 +198,6 @@
     <string name="search_library_empty">आपके लोकल म्यूज़िक फ़ोल्डर के गाने खोजें.</string>
     <string name="search_library_hint">गाने, कलाकार और एल्बम</string>
     <string name="search_library_no_results">लोकल म्यूज़िक में “%1$s” से मेल खाता कुछ नहीं.</string>
+    <string name="library_search_hint">अपनी लाइब्रेरी खोजें</string>
+    <string name="library_no_matches">आपकी लाइब्रेरी में “%1$s” से कुछ मेल नहीं खाता</string>
 </resources>

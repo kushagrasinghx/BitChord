@@ -143,7 +143,7 @@ import moe.rukamori.archivetune.ui.component.BottomSheetPageState
 import moe.rukamori.archivetune.ui.component.BottomSheetState
 import moe.rukamori.archivetune.ui.component.MenuState
 import moe.rukamori.archivetune.extensions.metadata
-import moe.rukamori.archivetune.extensions.ListExt.move
+import moe.rukamori.archivetune.extensions.move
 import moe.rukamori.archivetune.ui.utils.ShowMediaInfo
 import moe.rukamori.archivetune.ui.menu.PlayerMenu
 import moe.rukamori.archivetune.ui.utils.resize

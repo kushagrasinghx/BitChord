@@ -64,6 +64,11 @@ val LocalMenuState = compositionLocalOf { MenuState() }
 
 val LocalMenuDialogDismissal = staticCompositionLocalOf<(() -> Unit)?> { null }
 
+enum class MenuPresentation {
+    FLOATING,
+    IMMERSIVE,
+}
+
 @Stable
 class MenuState(
     isVisible: Boolean = false,
@@ -71,12 +76,27 @@ class MenuState(
 ) {
     var isVisible by mutableStateOf(isVisible)
     var content by mutableStateOf(content)
+    var presentation by mutableStateOf(MenuPresentation.FLOATING)
+        private set
     internal var dialogContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
     fun show(content: @Composable ColumnScope.() -> Unit) {
+        show(content, MenuPresentation.FLOATING)
+    }
+
+    /** Shows the content as an edge-to-edge bottom sheet (see [MenuPresentation.IMMERSIVE]). */
+    fun showImmersive(content: @Composable ColumnScope.() -> Unit) {
+        show(content, MenuPresentation.IMMERSIVE)
+    }
+
+    private fun show(
+        content: @Composable ColumnScope.() -> Unit,
+        presentation: MenuPresentation,
+    ) {
         dialogContent = null
         isVisible = true
+        this.presentation = presentation
         this.content = content
     }
 

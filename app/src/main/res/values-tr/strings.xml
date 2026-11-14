@@ -213,6 +213,7 @@
     <string name="crossfade">Çapraz geçiş</string>
     <string name="crossfade_subtitle">Bir parçayı diğerine karıştırır</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Automix genel bakışı</string>
     <string name="automix_performance">Automix performansı</string>
     <string name="automix_performance_subtitle">Arka plan analizinin ne kadar CPU kullanabileceğini ayarlar</string>
     <string name="automix_performance_warning">Daha yüksek performans, parçaları daha hızlı analiz eder ancak daha fazla pil kullanabilir ve telefonu ısıtabilir.</string>
@@ -1414,4 +1415,17 @@
     <string name="bit_perfect_status_inexact">%1$s · tam değil: bu kaynak kayıpsız PCM değil</string>
     <string name="bit_perfect_status_waiting">Desteklenen bir çıkışta kayıpsız parça bekleniyor</string>
     <string name="bit_perfect_status_unavailable">Bu parça için kullanılamıyor (%1$s)</string>
+    <string name="diwali_title">BitChord Diwali bayramınızı kutlar</string>
+    <string name="diwali_subtitle">Bu ışık bayramı evinizi neşeyle, günlerinizi müzikle doldursun.</string>
+    <string name="diwali_cta">Hadi kutlayalım</string>
+    <string name="find_a_playlist">Çalma listesi bul</string>
+    <string name="no_playlists_match">“%1$s” ile eşleşen çalma listesi yok</string>
+    <string name="hide_lyrics_preview">Şarkı sözlerini gizle</string>
+    <string name="hide_lyrics_preview_subtitle">Oynatıcıdaki şarkı sözü satırını gizler</string>
+    <string name="show_total_duration">Toplam süreyi göster</string>
+    <string name="show_total_duration_subtitle">Kalan süre yerine şarkının tam uzunluğunu gösterir</string>
+    <string name="sleep_timer_fade_out">Duraklatmadan önce sesi azalt</string>
+    <string name="sleep_timer_fade_out_subtitle">Son 30 saniyede sesi yavaş yavaş kısar</string>
+    <string name="disable_spotify_canvas">Spotify Canvas\'ı devre dışı bırak</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvas hiç kullanılmaz. Hareketli kapaklar diğer kaynaklardan gelir</string>
 </resources>

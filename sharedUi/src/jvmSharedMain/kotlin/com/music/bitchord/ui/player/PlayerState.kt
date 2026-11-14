@@ -23,8 +23,10 @@ import coil3.PlatformContext
 import coil3.compose.LocalPlatformContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
+import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import kotlin.math.abs
@@ -41,6 +43,7 @@ import kotlinx.coroutines.launch
 internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     val canvasEnabled by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by PlayerSettings.canvasOverCellular.collectAsStateWithLifecycle()
+    val disableSpotifyCanvas by PlayerSettings.disableSpotifyCanvas.collectAsStateWithLifecycle()
     val prioritizeSpotifyCanvas by PlayerSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
     val meteredConnection by PlayerSettings.meteredConnection.collectAsStateWithLifecycle()
     // The switch turns the feature off outright; this is the narrower "not
@@ -55,7 +58,7 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     // clean; the same-titled-impostor case is guarded where the clip is
     // adopted, by [CanvasArtwork.matches].
     var canvas by remember(song.title, song.artist) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas) {
+    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, disableSpotifyCanvas) {
         if (!canvasAllowedNow) {
             canvas = null
             return@LaunchedEffect
@@ -69,7 +72,10 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         // what is playing: [CanvasArtwork.matches] is what stops a preserved
         // clip from being a different song's that happens to share a title.
         canvas = PlayerPlatform.host.cachedCanvas(song)
-            ?: canvas?.takeIf { it.matches(song.title, song.artist, song.albumName) }
+            ?: canvas?.takeIf {
+                (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) &&
+                    it.matches(song.title, song.artist, song.albumName)
+            }
 
         // The album name is looked up separately and lands a moment after the
         // player opens, and it is the field that makes the catalogue searches
@@ -83,7 +89,7 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas
     }
 
-    return canvas
+    return canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
 }
 
 /**
@@ -93,7 +99,12 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
  * Everything here is keyed on the cover's [url] — see [rememberPlayerArtwork].
  */
 @Stable
-internal class PlayerArtwork(val url: String?, private val context: PlatformContext) {
+internal class PlayerArtwork(
+    val url: String?,
+    private val context: PlatformContext,
+    /** The last track's cover, drawn in this one's place until it loads — see [lastCover]. */
+    private val holdOver: MemoryCache.Key? = null,
+) {
     /**
      * Whether the cover is on screen. Keyed on the artwork rather than on the
      * track, because that is what it actually describes and because only Coil
@@ -122,6 +133,21 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
     /** Latched on an error, and only upwards — cleared by the retry itself. */
     internal var failed by mutableStateOf(false)
 
+    /** This cover's memory-cache entry, once it has been drawn. */
+    private var shown: MemoryCache.Key? = null
+
+    /**
+     * What the next cover should stand on while it loads: this one, or, if it
+     * never got as far as the screen — a track skipped straight past — the one
+     * it was standing on itself.
+     *
+     * Without it every new cover started from an empty painter, and the
+     * placeholder tile's music note showed between two perfectly good covers
+     * for as long as the decode took. That is longest for local files: a
+     * MediaStore album-art URI has no disk cache to come from.
+     */
+    val lastCover: MemoryCache.Key? get() = shown ?: holdOver
+
     /**
      * The one request for this cover, built once.
      *
@@ -142,6 +168,8 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
         ImageRequest.Builder(context)
             .data(url)
             .size(ART_PX)
+            // Not part of the cache key, so the mesh and the palette still share it.
+            .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
             // request stays byte-identical to the one the mesh and the palette
@@ -158,7 +186,10 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
         // it is [failed]'s own effect, and clearing it from a Loading state here
         // would cancel that effect's wait every time the painter passed back
         // through Loading.
-        if (state is AsyncImagePainter.State.Success) failed = false
+        if (state is AsyncImagePainter.State.Success) {
+            failed = false
+            shown = state.result.memoryCacheKey
+        }
         if (state is AsyncImagePainter.State.Error) failed = true
     }
 
@@ -172,7 +203,10 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
 internal fun rememberPlayerArtwork(remoteArt: String?): PlayerArtwork {
     val context = LocalPlatformContext.current
     val artUrl = remoteArt?.artworkAt(ART_PX)
-    val art = remember(artUrl) { PlayerArtwork(artUrl, context) }
+    val last = remember { arrayOfNulls<PlayerArtwork>(1) }
+    val art = remember(artUrl) {
+        PlayerArtwork(artUrl, context, last[0]?.lastCover).also { last[0] = it }
+    }
     LaunchedEffect(artUrl, art.failed) {
         // A track with no artwork at all fails immediately and would fail
         // identically three more times: there is no request to make, so there is

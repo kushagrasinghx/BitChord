@@ -106,6 +106,7 @@ import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.SearchFilter
@@ -162,6 +163,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -2019,7 +2021,9 @@ class PlaybackService : MediaLibraryService() {
         if (!AppSettings.syncedLyrics.value) return null
         val song = item.toSong()
         return kotlinx.coroutines.withTimeoutOrNull(LOOP_MIX_LYRICS_TIMEOUT_MS) {
+            // Only timed lines say when a loop is sung; the file's plain words can't.
             song.localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
+                ?.takeIf(EmbeddedLyrics::isSynced)
                 ?: LyricsRepository.lyrics(
                     videoId = song.videoId,
                     title = song.title,
@@ -6719,10 +6723,38 @@ class PlaybackService : MediaLibraryService() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
                 if (deadline == null) return@collectLatest
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining > 0) delay(remaining)
-                player?.pause()
-                SleepTimer.cancel()
+                // The player this timer turned down, if it did. Only that one
+                // is turned back up: the crossfade owns both players' volume
+                // the rest of the time, and resetting it whenever a timer is
+                // cancelled or reset would cut into a fade it is running.
+                var faded: ExoPlayer? = null
+                try {
+                    val fadeDurationMs = if (AppSettings.sleepTimerFadeOut.value) SleepTimer.FADE_OUT_DURATION_MS else 0L
+                    val totalRemaining = deadline - SystemClock.elapsedRealtime()
+                    val waitBeforeFade = (totalRemaining - fadeDurationMs).coerceAtLeast(0L)
+                    if (waitBeforeFade > 0) delay(waitBeforeFade)
+
+                    val remainingBeforeFade = deadline - SystemClock.elapsedRealtime()
+                    if (fadeDurationMs > 0 && remainingBeforeFade > 0) {
+                        val fadeStart = SystemClock.elapsedRealtime()
+                        val actualDuration = remainingBeforeFade.coerceAtMost(fadeDurationMs)
+                        while (true) {
+                            val elapsed = SystemClock.elapsedRealtime() - fadeStart
+                            val remaining = (actualDuration - elapsed).coerceAtLeast(0L)
+                            player?.let {
+                                it.volume = SleepTimer.calculateFadeVolume(remaining, actualDuration, true)
+                                faded = it
+                            }
+                            if (elapsed >= actualDuration) break
+                            delay(100L)
+                        }
+                    }
+
+                    player?.pause()
+                    SleepTimer.cancel()
+                } finally {
+                    faded?.volume = 1f
+                }
             }
         }
     }
@@ -7311,14 +7343,12 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
-            combine(
+            lyricsSettingChanges(
                 AppSettings.syncedLyrics,
                 AppSettings.lyricsSources,
                 AppSettings.lyricsSourceOrder,
                 AppSettings.prioritizeSyllableSync,
-            ) { synced, sources, order, prio ->
-                synced to sources
-            }.distinctUntilChanged().collect {
+            ).collect {
                 loadLyricsForCurrentTrack()
             }
         }
@@ -7937,10 +7967,10 @@ class PlaybackService : MediaLibraryService() {
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
             val localUri = currentSong.localUri
-            var lines: List<LyricLine>? = null
-            if (localUri != null) {
-                lines = EmbeddedLyrics.forUri(this@PlaybackService, localUri)
-            }
+            val embedded = localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) }
+            // The file's plain words don't end the lookup: a source may have
+            // them synced, which is all a lock-screen line can follow.
+            var lines: List<LyricLine>? = embedded?.takeIf(EmbeddedLyrics::isSynced)
             if (lines == null) {
                 val found = LyricsRepository.lyrics(
                     videoId = currentSong.videoId,
@@ -7952,7 +7982,7 @@ class PlaybackService : MediaLibraryService() {
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
                 )
-                lines = found?.lines
+                lines = found?.lines?.takeIf(EmbeddedLyrics::isSynced) ?: embedded ?: found?.lines
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines
@@ -9881,3 +9911,17 @@ private fun withoutPlatformAlac(selector: MediaCodecSelector) =
  * than on the main thread while a player is built.
  */
 private val ffmpegDecodesAlac by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_ALAC) }
+
+/**
+ * Every lyric setting the service's lyrics depend on, emitting once per real
+ * change. The order and the syllable preference pick a different answer from
+ * the same providers, so each of them is a reload as much as the switch is.
+ */
+internal fun lyricsSettingChanges(
+    synced: Flow<Boolean>,
+    sources: Flow<Set<LyricsSource>>,
+    order: Flow<List<LyricsSource>>,
+    prioritizeSyllableSync: Flow<Boolean>,
+): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
+    listOf(s, src, o, p)
+}.distinctUntilChanged()

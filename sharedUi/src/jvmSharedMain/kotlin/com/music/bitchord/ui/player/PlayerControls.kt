@@ -216,6 +216,8 @@ internal fun PlayerScrubber(
     centerLabel: @Composable BoxScope.() -> Unit = {},
 ) {
     val shown = shown()
+    val showTotalDuration by PlayerSettings.showTotalDuration.collectAsStateWithLifecycle()
+    val totalDuration = durationMs.takeIf { it > 0L }
     // Held as a State and read only inside the bar's draw: the blend republishes
     // every fade tick, and collecting it by value here would recompose the
     // scrubber and its labels thirty times a second for a change only the
@@ -253,7 +255,11 @@ internal fun PlayerScrubber(
                     color = timeColor,
                 )
                 Text(
-                    text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
+                    text = if (showTotalDuration && totalDuration != null) {
+                        formatTime(totalDuration)
+                    } else {
+                        "-" + formatTime(durationMs - (shown * durationMs).toLong())
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = timeColor,
                 )

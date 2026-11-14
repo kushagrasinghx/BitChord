@@ -24,6 +24,7 @@ class JioSaavnSource(
         limit: Int,
         waitForAll: Boolean,
         request: StreamRequest?,
+        target: TrackMatcher.Target?,
     ): List<Song> {
         TrackLog.d(TAG, "▶ JioSaavn searchSongs() query=\"$query\" limit=$limit")
         val results = prioritizeExplicit(JioSaavnService.searchSongs(query))

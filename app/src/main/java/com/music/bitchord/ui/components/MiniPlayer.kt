@@ -267,6 +267,7 @@ internal fun Modifier.miniPlayerGestures(
             val slopped = start ?: return@awaitEachGesture
 
             if (downward) {
+                settle[0]?.cancel()
                 var dragged = (slopped.position.y - down.position.y).coerceAtLeast(0f)
                 dismissOffset.floatValue = dragged
                 val finished = drag(pointer) { change ->
@@ -276,26 +277,28 @@ internal fun Modifier.miniPlayerGestures(
                 }
                 val dismissed = finished && dragged >= dismissThreshold
                 val exitOffset = dismissThreshold * 1.5f
-                animate(
-                    initialValue = dismissOffset.floatValue,
-                    targetValue = if (dismissed) exitOffset else 0f,
-                    animationSpec = spring(
-                        dampingRatio = 0.8f,
-                        stiffness = Spring.StiffnessMediumLow,
-                    ),
-                ) { value, _ -> dismissOffset.floatValue = value }
-                val accepted = dismissed && currentOnDismiss?.invoke() == true
-                if (dismissed && !accepted) {
+                settle[0] = scope.launch {
                     animate(
                         initialValue = dismissOffset.floatValue,
-                        targetValue = 0f,
+                        targetValue = if (dismissed) exitOffset else 0f,
                         animationSpec = spring(
                             dampingRatio = 0.8f,
                             stiffness = Spring.StiffnessMediumLow,
                         ),
                     ) { value, _ -> dismissOffset.floatValue = value }
+                    val accepted = dismissed && currentOnDismiss?.invoke() == true
+                    if (dismissed && !accepted) {
+                        animate(
+                            initialValue = dismissOffset.floatValue,
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = 0.8f,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        ) { value, _ -> dismissOffset.floatValue = value }
+                    }
+                    if (!accepted) dismissOffset.floatValue = 0f
                 }
-                if (!accepted) dismissOffset.floatValue = 0f
                 return@awaitEachGesture
             }
 

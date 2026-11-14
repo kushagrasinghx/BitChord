@@ -71,6 +71,8 @@ internal object BitPerfectOutput {
         val sourceRateHz: Int = 0,
         /** False once any sample of the current track had to be rounded. */
         val exact: Boolean = true,
+        /** Whether the active driver's bit-perfect mode was independently verified. */
+        val verified: Boolean = false,
         /**
          * The DAC can't take this track as it is, so it is being converted to
          * the best format the DAC has. Never [exact]: check this one first.

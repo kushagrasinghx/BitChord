@@ -607,6 +607,7 @@ internal class BitPerfectAudioSink(
                 sourceBits = current?.sourceBits ?: 0,
                 sourceRateHz = current?.sampleRate ?: 0,
                 exact = exact && converter == null,
+                verified = driverIsIndependentlyVerified(active.driver),
                 dacLimited = converter != null,
             ),
         )

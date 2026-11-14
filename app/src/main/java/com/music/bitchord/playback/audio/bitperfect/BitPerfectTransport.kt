@@ -70,4 +70,12 @@ internal enum class BitPerfectDriver(val label: String, val releasesWhenIdle: Bo
     AAUDIO_EXCLUSIVE("AAudio exclusive", releasesWhenIdle = true),
 }
 
+/**
+ * Direct USB and AAudio read back the granted format/rate/sharing mode.
+ * Android's mixer path cannot be queried for the actual mixer thread through
+ * the public SDK, so its bit-perfect status must remain unverified.
+ */
+internal fun driverIsIndependentlyVerified(driver: BitPerfectDriver): Boolean =
+    driver == BitPerfectDriver.USB_DIRECT || driver == BitPerfectDriver.AAUDIO_EXCLUSIVE
+
 internal class BitPerfectTransportException(message: String, cause: Throwable? = null) : Exception(message, cause)

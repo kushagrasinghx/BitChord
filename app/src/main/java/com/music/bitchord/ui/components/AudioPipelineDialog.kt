@@ -120,7 +120,12 @@ private fun bitExactVerdict(
             "${bitPerfect.deviceName}'s max"
     // Every DSP stage is bypassed on the exclusive output, so the only
     // question left is whether the source itself was integer PCM.
-    bitPerfect.active && bitPerfect.exact -> "Yes — bit-perfect to ${bitPerfect.deviceName}"
+    bitPerfect.active && bitPerfect.exact && bitPerfect.verified ->
+        "Yes — bit-perfect to ${bitPerfect.deviceName}"
+    // The Android mixer request cannot be read back through public APIs;
+    // report the uncertainty rather than claiming bit-perfect output.
+    bitPerfect.active && bitPerfect.exact ->
+        "Unverified — Android mixer request"
     bitPerfect.active -> "No — source isn't lossless PCM"
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"

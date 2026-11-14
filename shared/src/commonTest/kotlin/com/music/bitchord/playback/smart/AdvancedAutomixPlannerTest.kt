@@ -208,4 +208,61 @@ class AdvancedAutomixPlannerTest {
         assertEquals(bars.toInt().toDouble(), bars, 1e-6, "overlap of $bars bars")
         assertTrue(!plan.phaseLock, "phase correction must not pulse AudioTrack speed while audible")
     }
+
+    @Test
+    fun albumSequentialPreservesGaplessHandoffForSameAlbum() {
+        val current = track("a", 120.0, "C major", vocal = 0.1)
+        val next = track("b", 120.0, "C major", vocal = 0.1)
+        val plan = planTransition(
+            analysis = current,
+            nextAnalysis = next,
+            currentTrack = TransitionTrackInfo("a", 200_000, title = "Track 1", albumId = "album-123"),
+            nextTrack = TransitionTrackInfo("b", 200_000, title = "Track 2", albumId = "album-123"),
+            currentTime = 10.0,
+            duration = 200.0,
+            mode = CrossfadeMode.SMART,
+            albumSequential = true,
+            advanced = true,
+        )
+        assertEquals(TransitionStyle.GAPLESS, plan.transitionStyle)
+        assertEquals(0.12, plan.fadeSeconds, 1e-6)
+        assertEquals(true, plan.markerVisible)
+        assertEquals("before-gapless-window", plan.reason)
+    }
+
+    @Test
+    fun albumSequentialDoesNotTriggerGaplessForDifferentAlbums() {
+        val current = track("a", 120.0, "C major", vocal = 0.1)
+        val next = track("b", 120.0, "C major", vocal = 0.1)
+        val plan = planTransition(
+            analysis = current,
+            nextAnalysis = next,
+            currentTrack = TransitionTrackInfo("a", 200_000, title = "Track 1", albumId = "album-123"),
+            nextTrack = TransitionTrackInfo("b", 200_000, title = "Track 2", albumId = "album-456"),
+            currentTime = 10.0,
+            duration = 200.0,
+            mode = CrossfadeMode.SMART,
+            albumSequential = true,
+            advanced = true,
+        )
+        assertNotEquals(TransitionStyle.GAPLESS, plan.transitionStyle)
+    }
+
+    @Test
+    fun albumSequentialDisabledPerformsSmartMixForSameAlbum() {
+        val current = track("a", 120.0, "C major", vocal = 0.1)
+        val next = track("b", 120.0, "C major", vocal = 0.1)
+        val plan = planTransition(
+            analysis = current,
+            nextAnalysis = next,
+            currentTrack = TransitionTrackInfo("a", 200_000, title = "Track 1", albumId = "album-123"),
+            nextTrack = TransitionTrackInfo("b", 200_000, title = "Track 2", albumId = "album-123"),
+            currentTime = 10.0,
+            duration = 200.0,
+            mode = CrossfadeMode.SMART,
+            albumSequential = false,
+            advanced = true,
+        )
+        assertNotEquals(TransitionStyle.GAPLESS, plan.transitionStyle)
+    }
 }

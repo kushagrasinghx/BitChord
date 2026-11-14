@@ -272,6 +272,8 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Blends one track into the next</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_preserve_albums">Skip for sequential album tracks</string>
+    <string name="automix_preserve_albums_subtitle">Preserves gapless playback when listening to consecutive tracks from the same album</string>
     <string name="automix_performance">Automix performance</string>
     <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>
     <string name="automix_performance_warning">Higher performance analyses tracks faster, but can use more battery and make the phone warmer.</string>

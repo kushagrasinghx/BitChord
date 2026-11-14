@@ -538,7 +538,7 @@ private const val EXTRA_PLAYBACK_SOURCE_ID = "bitchord.playbackSourceId"
  * service, has only what the item carries.
  */
 private const val EXTRA_ARTIST_ID = "bitchord.artistId"
-private const val EXTRA_ALBUM_ID = "bitchord.albumId"
+internal const val EXTRA_ALBUM_ID = "bitchord.albumId"
 
 /** @see Song.setVideoId */
 private const val EXTRA_SET_VIDEO_ID = "bitchord.setVideoId"

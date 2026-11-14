@@ -9,24 +9,51 @@
  */
 package com.music.bitchord.data.listentogether
 
-import java.security.MessageDigest
+import java.net.URI
 import java.util.Locale
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 /**
  * Derives the identifiers sent to one party server from a local secret plus
- * that server's normalized base URL. The same device/account therefore keeps
+ * that server's canonical base URL. The same device/account therefore keeps
  * a stable identity on a server for rejoin, while two servers cannot compare
  * their identifiers to link the listener.
  *
- * These are pseudonyms, not authentication: a server that already knows a
- * listener's secret-derived identifier can recognize it again, but the value
- * contains no account or device identifier in plaintext.
+ * HMAC-SHA-256 is used rather than a bare concatenation hash, and every field
+ * is length-framed so the server URL and subject cannot be shifted into one
+ * another. These are pseudonyms, not authentication.
  */
 internal object PartyPseudonyms {
+    private const val VERSION = "bit-chord/party-pseudonym/v1"
+
     fun derive(secret: String, serverBase: String, subject: String): String {
-        val server = serverBase.trim().trimEnd('/').lowercase(Locale.ROOT)
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest("$secret|$server|$subject".toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }.take(32)
+        val message = field(VERSION) + field(canonicalServer(serverBase)) + field(subject)
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        return mac.doFinal(message.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+            .take(32)
+    }
+
+    private fun field(value: String): String = "${value.length}:$value"
+
+    private fun canonicalServer(raw: String): String {
+        val fallback = raw.trim().trimEnd('/').lowercase(Locale.ROOT)
+        return runCatching {
+            val uri = URI(raw.trim())
+            val scheme = uri.scheme?.lowercase(Locale.ROOT) ?: return@runCatching fallback
+            val host = uri.host?.lowercase(Locale.ROOT) ?: return@runCatching fallback
+            val port = when {
+                (scheme == "https" && uri.port == 443) || (scheme == "http" && uri.port == 80) -> -1
+                else -> uri.port
+            }
+            val path = uri.path.orEmpty().trimEnd('/')
+            buildString {
+                append(scheme).append("://").append(host)
+                if (port >= 0) append(':').append(port)
+                append(path)
+            }
+        }.getOrDefault(fallback)
     }
 }

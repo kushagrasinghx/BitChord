@@ -9,8 +9,16 @@ class PartyPseudonymsTest {
     @Test
     fun sameServerAndSubjectStayStableAcrossCalls() {
         val first = PartyPseudonyms.derive("secret", "https://parties.example", "user:a:profile")
-        val second = PartyPseudonyms.derive("secret", "https://parties.example/", "user:a:profile")
+        val second = PartyPseudonyms.derive("secret", "HTTPS://Parties.Example:443/", "user:a:profile")
         assertEquals(first, second)
+    }
+
+    @Test
+    fun fixedVectorPinsTheHmacConstruction() {
+        assertEquals(
+            "b2b8f7dd5b94cf2615d5854709a70a30",
+            PartyPseudonyms.derive("secret", "https://parties.example", "user:a:profile"),
+        )
     }
 
     @Test

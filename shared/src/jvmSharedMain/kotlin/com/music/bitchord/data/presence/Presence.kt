@@ -40,33 +40,36 @@ class Presence(
     private val platform: PresencePlatform,
     private val installId: String,
     private val endpoint: String = ENDPOINT,
+    private val enabled: Boolean = true,
 ) {
     private val open = MutableStateFlow(false)
     @Volatile private var announced = false
     @Volatile private var intervalSec = DEFAULT_INTERVAL_SEC
 
     init {
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            // collectLatest: a change of state cancels whatever the last one was
-            // still doing, so a close cancels the ping loop and a quick reopen
-            // cancels a pending close.
-            open.collectLatest { isOpen ->
-                if (isOpen) {
-                    while (true) {
-                        send(open = true)
-                        delay(nextDelayMs())
+        if (enabled) {
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                // collectLatest: a change of state cancels whatever the last one was
+                // still doing, so a close cancels the ping loop and a quick reopen
+                // cancels a pending close.
+                open.collectLatest { isOpen ->
+                    if (isOpen) {
+                        while (true) {
+                            send(open = true)
+                            delay(nextDelayMs())
+                        }
+                    } else if (announced) {
+                        // A window flicker or an activity restart is not a close.
+                        delay(CLOSE_DEBOUNCE_MS)
+                        send(open = false)
                     }
-                } else if (announced) {
-                    // A window flicker or an activity restart is not a close.
-                    delay(CLOSE_DEBOUNCE_MS)
-                    send(open = false)
                 }
             }
         }
     }
 
     fun setOpen(isOpen: Boolean) {
-        open.value = isOpen
+        if (enabled) open.value = isOpen
     }
 
     /**
@@ -74,6 +77,7 @@ class Presence(
      * on the calling thread, giving up after two seconds.
      */
     fun closeBlocking() {
+        if (!enabled) return
         open.value = false
         if (announced) send(open = false, timeoutSec = 2)
     }

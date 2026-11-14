@@ -19,7 +19,10 @@ object AndroidPresence {
         // Session-scoped rather than persisted: the public open-app count only
         // needs to distinguish concurrent sessions, and a per-process UUID
         // cannot link a user's launches across restarts.
-        val presence = Presence(PresencePlatform.Android, UUID.randomUUID().toString())
+        // No properly localized consent control exists yet, so the
+        // non-essential open-app ping stays off by default. Listen Together
+        // and playback do not depend on it.
+        val presence = Presence(PresencePlatform.Android, UUID.randomUUID().toString(), enabled = false)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = presence.setOpen(true)
             override fun onStop(owner: LifecycleOwner) = presence.setOpen(false)

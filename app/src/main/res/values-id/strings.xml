@@ -195,6 +195,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Memadukan satu trek ke trek berikutnya</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Ringkasan Automix</string>
     <string name="skip_silence">Lewati keheningan</string>
     <string name="skip_silence_subtitle">Memotong jeda lebih dari satu detik</string>
     <string name="skip_silence_float_subtitle">Tidak tersedia pada output float 32-bit</string>
@@ -1434,4 +1435,17 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
+    <string name="diwali_title">BitChord mengucapkan Selamat Hari Diwali</string>
+    <string name="diwali_subtitle">Semoga festival cahaya ini memenuhi rumahmu dengan kebahagiaan dan hari-harimu dengan musik.</string>
+    <string name="diwali_cta">Ayo Rayakan</string>
+    <string name="find_a_playlist">Cari playlist</string>
+    <string name="no_playlists_match">Tidak ada playlist yang cocok dengan “%1$s”</string>
+    <string name="hide_lyrics_preview">Sembunyikan lirik</string>
+    <string name="hide_lyrics_preview_subtitle">Menyembunyikan baris lirik di pemutar</string>
+    <string name="show_total_duration">Tampilkan durasi total</string>
+    <string name="show_total_duration_subtitle">Menampilkan durasi penuh lagu, bukan sisa waktu</string>
+    <string name="sleep_timer_fade_out">Pelankan sebelum jeda</string>
+    <string name="sleep_timer_fade_out_subtitle">Menurunkan volume perlahan selama 30 detik terakhir</string>
+    <string name="disable_spotify_canvas">Nonaktifkan Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Jangan pernah gunakan Spotify Canvas. Sampul animasi berasal dari sumber lain</string>
 </resources>

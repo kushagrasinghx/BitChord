@@ -112,6 +112,8 @@ fun GlassNavBar(
     /** Dragging the bar's player up into the full player. */
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
+    /** Called when the user taps the currently active tab (scroll-to-top). */
+    onActiveTabTap: () -> Unit = {},
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -245,7 +247,11 @@ fun GlassNavBar(
             val isSelected = index == selectedIndex
             val tone = tabTones[index]
             val onClick = {
-                if (!isSelected) haptics.play(Haptic.Select)
+                if (isSelected) {
+                    onActiveTabTap()
+                } else {
+                    haptics.play(Haptic.Select)
+                }
                 currentOnTabSelected(index)
             }
             if (index == standaloneIndex) {

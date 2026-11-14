@@ -11,7 +11,7 @@ import java.util.Locale
  * call site for why Spotify's Canvas gets the periodic re-tint and the other
  * three don't.
  */
-enum class CanvasSource { SPOTIFY, OTHER }
+enum class CanvasSource { SPOTIFY, APPLE, OTHER }
 
 /**
  * A looping video that stands in for a track's cover art — what Spotify calls

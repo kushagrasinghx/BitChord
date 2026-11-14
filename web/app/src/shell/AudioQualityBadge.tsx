@@ -58,7 +58,7 @@ export function AudioQualityBadge({ className = '' }: { className?: string }) {
       >
         {/* Apple Music Official Lossless Wave Ribbon SVG */}
         <svg
-          className="w-[13px] h-[8.5px] fill-current text-white/90 transition-opacity"
+          className="w-[12px] h-[7.5px] fill-current text-white/85 group-hover:text-white transition-colors"
           viewBox="0 0 14 9"
           aria-hidden="true"
         >
@@ -68,7 +68,7 @@ export function AudioQualityBadge({ className = '' }: { className?: string }) {
           />
         </svg>
 
-        <span className="text-[11px] font-semibold tracking-tight leading-none text-white/90">
+        <span className="text-[10.5px] font-medium tracking-normal leading-none text-white/85 group-hover:text-white transition-colors">
           {label}
         </span>
       </button>

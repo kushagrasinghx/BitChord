@@ -34,6 +34,8 @@ import com.music.bitchord.data.deezer.DeezerLibrary
 import com.music.bitchord.data.deezer.DeezerTrack
 import com.music.bitchord.data.model.DEEZER_MISSING_PREFIX
 import com.music.bitchord.data.model.DEEZER_PENDING_PREFIX
+import com.music.bitchord.data.model.isMatchMissing
+import com.music.bitchord.data.model.isMatchPending
 import com.music.bitchord.data.model.SPOTIFY_MISSING_PREFIX
 import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX

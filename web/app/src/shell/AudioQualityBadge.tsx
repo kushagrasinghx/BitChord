@@ -52,7 +52,7 @@ export function AudioQualityBadge({ className = '' }: { className?: string }) {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className={`group inline-flex items-center gap-1.5 h-[18px] px-1.5 rounded-[4px] bg-white/[0.12] hover:bg-white/[0.2] active:bg-white/[0.28] backdrop-blur-md transition-colors duration-150 cursor-pointer select-none text-white/90 ${className}`}
+        className={`group inline-flex items-center gap-1.5 h-[18px] px-1.5 rounded-[4px] bg-white/[0.12] hover:bg-white/[0.2] active:bg-white/[0.28] border border-white/[0.1] hover:border-white/[0.18] [backdrop-filter:blur(20px)_saturate(1.8)] [-webkit-backdrop-filter:blur(20px)_saturate(1.8)] transition-all duration-150 cursor-pointer select-none text-white/90 ${className}`}
         title={`Audio Quality: ${label} (Click for details)`}
         aria-label={`Audio Quality: ${label}`}
       >

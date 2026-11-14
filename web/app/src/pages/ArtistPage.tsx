@@ -4,10 +4,11 @@ import { PlayIcon } from '@/components/icons/Transport';
 import { Artwork } from '@/components/music/Artwork';
 import { browseHref } from '@/components/music/links';
 import { playList } from '@/components/music/play';
-import { Shelves, TrackShelf } from '@/components/music/ShelfView';
+import { Shelves, ShelfView, TrackShelf } from '@/components/music/ShelfView';
 import { LoadError, NeedsExtension } from '@/components/music/States';
 import { requestAppleAccess, useAppleArtistArt, useUngrantedAppleOrigins, type AppleArtistArt } from '@/data/apple/artistArt';
 import { useArtist, useYouTubeReady } from '@/data/music/queries';
+import { useSpotifyArtistPlaylists } from '@/data/spotify/queries';
 import type { ArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
 import { ArtistSkeleton } from '@/skeletons/PageSkeletons';
@@ -49,6 +50,17 @@ function ArtistName({ name, apple }: { name: string; apple: AppleArtistArt | nul
       )}
     </h1>
   );
+}
+
+/**
+ * On Spotify: the playlists Spotify makes about the artist (This Is, Radio),
+ * at the end of the shelves as on the phone. Nothing while signed out of
+ * Spotify, while it loads, or when there are none.
+ */
+function OnSpotify({ artist }: { artist: string }) {
+  const { data: items } = useSpotifyArtistPlaylists(artist);
+  if (!items?.length) return null;
+  return <ShelfView shelf={{ title: 'On Spotify', strapline: null, layout: 'square', items, seeAll: null }} />;
 }
 
 /**
@@ -143,6 +155,8 @@ export default function ArtistPage() {
       )}
 
       <Shelves shelves={data.shelves} />
+
+      <OnSpotify artist={data.name} />
 
       {data.description && (
         <section className="mx-(--body-gutter) mt-3 mb-10" aria-label={`About ${data.name}`}>

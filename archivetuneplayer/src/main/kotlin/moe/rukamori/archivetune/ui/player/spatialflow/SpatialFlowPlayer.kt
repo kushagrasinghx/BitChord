@@ -538,7 +538,7 @@ fun SpatialFlowPlayerContent(
 
                     IconButton(
                         onClick = {
-                            menuState.show {
+                            menuState.showImmersive {
                                 PlayerMenu(
                                     mediaMetadata = mediaMetadata,
                                     navController = navController,

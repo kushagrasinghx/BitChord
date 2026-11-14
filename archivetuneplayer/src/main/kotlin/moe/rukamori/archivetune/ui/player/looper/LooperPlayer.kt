@@ -222,7 +222,7 @@ fun LooperPlayerContent(
                                     indication = null,
                                 ) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    menuState.show {
+                                    menuState.showImmersive {
                                         PlayerMenu(
                                             mediaMetadata = mediaMetadata,
                                             navController = navController,

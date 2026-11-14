@@ -313,7 +313,7 @@ fun SimpMusicPlayerContent(
                     playlistName = queueTitle ?: mediaMetadata.album?.title ?: "",
                     onCollapse = state::collapseSoft,
                     onMenu = {
-                        menuState.show {
+                        menuState.showImmersive {
                             PlayerMenu(
                                 mediaMetadata = mediaMetadata,
                                 navController = navController,

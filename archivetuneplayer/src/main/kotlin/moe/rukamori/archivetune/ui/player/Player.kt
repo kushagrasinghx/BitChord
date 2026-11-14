@@ -1831,7 +1831,7 @@ fun BottomSheetPlayer(
                                     onToggleLike = playerConnection::toggleLike,
                                     onExpandQueue = openQueue,
                                     onMenuClick = {
-                                        menuState.show {
+                                        menuState.showImmersive {
                                             PlayerMenu(
                                                 mediaMetadata = metadata,
                                                 navController = navController,
@@ -2024,7 +2024,7 @@ fun BottomSheetPlayer(
                             sleepTimerEnabled = sleepTimerTimeLeft > 0L,
                             sleepTimerTimeLeft = sleepTimerTimeLeft,
                             onMenuClick = {
-                                menuState.show {
+                                menuState.showImmersive {
                                     PlayerMenu(
                                         mediaMetadata = metadata,
                                         navController = navController,
@@ -2217,7 +2217,7 @@ fun BottomSheetPlayer(
                                     isPlayerExpanded = state.isExpanded,
                                     onOverflowClick = {
                                         enrichedMetadata?.let { metadata ->
-                                            menuState.show {
+                                            menuState.showImmersive {
                                                 PlayerMenu(
                                                     mediaMetadata = metadata,
                                                     navController = navController,
@@ -2374,7 +2374,7 @@ fun BottomSheetPlayer(
                                         onToggleLike = playerConnection::toggleLike,
                                         onExpandQueue = openQueue,
                                         onMenuClick = {
-                                            menuState.show {
+                                            menuState.showImmersive {
                                                 PlayerMenu(
                                                     mediaMetadata = metadata,
                                                     navController = navController,
@@ -2565,7 +2565,7 @@ fun BottomSheetPlayer(
                             sleepTimerEnabled = sleepTimerTimeLeft > 0L,
                             sleepTimerTimeLeft = sleepTimerTimeLeft,
                             onMenuClick = {
-                                menuState.show {
+                                menuState.showImmersive {
                                     PlayerMenu(
                                         mediaMetadata = metadata,
                                         navController = navController,
@@ -2763,7 +2763,7 @@ fun BottomSheetPlayer(
                                     isPlayerExpanded = state.isExpanded,
                                     onOverflowClick = {
                                         enrichedMetadata?.let { metadata ->
-                                            menuState.show {
+                                            menuState.showImmersive {
                                                 PlayerMenu(
                                                     mediaMetadata = metadata,
                                                     navController = navController,

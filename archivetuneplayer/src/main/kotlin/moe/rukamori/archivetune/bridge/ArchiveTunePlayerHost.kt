@@ -82,7 +82,11 @@ fun ArchiveTunePlayerHost(
         ArchiveTuneCaches.ensure(context)
         BridgeEntryPoints.context = context.applicationContext
         BridgeViewModels.init(context)
-        PreferenceStore.start(context)
+        // PreferenceStore is started in BitChordApplication.onCreate(), before
+        // any composition. Starting it here, in a DisposableEffect, would be
+        // too late: the initial composition of a ported style reads preferences
+        // through rememberEnumPreference before this effect runs, so the first
+        // read hits an unstarted store and blocks the main thread.
         onDispose {
             ArchiveTuneBridge.uninstall(hostBridge)
             BridgeEntryPoints.context = null

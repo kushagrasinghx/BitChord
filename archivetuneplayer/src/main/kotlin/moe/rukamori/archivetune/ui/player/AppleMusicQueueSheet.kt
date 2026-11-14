@@ -440,7 +440,7 @@ fun AppleMusicQueueSheet(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(
                                             onClick = {
-                                                menuState.show {
+                                                menuState.showImmersive {
                                                     PlayerMenu(
                                                         mediaMetadata = metadata,
                                                         navController = navController,

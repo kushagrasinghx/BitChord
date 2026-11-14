@@ -261,7 +261,7 @@ internal fun TikTokRail(
                 if (lyricsActive) {
                     onOpenLyricsMenu()
                 } else {
-                    menuState.show {
+                    menuState.showImmersive {
                         PlayerMenu(
                             mediaMetadata = pageMetadata,
                             navController = navController,

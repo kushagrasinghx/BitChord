@@ -774,7 +774,7 @@ fun FlamingoPlayerContent(
             if (nowPageLambda.value == FlamingoPage.Lyric) {
                 showAnchoredLyricsMenu = true
             } else {
-                menuState.show {
+                menuState.showImmersive {
                     PlayerMenu(
                         mediaMetadata = mediaMetadata,
                         navController = navController,
@@ -3153,12 +3153,8 @@ private fun FlamingoPlayingList(
                                 onMoveToNextQueue = null,
                                 onRemove = null,
                             ) {
-                                val absIndex =
-                                    queueWindows.indexOfFirst { it.uid == window.uid }
-                                if (absIndex != -1) {
-                                    playerConnection.player.seekToDefaultPosition(absIndex)
-                                    playerConnection.player.playWhenReady = true
-                                }
+                                playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
+                                playerConnection.player.playWhenReady = true
                             }
                         }
                     }
@@ -3175,7 +3171,7 @@ private fun FlamingoPlayingList(
                                 onMoveToNextQueue = null,
                                 onRemove = null,
                             ) {
-                                playerConnection.player.seekToDefaultPosition(currentWindowIndex)
+                                playerConnection.player.seekToDefaultPosition(currentWindow.firstPeriodIndex)
                                 playerConnection.player.playWhenReady = true
                             }
                         }
@@ -3198,12 +3194,11 @@ private fun FlamingoPlayingList(
                                 isDragging = isDragging,
                                 reorderHandleModifier = Modifier.draggableHandle(),
                                 onMoveToNextQueue = {
-                                    val absIndex =
-                                        queueWindows.indexOfFirst { it.uid == window.uid }
-                                    if (absIndex > 0) {
+                                    val currentTimelineIndex = currentWindow?.firstPeriodIndex ?: -1
+                                    if (window.firstPeriodIndex > 0 && currentTimelineIndex >= 0) {
                                         playerConnection.player.moveMediaItem(
-                                            absIndex,
-                                            currentWindowIndex + 1,
+                                            window.firstPeriodIndex,
+                                            currentTimelineIndex + 1,
                                         )
                                         true
                                     } else {
@@ -3211,22 +3206,12 @@ private fun FlamingoPlayingList(
                                     }
                                 },
                                 onRemove = {
-                                    val absIndex =
-                                        queueWindows.indexOfFirst { it.uid == window.uid }
-                                    if (absIndex != -1) {
-                                        playerConnection.player.removeMediaItem(absIndex)
-                                        true
-                                    } else {
-                                        false
-                                    }
+                                    playerConnection.player.removeMediaItem(window.firstPeriodIndex)
+                                    true
                                 },
                             ) {
-                                val absIndex =
-                                    queueWindows.indexOfFirst { it.uid == window.uid }
-                                if (absIndex != -1) {
-                                    playerConnection.player.seekToDefaultPosition(absIndex)
-                                    playerConnection.player.playWhenReady = true
-                                }
+                                playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
+                                playerConnection.player.playWhenReady = true
                             }
                         }
                     }

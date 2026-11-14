@@ -436,7 +436,7 @@ fun Queue(
                         },
                         onShowLyrics = onShowLyrics,
                         onMenuClick = {
-                            menuState.show {
+                            menuState.showImmersive {
                                 PlayerMenu(
                                     mediaMetadata = mediaMetadata,
                                     navController = navController,
@@ -492,7 +492,7 @@ fun Queue(
                         },
                         onRepeatModeClick = { playerConnection.player.toggleRepeatMode() },
                         onMenuClick = {
-                            menuState.show {
+                            menuState.showImmersive {
                                 PlayerMenu(
                                     mediaMetadata = mediaMetadata,
                                     navController = navController,
@@ -779,7 +779,7 @@ fun Queue(
                         playerConnection.service.toggleLike()
                     },
                     onMenuClick = {
-                        menuState.show {
+                        menuState.showImmersive {
                             PlayerMenu(
                                 mediaMetadata = mediaMetadata,
                                 navController = navController,
@@ -934,7 +934,7 @@ fun Queue(
                                         trailingContent = {
                                             IconButton(
                                                 onClick = {
-                                                    menuState.show {
+                                                    menuState.showImmersive {
                                                         PlayerMenu(
                                                             mediaMetadata = trackMetadata,
                                                             navController = navController,

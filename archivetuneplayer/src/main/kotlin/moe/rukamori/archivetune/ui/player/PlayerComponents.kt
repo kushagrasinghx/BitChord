@@ -1288,7 +1288,7 @@ fun V8PlayerControlsContent(
     val onMoreClick =
         remember(mediaMetadata, navController, state, menuState, bottomSheetPageState) {
             {
-                menuState.show {
+                menuState.showImmersive {
                     PlayerMenu(
                         mediaMetadata = mediaMetadata,
                         navController = navController,
@@ -1877,7 +1877,7 @@ fun V9PlayerContent(
             }
     }
     val onMenuClick = {
-        menuState.show {
+        menuState.showImmersive {
             PlayerMenu(
                 mediaMetadata = mediaMetadata,
                 navController = navController,

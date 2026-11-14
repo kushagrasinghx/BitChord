@@ -16,7 +16,9 @@ import coil3.svg.SvgDecoder
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.CrashLog
 import com.music.bitchord.data.DebugLog
+import moe.rukamori.archivetune.utils.PreferenceStore
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import androidx.appcompat.app.AppCompatDelegate
 import com.music.bitchord.ui.player.AndroidPlayerHost
@@ -72,6 +74,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                     'W' -> android.util.Log.w(tag, message, error)
                     else -> android.util.Log.e(tag, message, error)
                 }
+                // Same lines go to the crash ring buffer: logcat is gone the
+                // moment the process dies, and the ported ArchiveTune player
+                // stack is only ever mounted when a style is switched to —
+                // exactly when it crashes. This is what survives.
+                CrashLog.record(level, tag, message, error)
             }
         } else {
             // R8 strips android.util.Log from a release build (proguard-rules.pro);
@@ -83,6 +90,21 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             java.util.logging.LogManager.getLogManager().reset()
             java.util.logging.Logger.getLogger("").level = java.util.logging.Level.OFF
         }
+        // A crash handler that writes the buffered log to disk. Logcat is gone
+        // the moment the process dies, so the ported ArchiveTune player stack
+        // — mounted only when a style is switched to — leaves nothing behind
+        // but this. The file lands in the app's cache dir, so it survives to
+        // the next launch for whoever opens it.
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            runCatching { CrashLog.dump(cacheDir, throwable) }
+            // Let the system handle the crash normally after we've saved logs.
+        }
+        // The ported ArchiveTune player stack reads its preferences through
+        // rememberEnumPreference, which calls PreferenceStore.get synchronously
+        // during composition. Start the store here, before any composition, so
+        // the first read does not hit an unstarted store and block the main
+        // thread — that was the crash when a style was switched to.
+        PreferenceStore.start(this)
         // Compose re-votes the window's frame rate from dispatchDraw on every
         // frame (API 35+), and Samsung's View logs each vote together with a
         // stack walk of its caller: measured on an S22, 8,000 lines in two

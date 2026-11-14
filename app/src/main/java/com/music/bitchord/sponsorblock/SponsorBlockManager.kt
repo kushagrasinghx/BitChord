@@ -38,6 +38,7 @@ object SponsorBlockManager {
     private var pendingSkipTargetMs: Long? = null
 
     private fun enabled() = AppSettings.skipSilence.value
+    private fun nowMs(): Long = System.nanoTime() / 1_000_000L
 
     /** The active track changed; fetches its segments. */
     fun onTrackChanged(videoId: String?, isVideo: Boolean = false, playerProvider: () -> Player?) {
@@ -88,6 +89,9 @@ object SponsorBlockManager {
             fetchJob?.cancel()
             tickerJob?.cancel()
             tickerJob = null
+            activeSegments = emptyList()
+            userWhitelistedUuid = null
+            pendingSkipTargetMs = null
             return
         }
         if (currentVideoId != null && activeSegments.isEmpty()) {
@@ -108,6 +112,8 @@ object SponsorBlockManager {
      * is whitelisted and played without auto-skipping.
      */
     fun onUserSeek(positionMs: Long, seekTo: ((targetMs: Long) -> Unit)? = null) {
+        if (!enabled()) return
+
         // If this seek matches our own pending programmatic skip landing, clear the pending
         // target and immediately check for any chained segments without whitelisting.
         val pending = pendingSkipTargetMs
@@ -121,7 +127,8 @@ object SponsorBlockManager {
         }
 
         val segment = activeSegments.firstOrNull {
-            it.contains(positionMs) || (positionMs < RESTART_THRESHOLD_MS && it.startMs < RESTART_THRESHOLD_MS)
+            it.contains(positionMs) ||
+                (positionMs < RESTART_THRESHOLD_MS && it.startMs < RESTART_THRESHOLD_MS && it.endMs > positionMs)
         }
         if (segment == null) {
             userWhitelistedUuid = null
@@ -132,7 +139,7 @@ object SponsorBlockManager {
             // Rule 1: User tapped Previous or dragged to start -> replay song, don't whitelist
             userWhitelistedUuid = null
             lastSkippedUuid = segment.uuid
-            lastSkipTimeMs = System.currentTimeMillis()
+            lastSkipTimeMs = nowMs()
             val target = segment.endMs + SKIP_LEAD_MS
             pendingSkipTargetMs = target
             seekTo?.invoke(target)
@@ -154,9 +161,12 @@ object SponsorBlockManager {
             }
         }
 
-        val segment = activeSegments.firstOrNull { it.contains(currentPositionMs) } ?: return
+        val segment = activeSegments.firstOrNull {
+            it.contains(currentPositionMs) ||
+                (currentPositionMs < RESTART_THRESHOLD_MS && it.startMs < RESTART_THRESHOLD_MS && it.endMs > currentPositionMs)
+        } ?: return
         if (segment.uuid == userWhitelistedUuid) return
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         if (lastSkippedUuid == segment.uuid && abs(now - lastSkipTimeMs) < REPEAT_GUARD_MS) return
 
         lastSkippedUuid = segment.uuid

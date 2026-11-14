@@ -102,5 +102,20 @@ class SponsorBlockTest {
         var skippedTo = -1L
         SponsorBlockManager.onUserSeek(0) { skippedTo = it }
         assertEquals(6030L, skippedTo)
+
+        // checkAndSkip at 0ms also skips immediately
+        skippedTo = -1L
+        SponsorBlockManager.checkAndSkip(0) { skippedTo = it }
+        assertEquals(6030L, skippedTo)
+    }
+
+    @Test
+    fun seekingPastEarlySegmentDoesNotSeekBackwards() {
+        val earlySegment = SponsorSegment("uuid-early", SponsorBlockCategory.INTRO, 100, 400)
+        SponsorBlockManager.setSegmentsForTest("test-vid", listOf(earlySegment))
+
+        var skippedTo = -1L
+        SponsorBlockManager.onUserSeek(800) { skippedTo = it }
+        assertEquals(-1L, skippedTo) // Must not jump backwards to 430ms!
     }
 }

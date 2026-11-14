@@ -39,7 +39,18 @@ export class AddonManager {
       const data = localStorage.getItem(STORAGE_KEY);
       if (data) {
         const parsed = JSON.parse(data);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.map((a: ConfiguredAddon) => {
+            // Auto-heal baseUrl if saved without subpath/token prefix
+            if (a.manifestUrl) {
+              const expectedBaseUrl = a.manifestUrl.replace(/\/manifest(?:\.json)?$/i, '').replace(/\/+$/, '');
+              if (expectedBaseUrl && a.baseUrl !== expectedBaseUrl) {
+                return { ...a, baseUrl: expectedBaseUrl };
+              }
+            }
+            return a;
+          });
+        }
       }
       return DEFAULT_ADDONS;
     } catch {
@@ -64,7 +75,8 @@ export class AddonManager {
 
     const manifest = await safeFetchJson<AddonManifest>(cleanUrl, 4000);
     const urlObj = new URL(cleanUrl);
-    const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+    // Preserve subpaths/session tokens for gateways (e.g. https://addon.palv.org/token/manifest.json -> https://addon.palv.org/token)
+    const baseUrl = cleanUrl.replace(/\/manifest(?:\.json)?$/i, '').replace(/\/+$/, '');
 
     const stream = manifest.endpoints?.stream || manifest.streamEndpoint || manifest.streamUrl || '/stream';
     const search = manifest.endpoints?.search || manifest.searchEndpoint || '/search';
@@ -298,20 +310,44 @@ export class AddonManager {
 
     for (const addon of addons) {
       try {
+        const effectiveBase = addon.manifestUrl
+          ? addon.manifestUrl.replace(/\/manifest(?:\.json)?$/i, '').replace(/\/+$/, '')
+          : (addon.baseUrl || '').replace(/\/+$/, '');
+
         // 1. BitChord Standard Protocol: /search?q=... -> /stream/{id}
         const searchPath = addon.searchEndpoint || '/search';
-        const searchUrl = searchPath.startsWith('http')
-          ? `${searchPath}${searchPath.includes('?') ? '&' : '?'}q=${encodeURIComponent(query)}&quality=${addon.preferredQuality.toLowerCase()}`
-          : `${addon.baseUrl}${searchPath.startsWith('/') ? '' : '/'}${searchPath}?q=${encodeURIComponent(query)}&quality=${addon.preferredQuality.toLowerCase()}`;
+        const buildSearchUrl = (q: string) => {
+          if (searchPath.startsWith('http')) {
+            return `${searchPath}${searchPath.includes('?') ? '&' : '?'}q=${encodeURIComponent(q)}&quality=${addon.preferredQuality.toLowerCase()}`;
+          }
+          return `${effectiveBase}${searchPath.startsWith('/') ? '' : '/'}${searchPath}?q=${encodeURIComponent(q)}&quality=${addon.preferredQuality.toLowerCase()}`;
+        };
+
+        const primaryArtist = artistList[0]?.name?.trim() || '';
+        const searchQueries = [
+          query,
+          ...(primaryArtist && primaryArtist !== rawArtist ? [`${cleanTitle} ${primaryArtist}`] : []),
+          ...(rawArtist ? [cleanTitle] : []),
+        ].filter((q, idx, arr) => q && arr.indexOf(q) === idx);
 
         try {
-          const searchRes = await safeFetchJson<{
-            tracks?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
-            results?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
-            data?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
-          }>(searchUrl, 2500);
+          let list: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }> = [];
 
-          const list = searchRes.tracks || searchRes.results || searchRes.data || [];
+          for (const q of searchQueries) {
+            const searchUrl = buildSearchUrl(q);
+            const searchRes = await safeFetchJson<{
+              tracks?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
+              results?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
+              data?: Array<{ id: string; title: string; artist?: string; duration?: number; duration_sec?: number; streamURL?: string }>;
+            }>(searchUrl, 2500);
+
+            const fetched = searchRes.tracks || searchRes.results || searchRes.data || [];
+            if (fetched.length > 0) {
+              list = fetched;
+              break;
+            }
+          }
+
           const matched = list.find((t) => isMatch(t.title, t.artist, t.duration_sec ?? t.duration));
 
           if (matched) {
@@ -336,20 +372,37 @@ export class AddonManager {
 
             const streamUrl = streamPath.startsWith('http')
               ? streamPath
-              : `${addon.baseUrl}${streamPath.startsWith('/') ? '' : '/'}${streamPath}?quality=${addon.preferredQuality.toLowerCase()}`;
+              : `${effectiveBase}${streamPath.startsWith('/') ? '' : '/'}${streamPath}?quality=${addon.preferredQuality.toLowerCase()}`;
 
-            const streamRes = await safeFetchJson<{ url?: string; streamUrl?: string; format?: string; codec?: string; bitrate?: number }>(streamUrl, 2000);
+            const streamRes = await safeFetchJson<{
+              url?: string;
+              streamUrl?: string;
+              format?: string;
+              codec?: string;
+              bitrate?: number;
+              quality?: string;
+              bitDepth?: number;
+              sampleRate?: number;
+            }>(streamUrl, 2500);
             const resolvedUrl = streamRes.url || streamRes.streamUrl;
             if (resolvedUrl) {
               const works = await this.verifyStreamUrl(resolvedUrl);
               if (works) {
                 this.recordAddonSuccess(addon.id);
+                const formatLabel = streamRes.quality || streamRes.format || 'Lossless Audio';
+                const codecLabel = (streamRes.codec || 'FLAC').toUpperCase();
+                const calcBitrate =
+                  streamRes.bitrate ||
+                  (streamRes.bitDepth && streamRes.sampleRate
+                    ? Math.round((streamRes.bitDepth * streamRes.sampleRate * 2) / 1000)
+                    : 1411);
+
                 return saveAndReturn({
                   streamUrl: resolvedUrl,
                   addonName: addon.name,
-                  format: streamRes.format || 'Lossless Audio',
-                  codec: streamRes.codec || 'FLAC',
-                  bitrate: streamRes.bitrate || 1411,
+                  format: formatLabel,
+                  codec: codecLabel,
+                  bitrate: calcBitrate,
                 });
               }
             }
@@ -361,7 +414,7 @@ export class AddonManager {
         // 2. Fallback: Template or direct stream endpoint
         let directStreamUrl = addon.streamEndpoint.startsWith('http')
           ? addon.streamEndpoint
-          : `${addon.baseUrl}${addon.streamEndpoint.startsWith('/') ? '' : '/'}${addon.streamEndpoint}`;
+          : `${effectiveBase}${addon.streamEndpoint.startsWith('/') ? '' : '/'}${addon.streamEndpoint}`;
 
         if (directStreamUrl.includes('{id}') || directStreamUrl.includes('{title}')) {
           directStreamUrl = directStreamUrl

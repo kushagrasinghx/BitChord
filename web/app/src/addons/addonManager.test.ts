@@ -522,4 +522,87 @@ describe('AddonManager', () => {
     // Must be rejected because 30s preview does not match 167s full track
     expect(resolved).toBeNull();
   });
+
+  it('correctly handles gateway URLs with subpath/session tokens in baseUrl and search/stream calls', async () => {
+    localStorage.setItem(
+      'bitchord:sources:addons',
+      JSON.stringify([
+        {
+          id: 'bitchord-gateway',
+          name: 'Gateway Addon',
+          manifestUrl: 'https://addon.palv.org/session_token_123/manifest.json',
+          baseUrl: 'https://addon.palv.org', // Old saved format without session path
+          streamEndpoint: '/stream',
+          searchEndpoint: '/search',
+          enabled: true,
+          preferredQuality: 'LOSSLESS',
+          health: 'online',
+          lastChecked: Date.now(),
+        },
+      ]),
+    );
+
+    const calledUrls: string[] = [];
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      calledUrls.push(url);
+      if (url.includes('/session_token_123/search')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              tracks: [
+                {
+                  id: 'netease_123',
+                  title: 'Thodi Der',
+                  artist: 'Farhan Saeed & Shreya Ghoshal',
+                  duration_sec: 241,
+                },
+              ],
+            }),
+        });
+      }
+      if (url.includes('/session_token_123/stream/netease_123')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              url: 'https://m801.music.126.net/stream.flac',
+              format: 'flac',
+              quality: 'Master Hi-Res Lossless · 24-bit / 96 kHz (Studio Master)',
+              codec: 'flac',
+              sampleRate: 96000,
+              bitDepth: 24,
+            }),
+        });
+      }
+      if (url === 'https://m801.music.126.net/stream.flac') {
+        return Promise.resolve({
+          ok: true,
+          status: 206,
+          text: () => Promise.resolve('fLaC binary data'),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`));
+    });
+
+    vi.stubGlobal('fetch', mockFetch);
+
+    const track = {
+      videoId: 'thodi_der_id',
+      title: 'Thodi Der',
+      artists: [{ name: 'Farhan Saeed', id: 'a1' }, { name: 'Shreya Ghoshal', id: 'a2' }],
+      durationSec: 240,
+    } as unknown as Track;
+
+    const resolved = await AddonManager.resolveStream(track);
+    expect(resolved).not.toBeNull();
+    expect(resolved?.streamUrl).toBe('https://m801.music.126.net/stream.flac');
+    expect(resolved?.format).toBe('Master Hi-Res Lossless · 24-bit / 96 kHz (Studio Master)');
+    expect(resolved?.codec).toBe('FLAC');
+    expect(resolved?.bitrate).toBe(4608); // 24 * 96000 * 2 / 1000
+
+    // Verify session token prefix was kept in search and stream calls
+    expect(calledUrls.some((u) => u.startsWith('https://addon.palv.org/session_token_123/search'))).toBe(true);
+    expect(calledUrls.some((u) => u.startsWith('https://addon.palv.org/session_token_123/stream/netease_123'))).toBe(true);
+  });
 });

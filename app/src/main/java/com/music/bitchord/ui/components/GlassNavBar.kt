@@ -111,6 +111,7 @@ fun GlassNavBar(
     modifier: Modifier = Modifier,
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
+    onDismiss: (() -> Boolean)? = null,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -163,6 +164,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    onDismiss = onDismiss,
                     modifier = accessoryModifier.then(glassSurface()),
                 )
             }
@@ -183,6 +185,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    onDismiss = onDismiss,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
                 )
             }
@@ -313,6 +316,7 @@ private fun GlassNowPlaying(
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
+    onDismiss: (() -> Boolean)?,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -363,6 +367,7 @@ private fun GlassNowPlaying(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                onDismiss = onDismiss,
             )
             .graphicsLayer {
                 scaleX = pressScale

@@ -23,6 +23,7 @@ class BitPerfectAudioSinkTest {
         override val sampleRate: Int,
         override val channelCount: Int,
         override val outputBits: Int,
+        override val validBits: Int = outputBits,
         private val capacityFrames: Int = 8192,
         override val driver: BitPerfectDriver = BitPerfectDriver.ANDROID_MIXER,
     ) : BitPerfectTransport {
@@ -68,6 +69,7 @@ class BitPerfectAudioSinkTest {
         /** A DAC that stops here, as one on a capped USB-C dongle does. */
         var dacRate: Int? = null
         var dacBits: Int? = null
+        var dacValidBits: Int? = null
         var driver = BitPerfectDriver.ANDROID_MIXER
         var releases = 0
 
@@ -75,8 +77,14 @@ class BitPerfectAudioSinkTest {
 
         override fun open(sampleRate: Int, channels: Int, sourceBits: Int, requester: Any): BitPerfectTransport {
             if (failOpen) throw BitPerfectTransportException("unsupported")
-            return FakeTransport(dacRate ?: sampleRate, channels, dacBits ?: maxOf(sourceBits, 24), driver = driver)
-                .also(opened::add)
+            val bits = dacBits ?: maxOf(sourceBits, 24)
+            return FakeTransport(
+                sampleRate = dacRate ?: sampleRate,
+                channelCount = channels,
+                outputBits = bits,
+                validBits = dacValidBits ?: bits,
+                driver = driver,
+            ).also(opened::add)
         }
 
         override fun release(requester: Any) { releases++ }
@@ -283,6 +291,23 @@ class BitPerfectAudioSinkTest {
         sink.handleBuffer(pcm16(4), 0, 1)
         assertFalse(outputs.statuses.last().dacLimited)
         assertTrue(outputs.statuses.last().exact)
+    }
+
+    @Test
+    fun reportedDepthIsTheDacsValidBitsNotTheContainerWidth() {
+        val outputs = FakeOutputs().apply { dacBits = 32; dacValidBits = 24 }
+        val sink = BitPerfectAudioSink(outputs)
+        sink.play()
+        sink.configure(config(format(encoding = C.ENCODING_PCM_24BIT)))
+        val frames = 64
+        val buffer = ByteBuffer.allocateDirect(frames * 6).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(ByteArray(frames * 6))
+        buffer.flip()
+        assertTrue(sink.handleBuffer(buffer, 0, 1))
+
+        val status = outputs.statuses.last()
+        assertEquals(24, status.outputBits)
+        assertTrue(status.exact)
     }
 
     @Test

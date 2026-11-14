@@ -632,7 +632,7 @@ internal class BitPerfectAudioSink(
                 driver = active.driver.label,
                 deviceName = active.deviceName,
                 sampleRateHz = active.sampleRate,
-                outputBits = if (converter != null) active.validBits else active.outputBits,
+                outputBits = active.validBits,
                 sourceBits = current?.sourceBits ?: 0,
                 sourceRateHz = current?.sampleRate ?: 0,
                 exact = exact && converter == null,

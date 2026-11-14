@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,6 +40,24 @@ class AddonRedirectPolicyTest {
 
         assertEquals(next, addonRedirectTarget(start, "/addon/search-v2"))
         assertTrue(addonAuthStillAllowed(start, next))
+    }
+
+    @Test
+    fun `scheme and port changes drop credentials`() {
+        first.start()
+        val https = "https://example.com/addon"
+        val http = "http://example.com/addon"
+        assertFalse(addonAuthStillAllowed(https, http))
+        assertTrue(addonAuthStillAllowed("https://example.com:443/a", "https://example.com/b"))
+        assertFalse(addonAuthStillAllowed("https://example.com:443/a", "https://example.com:8443/b"))
+    }
+
+    @Test
+    fun `malformed redirect locations are unusable`() {
+        first.start()
+        val start = first.url("/addon").toString()
+        assertNull(addonRedirectTarget(start, "javascript:alert(1)"))
+        assertNull(addonRedirectTarget(start, "http://[invalid"))
     }
 
     @Test

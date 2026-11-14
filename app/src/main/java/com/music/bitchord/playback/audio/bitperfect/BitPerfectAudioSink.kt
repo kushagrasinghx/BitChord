@@ -56,6 +56,7 @@ import kotlin.math.abs
 @OptIn(UnstableApi::class)
 internal class BitPerfectAudioSink(
     private val outputs: BitPerfectOutputs,
+    private val idleScheduler: IdleReleaseScheduler = IdleReleaseScheduler.NONE,
     private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) : AudioSink {
 
@@ -121,6 +122,9 @@ internal class BitPerfectAudioSink(
 
     /** When playing last stopped, or [NOT_PAUSED]. */
     private var pausedAtMs = NOT_PAUSED
+
+    /** Cancels the scheduled idle check, if one is pending. */
+    private var cancelIdleRelease: (() -> Unit)? = null
 
     /** The device was handed back during a long pause; [resume] reopens it. */
     private var suspended = false
@@ -245,6 +249,7 @@ internal class BitPerfectAudioSink(
     }
 
     override fun play() {
+        cancelScheduledIdleRelease()
         playing = true
         pausedAtMs = NOT_PAUSED
         startIfReady()
@@ -255,6 +260,7 @@ internal class BitPerfectAudioSink(
         transportStarted = false
         pausedAtMs = clock()
         runCatching { transport?.pause() }
+        scheduleIdleRelease()
     }
 
     override fun handleDiscontinuity() {
@@ -416,6 +422,7 @@ internal class BitPerfectAudioSink(
     }
 
     private fun closeTransport() {
+        cancelScheduledIdleRelease()
         suspended = false
         suspendedWire = null
         resumeTail = null
@@ -439,6 +446,23 @@ internal class BitPerfectAudioSink(
         if (clock() - pausedAtMs >= IDLE_RELEASE_MS) suspend()
     }
 
+    private fun scheduleIdleRelease() {
+        cancelScheduledIdleRelease()
+        val active = transport ?: return
+        if (playing || !active.driver.releasesWhenIdle) return
+        val pausedAt = pausedAtMs.takeIf { it != NOT_PAUSED } ?: clock().also { pausedAtMs = it }
+        val remaining = (IDLE_RELEASE_MS - (clock() - pausedAt)).coerceAtLeast(0L)
+        cancelIdleRelease = idleScheduler.schedule(remaining + 1) {
+            cancelIdleRelease = null
+            if (!playing) releaseIfIdle()
+        }
+    }
+
+    private fun cancelScheduledIdleRelease() {
+        cancelIdleRelease?.invoke()
+        cancelIdleRelease = null
+    }
+
     /**
      * Hands the device back during a long pause: a USB DAC returns to
      * Android's driver and can power down, the native worker stops waking,
@@ -450,6 +474,7 @@ internal class BitPerfectAudioSink(
     private fun suspend() {
         val active = transport ?: return
         val history = recent ?: return
+        cancelScheduledIdleRelease()
         val played = runCatching { active.playedFrames() }.getOrDefault(0L).coerceIn(0L, transportFrames)
         val keptBytes = minOf((transportFrames - played) * outputFrameBytes, history.size.toLong()).toInt()
         // A tail not yet fully handed over to this device comes after what it holds.

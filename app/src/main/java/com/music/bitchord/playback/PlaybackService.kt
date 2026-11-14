@@ -88,6 +88,7 @@ import com.music.bitchord.playback.audio.DirectAudioProbe
 import com.music.bitchord.playback.audio.OutputNegotiator
 import com.music.bitchord.playback.audio.PcmEncoding
 import com.music.bitchord.playback.audio.SourceDescriptor
+import com.music.bitchord.playback.audio.bitperfect.AndroidIdleReleaseScheduler
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectAudioSink
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectRoutingSink
@@ -7511,7 +7512,7 @@ class PlaybackService : MediaLibraryService() {
             )
             // In front of everything above: a track the bit-perfect output can
             // carry skips the DSP chain and Media3's sink altogether.
-            return BitPerfectRoutingSink(precision, BitPerfectAudioSink(BitPerfectOutput.forContext(context)))
+            return BitPerfectRoutingSink(precision, BitPerfectAudioSink(BitPerfectOutput.forContext(context), idleScheduler = AndroidIdleReleaseScheduler()))
         }
     }
 

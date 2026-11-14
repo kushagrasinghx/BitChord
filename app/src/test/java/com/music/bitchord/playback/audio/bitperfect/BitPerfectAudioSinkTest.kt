@@ -95,6 +95,22 @@ class BitPerfectAudioSinkTest {
         override fun normalOutputPending() = pendingNormal
     }
 
+    internal class FakeIdleScheduler : IdleReleaseScheduler {
+        var scheduledDelayMs = -1L
+        var cancelled = false
+        private var task: (() -> Unit)? = null
+
+        override fun schedule(delayMs: Long, task: () -> Unit): () -> Unit {
+            scheduledDelayMs = delayMs
+            this.task = task
+            return { cancelled = true }
+        }
+
+        fun fire() {
+            task?.invoke()
+        }
+    }
+
     private fun format(rate: Int = 44100, encoding: Int = C.ENCODING_PCM_16BIT, delay: Int = 0): Format =
         Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
@@ -411,6 +427,40 @@ class BitPerfectAudioSinkTest {
 
         transport.advance(1808)
         assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun idleReleaseDoesNotWaitForAnotherBuffer() {
+        var now = 0L
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val scheduler = FakeIdleScheduler()
+        val sink = BitPerfectAudioSink(outputs, idleScheduler = scheduler, clock = { now })
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+        assertTrue(sink.handleBuffer(pcm16(4800), 0, 1))
+        val transport = outputs.opened.single()
+        sink.pause()
+
+        now = BitPerfectAudioSink.IDLE_RELEASE_MS
+        scheduler.fire()
+
+        assertTrue("the DAC is handed back without a later buffer", transport.released)
+        assertTrue(sink.hasPendingData())
+    }
+
+    @Test
+    fun playCancelsTheScheduledIdleRelease() {
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val scheduler = FakeIdleScheduler()
+        val sink = BitPerfectAudioSink(outputs, idleScheduler = scheduler, clock = { 0L })
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+        sink.handleBuffer(pcm16(4800), 0, 1)
+        sink.pause()
+        assertTrue(scheduler.scheduledDelayMs >= 0)
+
+        sink.play()
+        assertTrue(scheduler.cancelled)
     }
 
     @Test

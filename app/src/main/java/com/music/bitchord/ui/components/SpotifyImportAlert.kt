@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
+import com.music.bitchord.data.deezer.DeezerImporter
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.spotify.SpotifyImportTrack
@@ -88,8 +89,10 @@ fun SpotifyImportAlert(
     var unmatched by remember { mutableStateOf<List<SpotifyImportTrack>?>(null) }
 
     fun start() {
-        val id = SpotifyImporter.extractPlaylistId(link)
-        if (id == null) {
+        val spotifyId = SpotifyImporter.extractPlaylistId(link)
+        val deezerCandidate = spotifyId == null &&
+            (DeezerImporter.extractPlaylistId(link) != null || DeezerImporter.isShortLink(link))
+        if (spotifyId == null && !deezerCandidate) {
             status = context.getString(R.string.spotify_import_invalid)
             failed = true
             return
@@ -104,7 +107,13 @@ fun SpotifyImportAlert(
         status = context.getString(R.string.spotify_import_fetching)
         scope.launch {
             try {
-                val (name, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
+                val (name, tracks) = if (spotifyId != null) {
+                    SpotifyImporter.fetchPlaylistTracks(spotifyId)
+                } else {
+                    val deezerId = DeezerImporter.resolvePlaylistId(link)
+                        ?: error(context.getString(R.string.spotify_import_invalid))
+                    DeezerImporter.fetchPlaylistTracks(deezerId)
+                }
                 val (songs, missed) = SpotifyImporter.resolveToSongs(tracks, effectiveLanguage) { done, total ->
                     status = context.getString(R.string.spotify_import_matching, done, total)
                 }

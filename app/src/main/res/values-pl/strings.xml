@@ -1497,4 +1497,13 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Zaloguj się, aby wczytać swoje playlisty. Odtwarzanie korzysta z YouTube Music.</string>
+    <string name="deezer_sign_in">Zaloguj się przez Deezer</string>
+    <string name="deezer_use_arl_token">Użyj tokenu ARL</string>
+    <string name="deezer_disconnect">Rozłącz</string>
+    <string name="deezer_library_subtitle">Twoje playlisty Deezer</string>
+    <string name="deezer_arl_setup_description">Wklej ciasteczko arl z Deezera z zalogowanej sesji przeglądarki.</string>
+    <string name="deezer_arl_token_hint">Token arl</string>
+    <string name="deezer_favorite_tracks">Ulubione utwory</string>
 </resources>

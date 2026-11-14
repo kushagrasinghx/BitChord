@@ -125,6 +125,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
+import com.music.bitchord.auth.DeezerLoginScreen
 import com.music.bitchord.auth.SpotifyLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
@@ -169,6 +170,7 @@ import com.music.bitchord.ui.navigation.AppDestination
 import com.music.bitchord.ui.navigation.AppRoute
 import com.music.bitchord.ui.screens.EqualizerPresetPage
 import com.music.bitchord.ui.screens.SettingsChoicePage
+import com.music.bitchord.ui.components.DeezerTokenAlert
 import com.music.bitchord.ui.components.SpotifyImportAlert
 import com.music.bitchord.ui.screens.WearOsScreen
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
@@ -179,6 +181,8 @@ import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
+import com.music.bitchord.ui.screens.DEEZER_BROWSE_ID
+import com.music.bitchord.ui.screens.DeezerLibraryScreen
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
 import com.music.bitchord.ui.screens.libraryLinks
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
@@ -191,6 +195,7 @@ import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryScreen
+import com.music.bitchord.data.deezer.DEEZER_PAGE_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LinkRequest
@@ -675,6 +680,8 @@ private fun BitChordApp(
     // after it.
     var showDiscordLogin by remember { mutableStateOf(false) }
     var showSpotifyLogin by remember { mutableStateOf(false) }
+    var showDeezerLogin by remember { mutableStateOf(false) }
+    var showDeezerTokenSetup by remember { mutableStateOf(false) }
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
@@ -2245,6 +2252,10 @@ private fun BitChordApp(
                 navigator.push(AppRoute.Spotify)
                 return@let
             }
+            if (id == DEEZER_BROWSE_ID) {
+                navigator.push(AppRoute.Deezer)
+                return@let
+            }
             if ((id == "local:all" || id == "local:downloads") && !LocalMediaRepository.hasStoragePermission(context)) {
                 mediaPermissionLauncher.launch(mediaPermission)
             }
@@ -3029,6 +3040,21 @@ private fun BitChordApp(
                                 onOpenTokenSetup = { showSpotifyCanvasAuth = true },
                                 contentPadding = listPadding,
                             )
+                        } else if (pageRoute == AppRoute.Deezer) {
+                            DeezerLibraryScreen(
+                                onOpenPlaylist = { playlist ->
+                                    viewModel.openDetail(
+                                        browseId = DEEZER_PAGE_PREFIX + playlist.id,
+                                        title = if (playlist.isLoved) context.getString(R.string.deezer_favorite_tracks) else playlist.name,
+                                        subtitle = playlist.owner ?: context.getString(R.string.deezer),
+                                        thumbnailUrl = playlist.imageUrl,
+                                        type = BrowseType.PLAYLIST,
+                                    )
+                                },
+                                onOpenLogin = { showDeezerLogin = true },
+                                onOpenTokenSetup = { showDeezerTokenSetup = true },
+                                contentPadding = listPadding,
+                            )
                         } else if (pageRoute == AppRoute.Discord) {
                             DiscordScreen(
                                 song = player.song,
@@ -3056,6 +3082,7 @@ private fun BitChordApp(
                                 onOpenLastfmLogin = { showLastfmLogin = true },
                                 onOpenDiscord = { navigator.push(AppRoute.Discord) },
                                 onOpenSpotify = { navigator.push(AppRoute.Spotify) },
+                                onOpenDeezer = { navigator.push(AppRoute.Deezer) },
                                 contentPadding = listPadding,
                             )
                         } else if (pageRoute == AppRoute.Sources) {
@@ -3322,7 +3349,11 @@ private fun BitChordApp(
                                 // Saving is an account action, so it isn't offered to a
                                 // guest at all — same as the like and add-to-playlist rows
                                 // in the track menu.
-                                onToggleLibrary = if (signedIn) {
+                                onToggleLibrary = if (
+                                    signedIn ||
+                                    page.browseId.startsWith(SPOTIFY_PAGE_PREFIX) ||
+                                    page.browseId.startsWith(DEEZER_PAGE_PREFIX)
+                                ) {
                                     { viewModel.toggleLibrary(page.browseId) }
                                 } else {
                                     null
@@ -3786,6 +3817,7 @@ private fun BitChordApp(
                 FrostedTopBar(
                     title = when (route) {
                         AppRoute.Spotify -> stringResource(R.string.spotify)
+                        AppRoute.Deezer -> stringResource(R.string.deezer)
                         AppRoute.Downloads -> stringResource(R.string.downloads)
                         AppRoute.Discord -> "Discord"
                         AppRoute.History -> stringResource(R.string.history)
@@ -5816,6 +5848,49 @@ private fun BitChordApp(
             BackHandler { showSpotifyCanvasAuth = false }
             SpotifyCanvasAuthScreen(
                 onNavigateUp = { showSpotifyCanvasAuth = false }
+            )
+        }
+
+        if (showDeezerLogin) {
+            BackHandler { showDeezerLogin = false }
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = { showDeezerLogin = false }) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.close),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.deezer_sign_in),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                    DeezerLoginScreen(
+                        modifier = Modifier.navigationBarsPadding(),
+                        onConnected = { token ->
+                            AppSettings.setDeezerArlToken(token)
+                            showDeezerLogin = false
+                        },
+                    )
+                }
+            }
+        }
+
+        if (showDeezerTokenSetup) {
+            BackHandler { showDeezerTokenSetup = false }
+            DeezerTokenAlert(
+                hazeState = hazeState,
+                onDismiss = { showDeezerTokenSetup = false },
             )
         }
 

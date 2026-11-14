@@ -1307,4 +1307,13 @@
     <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
     <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
     <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">로그인하여 재생목록을 불러옵니다. 재생에는 YouTube Music이 사용됩니다.</string>
+    <string name="deezer_sign_in">Deezer로 로그인</string>
+    <string name="deezer_use_arl_token">ARL 토큰 사용</string>
+    <string name="deezer_disconnect">연결 해제</string>
+    <string name="deezer_library_subtitle">내 Deezer 재생목록</string>
+    <string name="deezer_arl_setup_description">로그인된 브라우저 세션에서 Deezer arl 쿠키를 붙여넣으세요.</string>
+    <string name="deezer_arl_token_hint">arl 토큰</string>
+    <string name="deezer_favorite_tracks">즐겨찾는 트랙</string>
 </resources>

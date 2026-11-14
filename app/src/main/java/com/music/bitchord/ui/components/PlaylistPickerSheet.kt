@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -60,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.RectangleShape
@@ -71,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.model.PlaylistDetails
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
@@ -533,6 +536,11 @@ private fun NewPlaylistForm(
  * hands on to, raised by the host as a sheet of its own — a text field and its
  * keyboard have no place on a floating menu. Same reason the create form lives
  * inside [PlaylistPickerSheet].
+ *
+ * Given [loadDetails] and [onSave] — a playlist on YouTube, not one on the
+ * device — it is Edit playlist instead: the description and who can see it as
+ * well, read off the playlist's page as the sheet opens. Save sends only what
+ * changed, so a privacy the page didn't state is never sent back as a guess.
  */
 @Composable
 internal fun RenamePlaylistForm(
@@ -540,17 +548,44 @@ internal fun RenamePlaylistForm(
     onBack: () -> Unit,
     onRename: (String) -> Unit,
     modifier: Modifier = Modifier,
+    loadDetails: (suspend () -> PlaylistDetails?)? = null,
+    onSave: ((title: String?, description: String?, privacy: PlaylistPrivacy?) -> Unit)? = null,
 ) {
+    val editing = loadDetails != null && onSave != null
     var name by remember { mutableStateOf(playlist.title) }
+    var details by remember { mutableStateOf<PlaylistDetails?>(null) }
+    var description by remember { mutableStateOf("") }
+    var privacy by remember { mutableStateOf<PlaylistPrivacy?>(null) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    if (editing) {
+        LaunchedEffect(playlist.playlistId) {
+            val loaded = loadDetails?.invoke() ?: PlaylistDetails(description = "", privacy = null)
+            details = loaded
+            description = loaded.description
+            privacy = loaded.privacy
+        }
+    }
+
+    val nameChanged = name.isNotBlank() && name.trim() != playlist.title
+    val descriptionChanged = details != null && description.trim() != details?.description?.trim()
+    val privacyChanged = details != null && privacy != null && privacy != details?.privacy
+    val canSave = if (editing) nameChanged || descriptionChanged || privacyChanged else nameChanged
 
     val submit: () -> Unit = {
-        if (name.isNotBlank()) {
+        if (canSave) {
             focusManager.clearFocus()
-            onRename(name)
+            if (editing) {
+                onSave?.invoke(
+                    name.takeIf { nameChanged },
+                    description.takeIf { descriptionChanged },
+                    privacy.takeIf { privacyChanged },
+                )
+            } else {
+                onRename(name)
+            }
         }
     }
 
@@ -575,7 +610,7 @@ internal fun RenamePlaylistForm(
                 )
             }
             Text(
-                text = stringResource(R.string.rename_playlist),
+                text = stringResource(if (editing) R.string.edit_playlist else R.string.rename_playlist),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
@@ -583,39 +618,99 @@ internal fun RenamePlaylistForm(
         }
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 16.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BasicTextField(
-                value = name,
-                onValueChange = { name = it },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onBackground,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester),
-            )
+        if (editing) SheetHeading(stringResource(R.string.playlist_name).uppercase(Locale.getDefault()))
+        FormField(
+            value = name,
+            onValueChange = { name = it },
+            singleLine = true,
+            imeAction = if (editing) ImeAction.Next else ImeAction.Done,
+            onDone = { if (editing) focusManager.moveFocus(FocusDirection.Down) else submit() },
+            modifier = Modifier.focusRequester(focusRequester),
+        )
+
+        if (editing) {
+            SheetHeading(stringResource(R.string.playlist_description).uppercase(Locale.getDefault()))
+            if (details == null) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(96.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(strokeWidth = 2.5.dp, modifier = Modifier.size(26.dp))
+                }
+            } else {
+                FormField(
+                    value = description,
+                    onValueChange = { description = it },
+                    singleLine = false,
+                    imeAction = ImeAction.Default,
+                    onDone = {},
+                    modifier = Modifier.heightIn(min = 72.dp),
+                )
+                SheetHeading(stringResource(R.string.who_can_see_it).uppercase(Locale.getDefault()))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    PlaylistPrivacy.entries.forEach { option ->
+                        PrivacyPill(
+                            icon = option.icon,
+                            label = option.label,
+                            selected = option == privacy,
+                            onClick = { privacy = option },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
         }
+
         Button(
             onClick = submit,
-            enabled = name.isNotBlank() && name != playlist.title,
+            enabled = canSave,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp),
         ) {
-            Text(stringResource(R.string.save_name))
+            Text(stringResource(if (editing) R.string.save else R.string.save_name))
         }
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+/** The rename and edit forms' text box: a rounded well holding a bare text field. */
+@Composable
+private fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    singleLine: Boolean,
+    imeAction: ImeAction,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 12.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = singleLine,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onBackground,
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(imeAction = imeAction),
+            keyboardActions = KeyboardActions(onDone = { onDone() }, onNext = { onDone() }),
+            modifier = modifier.weight(1f),
+        )
     }
 }
 

@@ -56,6 +56,7 @@ import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
+import com.music.bitchord.data.model.PlaylistDetails
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
@@ -1335,6 +1336,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     libraryStale = true
                 },
                 onFailure = {},
+            )
+        }
+    }
+
+    /** The description and privacy the Edit playlist sheet opens on, or null if they can't be read. */
+    suspend fun playlistDetails(playlist: UserPlaylist): PlaylistDetails? =
+        YtMusicRepository.playlistDetails(playlist.browseId).getOrNull()
+
+    /**
+     * Edit playlist's Save: whatever of the name, description and privacy
+     * changed, in one request. A new name shows everywhere the playlist is
+     * named straight away, as [renamePlaylist]'s does; a new description on
+     * its page, if that's open.
+     */
+    fun editPlaylist(
+        playlist: UserPlaylist,
+        title: String?,
+        description: String?,
+        privacy: PlaylistPrivacy?,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        if (!requireSignIn()) return
+        val name = title?.trim()?.takeIf { it.isNotBlank() && it != playlist.title }
+        viewModelScope.launch {
+            YtMusicRepository.editPlaylist(playlist.playlistId, name, description?.trim(), privacy).fold(
+                onSuccess = {
+                    name?.let { setPlaylistTitle(playlist, it) }
+                    description?.let { text ->
+                        _detailStack.value = _detailStack.value.map {
+                            if (it.browseId == playlist.browseId) it.copy(description = text.trim()) else it
+                        }
+                    }
+                    libraryStale = true
+                    onResult(true)
+                },
+                onFailure = { onResult(false) },
             )
         }
     }

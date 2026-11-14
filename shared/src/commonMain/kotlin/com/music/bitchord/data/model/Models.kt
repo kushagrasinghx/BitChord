@@ -732,7 +732,24 @@ enum class PlaylistPrivacy(val label: String, val apiValue: String) {
     PRIVATE("Private", "PRIVATE"),
     UNLISTED("Unlisted", "UNLISTED"),
     PUBLIC("Public", "PUBLIC"),
+    ;
+
+    companion object {
+        /**
+         * The privacy an own playlist's header states in its second line
+         * ("Playlist • Private • 2026"), or null when the line doesn't say in
+         * English — YouTube words it in the app's language, and a guess would
+         * be saved back as a change nobody asked for.
+         */
+        fun fromHeader(subtitle: String): PlaylistPrivacy? {
+            val words = subtitle.lowercase().split(Regex("[^\\p{L}]+")).toSet()
+            return entries.firstOrNull { it.label.lowercase() in words }
+        }
+    }
 }
+
+/** An own playlist's editable details beyond its name: see [PlaylistPrivacy.fromHeader]. */
+data class PlaylistDetails(val description: String, val privacy: PlaylistPrivacy?)
 
 /**
  * One of the account's own playlists, as the picker lists them.

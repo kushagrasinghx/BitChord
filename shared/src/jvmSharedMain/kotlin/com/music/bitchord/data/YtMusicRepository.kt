@@ -773,11 +773,20 @@ object YtMusicRepository {
     /**
      * [songs] with each one's play count taken from the album's own rows,
      * which state it ("52M plays") where the backing playlist's rows don't.
+     * By video id, else by title: a track with a music video can be listed
+     * under the video's id on one and the song's on the other.
      */
     internal fun withPlaysFrom(albumRows: List<Song>, songs: List<Song>): List<Song> {
-        val plays = albumRows.mapNotNull { row -> row.plays?.let { row.videoId to it } }.toMap()
-        if (plays.isEmpty()) return songs
-        return songs.map { song -> if (song.plays != null) song else song.copy(plays = plays[song.videoId]) }
+        val counted = albumRows.filter { it.plays != null }
+        if (counted.isEmpty()) return songs
+        val byId = counted.associate { it.videoId to it.plays }
+        val byTitle = counted.groupBy { it.title.trim().lowercase() }
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single().plays }
+        return songs.map { song ->
+            if (song.plays != null) song
+            else song.copy(plays = byId[song.videoId] ?: byTitle[song.title.trim().lowercase()])
+        }
     }
 
     /**

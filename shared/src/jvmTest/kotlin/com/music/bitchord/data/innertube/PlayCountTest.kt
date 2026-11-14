@@ -68,4 +68,11 @@ class PlayCountTest {
         assertEquals(listOf("52M plays", "81M plays"), merged.map { it.plays })
         assertEquals(listOf("Radiohead", "Radiohead"), merged.map { it.artist })
     }
+
+    @Test
+    fun `a track listed under its video's id on the playlist still gets its count, by title`() {
+        val album = songs(row("songidaaaaa", "Burn the Witch", "", "52M plays"))
+        val playlist = songs(row("videoidbbbb", "Burn the Witch", "Radiohead"))
+        assertEquals("52M plays", com.music.bitchord.data.YtMusicRepository.withPlaysFrom(album, playlist).single().plays)
+    }
 }

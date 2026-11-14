@@ -1614,4 +1614,5 @@
     <string name="ui_scale">UI scale</string>
     <string name="ui_scale_subtitle">Adjust the size of all UI elements (smaller = more content, larger = easier to read)</string>
     <string name="ui_scale_value">%1$d%%</string>
+    <string name="crash_log_saved">Neiro đã gặp sự cố lần trước — nhật ký đã được lưu vào %1$s</string>
 </resources>

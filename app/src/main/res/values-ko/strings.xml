@@ -1547,4 +1547,5 @@
     <string name="ui_scale">UI scale</string>
     <string name="ui_scale_subtitle">Adjust the size of all UI elements (smaller = more content, larger = easier to read)</string>
     <string name="ui_scale_value">%1$d%%</string>
+    <string name="crash_log_saved">지난번에 Neiro가 비정상 종료되었습니다 — 로그를 %1$s에 저장했습니다</string>
 </resources>

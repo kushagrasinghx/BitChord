@@ -17,6 +17,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.CrashLog
+import com.music.bitchord.data.CrashLogTree
+import com.music.bitchord.data.CrashReporter
 import com.music.bitchord.data.DebugLog
 import moe.rukamori.archivetune.utils.PreferenceStore
 import com.music.bitchord.data.lyrics.LyricsTranslation
@@ -48,6 +50,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
+import timber.log.Timber
 
 class BitChordApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
 
@@ -59,6 +62,15 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
     @kotlin.OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate() {
         super.onCreate()
+        // First, before anything else can throw: the crash reporter (ported
+        // from ArchiveTune) writes the exception, the buffered app log and this
+        // process's logcat tail to Android/data/<package>/files/crash and, on
+        // Android 10+, Download/Neiro — then hands the crash on to the system.
+        CrashReporter.install(this)
+        // The ported ArchiveTune player stack logs through Timber. Its lines
+        // go to the crash ring buffer in every build, and to logcat on debug.
+        Timber.plant(CrashLogTree())
+        if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
         // The player is drawn by the shared UI module; this is what it reads
         // underneath — settings, the Canvas decoder, outputs, the party.
         AndroidStreamHooks.installEarly()
@@ -81,6 +93,12 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 CrashLog.record(level, tag, message, error)
             }
         } else {
+            // Nothing reaches logcat on a release build, but the lines still go
+            // to the crash ring buffer (memory only) — what a crash report
+            // from a user's phone is made of.
+            DebugLog.sink = DebugLog.Sink { level, tag, message, error ->
+                CrashLog.record(level, tag, message, error)
+            }
             // R8 strips android.util.Log from a release build (proguard-rules.pro);
             // this stops Media3 composing the lines it would have handed it.
             androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF)
@@ -90,20 +108,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             java.util.logging.LogManager.getLogManager().reset()
             java.util.logging.Logger.getLogger("").level = java.util.logging.Level.OFF
         }
-        // A crash handler that writes the buffered log to disk. Logcat is gone
-        // the moment the process dies, so the ported ArchiveTune player stack
-        // — mounted only when a style is switched to — leaves nothing behind
-        // but this. The file lands in the app's cache dir, so it survives to
-        // the next launch for whoever opens it.
-        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
-            runCatching { CrashLog.dump(cacheDir, throwable) }
-            // Let the system handle the crash normally after we've saved logs.
-        }
-        // The ported ArchiveTune player stack reads its preferences through
-        // rememberEnumPreference, which calls PreferenceStore.get synchronously
-        // during composition. Start the store here, before any composition, so
-        // the first read does not hit an unstarted store and block the main
-        // thread — that was the crash when a style was switched to.
+        // Warm the ported ArchiveTune player stack's preference snapshot early,
+        // so its first composition usually reads real values rather than the
+        // defaults. Not a crash fix — PreferenceStore.get never blocks, and
+        // ArchiveTunePlayerHost starts the store itself before its stack
+        // composes; this just gives the read a head start.
         PreferenceStore.start(this)
         // Compose re-votes the window's frame rate from dispatchDraw on every
         // frame (API 35+), and Samsung's View logs each vote together with a

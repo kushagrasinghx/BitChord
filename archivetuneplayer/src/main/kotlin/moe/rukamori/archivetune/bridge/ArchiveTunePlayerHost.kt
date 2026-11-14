@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -29,6 +30,8 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.createGraph
 import androidx.navigation.compose.composable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import moe.rukamori.archivetune.LocalDatabase
 import moe.rukamori.archivetune.LocalDownloadUtil
 import moe.rukamori.archivetune.LocalPlayerConnection
@@ -77,23 +80,46 @@ fun ArchiveTunePlayerHost(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    DisposableEffect(hostBridge) {
+    // Everything the stack below reads during its very first composition has
+    // to be in place before that composition starts — so this is a remember,
+    // which runs inline, ahead of the PlayerConnection and BottomSheetPlayer
+    // below, and not a DisposableEffect, which only runs after the first
+    // composition has been applied. With it as an effect the first frame of
+    // a ported style composed against an empty bridge: PlayerConnection bound
+    // to the placeholder player, every hiltViewModel() hit an empty view-model
+    // registry ("No bridge view-model registered for …") and the cache entry
+    // points had no context ("no context registered with BridgeEntryPoints").
+    // That was the crash on switching to a ported style. All four calls are
+    // idempotent, so a re-mount (or an abandoned composition) is harmless.
+    remember(hostBridge) {
         ArchiveTuneBridge.install(hostBridge)
-        ArchiveTuneCaches.ensure(context)
         BridgeEntryPoints.context = context.applicationContext
         BridgeViewModels.init(context)
-        // PreferenceStore is started in BitChordApplication.onCreate(), before
-        // any composition. Starting it here, in a DisposableEffect, would be
-        // too late: the initial composition of a ported style reads preferences
-        // through rememberEnumPreference before this effect runs, so the first
-        // read hits an unstarted store and blocks the main thread.
+        PreferenceStore.start(context.applicationContext)
+        hostBridge
+    }
+    DisposableEffect(hostBridge) {
         onDispose {
+            // Only clear what is still ours: a newer host mounted under a new
+            // controller key installs before this older one is disposed.
+            if (ArchiveTuneBridge.get() === hostBridge) BridgeEntryPoints.context = null
             ArchiveTuneBridge.uninstall(hostBridge)
-            BridgeEntryPoints.context = null
+        }
+    }
+    // SimpleCache opens and scans its folder on construction — disk I/O that
+    // must not run on the main thread mid-composition. Built once per process
+    // (ArchiveTuneCaches guards that; a folder can only ever have one), never
+    // torn down on dispose, and the entry points still build it lazily if a
+    // component asks before this has finished.
+    val appContext = context.applicationContext
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            runCatching { ArchiveTuneCaches.ensure(appContext) }
+                .onFailure { Timber.tag("ArchiveTuneBridge").w(it, "media caches unavailable") }
         }
     }
 
-    val playerConnection = remember(scope) { PlayerConnection(scope) }
+    val playerConnection = remember(scope, hostBridge) { PlayerConnection(scope) }
     DisposableEffect(playerConnection) {
         onDispose { playerConnection.dispose() }
     }

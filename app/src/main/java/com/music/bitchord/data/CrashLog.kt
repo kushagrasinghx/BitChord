@@ -16,18 +16,20 @@ import java.util.Locale
  * exactly when it crashes. What survives is whatever the app logged in the
  * seconds before the death, and this is what gets written to disk.
  *
- * Installed as a [DebugLog.Sink] alongside the logcat sink, and drained by
- * [recordCrash] when an uncaught exception reaches the handler installed in
- * [BitChordApplication].
+ * Fed by [DebugLog]'s sink (every build) and by the Timber tree planted in
+ * [com.music.bitchord.BitChordApplication] (the ported ArchiveTune stack logs
+ * through Timber). Drained by [CrashReporter] when an uncaught exception
+ * reaches its handler.
+ *
+ * Deliberately free of android.* so it stays testable on the JVM: the
+ * Android-specific header (app version, device, pid) and the logcat tail are
+ * [CrashReporter]'s to supply.
  */
 object CrashLog {
-    private const val CAPACITY = 4000
+    internal const val CAPACITY = 4000
 
-    @Volatile
-    private var buffer: Array<String?> = arrayOfNulls(CAPACITY)
-    @Volatile
+    private val buffer: Array<String?> = arrayOfNulls(CAPACITY)
     private var index = 0
-    @Volatile
     private var count = 0
 
     @Synchronized
@@ -50,29 +52,9 @@ object CrashLog {
         if (count < CAPACITY) count++
     }
 
-    /** Writes the crash and the buffered log to a fresh file in [dir]. */
-    fun dump(dir: File, throwable: Throwable) {
-        dump(File(dir, "neiro-crash-" + timestamp() + ".log"), throwable)
-    }
-
-    /** Writes the crash and the buffered log to [file]. */
-    private fun dump(file: File, throwable: Throwable) {
-        file.parentFile?.mkdirs()
-        file.printWriter().use { out ->
-            out.println("=== Neiro crash report ===")
-            out.println("Time: ${timestamp()}")
-            out.println("Process: ${android.os.Process.myPid()}")
-            out.println("Thread: ${Thread.currentThread().name}")
-            out.println()
-            out.println("=== Uncaught exception ===")
-            throwable.printStackTrace(out)
-            out.println()
-            out.println("=== Recent log (last $count lines) ===")
-            for (line in snapshot()) out.println(line)
-        }
-    }
-
-    private fun snapshot(): List<String> {
+    /** The buffered lines, oldest first. */
+    @Synchronized
+    fun snapshot(): List<String> {
         val n = count
         if (n == 0) return emptyList()
         val result = ArrayList<String>(n)
@@ -82,6 +64,46 @@ object CrashLog {
             if (line != null) result.add(line)
         }
         return result
+    }
+
+    /** Empties the buffer. For tests. */
+    @Synchronized
+    internal fun clear() {
+        buffer.fill(null)
+        index = 0
+        count = 0
+    }
+
+    /**
+     * Writes a crash report to [file]: [header] lines, the uncaught exception
+     * with its whole cause chain, the buffered log, then whatever [appendix]
+     * adds (the logcat tail, on a device). Synchronous on purpose — it runs
+     * inside the uncaught-exception handler, where nothing else may be
+     * relied on to still be scheduled.
+     */
+    fun writeReport(
+        file: File,
+        thread: Thread?,
+        throwable: Throwable,
+        header: List<String> = emptyList(),
+        appendix: (PrintWriter) -> Unit = {},
+    ) {
+        file.parentFile?.mkdirs()
+        val lines = snapshot()
+        file.printWriter().use { out ->
+            out.println("=== Neiro crash report ===")
+            out.println("Time: ${timestamp()}")
+            out.println("Thread: ${thread?.name ?: "?"}")
+            for (line in header) out.println(line)
+            out.println()
+            out.println("=== Uncaught exception ===")
+            throwable.printStackTrace(out)
+            out.println()
+            out.println("=== Recent app log (last ${lines.size} lines, oldest first) ===")
+            for (line in lines) out.println(line)
+            out.flush()
+            runCatching { appendix(out) }
+        }
     }
 
     internal fun timestamp(): String =

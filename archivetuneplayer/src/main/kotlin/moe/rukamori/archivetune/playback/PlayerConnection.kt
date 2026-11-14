@@ -11,6 +11,7 @@
 
 package moe.rukamori.archivetune.playback
 
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -70,15 +71,40 @@ internal enum class CanvasArtworkRefetchResult {
 class PlayerConnection(
     scope: CoroutineScope,
 ) : Player.Listener {
+    /**
+     * False until init has attached to the first player, and again after
+     * [dispose]. The [player] getter only re-attaches while this is true, so
+     * it can never run [attachToPlayer] against flows that are not yet
+     * constructed (the property initializers below read [player]).
+     */
+    private var attachReady = false
+
     private val host get() = ArchiveTuneBridge.get()
     private val connectionJob = SupervisorJob(scope.coroutineContext[Job])
     private val connectionScope = CoroutineScope(scope.coroutineContext + connectionJob)
 
     val service = MusicService(connectionScope)
 
-    /** The host's controller — a MediaController is a Player. */
+    /**
+     * The host's controller — a MediaController is a Player.
+     *
+     * Follows the live controller: if this connection was built while only
+     * the placeholder was available (or the host's controller changed), the
+     * first read on the controller's own thread moves the listener over, so
+     * the flows below stop mirroring a stopped, empty placeholder forever.
+     */
     val player: Player
-        get() = host?.player() ?: PlaceholderPlayer
+        get() {
+            val p = host?.player() ?: PlaceholderPlayer
+            if (attachReady &&
+                p !== PlaceholderPlayer &&
+                p !== attachedPlayer &&
+                p.applicationLooper == Looper.myLooper()
+            ) {
+                attachToPlayer(p)
+            }
+            return p
+        }
 
     /**
      * An ExoPlayer-typed view of the controller, for the queue sheets'
@@ -88,8 +114,9 @@ class PlayerConnection(
      * drag keeps its optimistic local state and simply doesn't persist;
      * audioSessionId reads 0, which only gates the equalizer hook this port
      * stubs anyway). A proxy, so it stays whole whatever ExoPlayer grows.
+     * It resolves the controller on every call, never capturing one.
      */
-    val localPlayer: ExoPlayer by lazy { bridgeExoPlayer(player) }
+    val localPlayer: ExoPlayer by lazy { bridgeExoPlayer { player } }
 
     private var attachedPlayer: Player? = null
 
@@ -162,13 +189,22 @@ class PlayerConnection(
     internal val isCanvasArtworkRefetching = _isCanvasArtworkRefetching.asStateFlow()
 
     init {
-        attachToPlayer(player)
+        attachToPlayer(host?.player() ?: PlaceholderPlayer)
+        attachReady = true
     }
 
+    /**
+     * Moves the listener to [newPlayer] and re-seeds every mirrored flow from
+     * it. Reads only [newPlayer] — never the [player] getter — and records it
+     * as [attachedPlayer] first, so a getter read from inside a callback
+     * cannot recurse back in here.
+     */
     private fun attachToPlayer(newPlayer: Player) {
-        attachedPlayer?.removeListener(this)
+        val previous = attachedPlayer
         attachedPlayer = newPlayer
+        if (previous != null && previous !== newPlayer) previous.removeListener(this)
         newPlayer.addListener(this)
+        if (newPlayer !== PlaceholderPlayer) service.attachPlayer()
 
         playbackState.value = newPlayer.playbackState
         playWhenReady.value = newPlayer.playWhenReady
@@ -179,7 +215,7 @@ class PlayerConnection(
         shuffleModeEnabled.value = newPlayer.shuffleModeEnabled
         repeatMode.value = newPlayer.repeatMode
         mediaMetadata.value = newPlayer.currentMetadata
-        updateCanSkipPreviousAndNext()
+        updateCanSkipPreviousAndNext(newPlayer)
     }
 
     fun playQueue(queue: Queue) {
@@ -374,12 +410,12 @@ class PlayerConnection(
         }
     }
 
-    private fun updateCanSkipPreviousAndNext() {
-        if (!player.currentTimeline.isEmpty) {
+    private fun updateCanSkipPreviousAndNext(p: Player = player) {
+        if (!p.currentTimeline.isEmpty) {
             canSkipPrevious.value =
-                player.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) ||
-                    player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-            canSkipNext.value = player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                p.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) ||
+                    p.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+            canSkipNext.value = p.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
         } else {
             canSkipPrevious.value = false
             canSkipNext.value = false
@@ -387,14 +423,15 @@ class PlayerConnection(
     }
 
     fun dispose() {
+        attachReady = false
         connectionScope.cancel()
         attachedPlayer?.removeListener(this)
         attachedPlayer = null
     }
 }
 
-/** See [PlayerConnection.localPlayer]. */
-private fun bridgeExoPlayer(controller: Player): ExoPlayer =
+/** See [PlayerConnection.localPlayer]. [controller] is asked on every call. */
+private fun bridgeExoPlayer(controller: () -> Player): ExoPlayer =
     Proxy.newProxyInstance(
         ExoPlayer::class.java.classLoader,
         arrayOf(ExoPlayer::class.java),
@@ -407,8 +444,8 @@ private fun bridgeExoPlayer(controller: Player): ExoPlayer =
 
                 "equals" -> proxy === args?.firstOrNull()
                 "hashCode" -> System.identityHashCode(proxy)
-                "toString" -> "ArchiveTuneBridgeExoPlayer($controller)"
-                else -> forwardOrDefault(controller, method, args)
+                "toString" -> "ArchiveTuneBridgeExoPlayer(${controller()})"
+                else -> forwardOrDefault(controller(), method, args)
             }
         },
     ) as ExoPlayer
@@ -423,7 +460,9 @@ private fun forwardOrDefault(controller: Player, method: Method, args: Array<Any
     return try {
         match.invoke(controller, *wanted)
     } catch (e: InvocationTargetException) {
-        throw e.cause ?: e
+        val cause = e.cause ?: e
+        Timber.tag("ArchiveTuneBridge").e(cause, "ExoPlayer bridge call %s threw", method.name)
+        throw cause
     } catch (e: IllegalArgumentException) {
         defaultValue(method)
     } catch (e: Exception) {
@@ -432,10 +471,22 @@ private fun forwardOrDefault(controller: Player, method: Method, args: Array<Any
     }
 }
 
+/**
+ * The inert answer for a method the controller does not have. A proxy must
+ * return a box of exactly the method's primitive return type — an Integer
+ * for a `long` (or a Double for a `float`) throws ClassCastException at the
+ * call site — and a non-null "empty" for the media3 types Kotlin callers
+ * treat as non-null.
+ */
 private fun defaultValue(method: Method): Any? =
     when (method.returnType.name) {
         "boolean" -> false
-        "int", "long", "short", "byte", "char" -> 0
-        "float", "double" -> 0.0
-        else -> null
+        "int" -> 0
+        "long" -> 0L
+        "short" -> (0).toShort()
+        "byte" -> (0).toByte()
+        "char" -> '\u0000'
+        "float" -> 0f
+        "double" -> 0.0
+        else -> emptyMedia3Value(method.returnType)
     }

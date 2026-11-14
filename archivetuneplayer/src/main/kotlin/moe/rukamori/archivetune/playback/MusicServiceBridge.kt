@@ -11,7 +11,16 @@
 
 package moe.rukamori.archivetune.playback
 
+import android.os.Looper
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
+import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
+import androidx.media3.common.text.CueGroup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -139,16 +148,26 @@ class MusicService(
  * host's controller is up on a cold start: stopped, silent, empty timeline.
  * A reflective proxy rather than a hand-written implementation, so it stays
  * valid whatever members the Player interface grows.
+ *
+ * Every answer has to be the exact type the interface declares: Kotlin
+ * callers unbox `getCurrentPosition()` as a long and read
+ * `currentTimeline.isEmpty` without a null check, so an Integer 0 or a null
+ * Timeline here is a ClassCastException / NullPointerException in whatever
+ * composes first against the placeholder.
  */
 internal val PlaceholderPlayer: Player =
     Proxy.newProxyInstance(
         Player::class.java.classLoader,
         arrayOf(Player::class.java),
-        InvocationHandler { _, method, _ ->
+        InvocationHandler { proxy, method, args ->
             when (method.name) {
-                "equals" -> false
-                "hashCode" -> System.identityHashCode(PlaceholderPlayer)
+                "equals" -> proxy === args?.firstOrNull()
+                "hashCode" -> System.identityHashCode(proxy)
                 "toString" -> "ArchiveTuneBridgePlaceholderPlayer"
+                "getPlaybackState" -> Player.STATE_IDLE
+                "getNextMediaItemIndex", "getPreviousMediaItemIndex" -> C.INDEX_UNSET
+                "getDuration", "getContentDuration" -> C.TIME_UNSET
+                "getVolume" -> 1f
                 else -> defaultValue(method)
             }
         },
@@ -156,9 +175,36 @@ internal val PlaceholderPlayer: Player =
 
 private fun defaultValue(method: Method): Any? =
     when (method.returnType.name) {
-        "boolean" -> false
-        "int", "long", "short", "byte", "char" -> 0
-        "float", "double" -> 0.0
         "void" -> null
+        "boolean" -> false
+        "int" -> 0
+        "long" -> 0L
+        "short" -> (0).toShort()
+        "byte" -> (0).toByte()
+        "char" -> '\u0000'
+        "float" -> 0f
+        "double" -> 0.0
+        else -> emptyMedia3Value(method.returnType)
+    }
+
+/**
+ * The "nothing here" value of a media3 type a Player (or ExoPlayer) member
+ * returns as non-null, or null for anything else (nullable returns, and
+ * types no copied caller reads off a stand-in player).
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal fun emptyMedia3Value(type: Class<*>): Any? =
+    when (type) {
+        Timeline::class.java -> Timeline.EMPTY
+        PlaybackParameters::class.java -> PlaybackParameters.DEFAULT
+        androidx.media3.common.MediaMetadata::class.java -> androidx.media3.common.MediaMetadata.EMPTY
+        Tracks::class.java -> Tracks.EMPTY
+        Player.Commands::class.java -> Player.Commands.EMPTY
+        AudioAttributes::class.java -> AudioAttributes.DEFAULT
+        VideoSize::class.java -> VideoSize.UNKNOWN
+        DeviceInfo::class.java -> DeviceInfo.UNKNOWN
+        CueGroup::class.java -> CueGroup.EMPTY_TIME_ZERO
+        Looper::class.java -> Looper.getMainLooper()
+        List::class.java -> emptyList<Any>()
         else -> null
     }

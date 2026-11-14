@@ -29,6 +29,7 @@ import tf.monochrome.android.audio.dsp.ChannelDetectorProcessor
 import tf.monochrome.android.audio.pipeline.AudioPipelineMonitor
 import tf.monochrome.android.audio.pipeline.OutputDeviceProbe
 import com.lastwave.app.playback.UsbDacMonitor
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 
 object BridgeViewModels {
@@ -47,10 +48,19 @@ object BridgeViewModels {
                 modelClass: Class<VM>,
             ): VM {
                 val creator = creators[modelClass.name]
-                    ?: error(
+                if (creator == null) {
+                    val message =
                         "No bridge view-model registered for ${modelClass.name} — " +
-                            "see BridgeViewModels.init()",
+                            "see BridgeViewModels.init()"
+                    // Logged before the throw so the crash report's buffered
+                    // log names the class even if the trace is truncated.
+                    Timber.tag("ArchiveTuneBridge").e(
+                        "%s (registered: %s)",
+                        message,
+                        creators.keys.joinToString(),
                     )
+                    error(message)
+                }
                 @Suppress("UNCHECKED_CAST")
                 return creator() as VM
             }

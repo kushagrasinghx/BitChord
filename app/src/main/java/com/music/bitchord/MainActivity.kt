@@ -132,6 +132,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
 import com.music.bitchord.auth.SpotifyLoginScreen
@@ -418,6 +419,27 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
+        // A crash last time left a report (see CrashReporter): say once where
+        // it was saved. Off the main thread — it may retry the Downloads copy.
+        if (savedInstanceState == null) {
+            val appContext = applicationContext
+            lifecycleScope.launch {
+                val crashed = withContext(Dispatchers.IO) {
+                    runCatching { com.music.bitchord.data.CrashReporter.consumeUnseenCrash(appContext) }
+                        .getOrDefault(false)
+                }
+                if (crashed) {
+                    Toast.makeText(
+                        appContext,
+                        getString(
+                            R.string.crash_log_saved,
+                            com.music.bitchord.data.CrashReporter.displayLocation(appContext),
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()

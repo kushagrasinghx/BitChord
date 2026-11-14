@@ -215,3 +215,11 @@ Stage Summary:
   (the nightly R8 release APK, arm64-v8a) green, TV green. All ten
   ported styles build over their real ArchiveTune sources; the BITCHORD
   style keeps the app's own player untouched.
+
+## Ported player styles crashed on switch; crash logs now saved on device
+
+- **Build was broken since cbade7c.** `CrashLog.kt` had two `dump(File, Throwable)` overloads — same JVM signature, and making one private (4bdb12e) does not help. No APK with the earlier "fix" was ever produced. Now one `writeReport(file, thread, throwable, header, appendix)`; `snapshot()` is `@Synchronized`; JVM test `CrashLogTest`.
+- **The earlier theory was wrong.** `PreferenceStore.get()` never blocks (it returns null until the snapshot lands); starting it in `Application.onCreate` fixed nothing.
+- **Real root cause:** `ArchiveTunePlayerHost` installed the bridge, `BridgeEntryPoints.context` and the `BridgeViewModels` registry inside a `DisposableEffect`, which runs only *after* the first composition. That same first composition built `PlayerConnection` (bound to `PlaceholderPlayer` for good) and composed the styles, whose `hiltViewModel()` hit an empty registry. On top of that the reflective placeholder / ExoPlayer proxies returned an `Integer` for `long`, a `Double` for `float` and `null` for `Timeline`/`PlaybackParameters` → ClassCastException / NPE. Fixed: setup in a `remember` ahead of everything; caches built on IO in a `LaunchedEffect`; `PlayerConnection` re-attaches to the live controller (main looper only, no recursion); typed defaults plus media3 empties (`Timeline.EMPTY`, …).
+- **Crash capture ported from ArchiveTune** (`data/CrashReporter.kt`, `data/CrashLogTree.kt`): the only uncaught handler; it chains to the previous one. It writes header + stack trace (with causes) + the `CrashLog` ring (DebugLog in all builds + Timber) + this pid's logcat tail to `Android/data/<pkg>/files/crash/neiro-crash-*.log` (newest 10), and on API 29+ copies it to `Download/Neiro/` via MediaStore (no permissions). On the next launch a toast says where the log went (`crash_log_saved`, in every catalogue).
+- Known follow-up (not a crash): ported screens may show blank metadata, because `MediaItem.metadata` reads `localConfiguration.tag`, which a MediaController never carries.

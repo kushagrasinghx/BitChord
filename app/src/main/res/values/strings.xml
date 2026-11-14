@@ -1570,4 +1570,5 @@
     <string name="hide_library_on_device_shelf">Hide On-device shelf</string>
     <string name="hide_library_on_device_shelf_subtitle">The releases kept on this device, under the links</string>
 
+    <string name="crash_log_saved">Neiro crashed last time — log saved to %1$s</string>
 </resources>

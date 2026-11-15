@@ -2434,6 +2434,7 @@ internal fun LyricsPanel(
                         sung = sung,
                         synced = isSynced,
                         browsing = browsing,
+                        picking = picking,
                         glowAlpha = glow,
                         room = GLOW_ROOM,
                         alignEnd = alignEnd,
@@ -2562,6 +2563,7 @@ private fun PanelVoice(
     /** Whether the source stamps its lines at all. */
     synced: Boolean,
     browsing: Boolean,
+    picking: Boolean = false,
     glowAlpha: Float,
     room: Dp,
     /** Whether this line is one of the right-hand voice's; see [LyricAlignment]. */

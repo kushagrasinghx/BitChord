@@ -61,8 +61,10 @@ import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasCache
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -234,6 +236,8 @@ internal fun AndroidCanvasArtworkPlayer(
     // off screen. Not bumped for the first surface of all, which arrives with
     // nothing needing doing to it. See the repaint effect below.
     var surfaceGeneration by remember(canvas) { mutableIntStateOf(0) }
+    // A replacement gets one bounded recovery, not another each time a sheet opens.
+    var repaintedSurfaceGeneration by remember(canvas) { mutableIntStateOf(0) }
     val currentContentMode by rememberUpdatedState(contentMode)
     val currentAlignPortraitTop by rememberUpdatedState(alignPortraitTop)
     val currentPortraitRevealBounds by rememberUpdatedState(portraitRevealBounds)
@@ -341,7 +345,7 @@ internal fun AndroidCanvasArtworkPlayer(
     // regardless of playback state, so coming back from background always has
     // a surface ready and `onRenderedFirstFrame()` fires naturally.
     val foreground = rememberIsForeground()
-    LaunchedEffect(foreground, pausedForTransition) {
+    LaunchedEffect(foreground, pausedForTransition, surfaceGeneration, canvas) {
         val play = foreground && !pausedForTransition
         val afterTransition = gate.heldForTransition
         gate.heldForTransition = pausedForTransition
@@ -350,6 +354,24 @@ internal fun AndroidCanvasArtworkPlayer(
         // as part of the movement rather than as the clip.
         if (play && afterTransition && currentResumeDelayMs > 0L) delay(currentResumeDelayMs)
         player.playWhenReady = play
+        if (!foreground) return@LaunchedEffect
+        if (play || rendered) {
+            repaintedSurfaceGeneration = surfaceGeneration
+            return@LaunchedEffect
+        }
+        if (surfaceGeneration == repaintedSurfaceGeneration) return@LaunchedEffect
+
+        // A sheet still holds the clip paused, but its replacement surface has
+        // no frame. A same-position seek may do nothing: briefly run this silent
+        // decoder until the TextureView confirms real pixels, then freeze again.
+        player.playWhenReady = true
+        withTimeoutOrNull(REPAINT_TIMEOUT_MS) {
+            snapshotFlow { rendered }.first { it }
+        }
+        repaintedSurfaceGeneration = surfaceGeneration
+        // No finally pause: dismissal/backgrounding replaces this gate run and
+        // owns playWhenReady from then on; disposal already stops the player.
+        player.playWhenReady = false
     }
 
     // The frame on screen, kept for the caller to stand in for the clip while

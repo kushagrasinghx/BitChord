@@ -105,6 +105,9 @@ object QueueCoordinator {
      * will only cycle through CONTEXT items.
      */
     fun consumePlayedUserQueue(player: Player, tierAt: (Int) -> QueueTier = player::queueTierAt) {
+        // Only repeat-all needs them gone. Otherwise a played queued song is
+        // history like any other, and Previous must return to it.
+        if (player.repeatMode != Player.REPEAT_MODE_ALL) return
         val currentIndex = player.currentMediaItemIndex
         if (currentIndex <= 0) return
 

@@ -1468,7 +1468,7 @@ class CrossfadeController(
         // settings rather than whatever the standby was left on last time.
         into.skipSilenceEnabled = out.skipSilenceEnabled
         into.repeatMode = out.repeatMode
-        into.shuffleModeEnabled = out.shuffleModeEnabled
+        into.shuffleModeEnabled = false
         // Stacks on top of the listener's speed control rather than replacing
         // it, so a beatmatched transition and "play everything at 1.25x" don't
         // fight each other. Undone in [finish].
@@ -2597,7 +2597,7 @@ class CrossfadeController(
         queuedItemCount = items.size
         into.skipSilenceEnabled = false
         into.repeatMode = out.repeatMode
-        into.shuffleModeEnabled = out.shuffleModeEnabled
+        into.shuffleModeEnabled = false
         into.setPlaybackSpeed(AppSettings.playbackSpeed.value)
         // Silent through its own sink until the handover, so the player's
         // volume stays where the listener's ear expects it.

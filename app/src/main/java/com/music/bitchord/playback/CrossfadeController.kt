@@ -1443,13 +1443,16 @@ class CrossfadeController(
         outgoingItemIndex = out.currentMediaItemIndex
 
         val t0 = SystemClock.elapsedRealtimeNanos()
-        val items = (0 until out.mediaItemCount).map { out.getMediaItemAt(it) }
-        val copyDurationUs = (SystemClock.elapsedRealtimeNanos() - t0) / 1000L
-        queuedItemCount = items.size
-        val perTrackUs = if (items.isNotEmpty()) copyDurationUs.toDouble() / items.size else 0.0
+        val reused = StandbyQueueTransfer.prepare(out, into, nextIndex, incomingCueTimeMs)
+        val transferDurationUs = (SystemClock.elapsedRealtimeNanos() - t0) / 1000L
+        queuedItemCount = out.mediaItemCount
         Log.d(
             TAG,
-            "begin() queue copy: ${items.size} tracks in ${copyDurationUs}µs (${String.format(java.util.Locale.US, "%.2f", perTrackUs)}µs/track)",
+            if (reused) {
+                "begin() standby queue reused: ${out.mediaItemCount} tracks in ${transferDurationUs}µs"
+            } else {
+                "begin() queue transfer: ${out.mediaItemCount} tracks in ${transferDurationUs}µs"
+            },
         )
 
         Log.d(
@@ -1474,25 +1477,23 @@ class CrossfadeController(
         // fight each other. Undone in [finish].
         into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
         into.volume = 0f
-        val setNanos0 = SystemClock.elapsedRealtimeNanos()
-        into.setMediaItems(items, nextIndex, incomingCueTimeMs)
-        val setDurationUs = (SystemClock.elapsedRealtimeNanos() - setNanos0) / 1000L
-        Log.d(TAG, "standby setMediaItems: ${items.size} tracks in ${setDurationUs}µs")
         // Before `prepare`, so the standby's per-player audio state is right
         // for the incoming track from its very first decoded frame rather than
         // from the handoff, which is half a blend too late.
-        items.getOrNull(nextIndex)?.let { item ->
-            val after = into.nextMediaItemIndex
-            val afterId = if (after == C.INDEX_UNSET) null else items.getOrNull(after)?.mediaId
-            onArmIncoming(item, afterId)
-        }
+        val inItem = out.getMediaItemAt(nextIndex)
+        val after = into.nextMediaItemIndex
+        val afterId = if (after in 0 until out.mediaItemCount) out.getMediaItemAt(after).mediaId else null
+        onArmIncoming(inItem, afterId)
         // Buffers without sounding. Started for real in [startFade].
         into.playWhenReady = false
         into.prepare()
         if (smart && plan != null) {
-            val outItem = items.getOrNull(outgoingItemIndex)
-            val inItem = items.getOrNull(nextIndex)
-            if (outItem != null && inItem != null) {
+            val outItem = if (outgoingItemIndex in 0 until out.mediaItemCount) {
+                out.getMediaItemAt(outgoingItemIndex)
+            } else {
+                null
+            }
+            if (outItem != null) {
                 val outDuration = out.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
                 val geometry = mixGeometry()
                 prefetchMixWaves(
@@ -3050,7 +3051,9 @@ class CrossfadeController(
      */
     private fun retire(player: ExoPlayer) {
         player.stop()
-        player.clearMediaItems()
+        // Keep the retired timeline so the next transition can reuse it when it
+        // still matches the active queue. StandbyQueueTransfer validates every
+        // item before reuse and falls back to a full transfer on any mismatch.
         // This is the next transition's incoming player, and from its handoff
         // the session: a hold left on it would pause every track at its end.
         player.pauseAtEndOfMediaItems = false

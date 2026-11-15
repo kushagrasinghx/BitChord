@@ -417,6 +417,7 @@ class CrossfadeController(
         lockPhase: Boolean = false,
         /** The plan's echo time; 0 for no echo out. */
         echoSeconds: Double = 0.0,
+        val stemSeparation: Boolean = false,
     ) {
         private val grid = if (advanced && beats >= 2.0) beats else 0.0
         val clash = vocalOverlap.coerceIn(0.0, 1.0)
@@ -1266,6 +1267,7 @@ class CrossfadeController(
         beats = if (plan.beatSeconds > 0) plan.fadeSeconds / plan.beatSeconds else 0.0,
         lockPhase = plan.phaseLock,
         echoSeconds = plan.echoSeconds,
+        stemSeparation = plan.stemSeparation || AppSettings.automixStemMode.value.isEnabled,
     )
 
     /**
@@ -3245,7 +3247,7 @@ class CrossfadeController(
      * track lacking a vocal mask.
      */
     private fun rideVocalSeparation(progress: Float) {
-        val amount = render.vocalOverlap.coerceIn(0.0, 1.0)
+        val amount = if (render.stemSeparation) 1.0 else render.vocalOverlap.coerceIn(0.0, 1.0)
         if (amount <= 0.0) {
             filters.open()
             return
@@ -3255,13 +3257,15 @@ class CrossfadeController(
         // and a full one is properly separated, rather than everything getting
         // the same treatment at different speeds.
         val floor = glide(open, VOCAL_SEPARATION_FLOOR_HZ, amount)
+        val outgoingShape = if (render.stemSeparation) 0.5 else FILTER_SWEEP_SHAPE
         tracks.outgoing(
-            glide(open, floor, progress.toDouble().pow(FILTER_SWEEP_SHAPE)).toFloat(),
+            glide(open, floor, progress.toDouble().pow(outgoingShape)).toFloat(),
             TransitionFilterProcessor.OFF_HZ,
         )
+        val incomingOpenBy = if (render.stemSeparation) 0.62 else ENTRY_OPEN_BY
         tracks.incoming(
             TransitionFilterProcessor.OPEN_HZ,
-            entryHighPass(progress, amount, VOCAL_SEPARATION_HIGH_PASS_HZ, ENTRY_OPEN_BY),
+            entryHighPass(progress, amount, VOCAL_SEPARATION_HIGH_PASS_HZ, incomingOpenBy),
         )
     }
 

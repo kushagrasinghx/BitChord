@@ -278,6 +278,12 @@ object AppSettings {
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
+    /** Stem separation mode for AutoMix vocal handovers and layered transitions. */
+    val automixStemMode = MutableStateFlow(AutomixStemMode.OFF)
+    /** Only compute stem splitting when the device is connected to a charger. */
+    val automixStemChargingOnly = MutableStateFlow(true)
+    /** Compress stems to conserve device battery and storage space. */
+    val automixStemCompressed = MutableStateFlow(true)
     val skipSilence = MutableStateFlow(false)
 
     /** Requested PCM representation at the Android AudioTrack boundary. */
@@ -996,6 +1002,13 @@ object AppSettings {
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
             )
         }.getOrDefault(AutomixPerformanceMode.BALANCED)
+        automixStemMode.value = runCatching {
+            AutomixStemMode.valueOf(
+                prefs.getString(KEY_AUTOMIX_STEM_MODE, null) ?: AutomixStemMode.OFF.name,
+            )
+        }.getOrDefault(AutomixStemMode.OFF)
+        automixStemChargingOnly.value = prefs.getBoolean(KEY_AUTOMIX_STEM_CHARGING_ONLY, true)
+        automixStemCompressed.value = prefs.getBoolean(KEY_AUTOMIX_STEM_COMPRESSED, true)
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         outputPcmMode.value = runCatching {
             OutputPcmMode.valueOf(
@@ -1326,6 +1339,21 @@ object AppSettings {
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
         automixPerformanceMode.value = value
         prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name).apply()
+    }
+
+    fun setAutomixStemMode(value: AutomixStemMode) {
+        automixStemMode.value = value
+        prefs.edit().putString(KEY_AUTOMIX_STEM_MODE, value.name).apply()
+    }
+
+    fun setAutomixStemChargingOnly(value: Boolean) {
+        automixStemChargingOnly.value = value
+        prefs.edit().putBoolean(KEY_AUTOMIX_STEM_CHARGING_ONLY, value).apply()
+    }
+
+    fun setAutomixStemCompressed(value: Boolean) {
+        automixStemCompressed.value = value
+        prefs.edit().putBoolean(KEY_AUTOMIX_STEM_COMPRESSED, value).apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -2303,6 +2331,9 @@ object AppSettings {
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
+    private const val KEY_AUTOMIX_STEM_MODE = "automix_stem_mode"
+    private const val KEY_AUTOMIX_STEM_CHARGING_ONLY = "automix_stem_charging_only"
+    private const val KEY_AUTOMIX_STEM_COMPRESSED = "automix_stem_compressed"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"

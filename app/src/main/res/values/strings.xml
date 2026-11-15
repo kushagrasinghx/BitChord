@@ -281,6 +281,22 @@
     <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
     <string name="automix_mode_performance">Performance</string>
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
+    <string name="automix_stem_splitting" translatable="false">Stem splitting</string>
+    <string name="automix_stem_splitting_subtitle" translatable="false">Separates vocals and instrumentals for seamless DJ transitions</string>
+    <string name="automix_stem_off" translatable="false">Off</string>
+    <string name="automix_stem_off_subtitle" translatable="false">Standard AutoMix blending</string>
+    <string name="automix_stem_fast" translatable="false">Fast (2-Stem)</string>
+    <string name="automix_stem_fast_subtitle" translatable="false">Vocals &amp; instrumental backing</string>
+    <string name="automix_stem_four" translatable="false">High quality (4-Stem)</string>
+    <string name="automix_stem_four_subtitle" translatable="false">Vocals, drums, bass, and other</string>
+    <string name="automix_stem_charging_only" translatable="false">Split only while charging</string>
+    <string name="automix_stem_charging_only_subtitle" translatable="false">Prevents background battery drain</string>
+    <string name="automix_stem_compressed" translatable="false">Compress stem cache</string>
+    <string name="automix_stem_compressed_subtitle" translatable="false">Saves local device storage space</string>
+    <string name="automix_stem_footer" translatable="false">AutoMix uses stems to execute clean vocal handovers and prevent low-end mud between songs.</string>
+    <string name="automix_clear_stems" translatable="false">Stem storage</string>
+    <string name="automix_stem_storage_subtitle" translatable="false">Tap to clear cached stems (%s used)</string>
+    <string name="automix_stems_cleared" translatable="false">Cleared stem cache</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>

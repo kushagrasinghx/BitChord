@@ -163,6 +163,8 @@ import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.data.settings.AutomixPerformanceMode
+import com.music.bitchord.data.settings.AutomixStemMode
+import com.music.bitchord.playback.smart.StemManager
 import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
@@ -232,6 +234,9 @@ fun SettingsScreen(
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
+    val automixStemMode by AppSettings.automixStemMode.collectAsStateWithLifecycle()
+    val automixStemChargingOnly by AppSettings.automixStemChargingOnly.collectAsStateWithLifecycle()
+    val automixStemCompressed by AppSettings.automixStemCompressed.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val sleepTimerFadeOut by AppSettings.sleepTimerFadeOut.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
@@ -835,6 +840,69 @@ fun SettingsScreen(
                         value = automixPerformance.localizedLabel(),
                         onClick = { onOpenChoice(SettingsChoiceKind.AUTOMIX_PERFORMANCE) },
                     )
+                }
+            }
+            val automixStemTitle = stringResource(R.string.automix_stem_splitting)
+            row(automixStemTitle, "stems", "vocals", "dj") {
+                BypassedByBitPerfect(bitPerfectReady) {
+                    SettingsRow(
+                        icon = SfIcons.Sliders,
+                        title = automixStemTitle,
+                        subtitle = stringResource(R.string.automix_stem_splitting_subtitle),
+                        value = automixStemMode.localizedLabel(),
+                        onClick = { onOpenChoice(SettingsChoiceKind.AUTOMIX_STEM_MODE) },
+                    )
+                }
+            }
+            if (automixStemMode.isEnabled) {
+                val stemChargingTitle = stringResource(R.string.automix_stem_charging_only)
+                row(stemChargingTitle, "charging", "battery") {
+                    BypassedByBitPerfect(bitPerfectReady) {
+                        SettingsRow(
+                            icon = SfIcons.Performance,
+                            title = stemChargingTitle,
+                            subtitle = stringResource(R.string.automix_stem_charging_only_subtitle),
+                            trailing = {
+                                IosSwitch(
+                                    checked = automixStemChargingOnly,
+                                    onCheckedChange = AppSettings::setAutomixStemChargingOnly,
+                                )
+                            },
+                            onClick = { AppSettings.setAutomixStemChargingOnly(!automixStemChargingOnly) },
+                        )
+                    }
+                }
+                val stemCompressTitle = stringResource(R.string.automix_stem_compressed)
+                row(stemCompressTitle, "storage", "compression") {
+                    BypassedByBitPerfect(bitPerfectReady) {
+                        SettingsRow(
+                            icon = SfIcons.Storage,
+                            title = stemCompressTitle,
+                            subtitle = stringResource(R.string.automix_stem_compressed_subtitle),
+                            trailing = {
+                                IosSwitch(
+                                    checked = automixStemCompressed,
+                                    onCheckedChange = AppSettings::setAutomixStemCompressed,
+                                )
+                            },
+                            onClick = { AppSettings.setAutomixStemCompressed(!automixStemCompressed) },
+                        )
+                    }
+                }
+                var stemBytes by remember { mutableStateOf(StemManager.getStemStorageBytes(context)) }
+                val clearStemsTitle = stringResource(R.string.automix_clear_stems)
+                row(clearStemsTitle, "storage", "clear") {
+                    BypassedByBitPerfect(bitPerfectReady) {
+                        SettingsRow(
+                            icon = SfIcons.Trash,
+                            title = clearStemsTitle,
+                            subtitle = stringResource(R.string.automix_stem_storage_subtitle, StemManager.formatStorageSize(stemBytes)),
+                            onClick = {
+                                StemManager.clearStems(context)
+                                stemBytes = StemManager.getStemStorageBytes(context)
+                            },
+                        )
+                    }
                 }
             }
             val skipSilenceTitle = stringResource(R.string.skip_silence)
@@ -2155,6 +2223,24 @@ private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
     },
 )
 
+@Composable
+private fun AutomixStemMode.localizedLabel(): String = stringResource(
+    when (this) {
+        AutomixStemMode.OFF -> R.string.automix_stem_off
+        AutomixStemMode.VOCALS_INSTRUMENTAL -> R.string.automix_stem_fast
+        AutomixStemMode.FOUR_STEM -> R.string.automix_stem_four
+    },
+)
+
+@Composable
+private fun AutomixStemMode.description(): String = stringResource(
+    when (this) {
+        AutomixStemMode.OFF -> R.string.automix_stem_off_subtitle
+        AutomixStemMode.VOCALS_INSTRUMENTAL -> R.string.automix_stem_fast_subtitle
+        AutomixStemMode.FOUR_STEM -> R.string.automix_stem_four_subtitle
+    },
+)
+
 /**
  * Hands the device's own effect panel this app's audio session.
  *
@@ -2892,6 +2978,7 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
     AUDIO_QUALITY_CELLULAR(R.string.on_mobile_data),
     DOWNLOAD_QUALITY(R.string.download_quality),
     AUTOMIX_PERFORMANCE(R.string.automix_performance),
+    AUTOMIX_STEM_MODE(R.string.automix_stem_splitting),
     BIT_PERFECT(R.string.bit_perfect_output),
     FONT(R.string.font),
 }
@@ -2992,6 +3079,20 @@ fun SettingsChoicePage(
                     footer = stringResource(R.string.automix_performance_warning),
                 ) { mode ->
                     AppSettings.setAutomixPerformanceMode(mode)
+                    onChosen()
+                }
+            }
+
+            SettingsChoiceKind.AUTOMIX_STEM_MODE -> {
+                val selected by AppSettings.automixStemMode.collectAsStateWithLifecycle()
+                ChoiceGroup(
+                    options = AutomixStemMode.entries,
+                    selected = selected,
+                    label = { it.localizedLabel() },
+                    detail = { it.description() },
+                    footer = stringResource(R.string.automix_stem_footer),
+                ) { mode ->
+                    AppSettings.setAutomixStemMode(mode)
                     onChosen()
                 }
             }

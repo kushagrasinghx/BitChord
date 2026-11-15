@@ -202,6 +202,8 @@ data class TransitionPlan(
     val bedPosition: Double = BED_POSITION,
     val bassSwapFraction: Double = 0.7,
     val filterSweep: Double = 0.0,
+    /** Whether stem-based vocal handover and layered instrumental transitions are active. */
+    val stemSeparation: Boolean = false,
     /** The stable per-pair gesture for [TransitionStyle.DJ_FILTER]. */
     val filterVariant: FilterTransitionVariant = FilterTransitionVariant.SWEEP,
     /**

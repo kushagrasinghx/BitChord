@@ -88,10 +88,12 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -246,6 +248,23 @@ private val GLOW_RADIUS = 6.dp
  * padding and row spacing.
  */
 private val GLOW_ROOM = 10.dp
+
+/** Applies group alpha while leaving [outset] available for draw overflow. */
+private fun Modifier.alphaLayerWithOutset(alpha: () -> Float, outset: Dp): Modifier = drawWithCache {
+    val outsetPx = outset.toPx()
+    val bounds = Rect(-outsetPx, -outsetPx, size.width + outsetPx, size.height + outsetPx)
+    val paint = Paint()
+    onDrawWithContent {
+        paint.alpha = alpha()
+        val canvas = drawContext.canvas
+        canvas.saveLayer(bounds, paint)
+        try {
+            drawContent()
+        } finally {
+            canvas.restore()
+        }
+    }
+}
 
 /**
  * How the answering vocal is drawn: smaller than the lead and a shade behind
@@ -797,6 +816,7 @@ private fun SweptLyricLine(
     glowAlpha: Float = 0f,
     glowRadius: Dp = GLOW_RADIUS,
     glowRoom: Dp = 0.dp,
+    glowLayerOutset: Dp = 0.dp,
     feather: Boolean = false,
     rise: Boolean = true,
     alignEnd: Boolean = false,
@@ -920,14 +940,18 @@ private fun SweptLyricLine(
             modifier = riseAgainst(room),
         )
         if (glowAlpha > 0.01f) {
+            val glowAlphaLayer = if (glowLayerOutset > 0.dp) {
+                Modifier.alphaLayerWithOutset(alpha = { glowAlpha }, outset = glowLayerOutset)
+            } else {
+                Modifier.graphicsLayer { alpha = glowAlpha }
+            }
             Text(
                 text = line.text,
                 style = style,
                 color = color,
                 maxLines = maxLines,
                 overflow = overflow,
-                modifier = Modifier
-                    .graphicsLayer { alpha = glowAlpha }
+                modifier = glowAlphaLayer
                     .blur(glowRadius, BlurredEdgeTreatment.Unbounded)
                     .then(room)
                     // Each letter is masked to its own brightness with DstIn,
@@ -2940,8 +2964,7 @@ private fun CurrentLyricLine(
             // slides off, and the one arriving is at full strength from its
             // first frame. A single fade on the row would hand the old line the
             // new line's alpha the instant the index changed.
-            val fading = Modifier.graphicsLayer {
-                if (itemInstrumental) return@graphicsLayer
+            val lineAlpha: () -> Float = {
                 val start = lines.getOrNull(itemIndex)?.timeMs ?: 0L
                 val end = lines.getOrNull(itemIndex + 1)?.timeMs
                     ?: durationMs.takeIf { it > start }
@@ -2949,7 +2972,14 @@ private fun CurrentLyricLine(
                 val fade = ((end - start) * LYRIC_FADE_FRACTION)
                     .coerceIn(LYRIC_FADE_MIN_MS, LYRIC_FADE_MAX_MS)
                 val remaining = (end - clock.longValue).toFloat()
-                alpha = 0.78f * (remaining / fade).coerceIn(0f, 1f)
+                0.78f * (remaining / fade).coerceIn(0f, 1f)
+            }
+            val fading = if (!itemInstrumental && swept != null && itemIndex == index && glow > 0.01f) {
+                Modifier.alphaLayerWithOutset(alpha = lineAlpha, outset = GLOW_ROOM)
+            } else {
+                Modifier.graphicsLayer {
+                    if (!itemInstrumental) alpha = lineAlpha()
+                }
             }
             if (swept != null) {
                 SweptLyricLine(
@@ -2960,6 +2990,7 @@ private fun CurrentLyricLine(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     glowAlpha = if (itemIndex == index) glow else 0f,
+                    glowLayerOutset = GLOW_ROOM,
                     feather = itemIndex == index,
                     rise = false,
                     modifier = fading,

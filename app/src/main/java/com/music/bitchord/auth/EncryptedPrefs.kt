@@ -36,6 +36,14 @@ internal object EncryptedPrefs {
     fun open(context: Context, name: String, plainName: String): SharedPreferences =
         opened.getOrPut(name) { resolve(context.applicationContext, name, plainName) }
 
+    /**
+     * Encrypted-only store for secrets that must never have a plaintext
+     * fallback. Returns null when the Keystore/keyset cannot initialize or
+     * read; callers must fail closed rather than write a plaintext copy.
+     */
+    fun openSecure(context: Context, name: String): SharedPreferences? =
+        runCatching { create(context.applicationContext, name) }.getOrNull()
+
     private fun resolve(context: Context, name: String, plainName: String): SharedPreferences {
         val encrypted = try {
             create(context, name)

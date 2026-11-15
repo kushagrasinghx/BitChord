@@ -1481,7 +1481,9 @@ object ListenTogether {
             ?: account.name.takeIf { it.isNotBlank() }
             ?: account.email.substringBefore('@').takeIf { it.isNotBlank() }
             ?: return null
-        val secret = pseudonymSecret()
+        // Fail closed when secure pseudonym storage is unavailable. Never fall
+        // back to a raw account/device identifier or a plaintext key.
+        val secret = pseudonymSecret() ?: return null
         return Identity(
             userId = PartyPseudonyms.derive(
                 secret,
@@ -1583,18 +1585,17 @@ object ListenTogether {
      * migration from the earlier plain preference. It never leaves the device
      * and is backup-excluded; losing it only gives the party a new pseudonym.
      */
-    private fun pseudonymSecret(): String {
-        val encrypted = EncryptedPrefs.open(appContext, SECRET_PREFS, SECRET_PREFS_PLAIN)
-        encrypted.getString(KEY_PSEUDONYM_SECRET, null)?.let { return it }
-
-        val legacy = prefs.getString(KEY_PSEUDONYM_SECRET, null)
-        val secret = legacy ?: UUID.randomUUID().toString()
-        if (!encrypted.edit().putString(KEY_PSEUDONYM_SECRET, secret).commit()) {
-            Log.w(TAG, "could not persist party pseudonym key in encrypted storage")
-            return secret
-        }
-        prefs.edit().remove(KEY_PSEUDONYM_SECRET).apply()
-        return secret
+    private fun pseudonymSecret(): String? {
+        val secure = EncryptedPrefs.openSecure(appContext, SECRET_PREFS) ?: return null
+        return PartySecretStore(
+            readSecure = { secure.getString(KEY_PSEUDONYM_SECRET, null) },
+            writeSecureVerified = { value ->
+                secure.edit().putString(KEY_PSEUDONYM_SECRET, value).commit() &&
+                    secure.getString(KEY_PSEUDONYM_SECRET, null) == value
+            },
+            readLegacy = { prefs.getString(KEY_PSEUDONYM_SECRET, null) },
+            removeLegacy = { prefs.edit().remove(KEY_PSEUDONYM_SECRET).apply() },
+        ).secretOrNull()
     }
 
     private fun recordActivity(entry: PartyActivity) {
@@ -1733,7 +1734,6 @@ object ListenTogether {
     private const val KEY_DEVICE = "device_id"
     private const val KEY_PSEUDONYM_SECRET = "pseudonym_secret"
     private const val SECRET_PREFS = "bitchord_party_secret"
-    private const val SECRET_PREFS_PLAIN = "bitchord_party_secret_plain"
     private const val KEY_NICKNAME = "party_nickname"
     private const val KEY_KICKED = "party_kicked_until"
 

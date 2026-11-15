@@ -2896,7 +2896,7 @@ private fun CurrentLyricLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (stripRtl) Arrangement.End else Arrangement.Start,
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .then(if (glow > 0.01f) Modifier else Modifier.clip(RoundedCornerShape(8.dp)))
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
     ) {
@@ -2960,7 +2960,6 @@ private fun CurrentLyricLine(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     glowAlpha = if (itemIndex == index) glow else 0f,
-                    glowRoom = GLOW_ROOM,
                     feather = itemIndex == index,
                     rise = false,
                     modifier = fading,

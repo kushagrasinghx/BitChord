@@ -26,7 +26,11 @@ import java.nio.ByteOrder
 @androidx.annotation.OptIn(UnstableApi::class)
 class PrecisionAudioSinkTest {
 
-    private class FakeAudioSink : AudioSink {
+    /**
+     * Internal rather than private: the routing sink's handover tests drive the
+     * same fake, and a second copy would drift from this one.
+     */
+    internal class FakeAudioSink : AudioSink {
         var configuredConfig: AudioSink.AudioSinkConfig? = null
         private var sinkListener: AudioSink.Listener? = null
         var flushed: Boolean = false

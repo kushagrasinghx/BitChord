@@ -435,6 +435,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (localUri != null) {
                 EmbeddedLyrics.forUri(getApplication(), localUri)?.let { embedded ->
                     _lyrics.value = embedded
+                    wearPublishLyrics(embedded)
                     // No source to name: what the file records is the lyrics,
                     // not which of the eight services they came from months ago.
                     _lyricsSource.value = null
@@ -458,9 +459,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             )
             val selected = selectedLyricsSource?.let(lyricsProviderResults::get) ?: found
             _lyrics.value = selected?.lines
+            selected?.lines?.let { wearPublishLyrics(it) }
             _lyricsSource.value = selected?.source
             _lyricsChecked.value = true
         }
+    }
+
+    /** What the player is showing now goes to the watch too (see WearLyricsSync). */
+    private fun wearPublishLyrics(lines: List<com.music.bitchord.data.lyrics.LyricLine>) {
+        val request = currentLyricsRequest ?: return
+        com.music.bitchord.wear.WearLyricsSync.publish(
+            getApplication<android.app.Application>(),
+            request.videoId, request.title, request.artist, request.durationMs, lines,
+            album = request.album,
+            fromUi = true,
+        )
     }
 
     /**
@@ -472,7 +485,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         when (_lyricsProviderStates.value[source]) {
             LyricsProviderState.FOUND -> {
                 selectedLyricsSource = source
-                lyricsProviderResults[source]?.let(::showLyricsResult)
+                lyricsProviderResults[source]?.let { showLyricsResult(it); wearPublishLyrics(it.lines) }
             }
             LyricsProviderState.FETCHING -> {
                 // Apply it as soon as the already-running automatic attempt completes.
@@ -528,7 +541,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         lyricsProviderResults[source] = result
         _lyricsProviderStates.update { it + (source to LyricsProviderState.FOUND) }
-        if (selectedLyricsSource == source) showLyricsResult(result)
+        if (selectedLyricsSource == source) {
+            showLyricsResult(result)
+            wearPublishLyrics(result.lines)
+        }
     }
 
     private fun providerCancelled(generation: Long, source: LyricsSource) {

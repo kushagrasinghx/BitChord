@@ -725,6 +725,19 @@
                 android:resource="@xml/widget_media_pill" />
         </receiver>
 
+        <!-- The Synced Lyrics widget: real-time synchronized lyrics with playback controls. -->
+        <receiver
+            android:name=".widget.LyricsWidget"
+            android:exported="false"
+            android:label="@string/widget_lyrics_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_lyrics" />
+        </receiver>
+
         <!-- Quick Settings tile: play or pause the last queue. See PlaybackTile. -->
         <service
             android:name=".widget.PlaybackTile"

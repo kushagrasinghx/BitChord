@@ -235,6 +235,7 @@ fun SettingsScreen(
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     val directSourceStream by AppSettings.directSourceStream.collectAsStateWithLifecycle()
+    val prefetchNext by AppSettings.prefetchNextTrack.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
     // against a key that can never change — see [DeviceCodecs.playsDolbyAtmos],
     // which caches the codec-list walk for the life of the process.
@@ -530,6 +531,19 @@ fun SettingsScreen(
                         onCheckedChange = AppSettings::setDirectSourceStream,
                         subtitle = stringResource(R.string.direct_source_stream_in_party).takeIf { party.inParty },
                         enabled = !party.inParty,
+                    )
+                }
+                // Held beside the source rows rather than standing as a
+                // setting of its own: the work belongs to whichever sources
+                // answer, and this toggle only asks them to start earlier —
+                // see [SourceResolver.cacheAheadStream].
+                val prefetchNextTitle = stringResource(R.string.prefetch_next_track)
+                row(prefetchNextTitle, "prefetch", "next", "cache", "hold", "lookahead", divided = false) {
+                    SettingsSubRow(
+                        title = prefetchNextTitle,
+                        checked = prefetchNext,
+                        onCheckedChange = AppSettings::setPrefetchNextTrack,
+                        subtitle = stringResource(R.string.prefetch_next_track_subtitle),
                     )
                 }
                 val onWifiTitle = stringResource(R.string.on_wifi)

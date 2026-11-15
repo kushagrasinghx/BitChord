@@ -1387,6 +1387,8 @@
     <string name="offline_liked_empty">Lagu yang kamu sukai di perangkat ini muncul di sini</string>
     <string name="saved_on_this_device">Disimpan di perangkat ini</string>
     <string name="direct_source_stream_in_party">Nonaktif selama kamu dalam pesta Listen Together</string>
+    <string name="prefetch_next_track">Siapkan lagu berikutnya</string>
+    <string name="prefetch_next_track_subtitle">Menyelesaikan dan menyimpan utuh stream lossless lagu berikutnya saat lagu saat ini diputar.</string>
     <string name="direct_source_stream">Streaming langsung dari sumber</string>
     <string name="find_your_mood">Temukan Mood Anda</string>
     <string name="progressive_blur">Blur progresif</string>

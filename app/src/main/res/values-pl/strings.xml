@@ -1450,6 +1450,8 @@
     <string name="offline_liked_empty">Utwory polubione na tym urządzeniu pojawią się tutaj</string>
     <string name="saved_on_this_device">Zapisano na tym urządzeniu</string>
     <string name="direct_source_stream_in_party">Wyłączone podczas imprezy Listen Together</string>
+    <string name="prefetch_next_track">Przygotuj następny utwór</string>
+    <string name="prefetch_next_track_subtitle">Rozwiązuje i zapisuje w całości bezstratny strumień następnego utworu podczas grania bieżącego.</string>
     <string name="direct_source_stream">Bezpośredni strumień ze źródła</string>
     <string name="find_your_mood">Znajdź swój nastrój</string>
     <string name="progressive_blur">Stopniowe rozmycie</string>

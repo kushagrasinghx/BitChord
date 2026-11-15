@@ -1415,6 +1415,8 @@
     <string name="offline_liked_empty">שירים שאהבת במכשיר הזה יופיעו כאן</string>
     <string name="saved_on_this_device">נשמר במכשיר הזה</string>
     <string name="direct_source_stream_in_party">כבוי בזמן מסיבת Listen Together</string>
+    <string name="prefetch_next_track">השאר את השיר הבא מוכן</string>
+    <string name="prefetch_next_track_subtitle">פותר ושומר במטמון את הזרמת הלא-דעת של השיר הבא בזמן שהשיר הנוכחי מתנגן.</string>
     <string name="direct_source_stream">הזרמה ישירה מהמקור</string>
     <string name="find_your_mood">מצא את מצב הרוח שלך</string>
     <string name="progressive_blur">טשטוש הדרגתי</string>

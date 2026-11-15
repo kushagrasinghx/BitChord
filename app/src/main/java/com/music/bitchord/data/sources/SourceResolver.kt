@@ -459,6 +459,93 @@ object SourceResolver {
     }
 
     /**
+     * The copy of [target] held by *any* source ranked above YouTube — the
+     * slow ones included — or null when none of them has the recording.
+     *
+     * This is [prefetchSubstitute]'s opposite number, and cache-ahead's
+     * resolve: it runs while a *different* track is playing, so a slow
+     * catalogue's full search window costs nothing to wait for, and its
+     * answer can be pulled onto disk in full before the track being asked
+     * about is ever opened. [prefetchSubstitute] narrows itself to
+     * [SourceKind.worthPrefetching] sources and accepts a below-request
+     * settle-for because it runs while nothing is playing and cannot afford
+     * the wait; neither concession makes sense here, where the answer decides
+     * whether a queued track opens lossless or not.
+     *
+     * ### What the caller must do with the answer
+     *
+     * Park it in [QualityUpgrade][com.music.bitchord.playback.QualityUpgrade]'s
+     * [force][com.music.bitchord.playback.QualityUpgrade.force], pull the file
+     * onto disk in full, and only then mark the queued item with
+     * [QualityUpgrade][com.music.bitchord.playback.QualityUpgrade]'s rendition
+     * marker — see [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
+     * cache-ahead. Not a [StreamChoice][com.music.bitchord.playback.StreamChoice]
+     * pin: a quick source may already have one on the track, and the pin
+     * cannot be overwritten — read-ahead warms bytes for it under the track's
+     * own key, and a second source continuing that entry is the exact
+     * corruption [StreamChoice] exists to prevent. The marker path plays the
+     * found stream from its own rendition key instead, and leaves whatever is
+     * already on disk untouched.
+     *
+     * Null is returned for anything short of a stream that *satisfies the
+     * request* — [matchAndStream]'s `belowRequest` settle-for is declined
+     * here, where [prefetchSubstitute] accepts it. The caller marks the item
+     * as already upgraded, which closes the second look for good; parking a
+     * below-request stream behind that marker would strand the track below
+     * the setting with no hunt left to raise it. Nothing has been marked, so
+     * the ordinary resolve at playback time is untouched.
+     *
+     * ### Manifest answers, warmed only when [allowManifest] asks
+     *
+     * A DASH answer — which is what Tidal's own CDN hands back, and the kind
+     * of thing the reference addon serves from `/dash/{id}` — is not a file,
+     * it is an *index* of one, and the single-file pull breaks on it in both
+     * of the ways a direct file does not. Measured on 'Forever Young' with a
+     * manifest answer parked and marked: the entry warmed with the manifest
+     * itself — 1.8kB, where a file answer leaves megabytes — because a DASH
+     * source's segments fetch under their own URLs and land in their own
+     * entries; and when the marked item later opened, the parked manifest
+     * spent 128 seconds failing to produce sound before serving a fraction of
+     * the track.
+     *
+     * So the default refuses them, through [bestAcross]'s `accept` rather
+     * than after it, so a slightly lower-ranked direct file — which is nearly
+     * always sitting one source over — still wins the cache instead of the
+     * lookup returning null. With [allowManifest] the caller has the
+     * manifest-aware warm beside it ([AudioCache.warmWholeManifest]), which
+     * warms the trimmed manifest *and* every segment of the lossless
+     * rendition, and the refusal becomes the ordinary "nothing that
+     * satisfies" when the manifest turns out untrimmable — encrypted,
+     * multi-period, or carrying no lossless rendition.
+     */
+    suspend fun cacheAheadStream(
+        target: TrackMatcher.Target,
+        allowManifest: Boolean = false,
+    ): SourceStream? {
+        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
+        val active = SourceRegistry.activeForPlayback()
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+        val candidates = rankedAbove(youtube.configId, active)
+        if (candidates.isEmpty()) return null
+        val (source, stream) = bestAcross(
+            candidates,
+            target,
+            requestForNow(),
+            waitForAll = true,
+            strictLength = true,
+            requireSharedArtist = target.artist.isNotBlank(),
+            driftSec = upgradeSlackSec(),
+            accept = { _, stream -> allowManifest || !StreamContainer.isManifest(stream.url) },
+        ) ?: return null
+        if (stream.belowRequest) return null
+        TrackLog.d(
+            TAG,
+            "cache-ahead: '${target.title}' from ${source.displayName} at ${stream.format.summary}",
+        )
+        return stream
+    }
+
+    /**
      * A stream that genuinely satisfies the current request, for a track that
      * is already playing on one that doesn't — or null if there isn't one.
      *

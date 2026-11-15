@@ -1349,6 +1349,8 @@
     <string name="offline_liked_empty">I brani che ti piacciono su questo dispositivo compaiono qui</string>
     <string name="saved_on_this_device">Salvata su questo dispositivo</string>
     <string name="direct_source_stream_in_party">Disattivato durante una festa Listen Together</string>
+    <string name="prefetch_next_track">Tieni pronto il brano successivo</string>
+    <string name="prefetch_next_track_subtitle">Risolve e memorizza per intero lo stream lossless del brano successivo mentre quello attuale suona.</string>
     <string name="direct_source_stream">Streaming diretto dalla fonte</string>
     <string name="find_your_mood">Trova il tuo mood</string>
     <string name="progressive_blur">Sfocatura progressiva</string>

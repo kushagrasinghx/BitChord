@@ -363,6 +363,27 @@ object AppSettings {
     val directSourceStream = MutableStateFlow(false)
 
     /**
+     * Holds the next track's lossless stream as soon as it is queued, instead
+     * of waiting for the current track's final seconds.
+     *
+     * What the listener sees either way is the next track opening lossless
+     * from its first byte; what differs is *when* the work happens and how
+     * much of it is done. On, the pre-transition lookup runs the moment a
+     * track becomes the queue's next item — usually while the one before it is
+     * still at its opening — and the stream it proves is pulled onto disk in
+     * full, so the track's addon URL has long expired by the time anything
+     * needs it and the cache has already answered. Off, the lookup waits for
+     * the last ten seconds of the playing track, the narrower window the
+     * setting existed to widen, and nothing beyond the audition's own head is
+     * fetched early.
+     *
+     * Optional rather than always-on because the early fetch is the app's
+     * most expensive habit: a whole lossless file per queued track, most of
+     * which a listener who skips constantly never hears.
+     */
+    val prefetchNextTrack = MutableStateFlow(true)
+
+    /**
      * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
      * a stereo widening + cross-feed effect running inside ExoPlayer's own
      * pipeline. Not true object-based spatial audio — YouTube only ever hands
@@ -996,6 +1017,7 @@ object AppSettings {
         loudnessOffOnSpeaker.value = prefs.getBoolean(KEY_LOUDNESS_OFF_ON_SPEAKER, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
+        prefetchNextTrack.value = prefs.getBoolean(KEY_PREFETCH_NEXT_TRACK, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
@@ -1315,6 +1337,11 @@ object AppSettings {
     fun setDirectSourceStream(value: Boolean) {
         directSourceStream.value = value
         prefs.edit().putBoolean(KEY_DIRECT_SOURCE_STREAM, value).apply()
+    }
+
+    fun setPrefetchNextTrack(value: Boolean) {
+        prefetchNextTrack.value = value
+        prefs.edit().putBoolean(KEY_PREFETCH_NEXT_TRACK, value).apply()
     }
 
     fun setSpatialAudio(value: Boolean) {
@@ -2268,6 +2295,7 @@ object AppSettings {
     private const val KEY_LOUDNESS_OFF_ON_SPEAKER = "loudness_off_on_speaker"
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
+    private const val KEY_PREFETCH_NEXT_TRACK = "prefetch_next_track"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"

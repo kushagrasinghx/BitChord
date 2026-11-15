@@ -1442,6 +1442,8 @@
     <string name="offline_liked_empty">Треки, которые вам понравились на этом устройстве, появятся здесь</string>
     <string name="saved_on_this_device">Сохранено на этом устройстве</string>
     <string name="direct_source_stream_in_party">Отключено во время вечеринки Listen Together</string>
+    <string name="prefetch_next_track">Подготовить следующий трек</string>
+    <string name="prefetch_next_track_subtitle">Находит и кэширует целиком поток без потерь следующего трека, пока играет текущий.</string>
     <string name="direct_source_stream">Прямой поток из источника</string>
     <string name="find_your_mood">Найдите своё настроение</string>
     <string name="progressive_blur">Плавное размытие</string>

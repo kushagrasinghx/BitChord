@@ -150,6 +150,7 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.widget.LyricsWidget
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
 import com.music.bitchord.wear.WearBridge
@@ -848,6 +849,7 @@ class PlaybackService : MediaLibraryService() {
     private var serviceLyricsJob: Job? = null
     private var serviceLyrics: List<LyricLine>? = null
     private var lastPublishedSubtitle: String? = null
+    private var lastPublishedLyric: String? = null
     private var lyricsTickerJob: Job? = null
 
     /**
@@ -1808,6 +1810,7 @@ class PlaybackService : MediaLibraryService() {
         } else {
             MediaWidgetSnapshot.save(this, MediaWidgetSnapshot.EMPTY)
             MediaWidget.refresh(this)
+            LyricsWidget.refresh(this)
         }
         // History pings fire once a track is actually audible — both when
         // playback starts and when the queue moves on while already playing.
@@ -6313,9 +6316,11 @@ class PlaybackService : MediaLibraryService() {
             isLiked = liked,
             canLike = canLike(exoPlayer.currentMediaItem),
             shuffleEnabled = QueueShuffle.enabled.value,
+            currentLyric = lastPublishedLyric,
         )
         MediaWidgetSnapshot.save(this, snapshot)
         MediaWidget.refresh(this)
+        LyricsWidget.refresh(this)
         // The watch app follows the widget — same moments, same snapshot.
         WearBridge.publish(this, snapshot, reported, playing)
     }
@@ -8014,14 +8019,26 @@ class PlaybackService : MediaLibraryService() {
         val currentSong = exoPlayer.currentMediaItem?.toSong() ?: return
         val lines = serviceLyrics
         val pos = crossfade?.loopPositionMs() ?: exoPlayer.currentPosition
-        val subtitleText = if (lines != null && lines.isNotEmpty() && AppSettings.syncedLyrics.value) {
+        val currentLyric = if (lines != null && lines.isNotEmpty() && AppSettings.syncedLyrics.value) {
             val idx = lines.indexOfLast { it.timeMs <= pos }
             val currentLine = lines.getOrNull(idx)
             if (currentLine != null && !currentLine.isGap && currentLine.text.isNotBlank()) {
-                "♪ ${currentLine.text}"
+                currentLine.text
             } else {
-                currentSong.artist
+                null
             }
+        } else {
+            null
+        }
+
+        if (currentLyric != lastPublishedLyric) {
+            lastPublishedLyric = currentLyric
+            MediaWidgetSnapshot.saveLyric(this, currentLyric)
+            LyricsWidget.refresh(this)
+        }
+
+        val subtitleText = if (currentLyric != null) {
+            "♪ $currentLyric"
         } else {
             currentSong.artist
         }

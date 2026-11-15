@@ -184,6 +184,7 @@ import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
+import com.music.bitchord.ui.screens.IMPORT_SPOTIFY_BROWSE_ID
 import com.music.bitchord.ui.screens.SPOTIFY_BROWSE_ID
 import com.music.bitchord.ui.screens.libraryLinks
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
@@ -2268,6 +2269,10 @@ private fun BitChordApp(
                 navigator.push(AppRoute.Spotify)
                 return@let
             }
+            if (id == IMPORT_SPOTIFY_BROWSE_ID) {
+                showSpotifyImportDialog = true
+                return@let
+            }
             if ((id == "local:all" || id == "local:downloads") && !LocalMediaRepository.hasStoragePermission(context)) {
                 mediaPermissionLauncher.launch(mediaPermission)
             }
@@ -3728,7 +3733,7 @@ private fun BitChordApp(
                                 onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
                                 pullState = libraryPull,
                                 contentPadding = listPadding,
-                                links = libraryLinks(),
+                                links = libraryLinks(signedIn),
                                 deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
                             )
                         }

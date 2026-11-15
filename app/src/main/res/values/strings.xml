@@ -55,6 +55,7 @@
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
+    <string name="liked_songs_subtitle" translatable="false">Your favorite tracks</string>
     <string name="auto_login_title">Sign in to YouTube on your phone</string>
     <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
     <string name="auto_empty_recents_title">No recent songs</string>

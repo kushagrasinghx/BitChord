@@ -34,6 +34,8 @@ actual fun StatusBarIcons(dark: Boolean) {
     }
 }
 
+private var activeHideStatusBarCount = 0
+
 @Composable
 actual fun HideStatusBar(hidden: Boolean) {
     val view = LocalView.current
@@ -58,14 +60,20 @@ actual fun HideStatusBar(hidden: Boolean) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.statusBars())
+        activeHideStatusBarCount++
+        if (activeHideStatusBarCount == 1) {
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+        }
         onDispose {
-            controller.show(WindowInsetsCompat.Type.statusBars())
-            controller.systemBarsBehavior = behavior
-            if (intoCutout && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                window.attributes = window.attributes.apply {
-                    layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+            activeHideStatusBarCount = (activeHideStatusBarCount - 1).coerceAtLeast(0)
+            if (activeHideStatusBarCount == 0) {
+                controller.show(WindowInsetsCompat.Type.statusBars())
+                controller.systemBarsBehavior = behavior
+                if (intoCutout && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.attributes = window.attributes.apply {
+                        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                    }
                 }
             }
         }

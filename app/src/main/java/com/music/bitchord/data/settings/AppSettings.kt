@@ -13,6 +13,7 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.smartoffline.SelectionStrategy
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -250,6 +251,24 @@ object AppSettings {
      * without being asked each time. See [com.music.bitchord.download.PlaylistSync].
      */
     val syncDownloadedPlaylists = MutableStateFlow(false)
+
+    /**
+     * How the Smart Offline rotation is tilted.
+     *
+     * The rotation itself is a preview at this stage: it ranks the listening
+     * history and shows what it would choose, and downloads nothing. See
+     * [com.music.bitchord.data.smartoffline.OfflineTrackSelector].
+     */
+    val smartOfflineStrategy = MutableStateFlow(SelectionStrategy.SMART)
+
+    /**
+     * How many days of listening history the rotation is drawn from.
+     *
+     * A month is the default because it is long enough for a habit to show and
+     * short enough that a phase of listening has ended by the time it drops
+     * out.
+     */
+    val smartOfflineWindowDays = MutableStateFlow(DEFAULT_SMART_OFFLINE_WINDOW_DAYS)
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -991,6 +1010,15 @@ object AppSettings {
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
+        smartOfflineStrategy.value = runCatching {
+            SelectionStrategy.valueOf(
+                prefs.getString(KEY_SMART_OFFLINE_STRATEGY, null) ?: SelectionStrategy.SMART.name,
+            )
+        }.getOrDefault(SelectionStrategy.SMART)
+        smartOfflineWindowDays.value = prefs.getInt(
+            KEY_SMART_OFFLINE_WINDOW_DAYS,
+            DEFAULT_SMART_OFFLINE_WINDOW_DAYS,
+        ).coerceIn(MIN_SMART_OFFLINE_WINDOW_DAYS, MAX_SMART_OFFLINE_WINDOW_DAYS)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         sleepTimerFadeOut.value = prefs.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, true)
@@ -1310,6 +1338,19 @@ object AppSettings {
     fun setWifiOnlyDownloads(value: Boolean) {
         wifiOnlyDownloads.value = value
         prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value).apply()
+    }
+
+    /** Sets how the Smart Offline rotation is tilted. */
+    fun setSmartOfflineStrategy(value: SelectionStrategy) {
+        smartOfflineStrategy.value = value
+        prefs.edit().putString(KEY_SMART_OFFLINE_STRATEGY, value.name).apply()
+    }
+
+    /** Sets how far back the Smart Offline rotation looks. */
+    fun setSmartOfflineWindowDays(value: Int) {
+        val clamped = value.coerceIn(MIN_SMART_OFFLINE_WINDOW_DAYS, MAX_SMART_OFFLINE_WINDOW_DAYS)
+        smartOfflineWindowDays.value = clamped
+        prefs.edit().putInt(KEY_SMART_OFFLINE_WINDOW_DAYS, clamped).apply()
     }
 
     fun setCrossfadeSeconds(value: Int) {
@@ -2421,6 +2462,18 @@ object AppSettings {
     private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
     private const val KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY = "listenbrainz_primary_artist_only"
     private const val KEY_SPOTIFY_SPDC_TOKEN = "spotify_spdc_token"
+
+    private const val KEY_SMART_OFFLINE_STRATEGY = "smart_offline_strategy"
+    private const val KEY_SMART_OFFLINE_WINDOW_DAYS = "smart_offline_window_days"
+
+    /** The default span of history the Smart Offline rotation is drawn from. */
+    const val DEFAULT_SMART_OFFLINE_WINDOW_DAYS = 28
+
+    /** The shortest span the rotation may be drawn from. */
+    const val MIN_SMART_OFFLINE_WINDOW_DAYS = 7
+
+    /** The longest span the rotation may be drawn from. */
+    const val MAX_SMART_OFFLINE_WINDOW_DAYS = 365
 
     private const val KEY_DISCORD_USERNAME = "discord_username"
     private const val KEY_DISCORD_NAME = "discord_name"

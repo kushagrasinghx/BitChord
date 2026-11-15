@@ -192,6 +192,7 @@ import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SignatureApiEditor
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.SmartOfflineScreen
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -3186,6 +3187,8 @@ private fun BitChordApp(
                                 onCleared = { navigator.pop() },
                                 contentPadding = listPadding,
                             )
+                        } else if (pageRoute == AppRoute.SmartOffline) {
+                            SmartOfflineScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.ListenTogether) {
@@ -3228,6 +3231,7 @@ private fun BitChordApp(
                                 section = (pageRoute as? AppRoute.SettingsSection)?.category,
                                 onOpenSection = { navigator.push(AppRoute.SettingsSection(it)) },
                                 onOpenChoice = { navigator.push(AppRoute.SettingsChoice(it)) },
+                                onOpenSmartOffline = { navigator.push(AppRoute.SmartOffline) },
                                 windowWidth = windowWidth,
                                 signedIn = signedIn,
                                 account = account,
@@ -3911,6 +3915,7 @@ private fun BitChordApp(
                     title = when (route) {
                         AppRoute.Spotify -> stringResource(R.string.spotify)
                         AppRoute.Downloads -> stringResource(R.string.downloads)
+                        AppRoute.SmartOffline -> stringResource(R.string.smart_offline)
                         AppRoute.Discord -> "Discord"
                         AppRoute.History -> stringResource(R.string.history)
                         is AppRoute.LibraryShowAll -> route.shelf.title

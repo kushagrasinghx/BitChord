@@ -1487,4 +1487,17 @@
     <string name="queue_selected_count">%1$d चुने गए</string>
     <string name="queue_playlist_added">%2$d में से %1$d गाने जोड़े गए</string>
     <string name="queue_playlist_partial">%1$s (%2$d असंगत, %3$d पहले से मौजूद, %4$d विफल)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">उस रोटेशन का पूर्वावलोकन जो BitChord आपके लिए तैयार रखेगा</string>
+    <string name="smart_offline_notice">यह एक पूर्वावलोकन है। अभी कुछ भी अपने आप डाउनलोड नहीं होता — यह पेज केवल दिखाता है कि क्या चुना जाएगा और क्यों।</string>
+    <string name="smart_offline_strategy">कैसे चुनें</string>
+    <string name="smart_offline_window">कितने दिन पीछे देखें</string>
+    <string name="smart_offline_window_days">%1$d दिन</string>
+    <string name="smart_offline_recently_played">हाल में सुने</string>
+    <string name="smart_offline_frequently_played">बार-बार सुने</string>
+    <string name="smart_offline_smart">स्मार्ट</string>
+    <string name="smart_offline_core">आपकी मुख्य सूची</string>
+    <string name="smart_offline_variety">रोटेशन में विविधता</string>
+    <string name="smart_offline_empty_title">अभी दिखाने को कुछ नहीं</string>
+    <string name="smart_offline_empty_body">कुछ ट्रैक चलाएँ और रोटेशन यहाँ दिखेगा। यह इसी डिवाइस पर आपकी सुनने की आदत से बनता है और कभी इसे छोड़ता नहीं।</string>
 </resources>

@@ -1463,4 +1463,17 @@
     <string name="queue_selected_count">已選擇 %1$d 項</string>
     <string name="queue_playlist_added">已新增 %1$d/%2$d 首歌曲</string>
     <string name="queue_playlist_partial">%1$s（%2$d 首不相容，%3$d 首已存在，%4$d 首失敗）</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">預覽 BitChord 會為你準備的輪播</string>
+    <string name="smart_offline_notice">這是預覽。目前還不會自動下載任何內容——本頁只顯示會挑選什麼，以及為什麼。</string>
+    <string name="smart_offline_strategy">選擇方式</string>
+    <string name="smart_offline_window">回溯範圍</string>
+    <string name="smart_offline_window_days">%1$d 天</string>
+    <string name="smart_offline_recently_played">最近播放</string>
+    <string name="smart_offline_frequently_played">常播放</string>
+    <string name="smart_offline_smart">智慧</string>
+    <string name="smart_offline_core">你的核心</string>
+    <string name="smart_offline_variety">輪播變化</string>
+    <string name="smart_offline_empty_title">暫無內容</string>
+    <string name="smart_offline_empty_body">播放幾首歌後，輪播就會出現在這裡。它根據本機上的收聽紀錄產生，絕不離開本機。</string>
 </resources>

@@ -1492,4 +1492,17 @@
     <string name="queue_selected_count">Selecionadas: %1$d</string>
     <string name="queue_playlist_added">%1$d de %2$d músicas adicionadas</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatíveis, %3$d já presentes, %4$d com falha)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Uma prévia da rotação que o BitChord manteria pronta para você</string>
+    <string name="smart_offline_notice">Isto é uma prévia. Nada é baixado automaticamente ainda — esta página mostra apenas o que seria escolhido e por quê.</string>
+    <string name="smart_offline_strategy">Como escolher</string>
+    <string name="smart_offline_window">Até onde olhar</string>
+    <string name="smart_offline_window_days">%1$d dias</string>
+    <string name="smart_offline_recently_played">Tocados recentemente</string>
+    <string name="smart_offline_frequently_played">Tocados com frequência</string>
+    <string name="smart_offline_smart">Inteligente</string>
+    <string name="smart_offline_core">Seu núcleo</string>
+    <string name="smart_offline_variety">Variedade da rotação</string>
+    <string name="smart_offline_empty_title">Nada para mostrar ainda</string>
+    <string name="smart_offline_empty_body">Toque algumas faixas e a rotação aparecerá aqui. Ela é construída com o que você ouve, neste dispositivo, e nunca sai dele.</string>
 </resources>

@@ -1336,4 +1336,17 @@
     <string name="queue_selected_count">%1$d개 선택됨</string>
     <string name="queue_playlist_added">%2$d곡 중 %1$d곡 추가됨</string>
     <string name="queue_playlist_partial">%1$s (호환되지 않음 %2$d, 이미 있음 %3$d, 실패 %4$d)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">BitChord가 준비해 둘 회전의 미리보기</string>
+    <string name="smart_offline_notice">미리보기입니다. 아직 자동 다운로드는 하지 않으며, 이 화면은 무엇이 선택될지와 그 이유만 보여줍니다.</string>
+    <string name="smart_offline_strategy">선택 기준</string>
+    <string name="smart_offline_window">살펴볼 기간</string>
+    <string name="smart_offline_window_days">%1$d일</string>
+    <string name="smart_offline_recently_played">최근 재생</string>
+    <string name="smart_offline_frequently_played">자주 재생</string>
+    <string name="smart_offline_smart">스마트</string>
+    <string name="smart_offline_core">핵심</string>
+    <string name="smart_offline_variety">회전의 다양성</string>
+    <string name="smart_offline_empty_title">아직 보여줄 것이 없습니다</string>
+    <string name="smart_offline_empty_body">곡을 몇 개 재생하면 회전이 여기에 나타납니다. 이 기기에서의 재생 기록으로 만들어지며 기기를 벗어나지 않습니다.</string>
 </resources>

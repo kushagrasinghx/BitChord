@@ -1492,4 +1492,17 @@
     <string name="queue_selected_count">%1$d נבחרו</string>
     <string name="queue_playlist_added">נוספו %1$d מתוך %2$d שירים</string>
     <string name="queue_playlist_partial">%1$s (%2$d לא תואמים, %3$d כבר קיימים, %4$d נכשלו)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">תצוגה מקדימה של הסבב ש-BitChord היה מכין לך</string>
+    <string name="smart_offline_notice">זו תצוגה מקדימה. עדיין לא מורדד אוטומטית דבר — העמוד הזה רק מציג מה היה נבחר, ולמה.</string>
+    <string name="smart_offline_strategy">איך לבחור</string>
+    <string name="smart_offline_window">עד איזה תאריך להסתכל</string>
+    <string name="smart_offline_window_days">%1$d ימים</string>
+    <string name="smart_offline_recently_played">השמעת לאחרונה</string>
+    <string name="smart_offline_frequently_played">השמעה תדירה</string>
+    <string name="smart_offline_smart">חכם</string>
+    <string name="smart_offline_core">הליבה שלך</string>
+    <string name="smart_offline_variety">מגוון בסבב</string>
+    <string name="smart_offline_empty_title">אין מה להציג עדיין</string>
+    <string name="smart_offline_empty_body">נגן כמה רצועות והסבב יופיע כאן. הוא נבנה ממה שאתה מקשיב, במכשיר הזה, ולעולם אינו עוזב אותו.</string>
 </resources>

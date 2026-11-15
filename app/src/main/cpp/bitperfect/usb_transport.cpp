@@ -30,6 +30,12 @@
 
 #include "iso_packet_policy.h"
 
+using bitchord::usb::IsoPacketView;
+using bitchord::usb::packetCompleted;
+using bitchord::usb::packetShort;
+using bitchord::usb::packetUnsentLength;
+using bitchord::usb::packetUnsentOffset;
+
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>

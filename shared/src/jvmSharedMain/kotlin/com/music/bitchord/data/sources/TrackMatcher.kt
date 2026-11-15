@@ -527,8 +527,9 @@ object TrackMatcher {
         // the whole title — one word of "(Racing Into The Night)" is not the
         // song "Night".
         if ((wantedCJK && gotLatin) || (gotCJK && wantedLatin)) {
-            if (wanted.context.joinToString("") == got.core) return true
-            if (got.context.joinToString("") == wanted.core) return true
+            // Folded as the core is: "東京 (Tōkyō)" files the upload "Tōkyō".
+            if (foldLatin(wanted.context.joinToString("")) == got.core) return true
+            if (foldLatin(got.context.joinToString("")) == wanted.core) return true
         }
         return false
     }

@@ -30,4 +30,13 @@ class TrackMatcherAccentsTest {
         // Hindi vowel signs are combining marks; they tell these two words apart.
         assertTrue(TrackMatcher.foldLatin("दिल") != TrackMatcher.foldLatin("दल"))
     }
+
+    @Test
+    fun aCjkTitlesAccentedRomanizationStillFilesTheUpload() {
+        // The bracketed romaji is compared with the other title's (folded) core.
+        val cjk = TrackMatcher.parseTitle("東京 (Tōkyō)")
+        val latin = TrackMatcher.parseTitle("Tōkyō")
+        assertTrue(TrackMatcher.isTranslationMatch(cjk, latin))
+        assertTrue(TrackMatcher.isTranslationMatch(latin, cjk))
+    }
 }

@@ -344,8 +344,9 @@ export function isTranslationMatch(wanted: TitleParts, got: TitleParts): boolean
   const wantedLatin = hasFilingLatin(wanted.core);
   const gotLatin = hasFilingLatin(got.core);
   if ((wantedCJK && gotLatin) || (gotCJK && wantedLatin)) {
-    if ([...wanted.context].join('') === got.core) return true;
-    if ([...got.context].join('') === wanted.core) return true;
+    // Folded as the core is: "東京 (Tōkyō)" files the upload "Tōkyō".
+    if (foldLatin([...wanted.context].join('')) === got.core) return true;
+    if (foldLatin([...got.context].join('')) === wanted.core) return true;
   }
   return false;
 }

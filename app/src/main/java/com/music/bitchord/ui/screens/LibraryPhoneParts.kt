@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Storage
@@ -18,6 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
+import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
@@ -37,12 +40,13 @@ import com.music.bitchord.ui.replay.ReplayStoryPage
  * libraries it can reach.
  */
 @Composable
-fun libraryLinks(): List<LibraryLink> {
+fun libraryLinks(signedIn: Boolean = true): List<LibraryLink> {
     val webdavConfigured by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val likedBrowseId = if (signedIn) YtMusicRepository.LIKED_MUSIC else OfflinePlaylists.PREFIX + OfflinePlaylists.LIKED_ID
     fun link(title: String, subtitle: String, browseId: String, icon: ImageVector = deviceFolderIcon(browseId) ?: Icons.Rounded.Cloud) = LibraryLink(
         item = ShelfItem(
             title = title,
@@ -60,10 +64,29 @@ fun libraryLinks(): List<LibraryLink> {
             "local:downloads",
         ),
         link(
+            stringResource(R.string.auto_liked),
+            stringResource(R.string.liked_songs_subtitle),
+            likedBrowseId,
+            Icons.Rounded.Favorite,
+        ),
+        link(
             stringResource(R.string.local_music),
             stringResource(R.string.audio_files_on_device),
             "local:all",
         ),
+        if (spotifyConnected.isNotBlank()) {
+            link(
+                stringResource(R.string.spotify),
+                stringResource(R.string.spotify_library_subtitle),
+                SPOTIFY_BROWSE_ID,
+            ).copy(logo = Res.drawable.spotify_logo)
+        } else {
+            link(
+                stringResource(R.string.import_spotify),
+                stringResource(R.string.import_spotify_subtitle),
+                IMPORT_SPOTIFY_BROWSE_ID,
+            ).copy(logo = Res.drawable.spotify_logo)
+        },
         // Opt-in from Settings → Storage: what the song cache is holding from
         // YouTube and JioSaavn. See [com.music.bitchord.playback.AudioCache.cachedSongs].
         link(
@@ -82,13 +105,6 @@ fun libraryLinks(): List<LibraryLink> {
             stringResource(R.string.smb_subtitle),
             com.music.bitchord.data.smb.SmbConfig.BROWSE_ID,
         ).takeIf { smbHost.isNotBlank() && smbShare.isNotBlank() },
-        // Only while signed in to Spotify in Settings → Accounts; it opens that
-        // account's playlists rather than a browse page.
-        link(
-            stringResource(R.string.spotify),
-            stringResource(R.string.spotify_library_subtitle),
-            SPOTIFY_BROWSE_ID,
-        ).takeIf { spotifyConnected.isNotBlank() }?.copy(logo = Res.drawable.spotify_logo),
     )
 }
 
@@ -123,17 +139,21 @@ fun libraryDeviceItems(downloadedReleases: List<SavedCollection>): List<ShelfIte
  * the placeholder cover its own page opens on. Null for anything that isn't
  * one of the folders.
  */
-fun deviceFolderIcon(browseId: String): ImageVector? = when (browseId) {
-    "local:downloads" -> Icons.Rounded.Download
-    "local:all" -> Icons.Rounded.Folder
-    CACHE_FOLDER_BROWSE_ID -> Icons.Rounded.Storage
-    com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID -> Icons.Rounded.Cloud
-    com.music.bitchord.data.smb.SmbConfig.BROWSE_ID -> Icons.Rounded.Lan
+fun deviceFolderIcon(browseId: String): ImageVector? = when {
+    browseId == "local:downloads" -> Icons.Rounded.Download
+    browseId == "local:all" -> Icons.Rounded.Folder
+    browseId == CACHE_FOLDER_BROWSE_ID -> Icons.Rounded.Storage
+    browseId == com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID -> Icons.Rounded.Cloud
+    browseId == com.music.bitchord.data.smb.SmbConfig.BROWSE_ID -> Icons.Rounded.Lan
+    browseId == YtMusicRepository.LIKED_MUSIC || OfflinePlaylists.isLikedPage(browseId) -> Icons.Rounded.Favorite
     else -> null
 }
 
 /** The Library row that opens the connected Spotify account; handled by the app, not a browse page. */
 const val SPOTIFY_BROWSE_ID = "app:spotify"
+
+/** The Library row that opens the Spotify import dialog. */
+const val IMPORT_SPOTIFY_BROWSE_ID = "app:import_spotify"
 
 /** The Cached songs folder's page id — one of the `local:` device folders. */
 const val CACHE_FOLDER_BROWSE_ID = "local:cache"

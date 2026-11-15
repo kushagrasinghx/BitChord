@@ -2960,6 +2960,7 @@ private fun CurrentLyricLine(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     glowAlpha = if (itemIndex == index) glow else 0f,
+                    glowRoom = GLOW_ROOM,
                     feather = itemIndex == index,
                     rise = false,
                     modifier = fading,

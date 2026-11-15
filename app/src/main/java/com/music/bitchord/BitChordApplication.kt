@@ -179,8 +179,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // of live files — still sees a fully loaded one.
         val recordInit = thread(name = "startup-records") {
             Downloads.init(this)
-            // After both of the things a check reads: the setting and the record.
-            PlaylistSync.init(this)
         }
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
@@ -212,12 +210,17 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 loader.diskCache?.clear()
             }
         }
+        recordInit.join()
+        // Deliberately still on the main thread: init registers a lifecycle
+        // observer, and Android refuses addObserver off it. The join above is
+        // what lets it read a record that is already loaded rather than racing
+        // the decode.
+        PlaylistSync.init(this)
         // Initialize LastFM with saved settings if available
         initLastfm()
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
-        recordInit.join()
         // Offline packages no record points at are reclaimed away from the
         // startup path: a save interrupted by process death, or a re-download
         // whose directory moved, leaves the whole package — segments, lyrics

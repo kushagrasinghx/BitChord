@@ -379,8 +379,11 @@ internal fun AndroidCanvasArtworkPlayer(
     // the decoder to paint at its current position, and only hand back to the
     // clip when onSurfaceTextureUpdated confirms real pixels below.
     LaunchedEffect(surfaceGeneration) {
-        if (surfaceGeneration == 0) return@LaunchedEffect
-        rendered = false
+        // Surface destruction already cleared rendered. The replacement may
+        // have painted before this effect starts; keep that confirmed frame.
+        // A same-position seek can be a no-op, so a paused clip cannot be
+        // relied on to deliver another update after hiding its only frame.
+        if (surfaceGeneration == 0 || rendered) return@LaunchedEffect
         val before = frameTick
         if (player.playbackState != Player.STATE_IDLE) {
             player.seekTo(player.currentPosition)

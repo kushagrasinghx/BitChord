@@ -130,6 +130,25 @@ class StableSessionControllerTest {
         assertFalse(first.playing)
     }
 
+
+    @Test
+    fun commandQueuedAtTheHandoffBoundaryGoesToTheNewDelegate() {
+        onMain { controller.play() }
+        idle()
+        assertTrue(first.playing)
+
+        // The switch and the next command are serialized on the application
+        // looper; the command must resolve the active delegate, not the first one.
+        onMain {
+            facade.switchTo(second)
+            controller.pause()
+        }
+        idle()
+
+        assertFalse("the new delegate receives the boundary pause", second.playing)
+        assertTrue("the demoted delegate keeps its earlier play", first.playing)
+    }
+
     @Test
     fun teardownDoesNotRouteCommandsToTheReleasedDelegate() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync { controller.release() }

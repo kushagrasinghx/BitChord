@@ -467,7 +467,7 @@ object TrackMatcher {
         val coreString = if (containsCJK) {
             text.replace(Regex("""[\s\p{Punct}・～〜ー-]+"""), "")
         } else {
-            words.joinToString("")
+            foldLatin(words.joinToString(""))
         }
 
         return TitleParts(
@@ -563,6 +563,28 @@ object TrackMatcher {
             .replace("&", " and ")
             .replace(CJK_OPEN, "(")
             .replace(CJK_CLOSE, ")")
+
+    /**
+     * Latin letters without their accents, for comparing only: "Şımarık" and
+     * the "Simarik" an upload without a Turkish keyboard files it under are
+     * one title, and "Müslüm Gürses" is "Muslum Gurses". Turkish dotless ı has
+     * no decomposition, so it is mapped by hand.
+     *
+     * Latin only. Other scripts carry vowels as combining marks (Hindi's
+     * matras), and dropping those would make different words equal. Queries
+     * keep the accents; this is never sent anywhere.
+     */
+    internal fun foldLatin(text: String): String = buildString(text.length) {
+        text.forEach { c ->
+            when {
+                c == 'ı' -> append('i')
+                c.code < 0x80 || Character.UnicodeScript.of(c.code) != Character.UnicodeScript.LATIN -> append(c)
+                else -> Normalizer.normalize(c.toString(), Normalizer.Form.NFD).forEach {
+                    if (Character.getType(it) != Character.NON_SPACING_MARK.toInt()) append(it)
+                }
+            }
+        }
+    }
 
     /**
      * Latin that actually files the track. A head holding nothing but a take
@@ -697,7 +719,7 @@ object TrackMatcher {
      * "Atif Aslam, Tulsi Kumar". Single letters go — an initialled
      * "A. R. Rahman" and a plain "AR Rahman" are the same person.
      */
-    internal fun artistNames(value: String): Set<List<String>> = normalize(value)
+    internal fun artistNames(value: String): Set<List<String>> = foldLatin(normalize(value))
         .split(ARTIST_SEPARATORS)
         .map { name ->
             name.split(WORD_SPLIT)

@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -11,8 +12,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.ui.components.MENU_FROST_ALPHA
+import com.music.bitchord.ui.components.MenuFrostDark
+import com.music.bitchord.ui.components.liveMenuFrost
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -105,3 +112,26 @@ internal fun FrostedPlayerFrame(
 
 /** Longer than any panel's exit, so none loses its frost on the way out. */
 private const val FROST_RELEASE_DELAY_MS = 400L
+
+/**
+ * The ⋯ menu's and the drawers' panel, in [shape], for anything that should read
+ * as the same material: flat with reduced blur on; over [LocalPlayerFrost]'s
+ * still where this is one of the player's overlays; otherwise the same frost
+ * blurred live off [hazeState] — which is what a bar inside the player gets,
+ * since a still would freeze the list scrolling under it.
+ *
+ * [everySource] for a surface nested in the player's own sources (the queue's
+ * bars); see [liveMenuFrost].
+ */
+@Composable
+fun Modifier.playerMenuSurface(shape: Shape, hazeState: HazeState?, everySource: Boolean = false): Modifier {
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val frost = LocalPlayerFrost.current
+    return clip(shape).then(
+        when {
+            reduceDynamicBlur || (frost == null && hazeState == null) -> Modifier.background(MenuFrostDark)
+            frost != null -> with(frost) { Modifier.frostPanel(shape, MenuFrostDark.copy(alpha = MENU_FROST_ALPHA)) }
+            else -> Modifier.liveMenuFrost(hazeState!!, MenuFrostDark, everySource)
+        },
+    )
+}

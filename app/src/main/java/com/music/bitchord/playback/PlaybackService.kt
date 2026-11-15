@@ -2870,43 +2870,29 @@ class PlaybackService : MediaLibraryService() {
         before: QueueUndoFingerprint,
         identities: List<QueueEntryIdentity>,
         window: QueueWindow?,
-    ): Pair<List<Int>, Int> {
+    ): List<Int> {
         val candidates = HashMap<Pair<String, String?>, MutableList<Int>>()
         before.items.forEachIndexed { index, item ->
             candidates.getOrPut(item.mediaId to item.queueEntryId) { mutableListOf() } += index
         }
         val requested = HashSet<QueueEntryIdentity>()
         val indices = mutableListOf<Int>()
-        var skipped = 0
         identities.forEach { identity ->
-            if (!requested.add(identity)) {
-                skipped++
-                return@forEach
-            }
+            if (!requested.add(identity)) return@forEach
+            // Keyed by both ids, so the row found is that entry's occurrence.
             val index = candidates[identity.mediaId to identity.queueEntryId]
-                ?.getOrNull(identity.occurrence)
-            if (index == null) {
-                skipped++
-                return@forEach
-            }
+                ?.getOrNull(identity.occurrence) ?: return@forEach
             val item = before.items[index]
-            if (item.mediaId != identity.mediaId || item.queueEntryId != identity.queueEntryId) {
-                skipped++
-                return@forEach
-            }
             if (index > before.currentIndex && item.queueTier == QueueTier.CONTEXT) {
                 val canonicalIndex = item.canonicalIndex
                 val cycleId = item.contextCycleId
                 if (window == null || canonicalIndex == null || cycleId == null ||
                     !window.exclude(QueueWindowEntry(canonicalIndex, cycleId))
-                ) {
-                    skipped++
-                    return@forEach
-                }
+                ) return@forEach
             }
             indices += index
         }
-        return indices.sorted() to skipped
+        return indices.sorted()
     }
 
     private fun sameQueueUndoRoute(
@@ -2933,8 +2919,6 @@ class PlaybackService : MediaLibraryService() {
         mutationSettled: CompletableDeferred<Unit>,
         removedCount: Int,
         messageForCount: (Int) -> String,
-        includeRemovalCount: Boolean = false,
-        skippedCount: Int = 0,
     ): Boolean {
         partySync?.onLocalIntent()
         saveQueueSnapshotImmediately(raw)
@@ -2959,14 +2943,7 @@ class PlaybackService : MediaLibraryService() {
             SystemClock.elapsedRealtime() + 4_500L,
         )
         queueUndoEdit = edit
-        QueueScreenUndo.publish(
-            QueueUndoNotice(
-                token,
-                messageForCount(removedCount),
-                removedCount.takeIf { includeRemovalCount },
-                skippedCount,
-            ),
-        )
+        QueueScreenUndo.publish(QueueUndoNotice(token, messageForCount(removedCount)))
         queueUndoExpiryJob = scope.launch {
             while (queueUndoEdit === edit) {
                 delay(minOf(100L, (edit.expiresAt - SystemClock.elapsedRealtime()).coerceAtLeast(1L)))
@@ -2988,7 +2965,7 @@ class PlaybackService : MediaLibraryService() {
         ) return false
 
         val contextWindow = before.window?.let { QueueWindow.restore(it) }
-        val (indices, skippedCount) = resolveQueueEntryIndices(before, identities, contextWindow)
+        val indices = resolveQueueEntryIndices(before, identities, contextWindow)
         if (indices.isEmpty()) return false
         val raw = before.player
         val oldPosition = (if (speakers.active) speakers.positionMs else raw.currentPosition).coerceAtLeast(0L)
@@ -3026,8 +3003,6 @@ class PlaybackService : MediaLibraryService() {
             messageForCount = { count ->
                 resources.getQuantityString(R.plurals.queue_removed_count, count, count)
             },
-            includeRemovalCount = true,
-            skippedCount = skippedCount + (indices.size - removedCount).coerceAtLeast(0),
         )
     }
 
@@ -3077,7 +3052,7 @@ class PlaybackService : MediaLibraryService() {
             mutationSettled = mutationSettled,
             removedCount = removedCount,
             messageForCount = {
-                if (clear) getString(R.string.queue_cleared_section, getString(R.string.next_in_queue))
+                if (clear) getString(R.string.queue_cleared)
                 else getString(
                     R.string.queue_removed_song,
                     before.items[requestedIndex].mediaMetadata.title?.toString().orEmpty(),
@@ -3169,13 +3144,7 @@ class PlaybackService : MediaLibraryService() {
         val partyCode = ListenTogether.state.value.code
         // A standby owns a snapshot of the old running order. Settle it before
         // editing, then reacquire the player in case the handoff adopted it.
-        val settled = withTimeoutOrNull(5_000L) {
-            versionSwapJob?.join()
-            if (crossfade?.isTransitioning() == true) crossfade?.onSkipRequested()
-            while (crossfade?.isTransitioning() == true || versionSwapJob?.isActive == true) delay(16L)
-            true
-        } ?: false
-        if (!settled || ListenTogether.state.value.controlsLocked ||
+        if (!settleQueueUndoEdit() || ListenTogether.state.value.controlsLocked ||
             ListenTogether.state.value.code != partyCode || boundedEditState.contextGeneration != contextGeneration
         ) return false
         val activePlayer = mediaSession?.player ?: return false

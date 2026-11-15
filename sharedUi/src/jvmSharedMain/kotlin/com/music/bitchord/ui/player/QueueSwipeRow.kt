@@ -38,8 +38,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.sharedui.resources.*
+import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import kotlinx.coroutines.CancellationException
@@ -48,6 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import org.jetbrains.compose.resources.stringResource
 
 internal enum class QueueSwipeAction { REMOVE, QUEUE }
 
@@ -87,6 +94,17 @@ internal fun QueueSwipeRow(
     val currentCanCommit by rememberUpdatedState(canCommit)
     val currentCommit by rememberUpdatedState(onCommit)
     val ltr = LocalLayoutDirection.current == LayoutDirection.Ltr
+    // The swipes, offered to TalkBack and Switch Access as actions: with the
+    // row's remove button gone, a swipe was the only way to take a song out.
+    val swipeToPlayNext by AppUi.host.swipeToPlayNext.collectAsStateWithLifecycle()
+    val removeLabel = stringResource(Res.string.remove_from_queue)
+    val queueLabel = stringResource(if (swipeToPlayNext) Res.string.play_next else Res.string.add_to_queue)
+    fun accessibilityAction(label: String, action: QueueSwipeAction) = CustomAccessibilityAction(label) {
+        val target = currentTrack
+        if (!currentEnabled || !currentCanCommit(target, action)) return@CustomAccessibilityAction false
+        scope.launch { currentCommit(target, action) }
+        true
+    }
 
     fun actionAt(displacement: Float): QueueSwipeAction =
         if ((displacement < 0f) == ltr) QueueSwipeAction.REMOVE else QueueSwipeAction.QUEUE
@@ -199,6 +217,12 @@ internal fun QueueSwipeRow(
                 }
             }
             .onSizeChanged { width = it.width.toFloat() }
+            .semantics {
+                customActions = buildList {
+                    if (enabled) add(accessibilityAction(removeLabel, QueueSwipeAction.REMOVE))
+                    if (enabled && allowQueueGesture) add(accessibilityAction(queueLabel, QueueSwipeAction.QUEUE))
+                }
+            }
             .pointerInput(track.key, enabled, committing, ltr, allowQueueGesture) {
                 if (!enabled || committing) return@pointerInput
                 // Main-pass horizontal slop yields to the existing child handle's

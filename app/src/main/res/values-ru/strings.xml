@@ -1503,4 +1503,16 @@
     <string name="sleep_timer_fade_out_subtitle">Плавно уменьшает громкость в последние 30 секунд</string>
     <string name="disable_spotify_canvas">Отключить Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Никогда не использовать Spotify Canvas. Анимированные обложки берутся из других источников</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">Удалён %1$d трек</item>
+        <item quantity="few">Удалено %1$d трека</item>
+        <item quantity="many">Удалено %1$d треков</item>
+        <item quantity="other">Удалено %1$d трека</item>
+    </plurals>
+    <string name="queue_removed_song">Удалено: %1$s</string>
+    <string name="queue_undo_action">Отменить</string>
+    <string name="queue_cleared">Очередь очищена</string>
+    <string name="queue_selected_count">Выбрано: %1$d</string>
+    <string name="queue_playlist_added">Добавлено %1$d из %2$d треков</string>
+    <string name="queue_playlist_partial">%1$s (несовместимых: %2$d, уже есть: %3$d, ошибок: %4$d)</string>
 </resources>

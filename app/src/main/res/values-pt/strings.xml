@@ -1476,4 +1476,14 @@
     <string name="sleep_timer_fade_out_subtitle">Abaixa o volume aos poucos nos últimos 30 segundos</string>
     <string name="disable_spotify_canvas">Desativar Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Nunca usar o Spotify Canvas. As capas animadas vêm das outras fontes</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d música removida</item>
+        <item quantity="other">%1$d músicas removidas</item>
+    </plurals>
+    <string name="queue_removed_song">Removido: %1$s</string>
+    <string name="queue_undo_action">Desfazer</string>
+    <string name="queue_cleared">Fila limpa</string>
+    <string name="queue_selected_count">Selecionadas: %1$d</string>
+    <string name="queue_playlist_added">%1$d de %2$d músicas adicionadas</string>
+    <string name="queue_playlist_partial">%1$s (%2$d incompatíveis, %3$d já presentes, %4$d com falha)</string>
 </resources>

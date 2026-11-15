@@ -2303,6 +2303,7 @@ fun NowPlayingScreen(
                                         !lyricPicker.overBudget,
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
+                                    hazeState = playerHaze,
                                 )
                             },
                             romanizationToggle = {
@@ -3995,6 +3996,7 @@ fun NowPlayingScreen(
                                         !lyricPicker.overBudget,
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
+                                    hazeState = playerHaze,
                                     modifier = Modifier.align(Alignment.BottomCenter),
                                 )
                             }

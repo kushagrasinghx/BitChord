@@ -1511,4 +1511,16 @@
     <string name="sleep_timer_fade_out_subtitle">Stopniowo ścisza dźwięk przez ostatnie 30 sekund</string>
     <string name="disable_spotify_canvas">Wyłącz Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Nigdy nie używaj Spotify Canvas. Animowane okładki pochodzą z innych źródeł</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">Usunięto %1$d utwór</item>
+        <item quantity="few">Usunięto %1$d utwory</item>
+        <item quantity="many">Usunięto %1$d utworów</item>
+        <item quantity="other">Usunięto %1$d utworu</item>
+    </plurals>
+    <string name="queue_removed_song">Usunięto %1$s</string>
+    <string name="queue_undo_action">Cofnij</string>
+    <string name="queue_cleared">Kolejka wyczyszczona</string>
+    <string name="queue_selected_count">Wybrano: %1$d</string>
+    <string name="queue_playlist_added">Dodano %1$d z %2$d utworów</string>
+    <string name="queue_playlist_partial">%1$s (niezgodne: %2$d, już dodane: %3$d, błędy: %4$d)</string>
 </resources>

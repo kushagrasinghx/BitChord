@@ -1428,4 +1428,14 @@
     <string name="sleep_timer_fade_out_subtitle">Son 30 saniyede sesi yavaş yavaş kısar</string>
     <string name="disable_spotify_canvas">Spotify Canvas\'ı devre dışı bırak</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas hiç kullanılmaz. Hareketli kapaklar diğer kaynaklardan gelir</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d şarkı kaldırıldı</item>
+        <item quantity="other">%1$d şarkı kaldırıldı</item>
+    </plurals>
+    <string name="queue_removed_song">%1$s kaldırıldı</string>
+    <string name="queue_undo_action">Geri al</string>
+    <string name="queue_cleared">Sıra temizlendi</string>
+    <string name="queue_selected_count">%1$d seçildi</string>
+    <string name="queue_playlist_added">%2$d şarkıdan %1$d tanesi eklendi</string>
+    <string name="queue_playlist_partial">%1$s (%2$d uyumsuz, %3$d zaten var, %4$d başarısız)</string>
 </resources>

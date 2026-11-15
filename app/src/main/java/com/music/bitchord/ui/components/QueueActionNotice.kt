@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.playerMenuSurface
 import dev.chrisbanes.haze.HazeState
 
 /** A unique queue result, so repeating the same action restarts its lifetime. */
@@ -45,7 +46,6 @@ fun QueueActionNoticeHost(
     hazeState: HazeState? = null,
 ) {
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     AnimatedContent(
         targetState = notice,
@@ -71,7 +71,10 @@ fun QueueActionNoticeHost(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp)
-                    .then(if (hazeState != null) Modifier.queueActionSurface(hazeState, reduceDynamicBlur) else Modifier)
+                    .then(
+                        if (hazeState != null) Modifier.playerMenuSurface(RoundedCornerShape(16.dp), hazeState, everySource = true)
+                        else Modifier,
+                    )
                     .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
                 Row(

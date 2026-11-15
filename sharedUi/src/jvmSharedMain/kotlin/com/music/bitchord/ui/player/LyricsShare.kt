@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -302,6 +303,8 @@ internal fun LyricsPickBar(
     shareEnabled: Boolean,
     onCancel: () -> Unit,
     onShare: () -> Unit,
+    /** What the bar frosts over — the drawers' own source, so it is their material. */
+    hazeState: HazeState? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -309,8 +312,7 @@ internal fun LyricsPickBar(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFF141414).copy(alpha = 0.92f))
+            .playerMenuSurface(RoundedCornerShape(18.dp), hazeState)
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

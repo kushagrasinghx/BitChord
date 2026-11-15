@@ -54,9 +54,6 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.music.bitchord.ui.components.MENU_FROST_ALPHA
-import com.music.bitchord.ui.components.MenuFrostDark
-import com.music.bitchord.ui.components.liveMenuFrost
 import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.roundToInt
@@ -107,8 +104,6 @@ fun PlayerDrawer(
     titleGap: Dp = 14.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val frost = LocalPlayerFrost.current
 
     // How far the drawer has been dragged down, in pixels. Released, it either
     // springs back or goes — see [DISMISS_DRAG_FRACTION].
@@ -208,18 +203,9 @@ fun PlayerDrawer(
                 .onSizeChanged { height = it.height }
                 .offset { IntOffset(0, offset.roundToInt()) }
                 .clip(DRAWER_SHAPE)
-                .then(
-                    // The ⋯ menu's frost, so the drawers and the menu read as one
-                    // material over the player — its own where the player is
-                    // recorded for it, else the same look through the haze.
-                    when {
-                        reduceDynamicBlur -> Modifier.background(MenuFrostDark)
-                        frost != null -> with(frost) {
-                            Modifier.frostPanel(DRAWER_SHAPE, MenuFrostDark.copy(alpha = MENU_FROST_ALPHA))
-                        }
-                        else -> Modifier.liveMenuFrost(hazeState, MenuFrostDark)
-                    }
-                )
+                // The ⋯ menu's frost, so the drawers and the menu read as one
+                // material over the player — see [playerMenuSurface].
+                .playerMenuSurface(DRAWER_SHAPE, hazeState)
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },

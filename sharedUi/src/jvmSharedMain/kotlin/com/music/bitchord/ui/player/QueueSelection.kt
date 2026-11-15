@@ -12,10 +12,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Icon
@@ -32,19 +34,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.icons.BitChordIcons
-import com.music.bitchord.ui.components.queueActionSurface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /** Personal library actions; none edits the playback queue or enters Undo history. */
-enum class QueueBulkAction { PLAYLIST, LIKE, DOWNLOAD }
+enum class QueueBulkAction { PLAYLIST, DOWNLOAD }
 
 internal val QueueTracks.rows: List<QueueTrack>
     get() = history + listOfNotNull(nowPlaying) + user + context + autoplay
@@ -127,7 +129,6 @@ internal fun QueueSelectionBar(
     hazeState: HazeState,
 ) {
     val scope = rememberCoroutineScope()
-    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     AnimatedVisibility(
         visible = selection.active,
         enter = if (reduceAnimation) EnterTransition.None else
@@ -138,62 +139,49 @@ internal fun QueueSelectionBar(
     ) {
         val selected = selection.selected(rows)
         val enabled = selected.isNotEmpty() && !selection.busy
-        val perform: (QueueBulkAction) -> Unit = { action ->
-            if (enabled && selection.active && !selection.busy) {
-                val generation = selection.generation
-                val songs = selected.map { it.song }
-                selection.busy = true
-                scope.launch {
-                    try {
-                        if (onAction(songs, action) && selection.generation == generation) selection.clear()
-                    } finally {
-                        if (selection.generation == generation) selection.busy = false
-                    }
+        // One action at a time; a selection closed or restarted meanwhile is left alone.
+        fun run(block: suspend () -> Boolean) {
+            if (!enabled || !selection.active) return
+            val generation = selection.generation
+            selection.busy = true
+            scope.launch {
+                try {
+                    if (block() && selection.generation == generation) selection.clear()
+                } finally {
+                    if (selection.generation == generation) selection.busy = false
                 }
             }
         }
-        val performRemove: () -> Unit = {
-            if (enabled && selection.active && !selection.busy) {
-                val generation = selection.generation
-                val identities = selectedQueueEntryIdentities(selected, timeline)
-                selection.busy = true
-                scope.launch {
-                    try {
-                        onRemoveSelected(identities)
-                        if (selection.generation == generation) selection.clear()
-                    } finally {
-                        if (selection.generation == generation) selection.busy = false
-                    }
-                }
-            }
-        }
+        val songs = selected.map { it.song }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .queueActionSurface(hazeState, reduceDynamicBlur)
+                .playerMenuSurface(RoundedCornerShape(16.dp), hazeState, everySource = true)
                 .clickable(onClick = {})
                 .navigationBarsPadding()
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = { perform(QueueBulkAction.PLAYLIST) }, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(BitChordIcons.Plus, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Text(stringResource(Res.string.queue_add_to_playlist), color = Color.White, style = MaterialTheme.typography.labelMedium)
-                }
+            BulkActionButton(BitChordIcons.Plus, stringResource(Res.string.queue_add_to_playlist), enabled) {
+                run { onAction(songs, QueueBulkAction.PLAYLIST) }
             }
-            TextButton(onClick = performRemove, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Text(stringResource(Res.string.queue_selection_remove), color = Color.White, style = MaterialTheme.typography.labelMedium)
-                }
+            BulkActionButton(Icons.Rounded.Delete, stringResource(Res.string.queue_selection_remove), enabled) {
+                val identities = selectedQueueEntryIdentities(selected, timeline)
+                run { onRemoveSelected(identities); true }
             }
-            TextButton(onClick = { perform(QueueBulkAction.DOWNLOAD) }, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(BitChordIcons.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Text(stringResource(Res.string.queue_download), color = Color.White, style = MaterialTheme.typography.labelMedium)
-                }
+            BulkActionButton(BitChordIcons.Download, stringResource(Res.string.queue_download), enabled) {
+                run { onAction(songs, QueueBulkAction.DOWNLOAD) }
             }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.BulkActionButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.weight(1f)) {
+        Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

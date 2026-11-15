@@ -1321,4 +1321,13 @@
     <string name="sleep_timer_fade_out_subtitle">마지막 30초 동안 볼륨을 서서히 줄입니다</string>
     <string name="disable_spotify_canvas">Spotify Canvas 사용 안 함</string>
     <string name="disable_spotify_canvas_subtitle">Spotify Canvas를 사용하지 않습니다. 움직이는 아트워크는 다른 소스에서 가져옵니다</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">%1$d곡 제거됨</item>
+    </plurals>
+    <string name="queue_removed_song">%1$s 제거됨</string>
+    <string name="queue_undo_action">실행취소</string>
+    <string name="queue_cleared">대기열을 비웠습니다</string>
+    <string name="queue_selected_count">%1$d개 선택됨</string>
+    <string name="queue_playlist_added">%2$d곡 중 %1$d곡 추가됨</string>
+    <string name="queue_playlist_partial">%1$s (호환되지 않음 %2$d, 이미 있음 %3$d, 실패 %4$d)</string>
 </resources>

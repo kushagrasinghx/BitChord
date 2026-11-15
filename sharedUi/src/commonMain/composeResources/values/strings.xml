@@ -112,6 +112,7 @@
     <string name="playing_radio">Playing %1$s Radio</string>
     <string name="queue">Queue</string>
     <string name="remove_from_liked">Remove from Liked Music</string>
+    <string name="add_to_queue">Add to queue</string>
     <string name="remove_from_queue">Remove from queue</string>
     <string name="repeat_all">Repeat all</string>
     <string name="repeat_off">Repeat off</string>

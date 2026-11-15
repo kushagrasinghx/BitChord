@@ -714,23 +714,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * on a round trip before the heart fills reads as the tap not having
      * registered, and people tap again.
      */
-    fun setLike(videoId: String, status: LikeStatus) = setLike(videoId, status) {}
-
-    /** The same rating action, acknowledged after its request and any rollback finish. */
-    fun setLike(videoId: String, status: LikeStatus, onResult: (Boolean) -> Unit) {
-        if (!requireSignIn()) {
-            onResult(false)
-            return
-        }
+    fun setLike(videoId: String, status: LikeStatus) {
+        if (!requireSignIn()) return
         val previous = likeStatusOf(videoId)
-        if (previous == status) {
-            onResult(true)
-            return
-        }
+        if (previous == status) return
         LikeState.set(videoId, status)
         viewModelScope.launch {
-            val result = YtMusicRepository.rate(videoId, status)
-            result.fold(
+            YtMusicRepository.rate(videoId, status).fold(
                 onSuccess = {
                     // Liked Music is now out of date either way.
                     libraryStale = true
@@ -745,7 +735,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     LikeState.set(videoId, previous)
                 },
             )
-            onResult(result.isSuccess)
         }
     }
 

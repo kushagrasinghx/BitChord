@@ -1448,4 +1448,13 @@
     <string name="sleep_timer_fade_out_subtitle">在最后 30 秒内逐渐降低音量</string>
     <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">从不使用 Spotify Canvas。动态封面将来自其他来源</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">已移除 %1$d 首歌曲</item>
+    </plurals>
+    <string name="queue_removed_song">已移除 %1$s</string>
+    <string name="queue_undo_action">撤销</string>
+    <string name="queue_cleared">已清空队列</string>
+    <string name="queue_selected_count">已选择 %1$d 项</string>
+    <string name="queue_playlist_added">已添加 %1$d/%2$d 首歌曲</string>
+    <string name="queue_playlist_partial">%1$s（%2$d 首不兼容，%3$d 首已存在，%4$d 首失败）</string>
 </resources>

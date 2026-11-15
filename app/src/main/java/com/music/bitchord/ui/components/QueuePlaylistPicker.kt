@@ -106,22 +106,11 @@ fun QueuePlaylistPicker(
                 when {
                     compatible.isEmpty() -> complete(0, 0, 0)
                     device -> {
-                        val created = runCatching { OfflinePlaylists.create(title, compatible) }.getOrNull()
-                        val stored = created?.let { OfflinePlaylists.get(it.browseId) }
-                            ?.songs?.mapNotNullTo(HashSet()) { it.localUri }.orEmpty()
-                        val counted = HashSet<String>()
-                        var added = 0
-                        var alreadyThere = 0
-                        var failed = 0
-                        compatible.forEach { song ->
-                            val uri = song.localUri
-                            when {
-                                uri == null || uri !in stored -> failed++
-                                counted.add(uri) -> added++
-                                else -> alreadyThere++
-                            }
-                        }
-                        complete(added, alreadyThere, failed)
+                        // A new playlist holds each file once; a repeated queue row is already there.
+                        val created = runCatching { OfflinePlaylists.create(title, compatible) }.isSuccess
+                        val distinct = compatible.distinctBy { it.localUri }.size
+                        if (created) complete(distinct, compatible.size - distinct, 0)
+                        else complete(0, 0, compatible.size)
                     }
                     else -> viewModel.createPlaylist(title, privacy, compatible, complete)
                 }
@@ -135,9 +124,9 @@ private fun usesDevicePlaylist(song: Song): Boolean = song.localUri != null &&
     (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
 
 /**
- * The store's AddResult counts playlists, not songs. Snapshot membership before
- * its existing mutation, then verify the stored result. Repeat queue rows count
- * as already present, never as another insertion of the same local URI.
+ * Adds [songs] to the device playlists picked, counting songs rather than
+ * playlists: one every picked playlist already held is already there, and a
+ * repeated queue row counts once.
  */
 private fun addToDevicePlaylists(
     picked: List<UserPlaylist>,
@@ -145,37 +134,10 @@ private fun addToDevicePlaylists(
 ): Triple<Int, Int, Int> {
     val ids = picked.map { it.playlistId }.distinct()
     if (ids.isEmpty()) return Triple(0, 0, songs.size)
-    val before = OfflinePlaylists.playlists.value.associateBy { it.id }
-    val known = ids.associateWith { id ->
-        before[id]?.songs?.mapNotNullTo(HashSet()) { it.localUri }
-    }
-    // Simulate the same local-URI deduplication in selection order, before add.
-    val expectedFresh = songs.map { song ->
-        ids.associateWith { id ->
-            song.localUri?.let { known[id]?.add(it) } == true
-        }
-    }
-    runCatching { OfflinePlaylists.add(ids, songs) }
-    val after = OfflinePlaylists.playlists.value.associate { playlist ->
-        playlist.id to playlist.songs.mapNotNullTo(HashSet()) { it.localUri }
-    }
-    var added = 0
-    var alreadyThere = 0
-    var failed = 0
-    songs.forEachIndexed { index, song ->
-        val uri = song.localUri
-        var anyAdded = false
-        var anyFailed = false
-        ids.forEach { id ->
-            when {
-                uri == null || before[id] == null || after[id]?.contains(uri) != true -> anyFailed = true
-                expectedFresh[index].getValue(id) -> anyAdded = true
-            }
-        }
-        if (anyAdded) added++
-        if (anyFailed) failed++
-        if (!anyAdded && !anyFailed) alreadyThere++
-    }
-    // As in the account helper, partial destination failures overlap added.
-    return Triple(added, alreadyThere, failed)
+    val held = OfflinePlaylists.playlists.value.filter { it.id in ids }
+        .map { playlist -> playlist.songs.mapNotNullTo(HashSet()) { it.localUri } }
+    val distinct = songs.distinctBy { it.localUri }
+    val alreadyThere = distinct.count { song -> held.isNotEmpty() && held.all { song.localUri in it } }
+    if (runCatching { OfflinePlaylists.add(ids, songs) }.isFailure) return Triple(0, 0, songs.size)
+    return Triple(distinct.size - alreadyThere, alreadyThere + songs.size - distinct.size, 0)
 }

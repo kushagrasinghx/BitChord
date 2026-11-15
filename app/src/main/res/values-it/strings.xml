@@ -1410,4 +1410,14 @@
     <string name="sleep_timer_fade_out_subtitle">Abbassa gradualmente il volume negli ultimi 30 secondi</string>
     <string name="disable_spotify_canvas">Disattiva Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Non usare mai Spotify Canvas. Le copertine animate arrivano dalle altre fonti</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d brano rimosso</item>
+        <item quantity="other">%1$d brani rimossi</item>
+    </plurals>
+    <string name="queue_removed_song">%1$s rimosso</string>
+    <string name="queue_undo_action">Annulla</string>
+    <string name="queue_cleared">Coda svuotata</string>
+    <string name="queue_selected_count">Selezionati: %1$d</string>
+    <string name="queue_playlist_added">Aggiunti %1$d brani su %2$d</string>
+    <string name="queue_playlist_partial">%1$s (%2$d incompatibili, %3$d già presenti, %4$d non riusciti)</string>
 </resources>

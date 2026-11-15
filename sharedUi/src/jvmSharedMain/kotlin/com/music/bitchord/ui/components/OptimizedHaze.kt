@@ -58,9 +58,13 @@ fun menuFrost(fill: Color, alpha: Float = MENU_FROST_ALPHA): HazeStyle = HazeSty
  * under a blur this wide and a slab this opaque, more pixels than that are not
  * there to be seen.
  */
-fun Modifier.liveMenuFrost(state: HazeState, fill: Color): Modifier =
+@OptIn(ExperimentalHazeApi::class)
+fun Modifier.liveMenuFrost(state: HazeState, fill: Color, everySource: Boolean = false): Modifier =
     optimizedHazeEffect(state = state, style = menuFrost(fill)) {
         inputScale = HazeInputScale.Fixed(LIVE_FROST_INPUT_SCALE)
+        // A surface inside the player sits under the app's own haze source, whose
+        // z-index would otherwise hide the player's sources from it.
+        if (everySource) canDrawArea = { true }
     }
 
 private const val LIVE_FROST_INPUT_SCALE = 0.10f

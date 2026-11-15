@@ -1388,4 +1388,13 @@
     <string name="sleep_timer_fade_out_subtitle">Giảm âm lượng từ từ trong 30 giây cuối</string>
     <string name="disable_spotify_canvas">Tắt Spotify Canvas</string>
     <string name="disable_spotify_canvas_subtitle">Không bao giờ dùng Spotify Canvas. Ảnh bìa động sẽ lấy từ các nguồn khác</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">Đã xóa %1$d bài hát</item>
+    </plurals>
+    <string name="queue_removed_song">Đã xóa %1$s</string>
+    <string name="queue_undo_action">Hoàn tác</string>
+    <string name="queue_cleared">Đã xóa hàng đợi</string>
+    <string name="queue_selected_count">Đã chọn %1$d</string>
+    <string name="queue_playlist_added">Đã thêm %1$d/%2$d bài hát</string>
+    <string name="queue_playlist_partial">%1$s (%2$d không tương thích, %3$d đã có, %4$d thất bại)</string>
 </resources>

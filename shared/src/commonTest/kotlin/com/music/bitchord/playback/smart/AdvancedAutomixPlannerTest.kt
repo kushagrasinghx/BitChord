@@ -2,6 +2,7 @@ package com.music.bitchord.playback.smart
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -50,6 +51,21 @@ class AdvancedAutomixPlannerTest {
         mode = CrossfadeMode.SMART,
         advanced = advanced,
     )
+
+
+    @Test
+    fun advancedSafetyDefaultsRemainDisabled() {
+        // These are deliberate product/audio-safety choices, not accidental
+        // dead switches: phase lock cracked AudioTrack parameters mid-buffer,
+        // echo flammed unmatched grids, and the audible outgoing deck is never
+        // tempo-shifted. No phone UI exposes them as working controls.
+        val current = track("a", 120.0, "C major", vocal = 0.1)
+        val next = track("b", 124.0, "C major", vocal = 0.1)
+        val plan = plan(current, next, advanced = true)
+        assertFalse(plan.phaseLock)
+        assertEquals(0.0, plan.echoSeconds)
+        assertEquals(1.0, plan.outgoingPlaybackRate)
+    }
 
     @Test
     fun offLeavesEveryPlanAsItWas() {

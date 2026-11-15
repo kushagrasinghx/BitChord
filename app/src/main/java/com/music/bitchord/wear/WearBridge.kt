@@ -834,6 +834,9 @@ internal class WatchSpeaker(
     private var finished = false
     private var requestedPositionMs = 0L
     private var requestedAt = 0L
+    /** Queue-only load/stop guard against the watch's previous track/status. */
+    private var queueRestoreExpectedMediaId: String? = null
+    private var queueRestoreCurrent: MediaItem? = null
 
     /** What the watch holds, the playing track first. */
     private var onWatch: List<String> = emptyList()
@@ -898,6 +901,8 @@ internal class WatchSpeaker(
      * the listener chose a phone output, so it carries on playing there.
      */
     fun stop(resumeHere: Boolean) {
+        queueRestoreExpectedMediaId = null
+        queueRestoreCurrent = null
         if (!active) return
         val s = status
         val wasPlaying = wantsPlay
@@ -955,6 +960,31 @@ internal class WatchSpeaker(
         send(P.SPEAKER_VOLUME, "=" + (fraction.coerceIn(0f, 1f) * max).roundToInt())
     }
 
+    override fun restoreQueueCurrent(item: MediaItem?, positionMs: Long, playWhenReady: Boolean): Boolean {
+        if (!active) return false
+        val player = localPlayer() ?: return false
+        queueRestoreCurrent = item
+        if (item != null) {
+            val index = player.currentMediaItemIndex
+            if (player.currentMediaItem !== item ||
+                tracksFrom(player, index).firstOrNull()?.getString(P.KEY_MEDIA_ID) != item.mediaId
+            ) return false
+            queueRestoreExpectedMediaId = item.mediaId
+            load(item, positionMs.coerceAtLeast(0L), playWhenReady, queueIndex = index)
+        } else {
+            queueRestoreExpectedMediaId = ""
+            wantsPlay = false
+            loading = false
+            finished = true
+            requestedPositionMs = 0L
+            requestedAt = SystemClock.elapsedRealtime()
+            onWatch = emptyList()
+            send(P.SPEAKER_STOP)
+            changed()
+        }
+        return true
+    }
+
     /** The crown on the watch, or the phone's volume keys, while the watch is the speaker. */
     fun nudgeVolume(steps: Int) {
         if (!active || steps == 0) return
@@ -964,6 +994,8 @@ internal class WatchSpeaker(
     // ---- the phone's player moved ---------------------------------------------
 
     override fun onLocalTransition(item: MediaItem?, reason: Int) {
+        queueRestoreExpectedMediaId = null
+        queueRestoreCurrent = null
         if (!active || item == null) return
         if (item.mediaId == status?.mediaId && !loading) {
             // Already there: the watch moved first and this is the phone catching up.
@@ -1011,12 +1043,30 @@ internal class WatchSpeaker(
             volumeMax = map.getInt(P.KEY_VOLUME_MAX),
             at = SystemClock.elapsedRealtime(),
         )
+        val queueRestoreCompleted = queueRestoreExpectedMediaId != null
+        queueRestoreExpectedMediaId?.let { expected ->
+            if (expected.isEmpty()) {
+                if (s.mediaId.isNotEmpty()) return
+                queueRestoreExpectedMediaId = null
+                status = s
+                sink?.onRemotePlaybackChanged()
+                changed()
+                return
+            }
+            val advance = s.positionMs - requestedPositionMs
+            val elapsed = (SystemClock.elapsedRealtime() - requestedAt).coerceAtLeast(0L)
+            if (s.mediaId != expected || s.playWhenReady != wantsPlay ||
+                advance < -SEEK_GRACE_MS || advance > elapsed + SEEK_GRACE_MS
+            ) return
+            queueRestoreExpectedMediaId = null
+        }
         val volumeChanged = status?.let { it.volume != s.volume } ?: true
         status = s
         requestedAt = 0L
         if (s.mediaId == onWatch.firstOrNull() || s.mediaId in onWatch) loading = false
         // The watch's word on play state wins — a headset unplugged, focus lost.
         if (!loading) wantsPlay = s.playWhenReady
+        if (queueRestoreCompleted) sendAhead()
 
         val player = localPlayer()
         if (player != null && s.mediaId.isNotEmpty() && player.currentMediaItem?.mediaId != s.mediaId) {
@@ -1050,10 +1100,10 @@ internal class WatchSpeaker(
 
     // ---- loading ------------------------------------------------------------------
 
-    private fun load(item: MediaItem?, positionMs: Long, play: Boolean) {
+    private fun load(item: MediaItem?, positionMs: Long, play: Boolean, queueIndex: Int? = null) {
         val player = localPlayer() ?: return
         item ?: return
-        val index = indexOf(player, item.mediaId) ?: player.currentMediaItemIndex
+        val index = queueIndex ?: indexOf(player, item.mediaId) ?: player.currentMediaItemIndex
         val tracks = tracksFrom(player, index)
         if (tracks.isEmpty()) return
         wantsPlay = play
@@ -1074,9 +1124,12 @@ internal class WatchSpeaker(
 
     /** Replaces what the watch holds after the playing track with what the phone's queue says. */
     private fun sendAhead() {
+        if (queueRestoreExpectedMediaId != null) return
         val player = localPlayer() ?: return
         val playing = status?.mediaId ?: onWatch.firstOrNull() ?: return
-        val index = indexOf(player, playing) ?: return
+        val index = player.currentMediaItemIndex.takeIf {
+            queueRestoreCurrent != null && player.currentMediaItem === queueRestoreCurrent
+        } ?: indexOf(player, playing) ?: return
         val ahead = tracksFrom(player, index).drop(1)
         val ids = listOf(playing) + ahead.map { it.getString(P.KEY_MEDIA_ID).orEmpty() }
         if (ids == onWatch) return

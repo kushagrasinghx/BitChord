@@ -7,6 +7,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import com.music.bitchord.BitChordApplication
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import io.ktor.client.HttpClient
@@ -652,6 +653,7 @@ object ListenTogether {
     }
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var appContext: Context
     private var token: String? = null
 
     @Volatile
@@ -659,6 +661,7 @@ object ListenTogether {
     private var socketJob: Job? = null
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val rawSaved = prefs.getString(KEY_SERVER, null)?.trim().orEmpty()
         val normalizedSaved = when (val res = parseAndNormalizeServerUrl(rawSaved)) {
@@ -1575,15 +1578,23 @@ object ListenTogether {
     }
 
     /**
-     * Local derivation key for [PartyPseudonyms]. It never leaves the
-     * device and is not backed up; losing it after reinstall only means the
-     * party sees a new pseudonym, which is the intended privacy boundary.
+     * Local derivation key for [PartyPseudonyms]. It is held in the same
+     * Keystore-backed store as the other credentials, with a one-time
+     * migration from the earlier plain preference. It never leaves the device
+     * and is backup-excluded; losing it only gives the party a new pseudonym.
      */
     private fun pseudonymSecret(): String {
-        prefs.getString(KEY_PSEUDONYM_SECRET, null)?.let { return it }
-        return UUID.randomUUID().toString().also {
-            prefs.edit().putString(KEY_PSEUDONYM_SECRET, it).apply()
+        val encrypted = EncryptedPrefs.open(appContext, SECRET_PREFS, SECRET_PREFS_PLAIN)
+        encrypted.getString(KEY_PSEUDONYM_SECRET, null)?.let { return it }
+
+        val legacy = prefs.getString(KEY_PSEUDONYM_SECRET, null)
+        val secret = legacy ?: UUID.randomUUID().toString()
+        if (!encrypted.edit().putString(KEY_PSEUDONYM_SECRET, secret).commit()) {
+            Log.w(TAG, "could not persist party pseudonym key in encrypted storage")
+            return secret
         }
+        prefs.edit().remove(KEY_PSEUDONYM_SECRET).apply()
+        return secret
     }
 
     private fun recordActivity(entry: PartyActivity) {
@@ -1721,6 +1732,8 @@ object ListenTogether {
     private const val KEY_TOKEN = "party_token"
     private const val KEY_DEVICE = "device_id"
     private const val KEY_PSEUDONYM_SECRET = "pseudonym_secret"
+    private const val SECRET_PREFS = "bitchord_party_secret"
+    private const val SECRET_PREFS_PLAIN = "bitchord_party_secret_plain"
     private const val KEY_NICKNAME = "party_nickname"
     private const val KEY_KICKED = "party_kicked_until"
 

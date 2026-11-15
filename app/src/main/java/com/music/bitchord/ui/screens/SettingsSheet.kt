@@ -288,6 +288,7 @@ fun SettingsScreen(
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
+    val hideStatusBarAppWide by AppSettings.hideStatusBarAppWide.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val showQueueHistory by AppSettings.showQueueHistory.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
@@ -1666,6 +1667,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setShowListenTogetherButton(!listenTogetherButton) },
+                )
+            }
+            val hideStatusBarAppWideTitle = stringResource(R.string.hide_status_bar_app_wide)
+            row(hideStatusBarAppWideTitle, "status bar", "immersive", "fullscreen", "app") {
+                SettingsRow(
+                    icon = SfIcons.WebAssetOff,
+                    title = hideStatusBarAppWideTitle,
+                    subtitle = stringResource(R.string.hide_status_bar_app_wide_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hideStatusBarAppWide,
+                            onCheckedChange = AppSettings::setHideStatusBarAppWide,
+                        )
+                    },
+                    onClick = { AppSettings.setHideStatusBarAppWide(!hideStatusBarAppWide) },
                 )
             }
             val hideStatusBarTitle = stringResource(R.string.hide_status_bar_in_player)

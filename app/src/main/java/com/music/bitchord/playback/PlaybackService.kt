@@ -322,6 +322,8 @@ private fun Song.canStartStation(): Boolean =
 class PlaybackService : MediaLibraryService() {
 
     private var mediaSession: MediaLibrarySession? = null
+    /** Stable identity exposed to every MediaController; delegates change on handoff. */
+    private var sessionFacade: StableSessionPlayer? = null
     private val searchResults = ConcurrentHashMap<String, List<Song>>()
     private val searchBrowseResults = ConcurrentHashMap<String, List<BrowseItem>>()
     private val songCache = ConcurrentHashMap<String, Song>()
@@ -1985,9 +1987,12 @@ class PlaybackService : MediaLibraryService() {
         QueueShuffle.isCrossfadeTransitioning = { crossfade?.isTransitioning() == true }
         controller.start()
 
+        val initialSessionPlayer = newSessionPlayer(exoPlayer, controller)
+        val facade = StableSessionPlayer(initialSessionPlayer)
+        sessionFacade = facade
         mediaSession = MediaLibrarySession.Builder(
             this,
-            newSessionPlayer(exoPlayer, controller),
+            facade,
             MediaLibraryCallback(),
         )
             .setId(SESSION_ID)
@@ -2011,6 +2016,23 @@ class PlaybackService : MediaLibraryService() {
         cast = speakers,
         onShuffleRequest = ::toggleShuffleFromSession,
     ) { lastPublishedSubtitle }
+
+    /**
+     * Moves the controller-visible facade to the new deck. MediaSession keeps
+     * the same Player object, so commands at the handoff boundary resolve
+     * against the current delegate rather than a demoted SessionPlayer.
+     */
+    private fun switchSessionPlayer(player: Player, crossfade: CrossfadeController) {
+        val next = newSessionPlayer(player, crossfade)
+        val facade = sessionFacade
+        if (facade != null) {
+            facade.switchTo(next)
+        } else {
+            val replacement = StableSessionPlayer(next)
+            sessionFacade = replacement
+            mediaSession?.player = replacement
+        }
+    }
 
     /**
      * The stream a Cast receiver can open for [item], or null when there is none
@@ -2764,7 +2786,7 @@ class PlaybackService : MediaLibraryService() {
         incoming.addAnalyticsListener(formatListener)
         adoptFormatOf(incoming)
 
-        mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
+        switchSessionPlayer(incoming, requireNotNull(crossfade))
         // The version swap installs a new live player; the controller must not
         // keep listening to the retired one for seeks/errors/end-of-media.
         crossfade?.listenTo(incoming)
@@ -4078,7 +4100,7 @@ class PlaybackService : MediaLibraryService() {
         incoming.addAnalyticsListener(formatListener)
         adoptFormatOf(incoming)
 
-        mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
+        switchSessionPlayer(incoming, requireNotNull(crossfade))
 
         // The queue moving on used to arrive here as an item transition on the
         // one player that owned the queue. It cannot any more — the incoming
@@ -7810,7 +7832,7 @@ class PlaybackService : MediaLibraryService() {
         val newCrossfade = createCrossfadeController()
         crossfade = newCrossfade
         newCrossfade.start()
-        mediaSession?.player = newSessionPlayer(newActive, newCrossfade)
+        switchSessionPlayer(newActive, newCrossfade)
         applyOutputRoute()
         if (items.isNotEmpty()) newActive.prepare()
         // Retire both old focus owners before the new one starts playing.

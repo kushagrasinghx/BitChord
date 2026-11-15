@@ -165,7 +165,7 @@ func (l *ipRateLimiter) Allow(ip string) bool {
 
 func clientIP(r *http.Request) string {
 	if config.TrustProxy {
-		if forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); forwarded != "" {
+		if forwarded := forwardedClientIP(r.Header.Get("X-Forwarded-For")); forwarded != "" {
 			return forwarded
 		}
 	}
@@ -174,6 +174,36 @@ func clientIP(r *http.Request) string {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+// forwardedClientIP returns the address our own proxy says the request came
+// from, or "" when the header cannot be trusted.
+//
+// The list is append-only as a request passes through proxies, so the *last*
+// entry is the one written by the proxy directly in front of us, and every
+// entry before it was supplied by the client and may be anything at all. The
+// first entry is what an attacker writes to look like somebody else, and
+// trusting it made the per-IP limits evadeable by setting a header.
+//
+// The nearest entry has to parse as an address. If it does not, the header is
+// malformed and the caller falls back to the socket address rather than
+// guessing which of several unverified values was meant.
+func forwardedClientIP(header string) string {
+	parts := strings.Split(header, ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		candidate := strings.TrimSpace(parts[i])
+		if candidate == "" {
+			continue
+		}
+		if host, _, err := net.SplitHostPort(candidate); err == nil {
+			candidate = host
+		}
+		if net.ParseIP(candidate) != nil {
+			return candidate
+		}
+		return ""
+	}
+	return ""
 }
 
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) bool {

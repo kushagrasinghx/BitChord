@@ -166,11 +166,22 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // by [Song.toMediaItem], so it has to be open before the restart
         // snapshot below is turned back into queue items.
         OriginalVersion.init(this)
-        // What's already saved to Downloads, so the song menu can say so
-        // without a media-store query per row.
-        Downloads.init(this)
-        // After both of the things a check reads: the setting and the record.
-        PlaylistSync.init(this)
+        // What's already saved to Downloads, and the playlist sync that reads
+        // it. Both parsed on their own thread: [Downloads.init] decodes three
+        // JSON blobs whose size follows the size of someone's download library,
+        // and doing that between process start and the first frame is a cost
+        // that only grows with use.
+        //
+        // Started here rather than in [backgroundInit] because PlaylistSync
+        // reads a setting as well as the record, so it has to follow
+        // [AppSettings.init] above; joined below, so everything after startup —
+        // including the orphan reclamation, which treats the record as its list
+        // of live files — still sees a fully loaded one.
+        val recordInit = thread(name = "startup-records") {
+            Downloads.init(this)
+            // After both of the things a check reads: the setting and the record.
+            PlaylistSync.init(this)
+        }
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
@@ -206,6 +217,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        recordInit.join()
         // Offline packages no record points at are reclaimed away from the
         // startup path: a save interrupted by process death, or a re-download
         // whose directory moved, leaves the whole package — segments, lyrics

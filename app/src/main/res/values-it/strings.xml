@@ -562,8 +562,14 @@
     <string name="listen_most_around">Ascolti soprattutto verso le %1$s.</string>
     <string name="lyrics_share_title">Condividi il testo</string>
     <string name="lyrics_share_description">I versi che hai scelto, impaginati su una scheda con la copertina.</string>
-    <string name="lyrics_share_story">Trasforma in storia</string>
-    <string name="lyrics_share_story_revert">Torna alla scheda</string>
+    <string name="lyrics_share_story">Converti in storia</string>
+    <string name="lyrics_share_story_revert">Converti in scheda</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Immagine</string>
+    <string name="lyrics_share_saving">Salvataggio…</string>
+    <string name="lyrics_share_gradient">Sfumatura</string>
+    <string name="lyrics_share_show_logo">Mostra logo BitChord</string>
     <string name="listening_shape">Il tuo andamento di ascolto</string>
     <string name="member_since">Membro da</string>
     <string name="member_since_value">Membro da %1$s</string>

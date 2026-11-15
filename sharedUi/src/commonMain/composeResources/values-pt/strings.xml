@@ -203,7 +203,7 @@
     <string name="queue_select_all">Selecionar tudo</string>
     <string name="queue_select">Selecionar</string>
     <string name="queue_close_selection">Fechar seleção</string>
-    <string name="queue_add_to_playlist">Adicionar à playlist</string>
+    <string name="queue_add_to_playlist">Playlist</string>
     <string name="queue_download">Baixar</string>
     <string name="queue_selection_remove">Remover</string>
     <string name="queue_add_all_to_playlist">Adicionar todas à playlist</string>

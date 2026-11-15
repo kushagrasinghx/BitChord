@@ -544,8 +544,14 @@
     <string name="listen_most_around">En çok %1$s civarında dinliyorsun.</string>
     <string name="lyrics_share_title">Şarkı sözlerini paylaş</string>
     <string name="lyrics_share_description">Seçtiğin satırlar, kapakla birlikte bir kart üzerine yerleştirildi.</string>
-    <string name="lyrics_share_story">Hikâyeye çevir</string>
-    <string name="lyrics_share_story_revert">Karta dön</string>
+    <string name="lyrics_share_story">Hikâyeye dönüştür</string>
+    <string name="lyrics_share_story_revert">Karta dönüştür</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Görsel</string>
+    <string name="lyrics_share_saving">Kaydediliyor…</string>
+    <string name="lyrics_share_gradient">Gradyan</string>
+    <string name="lyrics_share_show_logo">BitChord logosunu göster</string>
     <string name="listening_shape">Dinleme örüntün</string>
     <string name="member_since">Üyelik başlangıcı</string>
     <string name="member_since_value">%1$s tarihinden beri üye</string>

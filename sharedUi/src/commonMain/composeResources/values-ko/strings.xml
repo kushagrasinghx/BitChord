@@ -283,7 +283,7 @@
     <string name="queue_select_all">모두 선택</string>
     <string name="queue_select">선택</string>
     <string name="queue_close_selection">선택 모드 닫기</string>
-    <string name="queue_add_to_playlist">재생목록에 추가</string>
+    <string name="queue_add_to_playlist">재생목록</string>
     <string name="queue_download">다운로드</string>
     <string name="queue_selection_remove">제거</string>
     <string name="queue_add_all_to_playlist">모두 재생목록에 추가</string>

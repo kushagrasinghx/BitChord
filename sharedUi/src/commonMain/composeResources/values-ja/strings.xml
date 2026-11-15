@@ -203,7 +203,7 @@
     <string name="queue_select_all">すべて選択</string>
     <string name="queue_select">選択</string>
     <string name="queue_close_selection">選択モードを終了</string>
-    <string name="queue_add_to_playlist">プレイリストに追加</string>
+    <string name="queue_add_to_playlist">プレイリスト</string>
     <string name="queue_download">ダウンロード</string>
     <string name="queue_selection_remove">削除</string>
     <string name="queue_add_all_to_playlist">すべてプレイリストに追加</string>

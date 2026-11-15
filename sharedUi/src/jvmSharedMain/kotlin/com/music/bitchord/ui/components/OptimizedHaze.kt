@@ -59,8 +59,13 @@ fun menuFrost(fill: Color, alpha: Float = MENU_FROST_ALPHA): HazeStyle = HazeSty
  * there to be seen.
  */
 @OptIn(ExperimentalHazeApi::class)
-fun Modifier.liveMenuFrost(state: HazeState, fill: Color, everySource: Boolean = false): Modifier =
-    optimizedHazeEffect(state = state, style = menuFrost(fill)) {
+fun Modifier.liveMenuFrost(
+    state: HazeState,
+    fill: Color,
+    everySource: Boolean = false,
+    alpha: Float = MENU_FROST_ALPHA,
+): Modifier =
+    optimizedHazeEffect(state = state, style = menuFrost(fill, alpha)) {
         inputScale = HazeInputScale.Fixed(LIVE_FROST_INPUT_SCALE)
         // A surface inside the player sits under the app's own haze source, whose
         // z-index would otherwise hide the player's sources from it.

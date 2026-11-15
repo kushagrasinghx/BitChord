@@ -517,7 +517,13 @@
     <string name="lyrics_share_title">Partager les paroles</string>
     <string name="lyrics_share_description">Les lignes que vous avez choisies, mises en page sur une carte avec la pochette.</string>
     <string name="lyrics_share_story">Convertir en story</string>
-    <string name="lyrics_share_story_revert">Revenir à la carte</string>
+    <string name="lyrics_share_story_revert">Convertir en carte</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Vidéo</string>
+    <string name="lyrics_share_image">Image</string>
+    <string name="lyrics_share_saving">Enregistrement…</string>
+    <string name="lyrics_share_gradient">Dégradé</string>
+    <string name="lyrics_share_show_logo">Afficher le logo BitChord</string>
     <string name="listening_shape">Votre profil d\'écoute</string>
     <string name="member_since">Membre depuis</string>
     <string name="member_since_value">Membre depuis %1$s</string>

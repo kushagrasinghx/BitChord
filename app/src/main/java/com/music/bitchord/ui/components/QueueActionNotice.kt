@@ -27,7 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.player.playerMenuSurface
+import com.music.bitchord.ui.player.playerBarSurface
 import dev.chrisbanes.haze.HazeState
 
 /** A unique queue result, so repeating the same action restarts its lifetime. */
@@ -72,7 +72,7 @@ fun QueueActionNoticeHost(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp)
                     .then(
-                        if (hazeState != null) Modifier.playerMenuSurface(RoundedCornerShape(16.dp), hazeState, everySource = true)
+                        if (hazeState != null) Modifier.playerBarSurface(RoundedCornerShape(16.dp), hazeState)
                         else Modifier,
                     )
                     .semantics { liveRegion = LiveRegionMode.Polite },

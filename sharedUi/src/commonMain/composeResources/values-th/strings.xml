@@ -203,7 +203,7 @@
     <string name="queue_select_all">เลือกทั้งหมด</string>
     <string name="queue_select">เลือก</string>
     <string name="queue_close_selection">ปิดโหมดเลือก</string>
-    <string name="queue_add_to_playlist">เพิ่มลงเพลย์ลิสต์</string>
+    <string name="queue_add_to_playlist">เพลย์ลิสต์</string>
     <string name="queue_download">ดาวน์โหลด</string>
     <string name="queue_selection_remove">นำออก</string>
     <string name="queue_add_all_to_playlist">เพิ่มทั้งหมดลงเพลย์ลิสต์</string>

@@ -203,7 +203,7 @@
     <string name="queue_select_all">Pilih semua</string>
     <string name="queue_select">Pilih</string>
     <string name="queue_close_selection">Tutup mode pilih</string>
-    <string name="queue_add_to_playlist">Tambahkan ke playlist</string>
+    <string name="queue_add_to_playlist">Playlist</string>
     <string name="queue_download">Unduh</string>
     <string name="queue_selection_remove">Hapus</string>
     <string name="queue_add_all_to_playlist">Tambahkan semua ke playlist</string>

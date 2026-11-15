@@ -203,7 +203,7 @@
     <string name="queue_select_all">Tümünü seç</string>
     <string name="queue_select">Seç</string>
     <string name="queue_close_selection">Seçim modunu kapat</string>
-    <string name="queue_add_to_playlist">Çalma listesine ekle</string>
+    <string name="queue_add_to_playlist">Çalma listesi</string>
     <string name="queue_download">İndir</string>
     <string name="queue_selection_remove">Kaldır</string>
     <string name="queue_add_all_to_playlist">Tümünü çalma listesine ekle</string>

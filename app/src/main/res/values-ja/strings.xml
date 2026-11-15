@@ -500,8 +500,14 @@
     <string name="listen_most_around">最もよく聴くのは%1$s頃です。</string>
     <string name="lyrics_share_title">歌詞を共有</string>
     <string name="lyrics_share_description">選んだ行を、ジャケットと一緒にカードにレイアウトします。</string>
-    <string name="lyrics_share_story">ストーリー用にする</string>
-    <string name="lyrics_share_story_revert">カードに戻す</string>
+    <string name="lyrics_share_story">ストーリーに変換</string>
+    <string name="lyrics_share_story_revert">カードに変換</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">動画</string>
+    <string name="lyrics_share_image">画像</string>
+    <string name="lyrics_share_saving">保存中…</string>
+    <string name="lyrics_share_gradient">グラデーション</string>
+    <string name="lyrics_share_show_logo">BitChordのロゴを表示</string>
     <string name="listening_shape">あなたの再生パターン</string>
     <string name="member_since">登録日</string>
     <string name="member_since_value">登録日：%1$s</string>

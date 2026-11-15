@@ -727,8 +727,14 @@
     <string name="listen_most_around">%1$s쯤에 가장 많이 들었습니다.</string>
     <string name="lyrics_share_title">가사 공유</string>
     <string name="lyrics_share_description">선택한 가사가 커버와 함께 카드에 나타납니다.</string>
-    <string name="lyrics_share_story">스토리 만들기</string>
-    <string name="lyrics_share_story_revert">카드로 돌아가기</string>
+    <string name="lyrics_share_story">스토리로 변환</string>
+    <string name="lyrics_share_story_revert">카드로 변환</string>
+    <string name="lyrics_share_canvas">캔버스</string>
+    <string name="lyrics_share_video">동영상</string>
+    <string name="lyrics_share_image">이미지</string>
+    <string name="lyrics_share_saving">저장 중…</string>
+    <string name="lyrics_share_gradient">그라데이션</string>
+    <string name="lyrics_share_show_logo">BitChord 로고 표시</string>
     <string name="listening_shape">내 감상 패턴</string>
     <string name="member_since">가입일</string>
     <string name="member_since_value">가입일 %1$s</string>

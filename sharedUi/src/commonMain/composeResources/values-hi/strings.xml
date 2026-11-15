@@ -203,7 +203,7 @@
     <string name="queue_select_all">सभी चुनें</string>
     <string name="queue_select">चुनें</string>
     <string name="queue_close_selection">चयन बंद करें</string>
-    <string name="queue_add_to_playlist">प्लेलिस्ट में जोड़ें</string>
+    <string name="queue_add_to_playlist">प्लेलिस्ट</string>
     <string name="queue_download">डाउनलोड करें</string>
     <string name="queue_selection_remove">हटाएं</string>
     <string name="queue_add_all_to_playlist">सभी को प्लेलिस्ट में जोड़ें</string>

@@ -515,8 +515,14 @@
     <string name="listen_most_around">Du hörst am meisten gegen %1$s.</string>
     <string name="lyrics_share_title">Songtext teilen</string>
     <string name="lyrics_share_description">Die Zeilen, die du ausgewählt hast, auf einer Karte mit dem Cover.</string>
-    <string name="lyrics_share_story">Als Story formatieren</string>
-    <string name="lyrics_share_story_revert">Zurück zur Karte</string>
+    <string name="lyrics_share_story">In Story umwandeln</string>
+    <string name="lyrics_share_story_revert">In Karte umwandeln</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Bild</string>
+    <string name="lyrics_share_saving">Wird gespeichert…</string>
+    <string name="lyrics_share_gradient">Verlauf</string>
+    <string name="lyrics_share_show_logo">BitChord-Logo anzeigen</string>
     <string name="listening_shape">Dein Hörmuster</string>
     <string name="member_since">Mitglied seit</string>
     <string name="member_since_value">Mitglied seit %1$s</string>

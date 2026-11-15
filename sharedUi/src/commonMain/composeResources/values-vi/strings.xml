@@ -203,7 +203,7 @@
     <string name="queue_select_all">Chọn tất cả</string>
     <string name="queue_select">Chọn</string>
     <string name="queue_close_selection">Đóng chế độ chọn</string>
-    <string name="queue_add_to_playlist">Thêm vào danh sách phát</string>
+    <string name="queue_add_to_playlist">Danh sách phát</string>
     <string name="queue_download">Tải xuống</string>
     <string name="queue_selection_remove">Xóa</string>
     <string name="queue_add_all_to_playlist">Thêm tất cả vào danh sách phát</string>

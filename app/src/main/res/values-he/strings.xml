@@ -480,7 +480,13 @@
     <string name="lyrics_share_title">שיתוף המילים</string>
     <string name="lyrics_share_description">השורות שבחרת, על כרטיס עם העטיפה.</string>
     <string name="lyrics_share_story">המר לסטורי</string>
-    <string name="lyrics_share_story_revert">חזרה לכרטיס</string>
+    <string name="lyrics_share_story_revert">המר לכרטיס</string>
+    <string name="lyrics_share_canvas">קנבס</string>
+    <string name="lyrics_share_video">וידאו</string>
+    <string name="lyrics_share_image">תמונה</string>
+    <string name="lyrics_share_saving">שומר…</string>
+    <string name="lyrics_share_gradient">מעבר צבע</string>
+    <string name="lyrics_share_show_logo">הצגת הלוגו של BitChord</string>
     <string name="listening_shape">דפוס ההאזנה שלך</string>
     <string name="member_since">חבר מאז</string>
     <string name="member_since_value">חבר מאז %1$s</string>

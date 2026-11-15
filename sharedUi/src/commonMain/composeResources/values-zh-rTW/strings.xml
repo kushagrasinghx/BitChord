@@ -203,7 +203,7 @@
     <string name="queue_select_all">全選</string>
     <string name="queue_select">選擇</string>
     <string name="queue_close_selection">關閉選擇模式</string>
-    <string name="queue_add_to_playlist">新增到播放列表</string>
+    <string name="queue_add_to_playlist">播放列表</string>
     <string name="queue_download">下載</string>
     <string name="queue_selection_remove">移除</string>
     <string name="queue_add_all_to_playlist">全部新增到播放列表</string>

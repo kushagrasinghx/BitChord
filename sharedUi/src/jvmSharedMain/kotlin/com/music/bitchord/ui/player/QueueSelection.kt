@@ -10,6 +10,16 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -22,8 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -153,24 +161,27 @@ internal fun QueueSelectionBar(
             }
         }
         val songs = selected.map { it.song }
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .playerMenuSurface(RoundedCornerShape(16.dp), hazeState, everySource = true)
+                .playerBarSurface(RoundedCornerShape(16.dp), hazeState)
                 .clickable(onClick = {})
                 .navigationBarsPadding()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            BulkActionButton(BitChordIcons.Plus, stringResource(Res.string.queue_add_to_playlist), enabled) {
-                run { onAction(songs, QueueBulkAction.PLAYLIST) }
-            }
-            BulkActionButton(Icons.Rounded.Delete, stringResource(Res.string.queue_selection_remove), enabled) {
-                val identities = selectedQueueEntryIdentities(selected, timeline)
-                run { onRemoveSelected(identities); true }
-            }
-            BulkActionButton(BitChordIcons.Download, stringResource(Res.string.queue_download), enabled) {
-                run { onAction(songs, QueueBulkAction.DOWNLOAD) }
+            // Capped so the three actions stay grouped on tablets and unfolded foldables.
+            Row(Modifier.widthIn(max = 520.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                BulkActionButton(BitChordIcons.Plus, stringResource(Res.string.queue_add_to_playlist), enabled) {
+                    run { onAction(songs, QueueBulkAction.PLAYLIST) }
+                }
+                BulkActionButton(Icons.Rounded.Delete, stringResource(Res.string.queue_selection_remove), enabled) {
+                    val identities = selectedQueueEntryIdentities(selected, timeline)
+                    run { onRemoveSelected(identities); true }
+                }
+                BulkActionButton(BitChordIcons.Download, stringResource(Res.string.queue_download), enabled) {
+                    run { onAction(songs, QueueBulkAction.DOWNLOAD) }
+                }
             }
         }
     }
@@ -178,10 +189,25 @@ internal fun QueueSelectionBar(
 
 @Composable
 private fun RowScope.BulkActionButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.weight(1f)) {
-        Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium)
-        }
+    val labelStyle = MaterialTheme.typography.labelMedium
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .alpha(if (enabled) 1f else 0.38f)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+        // One line on every width and font scale: shrinks a little before it ever ellipsizes.
+        BasicText(
+            text = label,
+            style = labelStyle.copy(color = Color.White, textAlign = TextAlign.Center),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = labelStyle.fontSize),
+        )
     }
 }

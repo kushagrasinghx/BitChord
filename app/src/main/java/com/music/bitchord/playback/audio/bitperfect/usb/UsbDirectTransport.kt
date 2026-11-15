@@ -162,6 +162,7 @@ internal class UsbDirectTransport private constructor(
             convert: Boolean,
             allowFixedVolume: Boolean,
             rememberedDb: Double?,
+            attenuateStartupVolume: Boolean = true,
         ): UsbDirectTransport {
             val connection = manager.openDevice(device) ?: throw BitPerfectTransportException("cannot_open_usb")
             var handle = 0L
@@ -182,10 +183,15 @@ internal class UsbDirectTransport private constructor(
                 }
                 // Startup attenuation happens inside Volume.open, before any audio.
                 val volume = UsbVolume.feature(raw, plan.alternate.control, plan.alternate.terminal, channels)
-                    ?.let { feature -> runCatching { UsbVolume.Volume.open(control, feature) }.getOrNull() }
+                    ?.let { feature -> runCatching { UsbVolume.Volume.open(control, feature, attenuateStartupVolume) }.getOrNull() }
                 if (volume == null && !allowFixedVolume) throw BitPerfectTransportException("volume_unavailable")
                 if (volume != null && rememberedDb != null) {
-                    runCatching { volume.set(control, minOf(rememberedDb, volume.snapshot.restoreLimitDb)) }
+                    val targetDb = if (attenuateStartupVolume) {
+                        minOf(rememberedDb, volume.snapshot.restoreLimitDb)
+                    } else {
+                        rememberedDb.coerceIn(volume.snapshot.minDb, volume.snapshot.maxDb)
+                    }
+                    runCatching { volume.set(control, targetDb) }
                 }
                 return UsbDirectTransport(
                     connection = connection,

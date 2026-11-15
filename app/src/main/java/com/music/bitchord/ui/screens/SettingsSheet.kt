@@ -270,6 +270,7 @@ fun SettingsScreen(
     val bitPerfectReady by BitPerfectOutput.ready.collectAsStateWithLifecycle()
     val dacVolume by BitPerfectOutput.hardwareVolume.collectAsStateWithLifecycle()
     val usbAllowFixedVolume by AppSettings.usbAllowFixedVolume.collectAsStateWithLifecycle()
+    val usbAttenuateStartupVolume by AppSettings.usbAttenuateStartupVolume.collectAsStateWithLifecycle()
     val convertForLimitedDac by AppSettings.convertForLimitedDac.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
     val loudnessOffOnSpeaker by AppSettings.loudnessOffOnSpeaker.collectAsStateWithLifecycle()
@@ -740,6 +741,15 @@ fun SettingsScreen(
                         onCheckedChange = { on ->
                             if (on) onConfirmFixedVolume() else AppSettings.setUsbAllowFixedVolume(false)
                         },
+                    )
+                }
+                val attenuateTitle = stringResource(R.string.usb_attenuate_startup_volume)
+                row(attenuateTitle, "volume", "usb", "dac", "auto", "decrease", "attenuate", "safe", divided = false) {
+                    SettingsSubRow(
+                        title = attenuateTitle,
+                        subtitle = stringResource(R.string.usb_attenuate_startup_volume_subtitle),
+                        checked = usbAttenuateStartupVolume,
+                        onCheckedChange = AppSettings::setUsbAttenuateStartupVolume,
                     )
                 }
             }

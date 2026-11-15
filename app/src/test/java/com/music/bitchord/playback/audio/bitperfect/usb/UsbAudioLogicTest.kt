@@ -147,6 +147,43 @@ class UsbAudioLogicTest {
         assertEquals(-70.0, UsbVolume.Volume.open(io, master).snapshot.currentDb, 0.0)
     }
 
+    @Test
+    fun startupWithoutAttenuationPreservesCurrentDacLevel() {
+        val io = Fake(-10 * 256)
+        val volume = UsbVolume.Volume.open(io, master, attenuateStartupVolume = false)
+        assertEquals(-10.0, volume.snapshot.currentDb, 0.0)
+        assertEquals(-10 * 256, io.db)
+        assertEquals(0.0, volume.snapshot.restoreLimitDb, 0.0)
+        assertFalse(volume.modified)
+    }
+
+    @Test
+    fun startupWithoutAttenuationAllowsDacWithLimitedRange() {
+        class LimitedFake(var db: Int) : UsbControl {
+            override fun transfer(input: Boolean, request: Int, value: Int, index: Int, data: ByteArray) {
+                if (!input) {
+                    db = (data[0].toInt() and 255) or (data[1].toInt() shl 8)
+                } else if (request == 2) {
+                    // Range -20 dB to 0 dB (-20 * 256 = -5120 = 0xec00)
+                    val range = bytes(1, 0, 0, 0xec, 0, 0, 0, 1)
+                    range.copyInto(data, 0, 0, data.size)
+                } else {
+                    data[0] = db.toByte()
+                    data[1] = (db shr 8).toByte()
+                }
+            }
+        }
+        val io = LimitedFake(-5 * 256)
+        try {
+            UsbVolume.Volume.open(io, master, attenuateStartupVolume = true)
+            fail("expected startup attenuation failure for limited range DAC")
+        } catch (_: IllegalStateException) {
+        }
+        val volume = UsbVolume.Volume.open(io, master, attenuateStartupVolume = false)
+        assertEquals(-5.0, volume.snapshot.currentDb, 0.0)
+        assertEquals(-5 * 256, io.db)
+    }
+
     /** The attenuator lives in the DAC: closing the stream must hand it back as found. */
     @Test
     fun restoreReturnsEveryChannelToItsLevelBeforeOpen() {

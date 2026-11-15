@@ -296,6 +296,12 @@ object AppSettings {
     val usbAllowFixedVolume = MutableStateFlow(false)
 
     /**
+     * Lowers hardware volume to -40 dB when opening direct USB output to
+     * protect hearing. When off, the DAC's existing volume is left alone.
+     */
+    val usbAttenuateStartupVolume = MutableStateFlow(true)
+
+    /**
      * Lets the exclusive output convert a track its DAC can't take as it is, to
      * the DAC's highest format. Off, such a track goes to normal output and no
      * sample on the exclusive path is ever changed.
@@ -991,6 +997,7 @@ object AppSettings {
             BitPerfectMode.valueOf(prefs.getString(KEY_BIT_PERFECT_MODE, null) ?: BitPerfectMode.OFF.name)
         }.getOrDefault(BitPerfectMode.OFF)
         usbAllowFixedVolume.value = prefs.getBoolean(KEY_USB_ALLOW_FIXED_VOLUME, false)
+        usbAttenuateStartupVolume.value = prefs.getBoolean(KEY_USB_ATTENUATE_STARTUP_VOLUME, true)
         convertForLimitedDac.value = prefs.getBoolean(KEY_CONVERT_FOR_LIMITED_DAC, false)
         loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
         loudnessOffOnSpeaker.value = prefs.getBoolean(KEY_LOUDNESS_OFF_ON_SPEAKER, true)
@@ -1812,6 +1819,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_USB_ALLOW_FIXED_VOLUME, value).apply()
     }
 
+    fun setUsbAttenuateStartupVolume(value: Boolean) {
+        usbAttenuateStartupVolume.value = value
+        prefs.edit().putBoolean(KEY_USB_ATTENUATE_STARTUP_VOLUME, value).apply()
+    }
+
     fun setConvertForLimitedDac(value: Boolean) {
         convertForLimitedDac.value = value
         prefs.edit().putBoolean(KEY_CONVERT_FOR_LIMITED_DAC, value).apply()
@@ -2263,6 +2275,7 @@ object AppSettings {
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
     private const val KEY_BIT_PERFECT_MODE = "bit_perfect_mode"
     private const val KEY_USB_ALLOW_FIXED_VOLUME = "usb_allow_fixed_volume"
+    private const val KEY_USB_ATTENUATE_STARTUP_VOLUME = "usb_attenuate_startup_volume"
     private const val KEY_CONVERT_FOR_LIMITED_DAC = "convert_for_limited_dac"
     private const val KEY_LOUDNESS_NORMALIZATION = "loudness_normalization"
     private const val KEY_LOUDNESS_OFF_ON_SPEAKER = "loudness_off_on_speaker"

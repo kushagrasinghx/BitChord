@@ -1090,6 +1090,8 @@
     <string name="usb_allow_fixed_volume_subtitle">Otherwise such a DAC plays through normal output</string>
     <string name="usb_allow_fixed_volume_confirm_title">Play at full scale?</string>
     <string name="usb_allow_fixed_volume_confirm_message">BitChord can\'t set this kind of DAC\'s volume, so it plays at full scale and only the DAC\'s own knob, if it has one, controls loudness. This can be dangerously loud with sensitive headphones.</string>
+    <string name="usb_attenuate_startup_volume">Auto decrease DAC volume</string>
+    <string name="usb_attenuate_startup_volume_subtitle">Lowers hardware volume to -40 dB on connect to protect your hearing. Turn off to keep your current DAC volume.</string>
     <string name="convert_for_limited_dac">Convert for lower-spec DACs</string>
     <string name="convert_for_limited_dac_subtitle">Converts tracks above your DAC\'s limit to its highest format. Tracks may take longer to start and won\'t be bit-perfect to the original.</string>
     <string name="bit_perfect_confirm_title">Turn on bit-perfect output?</string>

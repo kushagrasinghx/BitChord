@@ -195,9 +195,9 @@ fun SongActionsMenu(
     val palette = neutralMenuPalette()
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
-    // A local file or a finished download has no YouTube identity behind it to
-    // rate, save, queue into a playlist, fetch again, or share a link for.
-    val isOffline = song.localUri != null
+    // External device files have no YouTube identity to rate, fetch, or share.
+    val isOffline = song.localUri != null &&
+        (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
 
     val rows: @Composable ColumnScope.() -> Unit = {
         // Groups are drawn as they turn out to have something in them, and the
@@ -347,7 +347,9 @@ fun SongActionsMenu(
             )
         }
 
-        if (startsGroup()) IosMenuSeparator()
+        if (song.albumId != null || song.artistId != null || resolvingLinks || !isOffline) {
+            if (startsGroup()) IosMenuSeparator()
+        }
         // Names where each one leads under it, as a menu's "Go to" does.
         when (val id = song.albumId) {
             null -> if (resolvingLinks) {
@@ -371,8 +373,10 @@ fun SongActionsMenu(
                 description = song.artist.takeIf { it.isNotBlank() },
             ) { onOpenArtist(id) }
         }
-        ActionRow(SfIcons.Info, stringResource(R.string.song_info), accent = palette.accent) {
-            showingSongInfo = true
+        if (!isOffline) {
+            ActionRow(SfIcons.Info, stringResource(R.string.song_info), accent = palette.accent) {
+                showingSongInfo = true
+            }
         }
 
         // The player's own: about the track playing right now rather than

@@ -57,7 +57,9 @@ object SongInfoRepository {
     }
 
     suspend fun load(song: Song): SongInfo = withContext(Dispatchers.IO) {
-        if (song.localUri != null || !Regex("[A-Za-z0-9_-]{11}").matches(song.videoId)) {
+        val isExternalLocalFile = song.localUri != null &&
+            (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
+        if (isExternalLocalFile || !Regex("[A-Za-z0-9_-]{11}").matches(song.videoId)) {
             return@withContext SongInfo(album = song.albumName)
         }
         val statistics = async {

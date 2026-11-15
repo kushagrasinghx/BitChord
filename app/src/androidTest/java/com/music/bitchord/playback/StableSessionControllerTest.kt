@@ -149,6 +149,30 @@ class StableSessionControllerTest {
         assertTrue("the demoted delegate keeps its earlier play", first.playing)
     }
 
+
+    @Test
+    fun seekRepeatShuffleAndQueueMutationsReachTheCurrentDelegate() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { facade.switchTo(second) }
+        idle()
+
+        onMain {
+            controller.seekTo(1_234L)
+            controller.setRepeatMode(Player.REPEAT_MODE_ONE)
+            controller.setShuffleModeEnabled(true)
+            controller.addMediaItem(MediaItem.fromUri("https://example.test/extra"))
+        }
+        idle()
+
+        assertTrue("second delegate receives seek", second.seekCalls > 0)
+        assertEquals(Player.REPEAT_MODE_ONE, second.repeatModeValue)
+        assertTrue(second.shuffleOn)
+        assertTrue("second delegate receives queue mutation", second.queueEdits > 0)
+        assertEquals(0, first.seekCalls)
+        assertEquals(Player.REPEAT_MODE_OFF, first.repeatModeValue)
+        assertFalse(first.shuffleOn)
+        assertEquals(0, first.queueEdits)
+    }
+
     @Test
     fun teardownDoesNotRouteCommandsToTheReleasedDelegate() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync { controller.release() }
@@ -162,26 +186,75 @@ class StableSessionControllerTest {
         looper: Looper,
     ) : SimpleBasePlayer(looper) {
         var playing = false
+        var seekCalls = 0
+        var queueEdits = 0
+        var repeatModeValue = Player.REPEAT_MODE_OFF
+        var shuffleOn = false
+        var currentIndex = 0
         private val item = MediaItem.Builder()
             .setMediaId(id)
             .setMediaMetadata(MediaMetadata.Builder().setTitle(id).build())
             .build()
-        private val mediaItemData = MediaItemData.Builder(id)
-            .setMediaItem(item)
-            .setMediaMetadata(item.mediaMetadata)
-            .build()
+        private val items = mutableListOf(item)
 
         override fun getState(): State = State.Builder()
             .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
             .setPlayWhenReady(playing, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
             .setPlaybackState(Player.STATE_READY)
-            .setPlaylist(listOf(mediaItemData))
-            .setCurrentMediaItemIndex(0)
+            .setRepeatMode(repeatModeValue)
+            .setShuffleModeEnabled(shuffleOn)
+            .setPlaylist(items.map { MediaItemData.Builder(it.mediaId).setMediaItem(it).setMediaMetadata(it.mediaMetadata).build() })
+            .setCurrentMediaItemIndex(currentIndex.coerceIn(0, items.lastIndex.coerceAtLeast(0)))
             .setContentPositionMs(0L)
             .build()
 
         override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
             this.playing = playWhenReady
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
+            seekCalls++
+            if (mediaItemIndex >= 0) currentIndex = mediaItemIndex
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSetRepeatMode(mode: Int): ListenableFuture<*> {
+            repeatModeValue = mode
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSetShuffleModeEnabled(enabled: Boolean): ListenableFuture<*> {
+            shuffleOn = enabled
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleSetMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
+            queueEdits++
+            items.clear()
+            items.addAll(mediaItems)
+            currentIndex = if (mediaItems.isEmpty()) 0 else startIndex.coerceIn(mediaItems.indices)
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleAddMediaItems(index: Int, mediaItems: List<MediaItem>): ListenableFuture<*> {
+            queueEdits++
+            items.addAll(index.coerceIn(0, items.size), mediaItems)
+            invalidateState()
+            return Futures.immediateVoidFuture()
+        }
+
+        override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
+            queueEdits++
+            for (i in (toIndex - 1) downTo fromIndex.coerceAtLeast(0)) {
+                if (i in items.indices) items.removeAt(i)
+            }
+            currentIndex = currentIndex.coerceIn(0, items.lastIndex.coerceAtLeast(0))
             invalidateState()
             return Futures.immediateVoidFuture()
         }

@@ -1057,27 +1057,38 @@ object Downloads {
      * void, and leaving one behind would have [enqueue] refuse that track
      * forever as already in flight.
      *
-     * The queue goes with it, for the same reason in the other direction:
-     * nothing is left to drain it, so a track left in [pending] would sit on
-     * "Queued" for the rest of the process *and* make [enqueue] treat a retry
-     * as a duplicate. Both are told they were interrupted instead — visible,
-     * and one tap from being asked for again.
+     * A track with a durable job is put back in the queue rather than declared
+     * failed: a service can be destroyed by the system while the process stays
+     * alive, and until the platform takes the process too the next start must
+     * be able to drain that work. Its row stays queued and recovery is
+     * scheduled; discarding the journal here would make a normal shutdown
+     * indistinguishable from a completed download. Work without a durable job
+     * (see [downloadNow]) has nowhere to be restored from and is reported as
+     * interrupted as before.
      */
-    internal fun onStopped() {
-        val abandoned = synchronized(lock) {
+    internal fun onStopped(context: Context) {
+        val (recoverable, abandoned) = synchronized(lock) {
             val ids = LinkedHashSet(pending.keys)
             ids += running.keys
             pending.clear()
             running.clear()
-            ids
+            // Restore the queue in the journal's order. pendingJobs is a
+            // LinkedHashMap and survives both this call and process death, so
+            // the restarted drain picks up where this one stopped rather than
+            // in whatever order the old workers happened to be holding.
+            val durable = recoverableDownloads(ids, pendingJobs)
+            durable.forEach { job -> pending[job.videoId] = job.toSong() }
+            durable to (ids - durable.map { it.videoId }.toSet())
         }
-        if (abandoned.isEmpty()) return
-        // A track still claiming to be queued with nothing left to drain it
-        // would sit on "Queued" for the rest of the process, and [enqueue]
-        // would refuse that id for ever after because it was still in the
-        // queue. Saying it was interrupted is both true and recoverable.
-        Log.d(TAG, "the download service stopped with ${abandoned.size} unfinished")
-        abandoned.forEach { id -> fail(id, "Download stopped — tap to retry") }
+        if (recoverable.isNotEmpty()) {
+            recoverable.forEach { job ->
+                _active.update { it + (job.videoId to DownloadState.Queued) }
+                DownloadSession.queued(job.toSong(), job.from)
+            }
+            scheduleRecovery(context.applicationContext)
+            Log.d(TAG, "kept ${recoverable.size} interrupted download(s) for recovery")
+        }
+        abandoned.forEach { fail(it, "Download stopped — tap to retry") }
     }
 
     /**

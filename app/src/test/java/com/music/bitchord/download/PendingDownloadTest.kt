@@ -37,4 +37,25 @@ class PendingDownloadTest {
         assertTrue(DownloadJobCodec.decode("not json").isEmpty())
         assertTrue(DownloadJobCodec.decode(null).isEmpty())
     }
+
+    @Test
+    fun stoppedDrainKeepsOnlyJournaledWorkInItsOriginalOrder() {
+        val jobs = linkedMapOf(
+            "a" to PendingDownload.from(song("a"), "album"),
+            "b" to PendingDownload.from(song("b"), null),
+            "c" to PendingDownload.from(song("c"), null),
+        )
+        val recovered = recoverableDownloads(
+            ids = linkedSetOf("c", "ephemeral", "a"),
+            jobs = jobs,
+        )
+        assertEquals(listOf("a", "c"), recovered.map { it.videoId })
+    }
+
+    @Test
+    fun stoppedDrainDropsEveryIdWithoutAJournalEntry() {
+        val jobs = linkedMapOf("a" to PendingDownload.from(song("a"), null))
+        val recovered = recoverableDownloads(linkedSetOf("ephemeral"), jobs)
+        assertTrue(recovered.isEmpty())
+    }
 }

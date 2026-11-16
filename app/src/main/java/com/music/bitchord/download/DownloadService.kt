@@ -161,10 +161,10 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        // Nothing can drain the queue now, so anything still claiming to be
-        // queued or in flight is told it was interrupted rather than left on
-        // "Queued" for the rest of the process — see [Downloads.onStopped].
-        Downloads.onStopped()
+        // Nothing can drain the queue now. Work that has a durable job stays
+        // queued so the recovery worker can restart this service; only work
+        // with no journal entry is reported as interrupted.
+        Downloads.onStopped(this)
         super.onDestroy()
     }
 

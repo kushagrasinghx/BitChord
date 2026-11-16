@@ -77,3 +77,15 @@ internal object DownloadJobCodec {
         runCatching { json.decodeFromString(list, raw ?: return emptyList()) }
             .getOrDefault(emptyList())
 }
+
+/**
+ * The jobs still worth resuming when a drain stops, in journal order.
+ *
+ * A track with no journal entry (one fetched by [Downloads.downloadNow]) has
+ * nowhere to be restored from and is not included; everything with one keeps
+ * its original place whether it was waiting or already running.
+ */
+internal fun recoverableDownloads(
+    ids: Collection<String>,
+    jobs: Map<String, PendingDownload>,
+): List<PendingDownload> = jobs.values.filter { it.videoId in ids }

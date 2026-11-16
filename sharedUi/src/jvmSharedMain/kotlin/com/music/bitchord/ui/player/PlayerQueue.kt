@@ -472,6 +472,8 @@ internal fun InlineQueue(
         ) {
             LazyColumn(
                 state = listState,
+                // Keep queue content at its scroll bounds without a separate elastic translation.
+                overscrollEffect = null,
                 modifier = (if (collapsePlayerOnScroll) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
                     .fadingEdges(bottomInset = playerDeckInset)
                     .then(

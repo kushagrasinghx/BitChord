@@ -27,6 +27,7 @@ import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
+import com.music.bitchord.data.model.PLAYER_ART_MEMORY_CACHE_KEY_EXTRA
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import kotlin.math.abs
@@ -168,13 +169,15 @@ internal class PlayerArtwork(
         ImageRequest.Builder(context)
             .data(url)
             .size(ART_PX)
-            // Not part of the cache key, so the mesh and the palette still share it.
+            // Other surfaces may load this same URL at thumbnail sizes. Keep
+            // their cache entries from replacing the image used for hold-over;
+            // the matching widget request uses this same extra.
+            .memoryCacheKeyExtra(PLAYER_ART_MEMORY_CACHE_KEY_EXTRA, ART_PX.toString())
             .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
-            // request stays byte-identical to the one the mesh and the palette
-            // make of the same cover and goes on sharing their memory-cache
-            // entry. The disk key is unaffected either way.
+            // request keeps the same memory-cache identity as a same-size widget
+            // request. The disk key is unaffected either way.
             .apply { if (attempt > 0) memoryCacheKeyExtra("attempt", attempt.toString()) }
             .build()
     }

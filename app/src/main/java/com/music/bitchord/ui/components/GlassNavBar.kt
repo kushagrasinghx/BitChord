@@ -127,6 +127,7 @@ fun GlassNavBar(
     // Held through a state that is always current instead, which also keeps the
     // handler out of the key.
     val currentOnTabSelected by rememberUpdatedState(onTabSelected)
+    val currentOnActiveTabTap by rememberUpdatedState(onActiveTabTap)
 
     // Search is the odd one out in the iOS 26 layout: a circle of its own beside
     // the pill rather than a quarter of it. It is the last tab in BitChord's
@@ -234,7 +235,7 @@ fun GlassNavBar(
             val tint = if (isSelected) selectedColor else unselectedColor
             val onClick = {
                 if (isSelected) {
-                    onActiveTabTap()
+                    currentOnActiveTabTap()
                 } else {
                     haptics.play(Haptic.Select)
                 }

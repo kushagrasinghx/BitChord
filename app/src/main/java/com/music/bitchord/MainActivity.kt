@@ -4271,10 +4271,18 @@ private fun BitChordApp(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
+                val isRecentSearch = query.isEmpty() && when (searchSource) {
+                    SearchSource.YOUTUBE -> results == null && searchSuggestions.isEmpty()
+                    SearchSource.ADDONS -> addonResults == null
+                    SearchSource.LIBRARY -> false
+                }
+
                 // One tab handler, whichever bar is drawing it.
                 // A tab is a fresh start: everything pushed over the old one —
                 // routes and release pages alike — goes with it.
                 val onTabSelected: (Int) -> Unit = { index ->
+                    val preserveScroll = index == TAB_SEARCH && selectedTab == TAB_SEARCH &&
+                        isRecentSearch && route == null && detail == null && selectedMoodGenre == null
                     navigator.clear()
                     viewModel.closeMoodGenre()
                     selectedTab = index
@@ -4282,7 +4290,7 @@ private fun BitChordApp(
                     // Every search tab tap resets the field, focuses it, and opens
                     // the keyboard through SearchScreen's focus request.
                     if (index == TAB_SEARCH) {
-                        viewModel.onQueryChange("")
+                        viewModel.onSearchTabTap(preserveScroll)
                         searchFocusRequested = true
                     }
                 }
@@ -4290,11 +4298,11 @@ private fun BitChordApp(
                 val haptics = rememberHaptics()
                 val scrollScope = rememberCoroutineScope()
                 var scrollJob by remember { mutableStateOf<Job?>(null) }
-                /** Scroll the current tab's list back to top when the active tab is tapped (excludes Search). */
+                /** Scroll the current tab's list back to top when the active tab is tapped. */
                 val onActiveTabTap: () -> Unit = fun() {
                     // Capture overlay state at tap time, before any navigation handler clears it.
                     if (route != null || detail != null || selectedMoodGenre != null) return
-                    if (selectedTab == TAB_SEARCH) return
+                    if (selectedTab == TAB_SEARCH && !isRecentSearch) return
                     haptics.play(Haptic.Select)
                     scrollJob?.cancel()
                     scrollJob = scrollScope.launch {

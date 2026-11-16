@@ -2233,6 +2233,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun clearSearchHistory() = SearchHistory.clear()
 
     fun onQueryChange(newValue: String) {
+        updateQuery(newValue, resetScroll = true)
+    }
+
+    fun onSearchTabTap(preserveScroll: Boolean) {
+        updateQuery("", resetScroll = !preserveScroll)
+    }
+
+    private fun updateQuery(newValue: String, resetScroll: Boolean) {
         _query.value = newValue
         if (newValue.isBlank()) {
             searchSubmitted = false
@@ -2245,7 +2253,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // searches (or the empty state) — without this it can keep
             // whatever scroll offset the results list was left at, landing
             // the new, much shorter list somewhere other than the top.
-            _searchScrollReset.value += 1
+            if (resetScroll) _searchScrollReset.value += 1
             return
         }
         // Reset the submission gate so typeahead pipelines fire again.

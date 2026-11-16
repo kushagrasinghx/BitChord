@@ -1317,49 +1317,87 @@ func startHeartbeatTicker() {
 	if interval < 1*time.Second {
 		interval = 1 * time.Second
 	}
+	runHeartbeatPasses(interval, 0, heartbeatPass)
+}
+
+// runHeartbeatPasses drives [pass] from a ticker. Passes are strictly
+// sequential: one that is waiting on a stalled socket still has to return before
+// the next starts, so slow parties cannot make heartbeat passes pile up. A
+// [limit] above zero runs that many passes and returns, which is how the
+// scheduling is tested without waiting for the production interval.
+func runHeartbeatPasses(interval time.Duration, limit int, pass func()) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
-	for range ticker.C {
-		now := clock.NowMs()
-		// One broadcast waits for every target write, each capped by the socket
-		// write deadline, so a single client that stops reading would otherwise
-		// hold the heartbeat for every party after it in this loop. Each party is
-		// therefore written on its own goroutine and the pass waits only for its
-		// own parties [SEC-13].
-		var beats sync.WaitGroup
-		for _, p := range store.All() {
-			if len(hubInst.MembersOnline(p.Code)) > 0 {
-				p.Lock()
-				sf := stateFrame(p)
-				p.Unlock()
-				beats.Add(1)
-				go func(code string, frame interface{}) {
-					defer beats.Done()
-					hubInst.Broadcast(code, frame, "")
-				}(p.Code, sf)
+	for {
+		<-ticker.C
+		pass()
+		if limit > 0 {
+			limit--
+			if limit == 0 {
+				return
 			}
 		}
-		beats.Wait()
+	}
+}
 
-		changed := store.Sweep(now)
-		for _, p := range changed {
-			p.Lock()
-			mf := membersFrame(p)
-			p.Unlock()
-			hubInst.Broadcast(p.Code, mf, "")
-		}
+// heartbeatFanOut writes one party's heartbeat per goroutine, because a single
+// broadcast waits for every target write and each of those is capped by the
+// socket write deadline: sequentially, one client that stopped reading would hold
+// the heartbeat of every party after it [SEC-13].
+//
+// A panic in one party's write is contained rather than fatal, since it now runs
+// on a goroutine of its own.
+func heartbeatFanOut(codes []string, beat func(code string)) {
+	var wg sync.WaitGroup
+	for _, code := range codes {
+		wg.Add(1)
+		go func(c string) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("heartbeat for party %s panicked: %v", c, r)
+				}
+			}()
+			beat(c)
+		}(code)
+	}
+	wg.Wait()
+}
 
-		activeCodes := hubInst.ActiveCodes()
-		liveParties := store.All()
-		liveMap := make(map[string]bool)
-		for _, lp := range liveParties {
-			liveMap[lp.Code] = true
+func heartbeatPass() {
+	now := clock.NowMs()
+	codes := make([]string, 0, 8)
+	frames := make(map[string]interface{}, 8)
+	for _, p := range store.All() {
+		if len(hubInst.MembersOnline(p.Code)) == 0 {
+			continue
 		}
-		for _, code := range activeCodes {
-			if !liveMap[code] {
-				hubInst.DropParty(code)
-			}
+		p.Lock()
+		frames[p.Code] = stateFrame(p)
+		p.Unlock()
+		codes = append(codes, p.Code)
+	}
+	heartbeatFanOut(codes, func(code string) {
+		hubInst.Broadcast(code, frames[code], "")
+	})
+
+	changed := store.Sweep(now)
+	for _, p := range changed {
+		p.Lock()
+		mf := membersFrame(p)
+		p.Unlock()
+		hubInst.Broadcast(p.Code, mf, "")
+	}
+
+	activeCodes := hubInst.ActiveCodes()
+	liveParties := store.All()
+	liveMap := make(map[string]bool)
+	for _, lp := range liveParties {
+		liveMap[lp.Code] = true
+	}
+	for _, code := range activeCodes {
+		if !liveMap[code] {
+			hubInst.DropParty(code)
 		}
 	}
 }

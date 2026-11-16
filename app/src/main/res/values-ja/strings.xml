@@ -207,6 +207,8 @@
     <string name="reduce_animation_subtitle">メインプレイヤーのグラデーションを動かさず固定します</string>
     <string name="reduce_dynamic_blur">動的なぼかしを減らす</string>
     <string name="reduce_dynamic_blur_subtitle">アプリ全体ですりガラス効果を単色の塗りつぶしに置き換えます</string>
+    <string name="disable_blend_effects">ブレンド効果をオフ</string>
+    <string name="disable_blend_effects_subtitle">プレーヤーのアイコン、テキスト、ダークメニューをアートワークの色に染めず、白で表示します</string>
     <string name="full_screen_cover_art">全画面カバーアート</string>
     <string name="animated_cover_art">アニメーションカバーアート</string>
     <string name="synced_lyrics">同期歌詞</string>
@@ -237,6 +239,8 @@
     <string name="light">ライト</string>
     <string name="dark">ダーク</string>
     <string name="full_screen_cover_art_subtitle">正方形のジャケットの代わりにカバーをプレイヤーの端まで広げます</string>
+    <string name="full_screen_detail_cover">アルバム/プレイリストの全画面カバー</string>
+    <string name="full_screen_detail_cover_subtitle">アルバムとプレイリストのカバーを枠に収めず、ページの端まで広げます</string>
     <string name="animated_cover_art_subtitle">静止画のジャケットの代わりに一部のリリースが持つループ動画を再生します</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
@@ -817,7 +821,6 @@
 
     <string name="blur_unfocused_lyrics_subtitle">現在の行をハイライトします</string>
 
-    <string name="advanced_options">詳細設定</string>
 
     <string name="lyrics_debug_logs">歌詞デバッグログ</string>
 
@@ -952,9 +955,14 @@
 
     <string name="dolby_atmos_unavailable">このデバイスは Atmos を再生できないため、通常バージョンで再生されます</string>
 
-    <string name="legacy_mesh_gradient">従来のメッシュ グラデーション</string>
+    <string name="player_theme">プレーヤーのテーマ</string>
+    <string name="player_theme_default">デフォルト</string>
+    <string name="player_theme_legacy">従来</string>
+    <string name="player_theme_simple">シンプル</string>
+    <string name="player_theme_default_subtitle">カバーの色がその下へと続きます</string>
+    <string name="player_theme_simple_subtitle">ぼかしたカバーをプレーヤー全体の背景に表示します</string>
 
-    <string name="legacy_mesh_gradient_subtitle">v1.5 のプレーヤー背面の流れるカラー アニメーションを復元します</string>
+    <string name="player_theme_legacy_subtitle">v1.5 のプレーヤー背面の流れるカラー アニメーションを復元します</string>
 
     <string name="liquid_glass">リキッド グラス</string>
 
@@ -1047,6 +1055,16 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">スマート音声同期</string>
     <string name="smart_version_alignment_subtitle">波形を解析して、対応する再生位置を正確に合わせます</string>
 
@@ -1233,6 +1251,8 @@
 
 
     <string name="source_needs_lossless_output">ロスレス出力が必要 · ロスレス対応のデバイスを使用してください</string>
+    <string name="source_needs_update">このアドオンは古いバージョンです。引き続き使用できますが、最新のBitChordアドオンドキュメントに沿って更新するよう開発者に依頼してください。</string>
+    <string name="source_outdated">古いアドオン</string>
     <string name="source_needs_lossless_bt_codec">ロスレス出力が必要 · Bluetoothは%1$sです。ロスレス対応のデバイスを使用してください</string>
     <string name="source_needs_lossless_bt_unknown">ロスレス出力が必要 · 使用中のBluetoothコーデックを判別できません</string>
     <string name="source_downloads_on">ダウンロード可</string>
@@ -1371,6 +1391,7 @@
     <string name="direct_source_stream">ソースから直接ストリーミング</string>
     <string name="find_your_mood">気分で探す</string>
     <string name="progressive_blur">段階的なぼかし</string>
+    <string name="glass_performance">ガラスのパフォーマンス向上</string>
     <string name="remove_from_history">履歴から削除</string>
     <string name="remove_from_history_failed">履歴から削除できませんでした</string>
     <string name="addon_blocked_title">この曲は再生できません</string>

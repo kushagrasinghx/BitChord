@@ -265,6 +265,16 @@
     <string name="skip_silence">무음 건너뛰기</string>
     <string name="skip_silence_subtitle">1초보다 긴 공백 자르기</string>
     <string name="skip_silence_float_subtitle">32비트 부동소수점 출력에서는 이용 불가</string>
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">스마트 오디오 정렬</string>
     <string name="smart_version_alignment_subtitle">오디오 파형을 분석해 정확히 일치하는 재생 시점을 맞춥니다</string>
     <string name="equalizer">이퀄라이저</string>
@@ -331,12 +341,19 @@
     <string name="reduce_animation_subtitle">메인 플레이어의 그라데이션 움직임을 멈춥니다</string>
     <string name="reduce_dynamic_blur">동적 흐림 줄이기</string>
     <string name="reduce_dynamic_blur_subtitle">앱 전체의 반투명 유리 효과를 단색으로 교체합니다</string>
+    <string name="disable_blend_effects">블렌드 효과 끄기</string>
+    <string name="disable_blend_effects_subtitle">플레이어 아이콘, 텍스트, 어두운 메뉴를 앨범 아트 색으로 물들이지 않고 흰색으로 표시합니다</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">플로팅 탐색 막대에 사실적인 유리 질감을 적용합니다. Android 12 이상, GPU 사용량 증가.</string>
     <string name="liquid_glass_unavailable">Android 12 이상 필요</string>
     <string name="full_screen_cover_art">전체화면 커버 아트</string>
-    <string name="legacy_mesh_gradient">구형 메시 그라데이션</string>
-    <string name="legacy_mesh_gradient_subtitle">v1.5 버전의 플레이어 뒤에서 떠다니던 색상 거품을 다시 표시합니다</string>
+    <string name="player_theme">플레이어 테마</string>
+    <string name="player_theme_default">기본</string>
+    <string name="player_theme_legacy">이전</string>
+    <string name="player_theme_simple">심플</string>
+    <string name="player_theme_default_subtitle">커버의 색상이 아래로 이어집니다</string>
+    <string name="player_theme_simple_subtitle">플레이어 전체 뒤에 흐린 커버를 표시합니다</string>
+    <string name="player_theme_legacy_subtitle">v1.5 버전의 플레이어 뒤에서 떠다니던 색상 거품을 다시 표시합니다</string>
     <string name="animated_cover_art">움직이는 커버 아트</string>
     <string name="artist_signatures">아티스트 서명</string>
     <string name="artist_signatures_subtitle">Apple Music에 타이틀 로고가 없으면 자필 서명을 표시합니다</string>
@@ -374,6 +391,8 @@
     <string name="light">밝게</string>
     <string name="dark">어둡게</string>
     <string name="full_screen_cover_art_subtitle">커버를 정사각형에 가두지 않고 화면 모서리까지 확대합니다</string>
+    <string name="full_screen_detail_cover">앨범/재생목록 전체화면 커버</string>
+    <string name="full_screen_detail_cover_subtitle">앨범과 재생목록 커버를 액자 대신 페이지 모서리까지 확대합니다</string>
     <string name="animated_cover_art_subtitle">일부 출시 버전에 반복 동영상이 있다면 정적 커버 대신 우선으로 재생합니다</string>
     <string name="dont_repeat_songs_subtitle">이번 세션에서 제안했거나 이미 재생한 곡은 다시 자동 재생으로 제안하지 않습니다</string>
     <string name="download_quality_subtitle">연결에 상관없이 곡당 %1$s</string>
@@ -1039,7 +1058,6 @@
 
     <string name="blur_unfocused_lyrics_subtitle">현재 가사 줄을 돋보이게 합니다</string>
 
-    <string name="advanced_options">고급 및 실험 설정</string>
 
     <string name="lyrics_debug_logs">가사 디버그 로그</string>
 
@@ -1130,6 +1148,8 @@
     <string name="card_songs_format">음악 %1$s곡</string>
 
     <string name="source_needs_lossless_output">무손실 출력 필요 · 무손실 지원 기기를 사용하세요</string>
+    <string name="source_needs_update">이 애드온은 오래된 버전입니다. 계속 사용할 수 있지만, 최신 BitChord 애드온 문서에 따라 업데이트하도록 개발자에게 요청하세요.</string>
+    <string name="source_outdated">오래된 애드온</string>
     <string name="source_needs_lossless_bt_codec">무손실 출력 필요 · %1$s 코덱 블루투스가 켜졌습니다. 무손실 지원 기기를 사용하세요</string>
     <string name="source_needs_lossless_bt_unknown">무손실 출력 필요 · 어떤 블루투스 코덱을 사용 중인지 알 수 없습니다</string>
     <string name="source_downloads_on">다운로드 허용</string>
@@ -1213,6 +1233,7 @@
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
     <string name="progressive_blur">점진적 흐림</string>
+    <string name="glass_performance">유리 효과 성능 향상</string>
     <string name="opened_file">열린 파일</string>
     <string name="sleep_timer_custom">사용자 지정</string>
     <string name="start_sleep_timer">타이머 시작</string>

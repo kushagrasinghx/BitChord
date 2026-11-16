@@ -47,16 +47,16 @@ data class AddonManifest(
     /**
      * The settings schema the addon declares, when it declares one.
      *
-     * Read for its *defaults*, not to build a UI. The protocol has the host
-     * render a form for these and send whatever the user picked back as query
-     * parameters on every request; BitChord has no such form, so it sends the
-     * declared defaults instead. That is explicitly enough — the spec says an
-     * addon "that never reads a setting still behaves correctly", and the
-     * default is what the reference host sends until a user changes something.
-     * What it buys is the addon that gates its lossless tier behind a
-     * `quality` setting: sending nothing leaves that addon on whatever its
-     * server-side default happens to be, which is not always the one it
-     * advertises.
+     * Read mostly for its *defaults*. The protocol has the host render a form
+     * for these and send whatever the user picked back as query parameters on
+     * every request; BitChord draws that form for `quality` alone — see
+     * [qualityOptions] — and sends the declared defaults for the rest. That is
+     * explicitly enough — the spec says an addon "that never reads a setting
+     * still behaves correctly", and the default is what the reference host
+     * sends until a user changes something. What it buys is the addon that
+     * gates its lossless tier behind a `quality` setting: sending nothing
+     * leaves that addon on whatever its server-side default happens to be,
+     * which is not always the one it advertises.
      */
     @SerialName("settings") val settings: List<AddonSetting> = emptyList(),
     /**
@@ -72,10 +72,36 @@ data class AddonManifest(
      * Read through [requiresLosslessOutput].
      */
     @SerialName("checkValidLossless") val checkValidLossless: JsonElement? = null,
+    /**
+     * `bitchordAuth`: the addon only serves the genuine BitChord app, so every
+     * request has to carry [AddonAuth]'s token and proof. Absent means nothing
+     * is sent. An addon that leaves it out but answers `401` with
+     * `WWW-Authenticate: BitChord` is handled the same way, one round trip
+     * later. Read through [requiresBitChordAuth].
+     */
+    @SerialName("bitchordAuth") val bitchordAuth: JsonElement? = null,
 ) {
+    val requiresBitChordAuth: Boolean get() = bitchordAuth.asFlag() ?: false
+
     val downloadsAllowed: Boolean get() = allowDownloads.asFlag() ?: true
 
     val requiresLosslessOutput: Boolean get() = checkValidLossless.asFlag() ?: false
+
+    /**
+     * The renditions the listener can choose between, from a declared `quality`
+     * select. Empty when there is no choice to offer: no such setting, or a
+     * setting enumerating fewer than two usable values.
+     */
+    val qualityOptions: List<AddonQualityOption>
+        get() = settings.firstOrNull { it.key == AddonClient.QUALITY_KEY }
+            ?.options.orEmpty()
+            .mapNotNull { option ->
+                val value = option.stringValue ?: return@mapNotNull null
+                AddonQualityOption(value, option.labelText ?: value)
+            }
+            .distinctBy { it.value }
+            .takeIf { it.size > 1 }
+            .orEmpty()
 
     fun declares(resource: String): Boolean =
         resources.any { it.equals(resource, ignoreCase = true) }
@@ -102,10 +128,11 @@ data class AddonManifest(
  * One declared setting, reduced to the two things this app does with it.
  *
  * [default] is what gets sent, and [options] is what a `quality` request is
- * matched against — see [AddonClient.settingsFor]. The rest of the schema is a
- * form description: a type, a label, a help line, bounds. The reference host
- * renders a form from those; this app does not, and carrying fields nothing
- * reads would make the class look like it presents a UI it has no part in.
+ * matched against and what its picker lists — see [AddonClient.settingsFor]. The
+ * rest of the schema is a form description: a type, a label, a help line,
+ * bounds. The reference host renders a form from those; this app draws only the
+ * one picker, in its own words, and carrying fields nothing reads would make the
+ * class look like it presents a UI it has no part in.
  */
 @Serializable
 data class AddonSetting(
@@ -121,9 +148,23 @@ data class AddonSetting(
 @Serializable
 data class AddonSettingOption(
     @SerialName("value") val value: JsonElement? = null,
+    /** Read as an element so an addon's odd label costs the label, not the whole manifest. */
+    @SerialName("label") val label: JsonElement? = null,
 ) {
     val stringValue: String? get() = value?.asQueryValue()
+
+    val labelText: String? get() = label?.asQueryValue()
 }
+
+/**
+ * One entry of an addon's quality picker, as stored with the source — see
+ * [SourceConfig.qualityOptions][com.music.bitchord.data.sources.SourceConfig.qualityOptions].
+ */
+@Serializable
+data class AddonQualityOption(
+    val value: String,
+    val label: String,
+)
 
 // ── Search ───────────────────────────────────────────────────────────────
 

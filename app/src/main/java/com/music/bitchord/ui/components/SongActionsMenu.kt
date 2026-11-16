@@ -172,6 +172,11 @@ fun SongActionsMenu(
     /** Opens the timing control offered only by the main player's menu. */
     onLyricsOffset: (() -> Unit)? = null,
     /**
+     * Opens the Automix mix popup on the next transition. Null hides the row —
+     * the player passes one only while Automix is on.
+     */
+    onAutomixOverview: (() -> Unit)? = null,
+    /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
      * belong on this menu at all. Only the player ever opens a menu before
@@ -372,7 +377,7 @@ fun SongActionsMenu(
 
         // The player's own: about the track playing right now rather than
         // about the song as a thing in a library.
-        if (showSleepTimer || onLyricsOffset != null || onCopyLog != null) {
+        if (showSleepTimer || onLyricsOffset != null || onAutomixOverview != null || onCopyLog != null) {
             if (startsGroup()) IosMenuSeparator()
             if (showSleepTimer) {
                 ActionRow(
@@ -381,6 +386,16 @@ fun SongActionsMenu(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+            }
+            // The same popup "Mixing" opens mid-blend, on the transition
+            // still to come.
+            onAutomixOverview?.let {
+                ActionRow(
+                    icon = SfIcons.GraphicEq,
+                    label = stringResource(R.string.automix_overview),
+                    accent = palette.accent,
+                    onClick = it,
+                )
             }
             // Local files and completed downloads use the same player lyric
             // clock (including embedded synced lyrics), so they need this
@@ -711,6 +726,7 @@ private fun CustomSleepTimerPage(
 ) {
     var minutes by remember { mutableIntStateOf(initialMinutes) }
     val foreground = MaterialTheme.colorScheme.onBackground
+    val readout = iosMenuColors().label
 
     Column(Modifier.fillMaxWidth()) {
         SleepTimerHeader(
@@ -723,7 +739,7 @@ private fun CustomSleepTimerPage(
         Text(
             text = sleepDuration(minutes),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = foreground,
+            color = readout,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -779,7 +795,7 @@ private fun StepButton(
         Text(
             text = label,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = if (enabled) 0.85f else 0.25f),
+            color = if (enabled) iosMenuColors().label else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.25f),
         )
     }
 }

@@ -32,8 +32,11 @@ import java.util.concurrent.TimeUnit
  * there at length: the callers above this are *designed* to give up, and a
  * request abandoned after it has already reached somebody's server is work
  * their server did for nobody.
+ *
+ * [pickedQuality] is the `quality` value the listener chose for this addon, or
+ * null for the addon's first listed option. See [settingsFor] for when it applies.
  */
-class AddonClient(rawBaseUrl: String) {
+class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null) {
 
     /** Where this addon lives, with `/manifest.json` and trailing slashes off. */
     val baseUrl: String = normalizeBase(rawBaseUrl)
@@ -66,6 +69,17 @@ class AddonClient(rawBaseUrl: String) {
     @Volatile
     private var quietUntilMs = 0L
 
+    /**
+     * Whether this addon only answers the genuine app, so every request has to
+     * carry [AddonAuth]'s token and proof.
+     *
+     * Learned rather than configured: the manifest declares `bitchordAuth`, or
+     * a request comes back `401` with `WWW-Authenticate: BitChord`. Until then
+     * nothing is sent, so an addon that never asked never sees a credential.
+     */
+    @Volatile
+    private var authRequired = false
+
     // ── Manifest ──────────────────────────────────────────────────────────
 
     /**
@@ -91,6 +105,7 @@ class AddonClient(rawBaseUrl: String) {
                 val declared = manifest.resources.joinToString(", ")
                 throw AddonException("This addon declares $declared — BitChord needs search")
             }
+            if (manifest.requiresBitChordAuth) authRequired = true
             manifest
         }.recoverCatching { failure ->
             // A manifest 404 is not "no such track", it is "no addon here" —
@@ -140,7 +155,7 @@ class AddonClient(rawBaseUrl: String) {
             // and an addon whose catalogue differs by tier would otherwise
             // answer the second one with the first one's rows.
             key = keyOf(trimmed, params.toString()),
-            describe = { "▶ addon search(${redact(baseUrl)}) q=\"$trimmed\" tier=$tier" },
+            describe = { "▶ addon search(${redact(baseUrl)}) q=\"$trimmed\" tier=$tier quality=${params[QUALITY_KEY]}" },
         ) {
             fetch<AddonSearchResponse>(endpoint(listOf("search"), params + ("q" to trimmed)))
         }.map { it.tracks }
@@ -165,7 +180,7 @@ class AddonClient(rawBaseUrl: String) {
         val params = settingsFor(tier, stereoOnly)
         return streams.get(
             key = keyOf(trackId, params.toString()),
-            describe = { "▶ addon stream(${redact(baseUrl)}) id=$trackId tier=$tier" },
+            describe = { "▶ addon stream(${redact(baseUrl)}) id=$trackId tier=$tier quality=${params[QUALITY_KEY]}" },
         ) {
             fetch<AddonStream>(endpoint(listOf("stream", trackId), params))
         }
@@ -184,13 +199,24 @@ class AddonClient(rawBaseUrl: String) {
      * that arrived carrying the manifest's `"default": "high"` is a request for
      * lossless that comes back at 320kbps.
      *
-     * The value sent for `quality` is negotiated rather than asserted. This
-     * app's tiers are `LOSSLESS`/`HIGH`/`LOW`, and an addon declaring a
-     * `quality` select of `high|normal|low` understands none of them — sending
-     * `LOSSLESS` there is not a strong ask, it is an invalid value that lands on
-     * the addon's fallback. So when the manifest enumerates options, the closest
-     * one is chosen from that list; only when it does not is the tier name sent
-     * as-is, which is what the reference host does unconditionally.
+     * The value sent for `quality` comes from the addon's own list rather than
+     * this app's. The tiers here are `LOSSLESS`/`HIGH`/`LOW`, and an addon
+     * declaring a `quality` select of `high|normal|low` understands none of them
+     * — sending `LOSSLESS` there is not a strong ask, it is an invalid value that
+     * lands on the addon's fallback. Only when the manifest enumerates nothing is
+     * the tier name sent as-is, which is what the reference host does
+     * unconditionally.
+     *
+     * Asking for the best it can get, the app sends the listener's pick for this
+     * addon, or the first option listed when there is none. Matching on the word
+     * `lossless` is not good enough here: an addon may use it for its CD tier and
+     * list better ones above it. A pick the addon has since stopped listing is
+     * dropped, since it would land on the addon's fallback; with no manifest in
+     * hand there is nothing to judge it against, so it goes as chosen.
+     *
+     * A lower tier is a setting saying what a file may cost — a download kept at
+     * High or Standard — and a pick does not get to overrule it, so that goes to
+     * [matchTier] instead.
      *
      * The manifest is read best-effort. It is normally already in hand — it was
      * fetched to add the addon in the first place, and is shared and cached —
@@ -202,7 +228,8 @@ class AddonClient(rawBaseUrl: String) {
      * quality. See [atmosHint].
      */
     private suspend fun settingsFor(tier: String, stereoOnly: Boolean = false): Map<String, String> {
-        val declared = manifest().getOrNull()?.settings.orEmpty()
+        val manifest = manifest().getOrNull()
+        val declared = manifest?.settings.orEmpty()
         val params = LinkedHashMap<String, String>()
         declared.forEach { setting ->
             val key = setting.key.takeIf { it.isNotBlank() } ?: return@forEach
@@ -212,7 +239,12 @@ class AddonClient(rawBaseUrl: String) {
             val options = declared.firstOrNull { it.key == QUALITY_KEY }
                 ?.options.orEmpty()
                 .mapNotNull { it.stringValue }
-            params[QUALITY_KEY] = matchTier(tier, options) ?: tier
+            val chosen = when {
+                tier != TIER_LOSSLESS -> matchTier(tier, options)
+                manifest == null -> pickedQuality
+                else -> pickedQuality?.takeIf { it in options } ?: options.firstOrNull()
+            }
+            params[QUALITY_KEY] = chosen ?: tier
         }
         if (stereoOnly) {
             // Asked for the stereo mix by name, so nothing that lets the addon
@@ -271,8 +303,8 @@ class AddonClient(rawBaseUrl: String) {
     }
 
     /**
-     * The option in [options] that best answers a request for [tier], or null
-     * when the addon enumerated nothing to choose from.
+     * The option in [options] that best answers a request below the top tier,
+     * or null when the addon enumerated nothing to choose from.
      *
      * Matched on what an option *says* rather than on its position, so an addon
      * listing its tiers best-first and one listing them worst-first are both
@@ -282,11 +314,7 @@ class AddonClient(rawBaseUrl: String) {
     private fun matchTier(tier: String, options: List<String>): String? {
         if (options.isEmpty()) return null
         options.firstOrNull { it.equals(tier, ignoreCase = true) }?.let { return it }
-        val wanted = when (tier.uppercase()) {
-            TIER_LOSSLESS -> LOSSLESS_WORDS
-            TIER_LOW -> LOW_WORDS
-            else -> HIGH_WORDS
-        }
+        val wanted = if (tier.equals(TIER_LOW, ignoreCase = true)) LOW_WORDS else HIGH_WORDS
         return options.firstOrNull { option -> wanted.any { it in option.lowercase() } }
             ?: options.first()
     }
@@ -328,22 +356,46 @@ class AddonClient(rawBaseUrl: String) {
      * protocol's way of saying this addon does not hold that recording, which
      * is precisely the miss the caller is equipped to handle and not something
      * to log as a fault.
+     *
+     * A `401` carrying `WWW-Authenticate: BitChord` is the addon asking for
+     * [AddonAuth]. The request is sent again at once with credentials. If an
+     * addon reports the token `expired` or `invalid_token`, one fresh token is
+     * fetched and the request tried once more. Any other refusal is final and
+     * says why. None of these retries count against the 429 budget.
      */
     private suspend fun body(url: String): String = withContext(Dispatchers.IO) {
         var attempt = 0
+        var authRetries = 0
+        var rejectedToken: String? = null
         while (true) {
             (quietUntilMs - System.currentTimeMillis()).takeIf { it > 0 }?.let { delay(it) }
 
+            val auth = if (authRequired) authHeaders(url, rejectedToken) else emptyMap()
             val request = Request.Builder().url(url)
                 .header("Accept", "application/json")
                 .header("User-Agent", USER_AGENT)
+                .apply { auth.forEach { (name, value) -> header(name, value) } }
                 .build()
 
             val wait = client.newCall(request).execute().use { response ->
+                val authChallenge = response.takeIf { it.code == 401 }
+                    ?.header("WWW-Authenticate")
+                    ?.takeIf { it.trimStart().startsWith("BitChord", ignoreCase = true) }
                 when {
                     response.isSuccessful ->
                         return@withContext response.body?.string()?.takeIf { it.isNotBlank() }
                             ?: throw AddonException("Empty response")
+                    authChallenge != null -> {
+                        val code = AUTH_ERROR.find(authChallenge)?.groupValues?.get(1)
+                        when {
+                            authRetries >= 2 -> throw AddonException(AddonAuth.rejectionMessage(code))
+                            auth.isEmpty() -> authRequired = true
+                            code == "expired" || code == "invalid_token" -> rejectedToken = auth[AddonAuth.TOKEN_HEADER]
+                            else -> throw AddonException(AddonAuth.rejectionMessage(code))
+                        }
+                        authRetries++
+                        RETRY_NOW
+                    }
                     response.code == 404 -> throw AddonNotFound()
                     // A 5xx is a server having a bad minute and will be tried
                     // again on the next track; a 4xx is this app asking for
@@ -358,6 +410,7 @@ class AddonClient(rawBaseUrl: String) {
                     else -> retryAfterMs(response.header("Retry-After"), attempt)
                 }
             }
+            if (wait == RETRY_NOW) continue
             quietUntilMs = System.currentTimeMillis() + wait
             attempt++
         }
@@ -365,6 +418,31 @@ class AddonClient(rawBaseUrl: String) {
         @Suppress("UNREACHABLE_CODE")
         throw AddonException("unreachable")
     }
+
+    /**
+     * [AddonAuth]'s headers for [url]'s host. HTTPS only: over plain HTTP anyone
+     * on the network could lift the token and a proof and replay them to this
+     * addon within the proof's lifetime. The one exception is loopback, which
+     * never leaves the machine, so an addon developer can test locally.
+     */
+    private suspend fun authHeaders(url: String, rejectedToken: String?): Map<String, String> {
+        val parsed = url.toHttpUrlOrNull() ?: throw AddonException("Invalid addon URL")
+        val loopback = parsed.host == "localhost" || parsed.host == "127.0.0.1" || parsed.host == "::1"
+        if (!parsed.isHttps && !loopback) {
+            throw AddonException("This addon asks for BitChord verification but isn't using HTTPS")
+        }
+        return AddonAuth.headersFor(parsed.host, rejectedToken)
+    }
+
+    /**
+     * Whether this device can get [AddonAuth]'s credentials for this addon,
+     * without asking the addon anything. What the sources screen shows when it
+     * can't: a well-formed manifest says nothing about whether the auth service
+     * will let this phone in (an unlocked bootloader, a revoked keybox).
+     */
+    suspend fun checkAuth(): Result<Unit> =
+        runCatching { authHeaders(baseUrl, rejectedToken = null); Unit }
+            .onFailure { if (it is CancellationException) throw it }
 
     /** How long to wait after a 429, from the header when it sent one. */
     private fun retryAfterMs(header: String?, attempt: Int): Long {
@@ -386,6 +464,7 @@ class AddonClient(rawBaseUrl: String) {
         searches.clear()
         streams.clear()
         quietUntilMs = 0L
+        authRequired = false
     }
 
     /**
@@ -413,7 +492,7 @@ class AddonClient(rawBaseUrl: String) {
         const val TIER_HIGH = "HIGH"
         const val TIER_LOW = "LOW"
 
-        private const val QUALITY_KEY = "quality"
+        internal const val QUALITY_KEY = "quality"
 
         /** The spec's immersive-audio hint: `auto` normally, an "off" only for a stereo row picked by hand. */
         private const val ATMOS_KEY = "atmos"
@@ -421,7 +500,6 @@ class AddonClient(rawBaseUrl: String) {
         private const val ATMOS_NEVER = "0"
         private val ATMOS_OFF = Regex("0|false|off|no|none|never|stereo", RegexOption.IGNORE_CASE)
 
-        private val LOSSLESS_WORDS = listOf("lossless", "flac", "hifi", "hi-res", "hires", "max", "best")
         private val HIGH_WORDS = listOf("high", "320", "normal", "standard")
         private val LOW_WORDS = listOf("low", "96", "128", "min")
 
@@ -493,6 +571,12 @@ class AddonClient(rawBaseUrl: String) {
         const val STREAM_TTL_MS = 5 * 60 * 1000L
 
         private const val MAX_RETRIES = 2
+
+        /** [body]'s "send again now": an auth handshake, not back-pressure. */
+        private const val RETRY_NOW = -1L
+
+        /** The `error="..."` parameter of a `WWW-Authenticate: BitChord` challenge. */
+        private val AUTH_ERROR = Regex("""error="([^"]*)"""")
         private const val BACKOFF_BASE_MS = 500L
         private const val BACKOFF_CAP_MS = 8_000L
 

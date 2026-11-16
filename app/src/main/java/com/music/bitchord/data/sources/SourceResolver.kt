@@ -7,6 +7,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -328,18 +329,69 @@ object SourceResolver {
      * caller waits for them instead of starting on YouTube and swapping up.
      * The first acceptable answer still wins (see [bestAcross]), so two addons
      * cost the quicker one's time, not the slower one's.
+     *
+     * ### Held to the upgrade path's bar
+     *
+     * With Direct Source Stream off, an addon copy only ever reaches the
+     * listener through [upgradeFor] and the audition after it: same runtime
+     * within the "Track length tolerance" setting, a shared artist, and a file
+     * that decodes to that runtime. This path plays its answer from the first
+     * note with no audition behind it, so it has to make the same checks up
+     * front. Without them it played a different song whenever the titles
+     * agreed and nothing agreed on length ([preferred] lets the title decide
+     * alone then), and played an addon's 30-second preview in full whenever
+     * the addon handed one back under a full-length row.
+     *
+     * @param lengthOf YouTube's runtime for the track, asked only when the
+     *   queue row never carried one. Started here, *beside* the addon search
+     *   rather than ahead of it, and awaited only once a search has answered
+     *   and its rows are about to be filtered — so the search's seconds cover
+     *   the lookup's fraction of one. Null back means it could not be had, and
+     *   the match falls back to title and artist alone.
      */
-    suspend fun directStream(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank() || target.isVideo) return null
+    suspend fun directStream(
+        target: TrackMatcher.Target,
+        lengthOf: (suspend () -> Int?)? = null,
+    ): SourceStream? = coroutineScope {
+        if (target.title.isBlank() || target.isVideo) return@coroutineScope null
         val addons = directAddons()
-        if (addons.isEmpty()) return null
-        val (source, stream) = bestAcross(addons, target, requestForNow()) ?: return null
+        if (addons.isEmpty()) return@coroutineScope null
+        // Never allowed to fail: a child of this scope that throws takes the
+        // addon search down with it, and a missing runtime is not worth that.
+        val length = lengthOf?.takeIf { target.durationSec == null }?.let { fetch ->
+            async {
+                try {
+                    fetch()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+            }
+        }
+        val found = try {
+            bestAcross(
+                addons,
+                target,
+                requestForNow(),
+                // Strict whenever a runtime is known, by the time the rows are
+                // filtered — see [matchAndStream]'s `lengthLater`.
+                strictLength = true,
+                requireSharedArtist = target.artist.isNotBlank(),
+                driftSec = upgradeSlackSec(),
+                lengthLater = length?.let { pending -> { pending.await() } },
+                checkFileLength = true,
+            )
+        } finally {
+            length?.cancel()
+        }
+        val (source, stream) = found ?: return@coroutineScope null
         TrackLog.d(
             TAG,
             "direct: '${target.title}' from ${source.displayName} at ${stream.format.summary}" +
                 if (stream.belowRequest) " (below request)" else "",
         )
-        return stream
+        stream
     }
 
     /**
@@ -949,6 +1001,8 @@ object SourceResolver {
      * @param timeoutMs ends the race at that point with whatever has already
      *   answered, rather than losing those answers along with the slow ones.
      * @param driftSec the [strictLength] bar — see [matchAndStream].
+     * @param lengthLater, [checkFileLength] — see [matchAndStream]. Shared by
+     *   every source's lookup, so it must be safe to call from each of them.
      * @return the winning source alongside its stream, so callers can name it in
      *   a log line without searching the list again.
      */
@@ -960,6 +1014,8 @@ object SourceResolver {
         strictLength: Boolean = false,
         requireSharedArtist: Boolean = false,
         driftSec: Int = UPGRADE_DRIFT_SEC,
+        lengthLater: (suspend () -> Int?)? = null,
+        checkFileLength: Boolean = false,
         refine: suspend (MusicSource, SourceStream) -> SourceStream? = { _, stream -> stream },
         timeoutMs: Long? = null,
         accept: (MusicSource, SourceStream) -> Boolean = { _, _ -> true },
@@ -977,6 +1033,8 @@ object SourceResolver {
                         strictLength,
                         requireSharedArtist,
                         driftSec,
+                        lengthLater,
+                        checkFileLength,
                     )?.let { refine(source, it) }
                 }
             }
@@ -1047,6 +1105,12 @@ object SourceResolver {
      *   [upgradeSlackSec]. A download and the YouTube fallback keep the fixed
      *   bar: neither cuts into audio already playing, which is what the setting
      *   is about.
+     * @param lengthLater the runtime for a [target] that has none, already
+     *   being fetched by the caller. Awaited after the first search answers,
+     *   and the rows are then ranked and length-checked against it.
+     * @param checkFileLength measures each opened stream's file before
+     *   accepting it — see [cutShort]. Only for a caller with no audition
+     *   behind it.
      */
     private suspend fun matchAndStream(
         source: MusicSource,
@@ -1056,7 +1120,10 @@ object SourceResolver {
         strictLength: Boolean = false,
         requireSharedArtist: Boolean = false,
         driftSec: Int = UPGRADE_DRIFT_SEC,
+        lengthLater: (suspend () -> Int?)? = null,
+        checkFileLength: Boolean = false,
     ): SourceStream? {
+        var matchOn = target
         for (query in TrackMatcher.queries(target)) {
             val candidates = attempt(source) {
                 source.search(
@@ -1069,9 +1136,19 @@ object SourceResolver {
                     request = request,
                 )
             } ?: return null
-            var matches = TrackMatcher.ranked(candidates, target)
+            // A runtime the queue row never carried, looked up beside the
+            // search by the caller and asked for only now that the search has
+            // answered — so waiting on it costs the difference, if any, and
+            // only the first query ever waits.
+            if (matchOn.durationSec == null && lengthLater != null) {
+                lengthLater()?.let { matchOn = matchOn.copy(durationSec = it) }
+            }
+            // A strict search against no runtime at all is an empty one — see
+            // [strictLength] — so with nothing to measure by, it is not strict.
+            val strict = strictLength && matchOn.durationSec != null
+            var matches = TrackMatcher.ranked(candidates, matchOn)
             if (requireSharedArtist) {
-                matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }
+                matches = matches.filter { TrackMatcher.sharesArtist(matchOn.artist, it.artist) }
             }
             // JioSaavn can return different audio under the same title and
             // artist on different releases. With no album on the requested
@@ -1080,19 +1157,19 @@ object SourceResolver {
             // second away. Treat it as this source missing and retain the
             // known-correct fallback.
             if (source.kind == SourceKind.JIOSAAVN &&
-                TrackMatcher.hasConflictingAlbums(matches, target)
+                TrackMatcher.hasConflictingAlbums(matches, matchOn)
             ) {
-                val canonical = TrackMatcher.uniquelyMostCreditedCloseMatch(matches, target)
+                val canonical = TrackMatcher.uniquelyMostCreditedCloseMatch(matches, matchOn)
                 if (canonical == null) {
                     TrackLog.w(
                         TAG,
-                        "${source.displayName} returned conflicting albums for '${target.title}'; refusing to guess",
+                        "${source.displayName} returned conflicting albums for '${matchOn.title}'; refusing to guess",
                     )
                     continue
                 }
                 TrackLog.d(
                     TAG,
-                    "${source.displayName} resolved conflicting albums for '${target.title}' " +
+                    "${source.displayName} resolved conflicting albums for '${matchOn.title}' " +
                         "using the uniquely fullest credit: '${canonical.artist}'",
                 )
                 matches = listOf(canonical)
@@ -1103,9 +1180,9 @@ object SourceResolver {
             // song; a runtime that agrees this closely is one recording, and
             // nothing else is worth cutting a listener's audio for — or filing
             // on their device under the name of the track they asked for.
-            if (strictLength) {
+            if (strict) {
                 val (sameLength, otherLength) = matches.partition {
-                    TrackMatcher.withinSeconds(it, target, driftSec)
+                    TrackMatcher.withinSeconds(it, matchOn, driftSec)
                 }
                 // Named rather than dropped silently: a copy refused for its
                 // length reads in the log exactly like a source that never had
@@ -1113,8 +1190,8 @@ object SourceResolver {
                 if (otherLength.isNotEmpty()) {
                     TrackLog.d(
                         TAG,
-                        "${source.displayName}: ${otherLength.size} match(es) for '${target.title}' outside " +
-                            "±${driftSec}s of ${target.durationSec}s: " +
+                        "${source.displayName}: ${otherLength.size} match(es) for '${matchOn.title}' outside " +
+                            "±${driftSec}s of ${matchOn.durationSec}s: " +
                             otherLength.joinToString { "'${it.title}' ${it.durationText ?: "?"}" },
                     )
                 }
@@ -1124,14 +1201,15 @@ object SourceResolver {
             return streamBest(
                 source,
                 matches,
-                target,
+                matchOn,
                 request,
                 // The listener's tolerance already decided which runtimes are
                 // the same recording here; narrowing again to a fixed three
                 // seconds would quietly undo a setting of five.
-                sameLengthSec = if (strictLength) maxOf(SAME_RECORDING_SEC, driftSec) else SAME_RECORDING_SEC,
+                sameLengthSec = if (strict) maxOf(SAME_RECORDING_SEC, driftSec) else SAME_RECORDING_SEC,
                 // Only the patient lookups can afford to open more than one row.
                 compareRows = waitForAll,
+                checkFileLength = checkFileLength,
             )
         }
         return null
@@ -1241,6 +1319,7 @@ object SourceResolver {
         request: StreamRequest,
         sameLengthSec: Int = SAME_RECORDING_SEC,
         compareRows: Boolean = false,
+        checkFileLength: Boolean = false,
     ): SourceStream? {
         val wantsLossless = request is StreamRequest.Lossless
         val ordered = preferred(matches, target, wantsLossless, sameLengthSec)
@@ -1261,6 +1340,9 @@ object SourceResolver {
                 durationSec = TrackMatcher.secondsOf(match.durationText),
                 sourceConfigId = source.configId,
             )
+            // Dropped outright, not kept as a floor: a clip is not a lesser
+            // copy of the recording, it is not the recording.
+            if (checkFileLength && cutShort(source, match, stream, target)) continue
             val served = stream.format
             if (!wantsLossless || served.isLossless == true || served.isDolbyAtmos || served.statesNothingLossy) {
                 TrackLog.d(
@@ -1289,6 +1371,38 @@ object SourceResolver {
             settleFor = betterOf(settleFor, stream.copy(belowRequest = true))
         }
         return best ?: settleFor
+    }
+
+    /**
+     * Whether the file behind [stream] is too small to hold the recording —
+     * an addon's 30-second preview, or a cut-off upload, under a row that
+     * claims the full runtime.
+     *
+     * The row cannot say so: it is the row that is wrong. The size of the file
+     * can, at the cost of one header-only request — see [StreamLengthProbe].
+     * Measured against YouTube's runtime when the queue carried one, the row's
+     * otherwise, and with the listener's "Track length tolerance" as the bar.
+     *
+     * Answers no whenever it cannot measure — a manifest, a server that will
+     * not say how big the file is — and leaves the rest to the decoded-length
+     * check playback makes once the track is open.
+     */
+    private suspend fun cutShort(
+        source: MusicSource,
+        match: Song,
+        stream: SourceStream,
+        target: TrackMatcher.Target,
+    ): Boolean {
+        val expectedSec = target.durationSec ?: TrackMatcher.secondsOf(match.durationText) ?: return false
+        if (StreamContainer.isManifest(stream.url)) return false
+        val bytes = StreamLengthProbe.bytesOf(stream) ?: return false
+        if (!StreamLengthProbe.tooShort(bytes, stream.format, expectedSec, upgradeSlackSec())) return false
+        TrackLog.w(
+            TAG,
+            "${source.displayName} served ${bytes / 1024}kB of ${stream.format.summary} for " +
+                "'${match.title}', too little to hold ${expectedSec}s — a preview or a cut-off file; looking further",
+        )
+        return true
     }
 
     /**

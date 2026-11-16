@@ -414,12 +414,16 @@ internal fun AndroidCanvasArtworkPlayer(
     // one — see [refreshFrameEveryMs]. A separate effect rather than a loop
     // folded into the one above: that one is keyed on [rendered] so it fires
     // again on every fade-in, and this one only needs to start once a fade-in
-    // has actually happened and then keep going for as long as it holds.
-    LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop) {
+    // has actually happened and then keep going for as long as it holds. Not
+    // while the clip holds still, whose next frame would be this one again.
+    LaunchedEffect(
+        rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop,
+        isPlaying, pausedForTransition,
+    ) {
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
         if (frameCapturePx <= 0) return@LaunchedEffect
         Log.d(TAG, "periodic frame refresh started, interval=$interval")
-        if (!rendered) return@LaunchedEffect
+        if (!rendered || !isPlaying || pausedForTransition) return@LaunchedEffect
         while (isActive) {
             delay(interval)
             val view = textureView ?: continue

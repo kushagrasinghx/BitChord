@@ -213,6 +213,8 @@
     <string name="reduce_animation_subtitle">Fige le dégradé du lecteur principal au lieu de le faire dériver</string>
     <string name="reduce_dynamic_blur">Réduire le flou dynamique</string>
     <string name="reduce_dynamic_blur_subtitle">Remplace le verre dépoli par des couleurs unies dans toute l\'application</string>
+    <string name="disable_blend_effects">Désactiver les effets de fusion</string>
+    <string name="disable_blend_effects_subtitle">Affiche les icônes, le texte et les menus sombres du lecteur en blanc pur, sans les teinter avec la pochette</string>
     <string name="full_screen_cover_art">Pochette plein écran</string>
     <string name="animated_cover_art">Pochette animée</string>
     <string name="synced_lyrics">Paroles synchronisées</string>
@@ -243,6 +245,8 @@
     <string name="light">Clair</string>
     <string name="dark">Sombre</string>
     <string name="full_screen_cover_art_subtitle">Étend la pochette jusqu\'aux bords du lecteur au lieu d\'un carré</string>
+    <string name="full_screen_detail_cover">Pochette d\'album/playlist plein écran</string>
+    <string name="full_screen_detail_cover_subtitle">Étend les pochettes d\'albums et de playlists jusqu\'aux bords de la page au lieu d\'un cadre</string>
     <string name="animated_cover_art_subtitle">Lit la vidéo en boucle que proposent certaines sorties au lieu d\'une pochette fixe</string>
     <string name="dont_repeat_songs_subtitle">La lecture automatique ne proposera pas une chanson déjà jouée ou suggérée pendant cette session</string>
     <string name="download_quality_subtitle">%1$s par piste, quelle que soit la connexion</string>
@@ -792,7 +796,6 @@
 
     <string name="addon_url_description">Collez l\'URL de l\'extension — racine ou manifest.json. BitChord lira ce qu\'il peut rechercher et diffuser.</string>
 
-    <string name="advanced_options">Options avancées</string>
 
     <string name="automix_mode_balanced">Équilibré</string>
 
@@ -858,9 +861,14 @@
     <string name="playlist_sync_done_title">Ajoutés à %1$s : %2$d</string>
     <string name="playlist_updates_channel">Mises à jour des playlists</string>
 
-    <string name="legacy_mesh_gradient">Dégradé fluide classique</string>
+    <string name="player_theme">Thème du lecteur</string>
+    <string name="player_theme_default">Par défaut</string>
+    <string name="player_theme_legacy">Classique</string>
+    <string name="player_theme_simple">Simple</string>
+    <string name="player_theme_default_subtitle">Les couleurs de la pochette se prolongent en dessous</string>
+    <string name="player_theme_simple_subtitle">La pochette floutée derrière tout le lecteur</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Restaure les formes colorées animées de la v1.5</string>
+    <string name="player_theme_legacy_subtitle">Restaure les formes colorées animées de la v1.5</string>
 
     <string name="liquid_glass">Verre liquide</string>
 
@@ -1068,6 +1076,16 @@
     <string name="settings_search_empty">Aucun paramètre ne correspond à « %1$s »</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Alignement audio intelligent</string>
     <string name="smart_version_alignment_subtitle">Analyse les formes d\'onde pour retrouver le moment de lecture exactement correspondant</string>
 
@@ -1256,6 +1274,8 @@
 
 
     <string name="source_needs_lossless_output">Nécessite une sortie sans perte · utilisez un appareil compatible sans perte</string>
+    <string name="source_needs_update">Cet add-on n\'est plus à jour. Il fonctionne toujours, mais demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
+    <string name="source_outdated">Add-on obsolète</string>
     <string name="source_needs_lossless_bt_codec">Nécessite une sortie sans perte · le Bluetooth utilise %1$s ; utilisez un appareil compatible sans perte</string>
     <string name="source_needs_lossless_bt_unknown">Nécessite une sortie sans perte · impossible de savoir quel codec Bluetooth est utilisé</string>
     <string name="source_downloads_on">Téléchargements autorisés</string>
@@ -1394,6 +1414,7 @@
     <string name="direct_source_stream">Flux direct depuis la source</string>
     <string name="find_your_mood">Trouvez votre humeur</string>
     <string name="progressive_blur">Flou progressif</string>
+    <string name="glass_performance">Meilleures performances du verre</string>
     <string name="remove_from_history">Retirer de l\'historique</string>
     <string name="remove_from_history_failed">Impossible de retirer de l\'historique</string>
     <string name="addon_blocked_title">Impossible de lire ce titre</string>

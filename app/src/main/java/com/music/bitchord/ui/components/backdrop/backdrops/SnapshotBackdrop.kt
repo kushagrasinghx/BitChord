@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -117,9 +118,13 @@ fun rememberSnapshotBackdrop(): SnapshotBackdrop = remember { SnapshotBackdrop()
  * Makes this what [backdrop] takes its stills of. Draws as if it weren't here,
  * except on the one frame after [SnapshotBackdrop.capture], when it also
  * records itself small and turns that into the picture.
+ *
+ * [floor] goes under the picture, for a source that paints no background of its
+ * own. Left see-through, a panel blurs what is there and shows the sharp source
+ * straight through everywhere else.
  */
 @Composable
-fun Modifier.snapshotBackdropSource(backdrop: SnapshotBackdrop): Modifier {
+fun Modifier.snapshotBackdropSource(backdrop: SnapshotBackdrop, floor: Color = Color.Transparent): Modifier {
     val graphicsContext = LocalGraphicsContext.current
     val scope = rememberCoroutineScope()
     return this
@@ -134,6 +139,7 @@ fun Modifier.snapshotBackdropSource(backdrop: SnapshotBackdrop): Modifier {
             val width = (size.width * SNAPSHOT_SCALE).roundToInt().coerceAtLeast(1)
             val height = (size.height * SNAPSHOT_SCALE).roundToInt().coerceAtLeast(1)
             layer.record(size = IntSize(width, height)) {
+                drawRect(floor)
                 scale(SNAPSHOT_SCALE, pivot = Offset.Zero) { this@drawWithContent.drawContent() }
             }
             val generation = backdrop.generation

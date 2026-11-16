@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.SourceResolver
@@ -200,7 +201,7 @@ object DirectSourceGate {
     suspend fun lookup(videoId: String, target: TrackMatcher.Target): SourceStream? {
         val fresh = Lookup(
             work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-                SourceResolver.directStream(target)
+                SourceResolver.directStream(target, lengthOf = { youTubeLength(videoId) })
             },
             startedAtMs = android.os.SystemClock.elapsedRealtime(),
         )
@@ -215,6 +216,46 @@ object DirectSourceGate {
         val waited = android.os.SystemClock.elapsedRealtime() - lookup.startedAtMs
         return withTimeoutOrNull(LOOKUP_TIMEOUT_MS - waited) { lookup.work.await() }
     }
+
+    /**
+     * YouTube's runtimes for tracks queued without one, looked up for the
+     * addon match and kept so playback's decoded-length check measures against
+     * the same figure. Bounded: a long session queues a lot of tracks.
+     */
+    private val lengths = object : LinkedHashMap<String, Int>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>?) = size > LENGTHS_KEPT
+    }
+
+    /** YouTube's runtime for [videoId], when [youTubeLength] has looked it up. */
+    fun knownLength(videoId: String): Int? = synchronized(lengths) { lengths[videoId] }
+
+    /**
+     * YouTube's runtime for [videoId], from its watch-queue entry: metadata
+     * only, one `next` call, no audio. Asked only for a track whose queue row
+     * carried no duration — nearly every row in the app shows one, and that
+     * figure rides in the playback URI already — and only alongside the addon
+     * search, so it costs no time of its own. See [SourceResolver.directStream].
+     */
+    private suspend fun youTubeLength(videoId: String): Int? {
+        knownLength(videoId)?.let { return it }
+        val seconds = withTimeoutOrNull(LENGTH_TIMEOUT_MS) {
+            YtMusicRepository.trackLinks(videoId).getOrNull()
+                ?.durationText
+                ?.let(TrackMatcher::secondsOf)
+        }
+        if (seconds == null) {
+            TrackLog.d(TAG, "no YouTube runtime for $videoId; matching addons on title and artist", about = videoId)
+            return null
+        }
+        synchronized(lengths) { lengths[videoId] = seconds }
+        TrackLog.d(TAG, "YouTube runtime for $videoId is ${seconds}s; matching addons against it", about = videoId)
+        return seconds
+    }
+
+    private const val LENGTHS_KEPT = 256
+
+    /** Well inside an addon search's time, which is what it runs beside. */
+    private const val LENGTH_TIMEOUT_MS = 5_000L
 
     /** The lookup for [videoId] if it is still going, past the point anyone waits for it. */
     fun stillLooking(videoId: String): Deferred<SourceStream?>? = lookups[videoId]?.work

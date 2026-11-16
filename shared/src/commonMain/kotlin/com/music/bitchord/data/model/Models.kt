@@ -471,6 +471,13 @@ data class HomeShelf(
     val layout: ShelfLayout = ShelfLayout.CARDS,
 )
 
+/** These shelves without their music videos, and without any shelf that leaves empty. */
+fun List<HomeShelf>.withoutVideos(): List<HomeShelf> = mapNotNull { shelf ->
+    if (shelf.layout == ShelfLayout.VIDEO) return@mapNotNull null
+    val items = shelf.items.filterNot { it.isVideo }
+    if (items.isEmpty()) null else shelf.copy(items = items)
+}
+
 /**
  * The layout a shelf of [items] gets, as the web player decides it: rows when
  * YouTube itself listed tracks as rows (or the shelf is Listen again, which the

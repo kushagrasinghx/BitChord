@@ -207,6 +207,8 @@
     <string name="reduce_animation_subtitle">Membekukan gradien pemutar utama alih-alih bergerak</string>
     <string name="reduce_dynamic_blur">Kurangi blur dinamis</string>
     <string name="reduce_dynamic_blur_subtitle">Mengganti kaca buram dengan warna solid di seluruh aplikasi</string>
+    <string name="disable_blend_effects">Nonaktifkan efek campuran</string>
+    <string name="disable_blend_effects_subtitle">Menampilkan ikon, teks, dan menu gelap pemutar dalam warna putih polos, tanpa diwarnai sampul</string>
     <string name="full_screen_cover_art">Sampul layar penuh</string>
     <string name="animated_cover_art">Sampul animasi</string>
     <string name="synced_lyrics">Lirik tersinkron</string>
@@ -237,6 +239,8 @@
     <string name="light">Terang</string>
     <string name="dark">Gelap</string>
     <string name="full_screen_cover_art_subtitle">Membuat sampul memenuhi tepi pemutar alih-alih berbentuk persegi</string>
+    <string name="full_screen_detail_cover">Sampul album/playlist layar penuh</string>
+    <string name="full_screen_detail_cover_subtitle">Membuat sampul album dan playlist memenuhi tepi halaman alih-alih berbingkai</string>
     <string name="animated_cover_art_subtitle">Memutar video berulang yang disertakan beberapa rilisan alih-alih sampul diam</string>
     <string name="dont_repeat_songs_subtitle">Putar Otomatis tidak akan menyarankan lagu yang sudah diputar atau disarankan dalam sesi ini</string>
     <string name="download_quality_subtitle">%1$s per trek, apa pun koneksinya</string>
@@ -770,7 +774,6 @@
 
     <string name="addon_url_description">Tempel URL addon — direktori utama atau manifest.json.</string>
 
-    <string name="advanced_options">Opsi lanjutan</string>
 
     <string name="automix_mode_balanced">Seimbang</string>
 
@@ -836,9 +839,14 @@
     <string name="playlist_sync_done_title">Ditambahkan ke %1$s: %2$d</string>
     <string name="playlist_updates_channel">Pembaruan playlist</string>
 
-    <string name="legacy_mesh_gradient">Gradien mesh klasik</string>
+    <string name="player_theme">Tema pemutar</string>
+    <string name="player_theme_default">Default</string>
+    <string name="player_theme_legacy">Lama</string>
+    <string name="player_theme_simple">Sederhana</string>
+    <string name="player_theme_default_subtitle">Warna sampul berlanjut di bawahnya</string>
+    <string name="player_theme_simple_subtitle">Sampul buram di belakang seluruh pemutar</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Kembalikan efek warna mengalir di belakang pemutar dari v1.5</string>
+    <string name="player_theme_legacy_subtitle">Kembalikan efek warna mengalir di belakang pemutar dari v1.5</string>
 
     <string name="liquid_glass">Kaca Cair</string>
 
@@ -1046,6 +1054,16 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Penyelarasan audio cerdas</string>
     <string name="smart_version_alignment_subtitle">Menganalisis gelombang audio untuk mencocokkan momen pemutaran yang tepat</string>
 
@@ -1232,6 +1250,8 @@
 
 
     <string name="source_needs_lossless_output">Perlu output lossless · gunakan perangkat yang mendukung lossless</string>
+    <string name="source_needs_update">Addon ini sudah usang. Addon masih berfungsi, tetapi minta pengembangnya memperbaruinya dengan mengikuti dokumentasi addon BitChord terbaru.</string>
+    <string name="source_outdated">Addon usang</string>
     <string name="source_needs_lossless_bt_codec">Perlu output lossless · Bluetooth memakai %1$s; gunakan perangkat yang mendukung lossless</string>
     <string name="source_needs_lossless_bt_unknown">Perlu output lossless · codec Bluetooth yang dipakai tidak bisa diketahui</string>
     <string name="source_downloads_on">Unduhan diizinkan</string>
@@ -1370,6 +1390,7 @@
     <string name="direct_source_stream">Streaming langsung dari sumber</string>
     <string name="find_your_mood">Temukan Mood Anda</string>
     <string name="progressive_blur">Blur progresif</string>
+    <string name="glass_performance">Performa kaca lebih baik</string>
     <string name="remove_from_history">Hapus dari riwayat</string>
     <string name="remove_from_history_failed">Tidak dapat menghapus dari riwayat</string>
     <string name="addon_blocked_title">Tidak dapat memutar lagu ini</string>

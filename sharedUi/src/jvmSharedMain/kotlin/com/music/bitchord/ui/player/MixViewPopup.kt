@@ -7,8 +7,12 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -37,6 +41,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -48,10 +53,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -87,7 +96,10 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.delay
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 private val PopupShape = RoundedCornerShape(24.dp)
 private val ScrimColor = Color.Black.copy(alpha = 0.6f)
@@ -132,13 +144,15 @@ private const val SilentAlpha = 0.32f
  * highs cream, laid over each other where the blend overlaps them, with the
  * faders the blend rides drawn in yellow and the playhead moving through it.
  *
- * A popup card over a dimmed player, opened from the "Mixing" label. [view] is
- * held by the caller while it closes; [visible] is what opens and closes it.
+ * A popup card over a dimmed player, opened from the "Mixing" label or the
+ * player's menu. [view] is held by the caller while it closes, and is null
+ * while a popup opened by hand waits on its first plan; [visible] is what opens
+ * and closes it.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun MixViewPopup(
-    view: MixTransitionView,
+    view: MixTransitionView?,
     visible: Boolean,
     /** False once the blend has finished: the popup stays up on its last frame, without a playhead. */
     live: Boolean,
@@ -203,98 +217,204 @@ internal fun MixViewPopup(
                     .padding(vertical = 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                MixViewContent(view, progress, live)
+                MixViewContent(view ?: PlaceholderView, progress, live)
             }
         }
     }
 }
+
+/** What the popup draws before its first plan lands: two decks of nothing yet, both still being worked out. */
+private val PlaceholderDeck = MixDeck(
+    title = "",
+    artist = "",
+    artworkUrl = null,
+    bpm = 0.0,
+    key = "",
+    durationMs = 0L,
+    waveStart = 0.0,
+    waveEnd = 0.0,
+    analysing = true,
+)
+private val PlaceholderView = MixTransitionView(
+    outgoing = PlaceholderDeck,
+    incoming = PlaceholderDeck,
+    outStart = 0.0,
+    outEnd = 1.0,
+    inStart = 0.0,
+    inEnd = 1.0,
+    beats = 0,
+    beatMarks = FloatArray(0),
+    fadeOut = FloatArray(0),
+    fadeIn = FloatArray(0),
+)
 
 /** The popup's body: the outgoing track, both decks, the incoming track. */
 @Composable
 internal fun MixViewContent(view: MixTransitionView, progress: State<Float>, live: Boolean = true) {
+    val sweep = rememberSkeletonSweep(
+        view.outgoing.analysing || view.incoming.analysing || view.outgoing.decoding || view.incoming.decoding,
+    )
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        DeckHeader(view.outgoing, Modifier.padding(horizontal = 14.dp))
+        DeckHeader(view.outgoing, sweep, Modifier.padding(horizontal = 14.dp))
         Spacer(Modifier.height(12.dp))
-        MixDecks(view, progress, live)
+        MixDecks(view, progress, live, sweep)
         Spacer(Modifier.height(12.dp))
-        DeckHeader(view.incoming, Modifier.padding(horizontal = 14.dp))
+        DeckHeader(view.incoming, sweep, Modifier.padding(horizontal = 14.dp))
     }
 }
 
+/** The skeletons' sweep, 0..1, running only while something on the card is still coming. */
 @Composable
-private fun DeckHeader(deck: MixDeck, modifier: Modifier = Modifier) {
+private fun rememberSkeletonSweep(active: Boolean): State<Float> {
+    if (!active) return remember { mutableFloatStateOf(0f) }
+    return rememberInfiniteTransition(label = "mixSkeleton").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(SKELETON_SWEEP_MS, easing = LinearEasing)),
+        label = "mixSkeletonSweep",
+    )
+}
+
+private const val SKELETON_SWEEP_MS = 1400
+
+/** The skeletons' grey on the dark card, and the highlight that sweeps across it. */
+private val SkeletonBase = Color.White.copy(alpha = 0.08f)
+private val SkeletonHighlight = Color.White.copy(alpha = 0.18f)
+
+/** The highlight band across [width] at [sweep]: from fully off one edge to fully off the other. */
+private fun skeletonBrush(width: Float, sweep: Float): Brush {
+    val band = width * 0.5f
+    val startX = -band + sweep * (width + band * 2)
+    return Brush.horizontalGradient(
+        colors = listOf(SkeletonBase, SkeletonHighlight, SkeletonBase),
+        startX = startX,
+        endX = startX + band,
+    )
+}
+
+/** A placeholder block, the sweep read in draw so it never recomposes the card. */
+@Composable
+private fun SkeletonBlock(sweep: State<Float>, modifier: Modifier, shape: Shape = RoundedCornerShape(4.dp)) {
+    Box(
+        modifier
+            .clip(shape)
+            .drawBehind { drawRect(skeletonBrush(size.width, sweep.value)) },
+    )
+}
+
+@Composable
+private fun DeckHeader(deck: MixDeck, sweep: State<Float>, modifier: Modifier = Modifier) {
+    // Only the placeholder has no title: a real track always knows its own name.
+    val unknown = deck.title.isEmpty() && deck.analysing
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = deck.artworkUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.White.copy(alpha = 0.08f)),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = deck.title,
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = deck.artist,
-                color = SecondaryText,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        if (unknown) {
+            SkeletonBlock(sweep, Modifier.size(46.dp), RoundedCornerShape(6.dp))
+        } else {
+            AsyncImage(
+                model = deck.artworkUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.08f)),
             )
         }
         Spacer(Modifier.width(12.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            if (deck.bpm > 0) {
+        Column(Modifier.weight(1f)) {
+            if (unknown) {
+                SkeletonBlock(sweep, Modifier.fillMaxWidth(0.62f).height(15.dp))
+                Spacer(Modifier.height(7.dp))
+                SkeletonBlock(sweep, Modifier.fillMaxWidth(0.38f).height(12.dp))
+            } else {
                 Text(
-                    text = stringResource(Res.string.mix_view_bpm, deck.bpm.roundToInt()),
+                    text = deck.title,
                     color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(5.dp))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                camelotOf(deck.key)?.let { camelot ->
-                    Text(
-                        text = camelot.code,
-                        color = Color(0xFF151515),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(camelot.color)
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
+                Spacer(Modifier.height(3.dp))
                 Text(
-                    text = formatDeckDuration(deck.durationMs),
+                    text = deck.artist,
                     color = SecondaryText,
                     fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        Spacer(Modifier.width(12.dp))
+        // Still being analysed: the tempo and key it will have, as skeletons,
+        // beside whatever duration is already known.
+        if (deck.analysing) {
+            Column(horizontalAlignment = Alignment.End) {
+                SkeletonBlock(sweep, Modifier.width(48.dp).height(13.dp))
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SkeletonBlock(sweep, Modifier.width(24.dp).height(15.dp))
+                    if (deck.durationMs > 0L) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = formatDeckDuration(deck.durationMs),
+                            color = SecondaryText,
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            }
+        } else {
+            DeckNumbers(deck)
+        }
+    }
+}
+
+/** A measured deck's tempo, key and length, right-aligned beside its title. */
+@Composable
+private fun DeckNumbers(deck: MixDeck) {
+    Column(horizontalAlignment = Alignment.End) {
+        if (deck.bpm > 0) {
+            Text(
+                text = stringResource(Res.string.mix_view_bpm, deck.bpm.roundToInt()),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(5.dp))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            camelotOf(deck.key)?.let { camelot ->
+                Text(
+                    text = camelot.code,
+                    color = Color(0xFF151515),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(camelot.color)
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = formatDeckDuration(deck.durationMs),
+                color = SecondaryText,
+                fontSize = 13.sp,
+            )
         }
     }
 }
 
 /** The two waveform decks, the transition frame across them, and the blend's length under them. */
 @Composable
-private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Boolean) {
+private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Boolean, sweep: State<Float>) {
     val outColors = rememberWaveColors(view.outgoing.artworkUrl)
     val inColors = rememberWaveColors(view.incoming.artworkUrl)
+    val pending = view.outgoing.analysing || view.incoming.analysing
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
@@ -316,8 +436,8 @@ private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Bool
             val deckHeight = DeckHeight.toPx()
             val topDeck = DeckTop.toPx()
             val bottomDeck = size.height - DeckBottomInset.toPx() - deckHeight
-            drawDeck(view, outgoing = true, top = topDeck, height = deckHeight, colors = outColors)
-            drawDeck(view, outgoing = false, top = bottomDeck, height = deckHeight, colors = inColors)
+            drawDeck(view, outgoing = true, top = topDeck, height = deckHeight, colors = outColors, sweep = sweep)
+            drawDeck(view, outgoing = false, top = bottomDeck, height = deckHeight, colors = inColors, sweep = sweep)
             // The playhead, through both decks at once: they are the same moment.
             // Gone once the blend is over rather than parked at its end.
             if (live) {
@@ -340,17 +460,22 @@ private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Bool
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
-            val bars = (view.beats / 4f).roundToInt().coerceAtLeast(1)
-            Text(
-                text = when {
-                    view.beats <= 0 -> stringResource(Res.string.mix_view_seconds, (view.outEnd - view.outStart).roundToInt())
-                    bars == 1 -> stringResource(Res.string.mix_view_one_bar)
-                    else -> stringResource(Res.string.mix_view_bars, bars)
-                },
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            // The blend's length is the planner's guess until both tracks are measured.
+            if (pending) {
+                SkeletonBlock(sweep, Modifier.width(44.dp).height(13.dp))
+            } else {
+                val bars = (view.beats / 4f).roundToInt().coerceAtLeast(1)
+                Text(
+                    text = when {
+                        view.beats <= 0 -> stringResource(Res.string.mix_view_seconds, (view.outEnd - view.outStart).roundToInt())
+                        bars == 1 -> stringResource(Res.string.mix_view_one_bar)
+                        else -> stringResource(Res.string.mix_view_bars, bars)
+                    },
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
     }
 }
@@ -363,7 +488,14 @@ private fun MixDecks(view: MixTransitionView, progress: State<Float>, live: Bool
  * the incoming one on the right, where it plays on; the fader runs along the
  * frame's edge between full (the centre line) and silent (its floor).
  */
-private fun DrawScope.drawDeck(view: MixTransitionView, outgoing: Boolean, top: Float, height: Float, colors: WaveColors) {
+private fun DrawScope.drawDeck(
+    view: MixTransitionView,
+    outgoing: Boolean,
+    top: Float,
+    height: Float,
+    colors: WaveColors,
+    sweep: State<Float>,
+) {
     val deck = if (outgoing) view.outgoing else view.incoming
     val boxLeft = size.width * BoxStart
     val boxRight = size.width * BoxEnd
@@ -419,8 +551,11 @@ private fun DrawScope.drawDeck(view: MixTransitionView, outgoing: Boolean, top: 
             bar(x, width, centre, deck.mid[bin] * half, colors.mid.copy(alpha = alpha))
             bar(x, width, centre, deck.high[bin] * half, colors.high.copy(alpha = alpha))
         }
+    } else if (deck.analysing || deck.decoding) {
+        // Still being analysed or decoded: a skeleton of a waveform where this one will be.
+        drawWaveSkeleton(centre, half, sweep.value)
     } else {
-        // Still decoding: a flat line where the waveform will be.
+        // Nothing coming — the decode failed: a flat line where the waveform would be.
         drawLine(
             color = colors.mid.copy(alpha = 0.35f),
             start = Offset(0f, centre),
@@ -550,6 +685,27 @@ private fun hsvOf(color: Color): FloatArray {
     return floatArrayOf(hue, if (max == 0f) 0f else delta / max, max)
 }
 
+/**
+ * Grey mirrored columns across the deck, of a made-up but steady shape, with
+ * the skeletons' highlight sweeping through them — reads as "a waveform is
+ * coming" where a flat line read as silence.
+ */
+private fun DrawScope.drawWaveSkeleton(centre: Float, half: Float, sweep: Float) {
+    val brush = skeletonBrush(size.width, sweep)
+    val column = 2.dp.toPx()
+    val step = 4.dp.toPx()
+    val corner = CornerRadius(column / 2f)
+    var index = 0
+    var x = 0f
+    while (x < size.width) {
+        val shape = 0.22f + 0.5f * abs(sin(index * 0.37f) * cos(index * 0.113f))
+        val extent = half * shape
+        drawRoundRect(brush, topLeft = Offset(x, centre - extent), size = Size(column, extent * 2f), cornerRadius = corner)
+        x += step
+        index++
+    }
+}
+
 /** One mirrored column of a waveform layer. */
 private fun DrawScope.bar(x: Float, width: Float, centre: Float, extent: Float, color: Color) {
     if (extent <= 0.3f) return
@@ -604,45 +760,75 @@ private fun camelotOf(key: String): Camelot? {
 
 /**
  * Whether the mix popup has been asked for. Set by tapping the "Mixing" label
- * under the scrubber, cleared on dismiss. One player per process, so one flag.
+ * under the scrubber, or "Automix overview" in the player's menu, and cleared
+ * on dismiss. One player per process, so one flag.
  */
-internal object MixViewRequest {
+object MixViewRequest {
     var open by mutableStateOf(false)
 }
 
+/** How long the popup waits on a first plan before saying there is nothing to show. */
+private const val PREVIEW_WAIT_MS = 2_500L
+
 /**
- * Shows [MixViewPopup] while [MixViewRequest] asks for it. Stays up past the
- * end of the blend, on its last frame, until dismissed — a blend can be over in
+ * Shows [MixViewPopup] while [MixViewRequest] asks for it: the blend in flight
+ * if there is one, otherwise the next transition as planned. Stays up past the
+ * end of a blend, on its last frame, until dismissed — a blend can be over in
  * a few seconds, and the popup closing on its own under a reader is worse.
+ *
+ * Opened by hand between blends, it asks the host for the plan and shows a
+ * skeleton until the first one lands; a track still being analysed keeps its
+ * skeleton in the plan, so what is missing reads as work in progress.
  *
  * Collects everything itself, so a blend's waveforms arriving recompose this
  * and not the player it is mounted in.
  */
 @Composable
 internal fun MixViewOverlay(hazeState: HazeState) {
-    val view by PlayerSettings.smartMixView.collectAsStateWithLifecycle()
+    val blend by PlayerSettings.smartMixView.collectAsStateWithLifecycle()
+    val preview by PlayerSettings.smartMixPreview.collectAsStateWithLifecycle()
     var held by remember { mutableStateOf<MixTransitionView?>(null) }
+    // Whether [held] is a blend's: once one has been on screen its last frame
+    // stays, rather than the popup jumping to the plan for the pair after it.
+    var heldBlend by remember { mutableStateOf(false) }
     val open = MixViewRequest.open
-    val current = view
-    LaunchedEffect(current, open) {
-        if (current != null) {
-            held = current
-        } else if (!open) {
-            // Kept through the close animation, then let go.
-            delay(240)
-            held = null
+    val currentBlend = blend
+    val currentPreview = preview
+    LaunchedEffect(open) { PlayerSettings.setMixViewOpen(open) }
+    DisposableEffect(Unit) { onDispose { PlayerSettings.setMixViewOpen(false) } }
+    LaunchedEffect(currentBlend, currentPreview, open) {
+        when {
+            currentBlend != null -> {
+                held = currentBlend
+                heldBlend = true
+            }
+            !open -> {
+                // Kept through the close animation, then let go.
+                delay(240)
+                held = null
+                heldBlend = false
+            }
+            heldBlend -> Unit
+            currentPreview != null -> held = currentPreview
         }
     }
-    // Nothing to show: a tap that raced the blend's end, or a stale request.
-    LaunchedEffect(open, held) {
-        if (open && held == null && current == null) MixViewRequest.open = false
+    // Nothing to show after all: no next track, a party, a video — anything
+    // that plans no transition. Said, rather than a skeleton left up forever.
+    val unavailable = stringResource(Res.string.automix_overview_unavailable)
+    LaunchedEffect(open, held == null) {
+        if (!open || held != null) return@LaunchedEffect
+        delay(PREVIEW_WAIT_MS)
+        if (MixViewRequest.open && held == null) {
+            MixViewRequest.open = false
+            PlayerPlatform.host.showMessage(unavailable)
+        }
     }
     PlayerBackHandler(enabled = open) { MixViewRequest.open = false }
-    val shown = held ?: return
+    if (!open && held == null) return
     MixViewPopup(
-        view = shown,
+        view = held,
         visible = open,
-        live = current != null,
+        live = currentBlend != null,
         hazeState = hazeState,
         onDismiss = { MixViewRequest.open = false },
     )

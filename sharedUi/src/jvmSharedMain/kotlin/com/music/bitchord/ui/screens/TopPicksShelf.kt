@@ -136,7 +136,7 @@ private const val TOP_PICK_RATIO = 0.75f
 /** Share of the row a card takes, so the next one shows past it. */
 private const val TOP_PICK_FRACTION = 0.60f
 
-/** Held back on a tablet, the same way [heroCardWidth] is. */
+/** Held back on a tablet, so a card doesn't blow up into a poster. */
 private val TOP_PICK_MAX_WIDTH = 280.dp
 
 private val TopPickShape = RoundedCornerShape(12.dp)

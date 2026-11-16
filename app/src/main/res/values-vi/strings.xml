@@ -238,12 +238,19 @@
     <string name="reduce_animation_subtitle">Cố định dải màu của trình phát thay vì chuyển động</string>
     <string name="reduce_dynamic_blur">Giảm độ mờ động</string>
     <string name="reduce_dynamic_blur_subtitle">Dùng màu nền đặc thay cho hiệu ứng kính mờ trong toàn bộ ứng dụng</string>
+    <string name="disable_blend_effects">Tắt hiệu ứng hòa màu</string>
+    <string name="disable_blend_effects_subtitle">Hiển thị biểu tượng, chữ và menu tối của trình phát bằng màu trắng thay vì nhuộm theo ảnh bìa</string>
     <string name="liquid_glass">Kính lỏng (Liquid Glass)</string>
     <string name="liquid_glass_subtitle">Hiệu ứng kính khúc xạ trên thanh điều hướng nổi. Chỉ dành cho Android 12+; sử dụng nhiều GPU hơn.</string>
     <string name="liquid_glass_unavailable">Yêu cầu Android 12 trở lên</string>
     <string name="full_screen_cover_art">Ảnh bìa toàn màn hình</string>
-    <string name="legacy_mesh_gradient">Dải màu lưới kiểu cũ</string>
-    <string name="legacy_mesh_gradient_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
+    <string name="player_theme">Giao diện trình phát</string>
+    <string name="player_theme_default">Mặc định</string>
+    <string name="player_theme_legacy">Cổ điển</string>
+    <string name="player_theme_simple">Đơn giản</string>
+    <string name="player_theme_default_subtitle">Màu của ảnh bìa kéo dài xuống bên dưới</string>
+    <string name="player_theme_simple_subtitle">Ảnh bìa làm mờ phía sau toàn bộ trình phát</string>
+    <string name="player_theme_legacy_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
     <string name="animated_cover_art">Ảnh bìa động</string>
     <string name="synced_lyrics">Lời bài hát đồng bộ</string>
     <string name="synced_lyrics_subtitle">Làm sáng các từ trên trình phát khi đang được hát</string>
@@ -273,6 +280,8 @@
     <string name="light">Sáng</string>
     <string name="dark">Tối</string>
     <string name="full_screen_cover_art_subtitle">Mở rộng ảnh bìa ra các cạnh của trình phát thay vì khung vuông</string>
+    <string name="full_screen_detail_cover">Ảnh bìa album/danh sách phát toàn màn hình</string>
+    <string name="full_screen_detail_cover_subtitle">Mở rộng ảnh bìa album và danh sách phát ra các cạnh trang thay vì khung</string>
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
     <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
@@ -726,7 +735,6 @@
     <string name="loudness_lufs">%1$s LUFS</string>
     <string name="blur_unfocused_lyrics">Làm mờ lời không tập trung</string>
     <string name="blur_unfocused_lyrics_subtitle">Tập trung vào câu hát hiện tại</string>
-    <string name="advanced_options">Tùy chọn nâng cao</string>
     <string name="lyrics_debug_logs">Nhật ký gỡ lỗi lời bài hát</string>
     <string name="lyrics_debug_logs_subtitle">Hiển thị truy vấn API và hoạt động lấy dữ liệu trên bảng lời bài hát</string>
     <string name="shelf_trending_community_playlists">Danh sách phát cộng đồng thịnh hành</string>
@@ -819,6 +827,16 @@
 
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Smart audio alignment</string>
 
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
@@ -1172,6 +1190,8 @@
     <string name="prioritize_spotify_canvas_subtitle">Thử Spotify trước Apple Music và các nhà cung cấp ảnh bìa động khác</string>
 
     <string name="source_needs_lossless_output">Cần đầu ra lossless · hãy dùng thiết bị hỗ trợ lossless</string>
+    <string name="source_needs_update">Tiện ích này đã lỗi thời. Tiện ích vẫn hoạt động, nhưng hãy nhờ nhà phát triển cập nhật theo tài liệu tiện ích mới nhất của BitChord.</string>
+    <string name="source_outdated">Tiện ích lỗi thời</string>
     <string name="source_needs_lossless_bt_codec">Cần đầu ra lossless · Bluetooth đang dùng %1$s; hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_unknown">Cần đầu ra lossless · không xác định được codec Bluetooth đang dùng</string>
     <string name="source_downloads_on">Cho phép tải xuống</string>
@@ -1310,6 +1330,7 @@
     <string name="direct_source_stream">Phát trực tiếp từ nguồn</string>
     <string name="find_your_mood">Tìm tâm trạng của bạn</string>
     <string name="progressive_blur">Làm mờ dần</string>
+    <string name="glass_performance">Hiệu năng kính tốt hơn</string>
     <string name="remove_from_history">Xóa khỏi lịch sử</string>
     <string name="remove_from_history_failed">Không thể xóa khỏi lịch sử</string>
     <string name="addon_blocked_title">Không thể phát bài hát này</string>

@@ -128,8 +128,6 @@ object SfIcons {
     // ---- Settings ----
     val AccountPlaceholder: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPersonCropCircleFill) }
     val Add: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPlus) }
-    val AddAccount: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPersonCropCircleBadgePlus) }
-    val Advanced: ImageVector by lazy { bold(SfSymbols.Monochrome.SFWrenchAndScrewdriver) }
     val Animation: ImageVector by lazy { bold(SfSymbols.Monochrome.SFFigureWalkMotion) }
     val Appearance: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPaintbrushPointed) }
     val Apps: ImageVector by lazy { bold(SfSymbols.Monochrome.SFSquareGrid2x2) }
@@ -175,7 +173,6 @@ object SfIcons {
     val Lock: ImageVector by lazy { bold(SfSymbols.Monochrome.SFLock) }
     val Login: ImageVector by lazy { bold(SfSymbols.Monochrome.SFArrowRightCircle) }
     val Logout: ImageVector by lazy { bold(SfSymbols.Monochrome.SFRectanglePortraitAndArrowRight) }
-    val ManageAccounts: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPerson2BadgeGearshape) }
     val Miscellaneous: ImageVector by lazy { bold(SfSymbols.Monochrome.SFEllipsisCircle) }
     val MotionPhotosOff: ImageVector by lazy { bold(SfSymbols.Monochrome.SFLivephotoSlash) }
     val MusicNote: ImageVector by lazy { bold(SfSymbols.Monochrome.SFMusicNote) }

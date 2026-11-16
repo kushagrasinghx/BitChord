@@ -62,6 +62,7 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConnection
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
@@ -385,8 +386,9 @@ private fun GlassNowPlaying(
         ) {
             // A music video plays in the cover's place at its own 16:9, as in
             // the floating mini player; the full player takes it over when up.
+            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
             val artWidth by animateDpAsState(
-                targetValue = if (song.isVideo) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
+                targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
                 label = "glassMiniArtWidth",
             )
             Box(
@@ -404,7 +406,7 @@ private fun GlassNowPlaying(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
-                if (song.isVideo) {
+                if (showsPicture) {
                     AndroidMusicVideo(
                         videoId = song.videoId,
                         fit = false,

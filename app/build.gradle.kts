@@ -53,6 +53,18 @@ val listenTogetherServer: String = (
         ?: "https://bitchord-listen-together.onrender.com"
     ).trim().trimEnd('/')
 
+/*
+ * The service that checks this app's hardware key attestation and issues addon
+ * tokens. See AddonAuth. Overridable for a staging deployment. A fork that
+ * points this at its own server gains nothing: addons only trust tokens signed
+ * by the official service's key.
+ */
+val addonAuthServer: String = (
+    localProps.getProperty("ADDON_AUTH_SERVER")
+        ?: System.getenv("ADDON_AUTH_SERVER")
+        ?: "https://bitchord-auth.kushagrasingh.in"
+    ).trim().trimEnd('/')
+
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 
@@ -79,6 +91,11 @@ android {
             "String",
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
+        buildConfigField(
+            "String",
+            "ADDON_AUTH_URL",
+            "\"${addonAuthServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
         // Which release assets are this app's: the phone and TV APKs ship in
         // the same GitHub release, told apart by file name. See

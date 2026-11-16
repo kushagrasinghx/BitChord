@@ -39,6 +39,7 @@ import com.music.bitchord.data.innertube.InnerTubeXResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.ChunkedDataSource
+import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.CancellationException
@@ -143,6 +144,9 @@ object MusicVideoEngine {
                 refused.clear()
                 refresh()
             }
+        }
+        scope.launch {
+            AppSettings.preferMusicOnly.drop(1).collect { refresh() }
         }
     }
 
@@ -320,7 +324,9 @@ object MusicVideoEngine {
     /** The track the picture should be of: the controller's, when it is a music video. */
     private fun wanted(): Song? {
         val song = controller?.currentMediaItem?.toSong() ?: return null
-        return song.takeIf { it.isVideo && it.videoId !in noPicture }
+        return song.takeIf {
+            it.isVideo && it.videoId !in noPicture && MusicOnlyPlayback.showsPicture(it.videoId)
+        }
     }
 
     private fun refresh() {

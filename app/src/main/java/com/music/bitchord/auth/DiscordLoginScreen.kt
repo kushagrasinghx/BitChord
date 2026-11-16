@@ -3,8 +3,10 @@ package com.music.bitchord.auth
 import android.annotation.SuppressLint
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -54,6 +56,56 @@ private const val TOKEN_SNIPPET = """
  */
 private const val MAX_TOKEN_ATTEMPTS = 12
 private const val TOKEN_RETRY_MS = 500L
+
+/** Discord login may only navigate on Discord's own hosts. */
+internal fun isAllowedDiscordWebUrl(url: String?): Boolean {
+    val host = runCatching { java.net.URI(url ?: return false).host?.lowercase() }.getOrNull() ?: return false
+    return host == "discord.com" || host.endsWith(".discord.com") ||
+        host == "discordapp.com" || host.endsWith(".discordapp.com")
+}
+
+/**
+ * Forgets the Discord login held by the in-app WebView. Discord keeps cookies
+ * and WebStorage separately from the app's encrypted token; disconnecting the
+ * account must clear both without touching Google's or Spotify's sessions in
+ * the same process-wide jar.
+ */
+fun clearDiscordWebSession() {
+    val cookies = runCatching { CookieManager.getInstance() }.getOrNull()
+    if (cookies != null) {
+        DISCORD_SESSION_ORIGINS.forEach { origin ->
+            val names = cookies.getCookie(origin)?.split(";")
+                ?.map { it.substringBefore("=").trim() }
+                ?.filter { it.isNotEmpty() }
+                .orEmpty()
+            for (name in names) {
+                val expired = "$name=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/"
+                cookies.setCookie(origin, expired)
+                cookies.setCookie(origin, "$expired; Domain=.discord.com")
+                cookies.setCookie(origin, "$expired; Domain=.discordapp.com")
+            }
+        }
+        runCatching { cookies.flush() }
+    }
+    runCatching {
+        val storage = WebStorage.getInstance()
+        DISCORD_SESSION_ORIGINS.forEach { storage.deleteOrigin(it) }
+    }
+}
+
+private val DISCORD_SESSION_ORIGINS = listOf(
+    "https://discord.com",
+    "https://discordapp.com",
+)
+
+/**
+ * Discord user tokens are three dot-separated segments. This is a shape check,
+ * not authentication: it keeps arbitrary alert text out of the credential store.
+ */
+internal fun isDiscordTokenShape(token: String): Boolean =
+    token.length >= 50 &&
+        token.none { it.isWhitespace() } &&
+        token.count { it == '.' } == 2
 
 private val WEBVIEW_VERSION_TOKEN = Regex("""Version/\d+(\.\d+)*\s*""")
 
@@ -165,6 +217,7 @@ fun DiscordLoginScreen(
                 webViewClient = object : WebViewClient() {
                     @Deprecated("Deprecated in Java")
                     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                        if (!isAllowedDiscordWebUrl(url)) return true
                         if (isSignedIn(url)) harvestToken()
                         return false
                     }
@@ -182,12 +235,12 @@ fun DiscordLoginScreen(
                         url: String?,
                         isReload: Boolean,
                     ) {
-                        if (isSignedIn(url)) harvestToken()
+                        if (isAllowedDiscordWebUrl(url) && isSignedIn(url)) harvestToken()
                     }
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         canGoBack = view?.canGoBack() == true
-                        if (isSignedIn(url)) harvestToken()
+                        if (isAllowedDiscordWebUrl(url) && isSignedIn(url)) harvestToken()
                     }
                 }
 
@@ -200,6 +253,12 @@ fun DiscordLoginScreen(
                     ): Boolean {
                         result.confirm()
                         if (captured) return true
+                        // Any page can call alert(). Only a Discord page, and
+                        // only a token-shaped payload, may be captured.
+                        if (!isAllowedDiscordWebUrl(view.url) || !isDiscordTokenShape(message)) {
+                            view.postDelayed({ harvestToken() }, TOKEN_RETRY_MS)
+                            return true
+                        }
 
                         val token = message.takeUnless {
                             it.isBlank() || it == "null" || it == "undefined"

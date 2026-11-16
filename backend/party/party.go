@@ -575,16 +575,35 @@ func (p *Party) Host() *Member {
 	return nil
 }
 
-func (p *Party) Join(userId, deviceId, displayName string, avatarUrl *string) (*Member, error) {
+// Join creates a member, or returns the existing one when the device is
+// already in the party.
+//
+// Rejoining has to prove it is the same device session, because the device id
+// is derived from the install and is not a secret: anyone who learns it would
+// otherwise be handed that member's token — host included. [rejoinToken] is the
+// token issued when the membership was created, and a rejoin without a matching
+// one is refused rather than quietly creating a second member or taking over the
+// first.
+//
+// The token is deliberately *not* rotated on a successful rejoin. Rotating it
+// would make a retry after a lost response fail with the token the client still
+// holds, leaving that device locked out until its stale member expires; keeping
+// it makes rejoin idempotent, and it is replaced only when the membership itself
+// goes away.
+func (p *Party) Join(userId, deviceId, displayName string, avatarUrl *string, rejoinToken string) (*Member, error) {
 	now := clock.NowMs()
 	// Rejoining device check
 	for _, m := range p.Members {
 		if m.DeviceId == deviceId {
+			if subtle.ConstantTimeCompare([]byte(m.Token), []byte(rejoinToken)) != 1 {
+				// Nothing is mutated on this path: a wrong or missing credential
+				// must leave the membership exactly as it was.
+				return nil, NewPartyError(401, "rejoin_denied", "This device is already in that party. Rejoin from the app it was joined from.")
+			}
 			m.DisplayName = displayName
 			m.AvatarUrl = avatarUrl
 			m.UserId = userId
 			m.LastSeenMs = now
-			m.Token = randomToken(24)
 			p.Touch()
 			return m, nil
 		}

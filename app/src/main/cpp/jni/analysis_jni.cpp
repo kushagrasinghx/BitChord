@@ -124,6 +124,7 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeAnalyze(
     jfloatArray samples,
     jdouble sample_rate,
     jdouble duration) {
+  if (samples == nullptr) return nullptr;
   const jsize count = env->GetArrayLength(samples);
   std::vector<float> input(static_cast<size_t>(count));
   if (count > 0) {

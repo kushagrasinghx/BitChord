@@ -75,6 +75,7 @@ Java_com_music_bitchord_playback_smart_MelSpectrogram_nativeCompute(
     jclass /* clazz */,
     jfloatArray samples,
     jdouble sample_rate) {
+  if (samples == nullptr) return nullptr;
   const jsize count = env->GetArrayLength(samples);
   std::vector<float> input(static_cast<size_t>(count));
   if (count > 0) {

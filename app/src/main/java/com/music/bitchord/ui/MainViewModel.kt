@@ -45,6 +45,7 @@ import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.auth.CapturedSession
 import com.music.bitchord.auth.WebSessionMode
+import com.music.bitchord.auth.BrowserSession
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
@@ -620,6 +621,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val owned: Map<String, Boolean>,
     )
     private val listenerCache = mutableMapOf<String, ListenerSnapshot>()
+
+    /** True while an account switch is in flight; surfaced for UI and recovery. */
+    private val _accountSwitching = MutableStateFlow(false)
+    val accountSwitching: StateFlow<Boolean> = _accountSwitching.asStateFlow()
 
     /**
      * Album / artist / playlist pages, as a stack — opening an artist from an
@@ -1584,6 +1589,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             loadAccount()
             loadPlaylists()
         }
+        // Resume or roll back an account switch that died mid-flight.
+        recoverPendingAccountTransition()
         viewModelScope.launch {
             // drop(1): the current value is just the count so far, not a play.
             PlaybackTracker.registeredPlays.drop(1).collect { homeStale = true }
@@ -3620,9 +3627,90 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeAccount(accountId: String) {
         val fallback = authStore.removeAccount(accountId)
+        forgetListenerCache(accountId)
         _googleAccounts.value = authStore.sessions
         if (fallback == null) { signOut(); return }
         selectProfile(fallback.accountId, fallback.activeProfileId ?: fallback.profiles.firstOrNull()?.profileId ?: return)
+    }
+
+    /**
+     * Switches the active account without deleting the one being left.
+     *
+     * Account A's credentials and persisted data stay in A's encrypted namespace;
+     * A's volatile session (WebView cookies, listener cache, UI state, party
+     * membership) is detached before B is activated, so B can never read or use
+     * A's session. The transition is persisted so a process death in the middle
+     * can be resumed on the next launch instead of leaving both accounts'
+     * state interleaved.
+     */
+    fun switchAccount(targetAccountId: String) {
+        if (targetAccountId.isBlank() || targetAccountId == _activeAccountId.value) return
+        if (authStore.sessions.none { it.accountId == targetAccountId }) return
+        viewModelScope.launch {
+            _accountSwitching.value = true
+            val from = _activeAccountId.value
+            authStore.beginTransition(from, targetAccountId)
+            try {
+                // Detach the account being left. Party membership is released
+                // first so a switch cannot carry A's party into B's session.
+                if (from != null) {
+                    runCatching { com.music.bitchord.data.listentogether.ListenTogether.leaveParty() }
+                    // Preserve A's cache under A's key so it restores on return;
+                    // B cannot read it (different key) and the screen is cleared below.
+                    cacheCurrentListener()
+                    clearListenerState()
+                    BrowserSession.clearGoogleCookies()
+                }
+                // Activate the target from its own stored state only.
+                val session = authStore.sessions.first { it.accountId == targetAccountId }
+                val profile = session.profiles.firstOrNull { it.profileId == session.activeProfileId }
+                    ?: session.profiles.firstOrNull()
+                if (profile == null) {
+                    // Nothing to activate under; leave the transition recorded
+                    // for recovery and bail out rather than half-activating.
+                    return@launch
+                }
+                authStore.upsertSession(session.copy(activeProfileId = profile.profileId), activate = false)
+                authStore.select(targetAccountId, profile.profileId)
+                _googleAccounts.value = authStore.sessions
+                _activeAccountId.value = targetAccountId
+                _activeProfileId.value = profile.profileId
+                authStore.cookie = session.cookie
+                Innertube.cookie = session.cookie
+                Innertube.selectChannel(profile.pageId, profile.dataSyncId, profile.authUser)
+                _selectedChannelKey.value = profile.profileId
+                _selectedChannelName.value = profile.name
+                _signedIn.value = AuthStore.hasApiSid(session.cookie)
+                StreamResolver.onSessionChanged()
+                clearListenerState(restoreCached = true)
+                reloadForAccount()
+                authStore.clearTransition()
+            } catch (e: Throwable) {
+                // Transition stays recorded; recovery will resume or roll back.
+                android.util.Log.e("BitChord", "account switch to $targetAccountId failed: ${e.message}")
+            } finally {
+                _accountSwitching.value = false
+            }
+        }
+    }
+
+    private fun recoverPendingAccountTransition() {
+        val transition = authStore.pendingTransition() ?: return
+        val available = authStore.sessions.map { it.accountId }.toSet()
+        viewModelScope.launch {
+            when {
+                com.music.bitchord.auth.AccountTransitionRules.isRecoverable(transition, available) -> {
+                    // Resume activating the target; detach state was already cleared.
+                    switchAccount(transition.to)
+                }
+                com.music.bitchord.auth.AccountTransitionRules.rollbackTarget(transition, available) != null -> {
+                    val source = transition.from
+                    authStore.clearTransition()
+                    if (source != null && source in available) switchAccount(source)
+                }
+                else -> authStore.clearTransition()
+            }
+        }
     }
 
     private fun persistDetectedProfiles(channels: List<AccountChannel>) {
@@ -3673,7 +3761,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun listenerKey(): String? = _activeAccountId.value?.let { accountId ->
-        _activeProfileId.value?.let { profileId -> "$accountId:$profileId" }
+        _activeProfileId.value?.let { profileId -> listenerCacheKey(accountId, profileId) }
+    }
+
+    /**
+     * Drops what is cached for an account that is no longer signed in.
+     *
+     * The cache is in memory only, so this is not about the disk — it is about a
+     * removed login's library, history and playlists staying readable in the
+     * process after the account itself is gone. Removing an account is a
+     * lifecycle boundary; the data behind it leaves with it.
+     */
+    private fun forgetListenerCache(accountId: String) {
+        listenerCache.keys -= listenerCacheKeysOf(listenerCache.keys, accountId)
     }
 
     private fun clearListenerState(restoreCached: Boolean = false) {
@@ -3724,7 +3824,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             removeAccount(current)
             return
         }
+        viewModelScope.launch { runCatching { com.music.bitchord.data.listentogether.ListenTogether.leaveParty() } }
         authStore.signOut()
+        listenerCache.clear()
         Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing
         // about what an anonymous walk will be told, and the clients stood down
@@ -3780,6 +3882,19 @@ internal suspend fun <T : Any> retryingOrNull(waitsMs: LongArray, attempt: suspe
  * the syllable preference pick a different answer from the same providers, so
  * a change in either is a new lookup, as switching a source on or off is.
  */
+/**
+ * The in-memory listener cache is partitioned by identity.
+ *
+ * The account id comes first and the profile after it, so an account's entries are
+ * exactly the keys carrying its `"<accountId>:"` prefix — which is what makes it
+ * possible to drop one account's cached library without touching another's.
+ */
+internal fun listenerCacheKey(accountId: String, profileId: String): String = "$accountId:$profileId"
+
+/** Every cache key still holding [accountId]'s listener data. */
+internal fun listenerCacheKeysOf(keys: Collection<String>, accountId: String): List<String> =
+    keys.filter { key -> key.startsWith("$accountId:") }
+
 internal fun lyricsLookupKey(
     videoId: String,
     sources: Set<LyricsSource>,

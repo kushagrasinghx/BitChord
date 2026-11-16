@@ -13,10 +13,23 @@
     <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
     <exclude domain="sharedpref" path="bitchord_sources.xml" />
     <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
-    <!-- Tester code: a credential for this phone's owner (see AddonAuth). -->
+    <!-- Addon token and tester code: credentials for this phone's owner
+         (see AddonAuth); the plain files are legacy/fallback copies. -->
     <exclude domain="sharedpref" path="bitchord_tester.xml" />
+    <exclude domain="sharedpref" path="bitchord_tester_plain.xml" />
+    <exclude domain="sharedpref" path="bitchord_addon_auth.xml" />
+    <exclude domain="sharedpref" path="bitchord_addon_auth_plain.xml" />
+    <!-- Settings/history share this file; it must never carry credentials to a
+         backup, and the app has its own user-controlled export for settings. -->
+    <exclude domain="sharedpref" path="bitchord_settings.xml" />
     <!-- Playback queues are local session state; do not resurrect them after reinstall. -->
     <exclude domain="sharedpref" path="bitchord_last_played.xml" />
     <exclude domain="sharedpref" path="bitchord_bounded_context.xml" />
     <exclude domain="sharedpref" path="bitchord_party_queue_stash.xml" />
+    <exclude domain="sharedpref" path="bitchord_party_secret.xml" />
+    <exclude domain="sharedpref" path="bitchord_party_secret_plain.xml" />
+    <!-- Party server/token/device identity is session state, not backup data. -->
+    <exclude domain="sharedpref" path="bitchord_listen_together.xml" />
+    <!-- Listening history is sensitive behavioural data and device-local. -->
+    <exclude domain="file" path="listening" />
 </full-backup-content>

@@ -85,6 +85,7 @@ import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvPinThrottle
 import com.music.bitchord.data.settings.TvSettings
@@ -114,6 +115,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
@@ -1346,5 +1348,106 @@ fun TvLyricsSourcesDialog(onDismiss: () -> Unit) {
         TvDialogButton(text = "Reset to Default", onClick = AppSettings::resetLyricsSourceSettings)
         Spacer(modifier = Modifier.height(6.dp))
         TvDialogButton(text = "Done", onClick = onDismiss)
+    }
+}
+
+/**
+ * Audio sources and custom stream addons on TV.
+ * Allows toggling active audio sources and entering custom addon manifest URLs.
+ */
+@Composable
+fun TvSourcesDialog(onDismiss: () -> Unit) {
+    val configs by SourceRegistry.configs.collectAsState()
+    var urlText by remember { mutableStateOf("") }
+    var statusText by remember { mutableStateOf<String?>(null) }
+    var isBusy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val localIp = remember { TvAuthServer.getLocalIpAddress() ?: "localhost" }
+
+    TvDialog(
+        title = "Audio Sources & Addons",
+        message = "Toggle audio stream sources, or add custom addons (e.g. Lossless FLAC proxies). You can also visit http://$localIp:8765 on your phone to paste a manifest URL.",
+        width = 540.dp,
+        onDismissRequest = onDismiss,
+    ) {
+        if (configs.isNotEmpty()) {
+            Text(
+                text = "Configured Sources",
+                style = TvType.Subhead,
+                color = TvGlass.TextSecondary,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 180.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
+                    TvListRow(
+                        title = config.displayName,
+                        value = if (config.isEnabled) "Active" else "Disabled",
+                        onClick = {
+                            SourceRegistry.update(config.copy(isEnabled = !config.isEnabled))
+                        },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+        }
+
+        TvTextField(
+            value = urlText,
+            onValueChange = { 
+                urlText = it
+                statusText = null 
+            },
+            placeholder = "https://example.com/manifest.json",
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        statusText?.let { msg ->
+            Text(
+                text = msg,
+                style = TvType.Caption,
+                color = if (msg.startsWith("Added")) Color(0xFF00E5FF) else TvGlass.TextSecondary,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            TvDialogButton(
+                text = if (isBusy) "Connecting..." else "Add Addon URL",
+                enabled = urlText.isNotBlank() && !isBusy,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    isBusy = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val found = SourceRegistry.identify(urlText.trim()).getOrThrow()
+                                SourceRegistry.add(found)
+                                found
+                            }
+                        }
+                        isBusy = false
+                        if (result.isSuccess) {
+                            statusText = "Added ${result.getOrNull()?.displayName}!"
+                            urlText = ""
+                        } else {
+                            statusText = "Failed: ${result.exceptionOrNull()?.message ?: "Unreachable"}"
+                        }
+                    }
+                },
+            )
+            TvDialogButton(
+                text = "Done",
+                modifier = Modifier.weight(1f),
+                onClick = onDismiss,
+            )
+        }
     }
 }

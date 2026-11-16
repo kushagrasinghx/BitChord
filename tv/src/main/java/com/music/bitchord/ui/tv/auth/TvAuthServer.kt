@@ -3,6 +3,7 @@ package com.music.bitchord.ui.tv.auth
 import android.content.Context
 import android.util.Log
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
@@ -237,6 +238,26 @@ object TvAuthServer {
                             sendHtmlResponse(writer, getSuccessHtml())
                         } else {
                             sendHtmlResponse(writer, getAuthHtml(error = "No cookie detected. Please follow the instructions."))
+                        }
+                    }
+
+                    // 5b. Custom Addon / Source Submission
+                    path == "/api/addon" && method == "POST" -> {
+                        val addonUrl = parseFormParam(requestBody, "addonUrl") ?: parseQueryParam(query, "addonUrl")
+                        if (!addonUrl.isNullOrBlank()) {
+                            scope.launch {
+                                try {
+                                    val found = withContext(Dispatchers.IO) {
+                                        SourceRegistry.identify(addonUrl.trim()).getOrThrow()
+                                    }
+                                    SourceRegistry.add(found)
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Failed to identify addon from web: $addonUrl", e)
+                                }
+                            }
+                            sendJsonResponse(writer, """{"success":true}""")
+                        } else {
+                            sendJsonResponse(writer, """{"success":false,"error":"No URL"}""")
                         }
                     }
 
@@ -513,6 +534,29 @@ textarea { width: 100%; height: 90px; background: rgba(0,0,0,0.5); border: 1px s
     <button type="submit" class="btn-primary">Connect Account to TV</button>
   </form>
 </div>
+
+<div class="card">
+  <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 8px;">Audio Stream Addons (Lossless FLAC)</h2>
+  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your custom Addon Manifest URL to stream Lossless audio on this TV:</p>
+  <form id="addonForm" style="margin-top: 10px;">
+    <textarea id="addonUrl" placeholder="https://your-domain/manifest.json" style="height: 54px;"></textarea>
+    <button type="button" class="btn-primary" onclick="submitAddon()">Add Custom Addon</button>
+  </form>
+  <div id="addonMsg" style="margin-top: 8px; font-size: 13px; text-align: center;"></div>
+</div>
+<script>
+function submitAddon() {
+  let url = document.getElementById('addonUrl').value;
+  let msg = document.getElementById('addonMsg');
+  if (!url) return;
+  msg.innerHTML = '<span style="color:#AAA;">Connecting to addon...</span>';
+  fetch('/api/addon', { method: 'POST', body: 'addonUrl=' + encodeURIComponent(url) })
+    .then(r => r.json()).then(d => {
+      msg.innerHTML = d.success ? '<span style="color:#00E5FF;font-weight:bold;">✓ Addon sent to TV successfully!</span>' : '<span style="color:#FF375F;">Failed to add addon.</span>';
+      if (d.success) document.getElementById('addonUrl').value = '';
+    }).catch(e => { msg.innerHTML = '<span style="color:#FF375F;">Network error</span>'; });
+}
+</script>
 </body>
 </html>
 """.trimIndent()

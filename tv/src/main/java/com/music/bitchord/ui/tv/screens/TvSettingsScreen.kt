@@ -36,11 +36,13 @@ import com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine
 import com.music.bitchord.ui.tv.components.TvChromePinned
 import com.music.bitchord.ui.tv.components.TvListHeader
 import com.music.bitchord.ui.tv.components.TvListRow
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.tv.dialogs.TvAboutDialog
 import com.music.bitchord.ui.tv.dialogs.TvEqualizerDialog
 import com.music.bitchord.ui.tv.dialogs.TvLyricsSourcesDialog
 import com.music.bitchord.ui.tv.dialogs.TvRefreshRateDialog
 import com.music.bitchord.ui.tv.dialogs.TvScrobbleDialog
+import com.music.bitchord.ui.tv.dialogs.TvSourcesDialog
 import com.music.bitchord.data.settings.TvPlayerStyle
 import com.music.bitchord.ui.tv.dialogs.TvThemeDialog
 import com.music.bitchord.ui.tv.dialogs.TvUpdateDialog
@@ -51,7 +53,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 
 // Discord Rich Presence is hidden on TV for now; TvDiscordDialog is kept for when it returns.
-private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Update, About }
+private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Sources, Update, About }
 
 private const val DefaultBlurb = "Playback, sound and display preferences for BitChord on this TV."
 
@@ -203,6 +205,15 @@ fun TvSettingsScreen(
                         TvSettings.setSpatialAudioEnabled(!spatial)
                         TvSpatialAudioEngine.setEnabled(!spatial)
                     },
+                )
+            }
+            item {
+                val sources by SourceRegistry.configs.collectAsState()
+                TvListRow(
+                    title = "Audio Sources & Addons",
+                    value = "${sources.count { it.isEnabled }} active",
+                    onFocused = { blurb = "Configure custom audio addons (e.g. Lossless FLAC proxies) and stream sources." },
+                    onClick = { sheet = SettingsSheet.Sources },
                 )
             }
             item {
@@ -365,6 +376,7 @@ fun TvSettingsScreen(
         SettingsSheet.Equalizer -> TvEqualizerDialog(onDismiss = { sheet = null })
         SettingsSheet.Scrobbling -> TvScrobbleDialog(onDismiss = { sheet = null })
         SettingsSheet.LyricsSources -> TvLyricsSourcesDialog(onDismiss = { sheet = null })
+        SettingsSheet.Sources -> TvSourcesDialog(onDismiss = { sheet = null })
         SettingsSheet.Update -> update?.let { TvUpdateDialog(update = it, onDismiss = { sheet = null }) }
         SettingsSheet.About -> TvAboutDialog(onDismiss = { sheet = null })
         null -> Unit

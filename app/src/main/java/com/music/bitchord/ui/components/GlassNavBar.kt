@@ -64,6 +64,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.SongMarquee
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
@@ -423,23 +424,15 @@ private fun GlassNowPlaying(
                 }
             }
             Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-            // Title and artist at both densities, as Apple Music has them, in its
-            // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
-            // row shares its width with the tab pill and the Search circle, so
-            // a long line fades out at its end, as Apple's does.
+            // Both densities keep their text within the weighted space.
             Column(Modifier.weight(1f)) {
                 val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
+                SongMarquee(
                     song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
+                    titleStyle = titleStyle,
+                    artistStyle = artistStyle,
+                    titleColor = contentColor,
+                    artistColor = secondary,
                 )
             }
             if (isLoading) {

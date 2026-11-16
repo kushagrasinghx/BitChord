@@ -211,7 +211,7 @@ fun TvSettingsScreen(
                 val sources by SourceRegistry.configs.collectAsState()
                 TvListRow(
                     title = "Audio Sources & Addons",
-                    value = "${sources.count { it.isEnabled }} active",
+                    value = "${sources.count { it.enabled }} active",
                     onFocused = { blurb = "Configure custom audio addons (e.g. Lossless FLAC proxies) and stream sources." },
                     onClick = { sheet = SettingsSheet.Sources },
                 )

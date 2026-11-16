@@ -1373,7 +1373,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
         if (configs.isNotEmpty()) {
             Text(
                 text = "Configured Sources",
-                style = TvType.Subhead,
+                style = TvType.Callout,
                 color = TvGlass.TextSecondary,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
@@ -1384,9 +1384,9 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                 itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
                     TvListRow(
                         title = config.displayName,
-                        value = if (config.isEnabled) "Active" else "Disabled",
+                        value = if (config.enabled) "Active" else "Disabled",
                         onClick = {
-                            SourceRegistry.update(config.copy(isEnabled = !config.isEnabled))
+                            SourceRegistry.setEnabled(config.id, !config.enabled)
                         },
                     )
                 }

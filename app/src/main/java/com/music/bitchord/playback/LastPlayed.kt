@@ -3,6 +3,7 @@ package com.music.bitchord.playback
 import android.content.Context
 import android.content.SharedPreferences
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.StoredTrack
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -127,78 +128,6 @@ object LastPlayed {
     ) {
         val legacyIndex: Int? get() = index
         val legacyPositionMs: Long? get() = positionMs
-    }
-
-    @Serializable
-    private data class StoredTrack(
-        val id: String,
-        val title: String,
-        val artist: String,
-        val artwork: String? = null,
-        val auto: Boolean = false,
-        val tier: String? = null,
-        val entryId: String? = null,
-        val local: String? = null,
-        val path: String? = null,
-        val duration: String? = null,
-        val album: String? = null,
-        val explicit: Boolean? = null,
-        val video: Boolean = false,
-        val radio: String? = null,
-        val source: String? = null,
-        val sourceType: String? = null,
-        val sourceId: String? = null,
-    ) {
-        fun toSong(): Song {
-            val resolvedTier = when (tier) {
-                "USER_QUEUE" -> com.music.bitchord.data.model.QueueTier.USER_QUEUE
-                "CONTEXT" -> com.music.bitchord.data.model.QueueTier.CONTEXT
-                "AUTOPLAY" -> com.music.bitchord.data.model.QueueTier.AUTOPLAY
-                else -> if (auto) com.music.bitchord.data.model.QueueTier.AUTOPLAY else com.music.bitchord.data.model.QueueTier.CONTEXT
-            }
-            return Song(
-                videoId = id,
-                title = title,
-                artist = artist,
-                thumbnailUrl = artwork,
-                durationText = duration,
-                albumName = album,
-                isExplicit = explicit,
-                isVideo = video,
-                queueTier = resolvedTier,
-                queueEntryId = entryId,
-                radioName = radio,
-                playbackSource = source,
-                playbackSourceType = sourceType?.let {
-                    runCatching { com.music.bitchord.data.model.PlaybackSourceType.valueOf(it) }.getOrNull()
-                },
-                playbackSourceId = sourceId,
-                localUri = local,
-                localPath = path,
-            )
-        }
-
-        companion object {
-            fun from(song: Song) = StoredTrack(
-                id = song.videoId,
-                title = song.title,
-                artist = song.artist,
-                artwork = song.thumbnailUrl,
-                auto = song.fromAutoplay,
-                tier = song.queueTier.name,
-                entryId = song.queueEntryId,
-                local = song.localUri,
-                path = song.localPath,
-                duration = song.durationText,
-                album = song.albumName,
-                explicit = song.isExplicit,
-                video = song.isVideo,
-                radio = song.radioName,
-                source = song.playbackSource,
-                sourceType = song.playbackSourceType?.name,
-                sourceId = song.playbackSourceId,
-            )
-        }
     }
 
     private const val KEEP_AHEAD = 50

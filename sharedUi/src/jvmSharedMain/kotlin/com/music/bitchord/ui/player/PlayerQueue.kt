@@ -43,7 +43,6 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Checkbox
@@ -59,7 +58,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.withFrameNanos
@@ -92,7 +90,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.music.bitchord.ui.components.longPressMenuClickable
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -201,7 +198,7 @@ private fun QueueTrack.sameEntryAs(other: QueueTrack): Boolean =
 /** The groups a queue row can be dragged within; a drag never leaves its own. */
 internal enum class QueueSection { USER, CONTEXT, AUTOPLAY }
 
-/** The queue as [InlineQueue] lists it: what's playing, then each section in running order. */
+/** Current-track metadata and the sections displayed by [InlineQueue] in running order. */
 internal class QueueTracks(
     val nowPlaying: QueueTrack?,
     val user: List<QueueTrack>,
@@ -366,8 +363,7 @@ internal fun InlineQueue(
         if (!selectionState.active && rows.isNotEmpty()) onAddAllToPlaylist?.invoke(rows.map { it.song })
     }
     fun resolveSwipeTrack(original: QueueTrack): QueueTrack? {
-        val live = tracks.nowPlaying?.takeIf { it.key == original.key }
-            ?: tracks.history.firstOrNull { it.key == original.key }
+        val live = tracks.history.firstOrNull { it.key == original.key }
             ?: tracks.user.firstOrNull { it.key == original.key }
             ?: tracks.context.firstOrNull { it.key == original.key }
             ?: tracks.autoplay.firstOrNull { it.key == original.key }
@@ -380,7 +376,7 @@ internal fun InlineQueue(
         val destination = if (swipeToPlayNext) tracks.user.firstOrNull() else tracks.user.lastOrNull()
         swipesEnabled && live != null &&
             (action == QueueSwipeAction.REMOVE || (onSwipeToQueue != null &&
-                live.key != tracks.nowPlaying?.key && live.key != destination?.key))
+                live.key != destination?.key))
     }
     val commitSwipe: suspend (QueueTrack, QueueSwipeAction) -> Boolean = { original, action ->
         val live = resolveSwipeTrack(original)
@@ -414,20 +410,21 @@ internal fun InlineQueue(
         ?: nowPlaying?.song?.playbackSource?.takeIf { it.isNotBlank() }
         ?: nowPlaying?.song?.albumName?.takeIf { it.isNotBlank() }
 
-    // Keep Now playing in view; history is available by scrolling upwards.
+    // Start at the first visible section, including history when enabled.
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
-        // The history heading has a stable slot even while its height is zero.
-        val nowPlayingRow = tracks.history.size + 1
-        val scrolledAway = listState.firstVisibleItemIndex != nowPlayingRow || listState.firstVisibleItemScrollOffset != 0
-        if (!selectionState.active && drag.held == null && nowPlaying != null && scrolledAway) {
-            if (hasScrolledOnce) {
-                listState.animateScrollToItem(nowPlayingRow)
-            } else {
-                listState.scrollToItem(nowPlayingRow)
-                hasScrolledOnce = true
+        // Hidden headings retain zero-height slots, so index zero never skips a section.
+        val scrolledAway = listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0
+        if (!selectionState.active && drag.held == null && nowPlaying != null) {
+            if (scrolledAway) {
+                if (hasScrolledOnce) {
+                    listState.animateScrollToItem(0)
+                } else {
+                    listState.scrollToItem(0)
+                }
             }
+            hasScrolledOnce = true
         }
     }
 
@@ -501,32 +498,8 @@ internal fun InlineQueue(
                     items(tracks.history, key = { it.key }) { track ->
                         SwipeableQueueRow(
                             track = track,
-                            isCurrent = false,
                             onClick = { onJumpTo(track.timelineIndex) },
                             onLongPress = { onSongMenu(track.timelineIndex, track.song) },
-                            locked = controlsLocked,
-                            selection = selectionState,
-                            swipesEnabled = swipesEnabled,
-                            reduceAnimation = reduceAnimation,
-                            canCommitSwipe = canCommitSwipe,
-                            commitSwipe = commitSwipe,
-                            modifier = queueMotion(reduceAnimation),
-                        )
-                    }
-                }
-                queueHeadingItem("header-now-playing", nowPlaying != null, reduceAnimation) {
-                    QueueHeading(
-                        title = stringResource(Res.string.now_playing),
-                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
-                    )
-                }
-                if (nowPlaying != null) {
-                    item(key = nowPlaying.key) {
-                        SwipeableQueueRow(
-                            track = nowPlaying,
-                            isCurrent = true,
-                            onClick = { onJumpTo(nowPlaying.timelineIndex) },
-                            onLongPress = { onSongMenu(nowPlaying.timelineIndex, nowPlaying.song) },
                             locked = controlsLocked,
                             selection = selectionState,
                             swipesEnabled = swipesEnabled,
@@ -592,7 +565,6 @@ internal fun InlineQueue(
                 Box(Modifier.matchParentSize().padding(horizontal = PLAYER_GUTTER)) {
                     InlineQueueRow(
                         song = held.song,
-                        isCurrent = false,
                         onClick = {},
                         draggable = true,
                         lifted = true,
@@ -651,7 +623,6 @@ private fun LazyListScope.queueSection(
         }
         SwipeableQueueRow(
             track = track,
-            isCurrent = false,
             onClick = { onJumpTo(track.timelineIndex) },
             onLongPress = { onSongMenu(track.timelineIndex, track.song) },
             locked = locked,
@@ -673,7 +644,6 @@ private fun LazyListScope.queueSection(
 @Composable
 private fun SwipeableQueueRow(
     track: QueueTrack,
-    isCurrent: Boolean,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     locked: Boolean,
@@ -691,7 +661,6 @@ private fun SwipeableQueueRow(
     if (selection?.active == true) {
         InlineQueueRow(
             song = track.song,
-            isCurrent = isCurrent,
             onClick = { selection.toggle(track) },
             locked = locked || selection.busy,
             selectionChecked = selection.isSelected(track),
@@ -706,7 +675,6 @@ private fun SwipeableQueueRow(
         canCommit = canCommitSwipe,
         onCommit = commitSwipe,
         modifier = modifier,
-        allowQueueGesture = !isCurrent,
     ) { interactive ->
         // The handle survives ordinary recomposition; swipe visibility also
         // gates its detector. Its callbacks read live gates, not captured ones.
@@ -717,7 +685,6 @@ private fun SwipeableQueueRow(
         var handleDragging by remember(track.key) { mutableStateOf(false) }
         InlineQueueRow(
             song = track.song,
-            isCurrent = isCurrent,
             onClick = { if (interactive) onClick() },
             onLongPress = { if (interactive) onLongPress() },
             locked = locked,
@@ -1062,13 +1029,12 @@ private class QueueDrag(private val listState: LazyListState) {
 /** The held menu keeps the row's metadata, but not its queue editing controls. */
 @Composable
 fun QueueSongPreview(song: Song) {
-    InlineQueueRow(song = song, isCurrent = false, onClick = {}, preview = true)
+    InlineQueueRow(song = song, onClick = {}, preview = true)
 }
 
 @Composable
 private fun InlineQueueRow(
     song: Song,
-    isCurrent: Boolean,
     onClick: () -> Unit,
     onLongPress: (() -> Unit)? = null,
     selectionChecked: Boolean? = null,
@@ -1156,7 +1122,7 @@ private fun InlineQueueRow(
             ExplicitSongTitle(
                 song = song,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
+                color = Color.White.copy(alpha = 0.92f),
             )
             Text(
                 text = song.artist,
@@ -1167,20 +1133,6 @@ private fun InlineQueueRow(
             )
         }
         when {
-            // The playing row has no handle, so the indicator takes the handle's
-            // slot and lines up with the handles on the rows below it, instead
-            // of trailing the text and leaving that slot empty.
-            isCurrent && !draggable -> {
-                Icon(
-                    Icons.Rounded.GraphicEq,
-                    contentDescription = stringResource(Res.string.now_playing),
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .offset(x = if (ltr) 4.dp else (-4).dp),
-                )
-                Spacer(Modifier.width(4.dp))
-            }
             selectionChecked != null -> Spacer(Modifier.width(24.dp))
             !preview -> handle()
         }

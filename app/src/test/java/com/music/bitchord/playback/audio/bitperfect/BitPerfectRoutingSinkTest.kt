@@ -159,4 +159,39 @@ class BitPerfectRoutingSinkTest {
         val dac = rig.outputs.opened.single()
         assertEquals(2 * dac.frameBytes, dac.bytes.size())
     }
+
+    /**
+     * The direct route dying is answered by writing the same buffer to the
+     * normal output. The converter had already advanced that buffer by a whole
+     * block before the write failed, so the block has to be handed back or the
+     * fallback silently drops it — up to a full block of audio per fallback
+     * [AUD-20].
+     */
+    @Test
+    fun `a failed direct write hands its block to the normal output`() {
+        val rig = Rig()
+        rig.switchFromNormalToDirect(pending = false)
+        rig.routing.play()
+
+        // One good block first, so the direct route is genuinely running.
+        rig.routing.handleBuffer(pcm16(frames = 4), 0L, 1)
+        val dac = rig.outputs.opened.single()
+        assertEquals("the direct route took the first block", 4L, dac.written)
+
+        dac.failOnWrite = true
+        // Two frames per call, so what reached the normal sink is visible in the
+        // buffer position rather than inferred.
+        rig.normal.bytesToConsumePerCall = 8
+        val buffer = pcm16(frames = 4)
+        rig.routing.handleBuffer(buffer, 1_000_000L, 1)
+
+        assertFalse("the direct route is gone", rig.routing.isBitPerfect)
+        assertEquals(
+            "the block the failed write consumed is still the caller's",
+            8,
+            buffer.position(),
+        )
+        assertTrue("the rest of the block is still to be written", buffer.hasRemaining())
+        assertEquals("only the two frames the normal sink took were consumed", 8, buffer.position())
+    }
 }

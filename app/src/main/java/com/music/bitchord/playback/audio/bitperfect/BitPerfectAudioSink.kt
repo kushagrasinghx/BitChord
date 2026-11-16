@@ -236,7 +236,21 @@ internal class BitPerfectAudioSink(
                 }
                 submittedFrames += (buffer.position() - before) / input.frameBytes
                 output.flip()
-                writeOutput()
+                try {
+                    writeOutput()
+                } catch (error: BitPerfectTransportException) {
+                    // A failed write is how a direct route dies, and the caller
+                    // answers it by falling back to the normal output with this
+                    // same buffer. The converter has already advanced the buffer
+                    // by a whole block, so if the device took none of it the
+                    // block has to be handed back: otherwise every fallback
+                    // silently drops up to one block of audio [AUD-20].
+                    if (output.position() == 0) {
+                        submittedFrames -= (buffer.position() - before) / input.frameBytes
+                        buffer.position(before)
+                    }
+                    throw writeException(error)
+                }
                 if (output.hasRemaining()) return false
             }
         } catch (error: BitPerfectTransportException) {

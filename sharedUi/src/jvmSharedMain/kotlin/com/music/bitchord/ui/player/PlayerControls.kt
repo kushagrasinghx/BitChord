@@ -76,6 +76,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1469,29 +1470,43 @@ private fun MarqueeContent(
             leading()
             Spacer(Modifier.width(6.dp))
         }
-        BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
-            val maxWidthPx = constraints.maxWidth
-            val layout = remember(text, style, maxWidthPx) {
+        // BoxWithConstraints is a SubcomposeLayout and cannot answer the
+        // intrinsic-height query made by the glass bar's inline row.
+        var viewportWidth by remember { mutableIntStateOf(0) }
+        Box(
+            Modifier.weight(1f, fill = false).clipToBounds()
+                .onSizeChanged { viewportWidth = it.width },
+        ) {
+            val layout = remember(text, style, textMeasurer) {
                 textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
             }
-            val overflowing = layout.size.width > maxWidthPx
-            val crawls = enabled && overflowing
+            val overflowing = viewportWidth > 0 && viewportWidth < Int.MAX_VALUE &&
+                layout.size.width > viewportWidth
+            val gapPx = with(density) { MARQUEE_GAP.toPx() }
+            val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
+            val validGeometry = gapPx.isFinite() && gapPx >= 0f &&
+                pxPerMs.isFinite() && pxPerMs > 0f
+            val gap = if (validGeometry) gapPx.roundToInt() else 0
+            val distance = layout.size.width.toLong() + gap.toLong()
+            val duration = if (validGeometry) distance.toFloat() / pxPerMs else 0f
+            val crawls = enabled && overflowing && validGeometry &&
+                distance > 0L && distance <= Int.MAX_VALUE.toLong() &&
+                duration.isFinite() && duration <= Int.MAX_VALUE
             LaunchedEffect(crawls) { onOverflowChange(crawls) }
 
             // One whole copy plus the gap behind it: that is the distance at
             // which the second copy is sitting exactly where the first was.
             val travelPx = if (crawls) {
-                layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
+                distance.toInt()
             } else {
                 0
             }
 
             val offsetX = remember { Animatable(0f) }
-            LaunchedEffect(text, travelPx, startDelayMillis) {
+            LaunchedEffect(text, travelPx, startDelayMillis, duration) {
                 offsetX.snapTo(0f)
                 if (travelPx <= 0) return@LaunchedEffect
-                val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
-                val scrollMs = (travelPx / pxPerMs).roundToInt().coerceAtLeast(400)
+                val scrollMs = duration.roundToInt().coerceAtLeast(400)
                 delay(startDelayMillis)
                 while (true) {
                     offsetX.animateTo(-travelPx.toFloat(), tween(scrollMs, easing = LinearEasing))
@@ -1509,7 +1524,7 @@ private fun MarqueeContent(
                 // the text is truncated during its own measurement and sliding
                 // it sideways just moves an already-cut string.
                 modifier = Modifier
-                    .marqueeFade(overflowing, travelPx) { offsetX.value }
+                    .marqueeFade(overflowing && validGeometry, travelPx) { offsetX.value }
                     .wrapContentWidth(align = Alignment.Start, unbounded = true)
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) },
                 verticalAlignment = Alignment.CenterVertically,

@@ -1362,11 +1362,21 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
     var statusText by remember { mutableStateOf<String?>(null) }
     var isBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var serverUrl by remember { mutableStateOf<String?>(null) }
     val localIp = remember { TvAuthServer.getLocalIpAddress() ?: "localhost" }
+
+    DisposableEffect(Unit) {
+        scope.launch {
+            TvAuthServer.start()?.let { (port, ip) ->
+                serverUrl = "http://$ip:$port/"
+            }
+        }
+        onDispose { TvAuthServer.stop() }
+    }
 
     TvDialog(
         title = "Audio Sources & Addons",
-        message = "Toggle audio stream sources, or add custom addons (e.g. Lossless FLAC proxies). You can also visit http://$localIp:8765 on your phone to paste a manifest URL.",
+        message = "Toggle audio stream sources, or add custom addons (e.g. Lossless FLAC proxies). You can also visit ${serverUrl ?: "http://$localIp:8765/"} on your phone to paste a manifest URL.",
         width = 540.dp,
         onDismissRequest = onDismiss,
     ) {

@@ -260,10 +260,23 @@ internal class BitPerfectAudioSink(
                         before + (taken / outputFrameBytes) * input.frameBytes
                     } else {
                         // Either nothing was taken, or a resampler makes the
-                        // accepted prefix unmappable to a source frame. The whole
-                        // block goes back: it is audio already written to a device
-                        // that has just failed, so re-writing it is not a second
-                        // audible copy, while dropping it would be a hole.
+                        // accepted prefix unmappable to a source frame: the
+                        // filter's window means output frame k was produced from
+                        // input frames around k * ratio, and the transport
+                        // reports only a byte count for a block that no longer
+                        // exists. No exact source boundary can be derived, so
+                        // the whole block goes back and the stream is marked
+                        // inexact and reported: up to one block may be played a
+                        // second time on the fallback path, which is preferred
+                        // to a silent hole in the audio [AUD-20].
+                        if (converter != null) {
+                            markInexact()
+                            Log.w(
+                                TAG,
+                                "Direct route failed after a resampled block was partly accepted; " +
+                                    "replaying up to ${blockFrames} source frames on the fallback",
+                            )
+                        }
                         before
                     }
                     submittedFrames -= (blockEnd - rewoundTo) / input.frameBytes

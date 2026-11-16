@@ -252,4 +252,64 @@ class BitPerfectRoutingSinkTest {
         )
         assertFalse("nothing is left over", buffer.hasRemaining())
     }
+
+    /** A rig whose DAC runs at 48 kHz, so the sink resamples 44.1 kHz into it. */
+    private fun resampledRig(): Rig {
+        val rig = Rig()
+        rig.outputs.dacRate = 48000
+        rig.outputs.dacBits = 16
+        rig.switchFromNormalToDirect(pending = false)
+        rig.routing.play()
+        return rig
+    }
+
+    /**
+     * Resampled path, nothing accepted: the block is still entirely the
+     * caller's, so the fallback writes all of it once [AUD-20].
+     */
+    @Test
+    fun `a resampled block the direct route never took is handed back whole`() {
+        val rig = resampledRig()
+        // The filter has to warm up before it emits anything at all.
+        repeat(4) { rig.routing.handleBuffer(pcm16(frames = 1024), 0L, 1) }
+        val dac = rig.outputs.opened.single()
+        assertTrue("the resampler produced output", dac.written > 0)
+
+        dac.failOnWrite = true
+        rig.normal.bytesToConsumePerCall = 8
+        val buffer = pcm16(frames = 16)
+        rig.routing.handleBuffer(buffer, 1_000_000L, 1)
+
+        assertFalse("the direct route is gone", rig.routing.isBitPerfect)
+        assertEquals(
+            "the block starts over at its first frame",
+            8,
+            buffer.position(),
+        )
+        assertTrue("the buffer was not over-advanced", buffer.hasRemaining())
+    }
+
+    /**
+     * Resampled path, two output frames accepted before the transport died. The
+     * filter makes the accepted prefix unmappable to a source boundary, so the
+     * documented policy replays the block instead of dropping its remainder.
+     * This asserts the policy, not a lossless recovery: exact recovery is not
+     * available from a transport that reports only a byte count for a block the
+     * resampler has already consumed.
+     */
+    @Test
+    fun `a resampled block the direct route partly took is replayed from its start`() {
+        val rig = resampledRig()
+        repeat(4) { rig.routing.handleBuffer(pcm16(frames = 1024), 0L, 1) }
+        val dac = rig.outputs.opened.single()
+
+        dac.acceptBytesThenFail = dac.frameBytes * 2
+        rig.normal.bytesToConsumePerCall = 8
+        val buffer = pcm16(frames = 16)
+        rig.routing.handleBuffer(buffer, 1_000_000L, 1)
+
+        assertFalse("the direct route is gone", rig.routing.isBitPerfect)
+        assertEquals("the block starts over at its first frame", 8, buffer.position())
+        assertTrue("the remainder is still to be written", buffer.hasRemaining())
+    }
 }

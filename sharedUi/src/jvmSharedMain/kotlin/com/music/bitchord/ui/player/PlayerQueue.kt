@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -284,13 +285,16 @@ private fun LazyListScope.queueHeadingItem(
     item(key = key) {
         AnimatedVisibility(
             visible = visible,
-            modifier = queueMotion(reduceAnimation, heading = true),
+            // Keep outward-aligned actions inside the heading's animated clip.
+            modifier = queueMotion(reduceAnimation, heading = true).bleedHorizontally(PLAYER_GUTTER),
             enter = if (reduceAnimation) EnterTransition.None else
                 fadeIn(tween(160)) + expandVertically(tween(160), expandFrom = Alignment.Top),
             exit = if (reduceAnimation) ExitTransition.None else
                 fadeOut(tween(140)) + shrinkVertically(tween(140), shrinkTowards = Alignment.Top),
             label = key,
-        ) { content() }
+        ) {
+            Box(Modifier.padding(horizontal = PLAYER_GUTTER)) { content() }
+        }
     }
 }
 
@@ -516,6 +520,7 @@ internal fun InlineQueue(
                     QueueHeading(
                         title = stringResource(Res.string.next_in_queue),
                         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
+                        hasClearAction = true,
                     ) {
                         if (!selectionState.active) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -709,6 +714,7 @@ private fun SwipeableQueueRow(
 private fun QueueHeading(
     title: String,
     modifier: Modifier = Modifier,
+    hasClearAction: Boolean = false,
     trailing: @Composable () -> Unit = {},
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -718,8 +724,28 @@ private fun QueueHeading(
             color = Color.White.copy(alpha = 0.75f),
             modifier = Modifier.weight(1f),
         )
-        trailing()
+        QueueHeadingActions(hasClearAction = hasClearAction, content = trailing)
     }
+}
+
+/** Align the visible action edge without changing its touch target or a pair's spacing. */
+@Composable
+private fun QueueHeadingActions(
+    hasClearAction: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    // Match the row's 20.dp handle: a 4.dp slot, relative offset, and 4/24 vector inset.
+    val handleOffset = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 4.dp else (-4).dp
+    val handleEndInset = 4.dp - handleOffset + 20.dp * (4f / 24f)
+    val actionEndInset = if (hasClearAction) {
+        8.dp
+    } else {
+        // The add-all vector ends 3/24 inside its 20.dp box, centered in the button.
+        val minimumSize = LocalMinimumInteractiveComponentSize.current
+        val buttonSize = if (minimumSize.value > 40f) minimumSize else 40.dp
+        (buttonSize - 20.dp) / 2 + 20.dp * (3f / 24f)
+    }
+    Box(Modifier.offset(x = actionEndInset - handleEndInset)) { content() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -794,7 +820,7 @@ private fun AutoplayHeading(
                 color = Color.White.copy(alpha = 0.55f),
             )
         }
-        trailing()
+        QueueHeadingActions(content = trailing)
     }
 }
 

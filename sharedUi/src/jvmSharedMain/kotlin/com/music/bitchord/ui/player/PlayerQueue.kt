@@ -271,17 +271,29 @@ private fun LazyItemScope.queueMotion(reduceAnimation: Boolean, heading: Boolean
     )
 
 /**
- * Keep the key composed when a section empties. Lazy disappearance keeps a
- * recording of a removed heading (including its buttons), outside the live
- * section predicate. Animate the live content and its measured height instead,
- * so the heading cannot outlive its visibility transition as a detached item.
+ * Keep hidden headings only after a visible section. Zero-height leading slots
+ * make the visible start differ from the lazy list's logical scroll boundary.
+ * The first heading is full-height and unanimated, even when promoted during a
+ * transition. Later headings keep their live visibility/height animations, not
+ * detached lazy exit layers that can outlive the section (including its buttons).
  */
 private fun LazyListScope.queueHeadingItem(
     key: String,
     visible: Boolean,
     reduceAnimation: Boolean,
+    hasPreviousSection: Boolean,
     content: @Composable () -> Unit,
 ) {
+    if (!hasPreviousSection) {
+        if (visible) {
+            item(key = key) {
+                Box(Modifier.bleedHorizontally(PLAYER_GUTTER)) {
+                    Box(Modifier.padding(horizontal = PLAYER_GUTTER)) { content() }
+                }
+            }
+        }
+        return
+    }
     item(key = key) {
         AnimatedVisibility(
             visible = visible,
@@ -418,7 +430,7 @@ internal fun InlineQueue(
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
-        // Hidden headings retain zero-height slots, so index zero never skips a section.
+        // Index zero is the first real heading; absent leading sections emit no slots.
         val scrolledAway = listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0
         if (!selectionState.active && drag.held == null && nowPlaying != null) {
             if (scrolledAway) {
@@ -492,7 +504,10 @@ internal fun InlineQueue(
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
                 contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = footerHeight + playerDeckInset),
             ) {
-                queueHeadingItem("header-history", tracks.history.isNotEmpty(), reduceAnimation) {
+                queueHeadingItem(
+                    "header-history", tracks.history.isNotEmpty(), reduceAnimation,
+                    hasPreviousSection = false,
+                ) {
                     QueueHeading(
                         title = stringResource(Res.string.previously_played),
                         modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
@@ -516,7 +531,10 @@ internal fun InlineQueue(
                         )
                     }
                 }
-                queueHeadingItem("header-user-queue", tracks.user.isNotEmpty(), reduceAnimation) {
+                queueHeadingItem(
+                    "header-user-queue", tracks.user.isNotEmpty(), reduceAnimation,
+                    hasPreviousSection = tracks.history.isNotEmpty(),
+                ) {
                     QueueHeading(
                         title = stringResource(Res.string.next_in_queue),
                         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
@@ -537,7 +555,10 @@ internal fun InlineQueue(
                     queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
-                queueHeadingItem("header-context", tracks.context.isNotEmpty(), reduceAnimation) {
+                queueHeadingItem(
+                    "header-context", tracks.context.isNotEmpty(), reduceAnimation,
+                    hasPreviousSection = tracks.history.isNotEmpty() || tracks.user.isNotEmpty(),
+                ) {
                     QueueHeading(
                         title = if (contextTitle != null) {
                             stringResource(Res.string.next_from, contextTitle)
@@ -553,7 +574,10 @@ internal fun InlineQueue(
                     queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
-                queueHeadingItem("autoplay-heading", autoplayEnabled || tracks.autoplay.isNotEmpty(), reduceAnimation) {
+                queueHeadingItem(
+                    "autoplay-heading", autoplayEnabled || tracks.autoplay.isNotEmpty(), reduceAnimation,
+                    hasPreviousSection = tracks.history.isNotEmpty() || tracks.user.isNotEmpty() || tracks.context.isNotEmpty(),
+                ) {
                     AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty()) {
                         if (canAddAll && !selectionState.active && tracks.autoplay.isNotEmpty()) {
                             QueueAddAllButton(controlsLocked) { addAll(tracks.autoplay) }

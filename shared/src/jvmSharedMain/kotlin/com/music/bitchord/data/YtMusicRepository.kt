@@ -380,19 +380,26 @@ object YtMusicRepository {
         }
 
     /**
-     * Live media results for the typeahead phase — a lightweight search that
-     * returns tracks, artists, and albums so the dropdown can show playable
-     * cards alongside text completions. Uses the ALL filter to get mixed
-     * results quickly; callers may want to limit how many they display.
+     * Live media results for the typeahead phase: tracks, artists and albums
+     * so the dropdown can show playable cards alongside text completions.
      *
-     * Deliberately unauthenticated: [Innertube.searchTypeahead] strips the
-     * session cookie so YouTube Music does not log each debounced keystroke
-     * to the account's server-side search history. Confirmed searches (Enter /
-     * IME Search / tapping a suggestion) still use the normal authenticated
-     * [searchPage] path and are recorded properly.
+     * Read from the suggestions endpoint first, signed in, the way YouTube
+     * Music's own search box does it. That is the only way to get cards
+     * ranked by the account's listening without filing every debounced
+     * keystroke in its search history: a signed-in `search` records the
+     * query, and an anonymous one answers with what is popular rather than
+     * what this listener plays — which is how the cards came to be full of
+     * songs the user never listens to.
+     *
+     * Only when the suggestions carry no cards (some short or odd prefixes)
+     * does it fall back to [Innertube.searchTypeahead], the anonymous search,
+     * so the dropdown still has something to play.
      */
     suspend fun searchTypeahead(input: String): Result<SearchPage> =
         call("typeahead:$input") {
+            val cards = InnertubeParser.parseSearchSuggestionEntities(Innertube.searchSuggestions(input))
+                .distinctBy { it.identityKey() }
+            if (cards.isNotEmpty()) return@call SearchPage(cards, continuation = null)
             InnertubeParser.parseSearchPage(
                 Innertube.searchTypeahead(input),
                 includeVideos = false,

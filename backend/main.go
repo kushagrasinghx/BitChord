@@ -1322,14 +1322,25 @@ func startHeartbeatTicker() {
 
 	for range ticker.C {
 		now := clock.NowMs()
+		// One broadcast waits for every target write, each capped by the socket
+		// write deadline, so a single client that stops reading would otherwise
+		// hold the heartbeat for every party after it in this loop. Each party is
+		// therefore written on its own goroutine and the pass waits only for its
+		// own parties [SEC-13].
+		var beats sync.WaitGroup
 		for _, p := range store.All() {
 			if len(hubInst.MembersOnline(p.Code)) > 0 {
 				p.Lock()
 				sf := stateFrame(p)
 				p.Unlock()
-				hubInst.Broadcast(p.Code, sf, "")
+				beats.Add(1)
+				go func(code string, frame interface{}) {
+					defer beats.Done()
+					hubInst.Broadcast(code, frame, "")
+				}(p.Code, sf)
 			}
 		}
+		beats.Wait()
 
 		changed := store.Sweep(now)
 		for _, p := range changed {

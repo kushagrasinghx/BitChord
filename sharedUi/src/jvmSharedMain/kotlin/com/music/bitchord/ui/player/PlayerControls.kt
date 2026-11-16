@@ -482,7 +482,7 @@ internal fun TransportRow(
     val nextMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
     val playVector = vectorResource(Res.drawable.ic_player_play)
     val pauseVector = vectorResource(Res.drawable.ic_player_pause)
-    val playPauseMotion = rememberPlayerPlayPauseMotion(
+    val playPauseMotion = rememberExpandedPlayPauseMotion(
         isPlaying = isPlaying,
         active = animationsActive && !isLoading && playVector.root.size > 0 && pauseVector.root.size > 0,
         reduceMotion = reduceAnimation,
@@ -525,8 +525,6 @@ internal fun TransportRow(
                 onClick = onPlayPause,
                 haptic = if (isPlaying) Haptic.Pause else Haptic.Resume,
                 playPauseMotion = playPauseMotion,
-                playVector = playVector,
-                pauseVector = pauseVector,
             )
         }
         TransportGlyph(
@@ -823,9 +821,7 @@ private fun TransportGlyph(
     heightScale: Float = 1f,
     skipMotion: PlayerSkipMotion? = null,
     skipPrevious: Boolean = false,
-    playPauseMotion: PlayerPlayPauseMotion? = null,
-    playVector: ImageVector? = null,
-    pauseVector: ImageVector? = null,
+    playPauseMotion: ExpandedPlayPauseMotion? = null,
 ) {
     val haptics = rememberHaptics()
     val interactionSource = remember { MutableInteractionSource() }
@@ -845,7 +841,7 @@ private fun TransportGlyph(
                     tint = Color.White.copy(alpha = alpha),
                     glyphSize = size,
                     diameter = PLAYER_SKIP_TOUCH_SIZE,
-                ) else if (playPauseMotion != null) Modifier.playerPlayPausePressCircle(
+                ) else if (playPauseMotion != null) Modifier.expandedPlayPausePressCircle(
                     motion = playPauseMotion,
                     interactionSource = interactionSource,
                     tint = Color.White.copy(alpha = alpha),
@@ -875,11 +871,10 @@ private fun TransportGlyph(
                     .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
                 previous = skipPrevious,
             )
-        } else if (playPauseMotion != null && playVector != null && pauseVector != null) {
-            PlayerPlayPauseGlyph(
+        } else if (playPauseMotion != null) {
+            ExpandedPlayPauseGlyph(
                 motion = playPauseMotion,
-                play = playVector,
-                pause = pauseVector,
+                interactionSource = interactionSource,
                 playPainter = painterResource(Res.drawable.ic_player_play),
                 pausePainter = painterResource(Res.drawable.ic_player_pause),
                 contentDescription = contentDescription,

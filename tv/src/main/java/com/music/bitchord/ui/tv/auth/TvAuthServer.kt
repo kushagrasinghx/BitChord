@@ -287,6 +287,44 @@ object TvAuthServer {
                         }
                     }
 
+                    // 5e. Update Existing Addon URL
+                    path == "/api/addon/update" && method == "POST" -> {
+                        val id = parseFormParam(requestBody, "id") ?: parseQueryParam(query, "id")
+                        val url = parseFormParam(requestBody, "url") ?: parseQueryParam(query, "url")
+                        if (!id.isNullOrBlank() && !url.isNullOrBlank()) {
+                            val existing = SourceRegistry.config(id)
+                            if (existing != null) {
+                                scope.launch {
+                                    try {
+                                        val updated = withContext(Dispatchers.IO) {
+                                            SourceRegistry.identify(url.trim(), existing).getOrThrow()
+                                        }
+                                        SourceRegistry.update(updated)
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Failed to update addon $id with $url", e)
+                                    }
+                                }
+                                sendJsonResponse(writer, """{"success":true}""")
+                            } else {
+                                sendJsonResponse(writer, """{"success":false,"error":"Addon not found"}""")
+                            }
+                        } else {
+                            sendJsonResponse(writer, """{"success":false,"error":"Missing parameters"}""")
+                        }
+                    }
+
+                    // 5f. Reorder Addons Priority
+                    path == "/api/addon/reorder" && method == "POST" -> {
+                        val orderParam = parseFormParam(requestBody, "order") ?: parseQueryParam(query, "order")
+                        if (!orderParam.isNullOrBlank()) {
+                            val ids = orderParam.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            SourceRegistry.reorderAddons(ids)
+                            sendJsonResponse(writer, """{"success":true}""")
+                        } else {
+                            sendJsonResponse(writer, """{"success":false,"error":"No order specified"}""")
+                        }
+                    }
+
                     // 6. Mobile Web Remote Control Page (/remote)
                     path == "/remote" -> {
                         sendHtmlResponse(writer, getRemoteControlHtml())
@@ -567,8 +605,8 @@ textarea { width: 100%; height: 90px; background: rgba(0,0,0,0.5); border: 1px s
 </div>
 
 <div class="card">
-  <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 8px;">Audio Stream Addons (Lossless FLAC)</h2>
-  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your custom Addon Manifest URL to stream Lossless audio on this TV:</p>
+  <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 8px;">Audio Stream Addons</h2>
+  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your custom Addon Manifest URL to connect custom audio sources on this TV:</p>
   <form id="addonForm" style="margin-top: 10px;">
     <textarea id="addonUrl" placeholder="https://your-domain/manifest.json" style="height: 54px;"></textarea>
     <button type="button" class="btn-primary" onclick="submitAddon()">Add Custom Addon</button>
@@ -636,29 +674,44 @@ function submitAddon() {
 """.trimIndent()
 
     private fun getAddonsOnlyHtml(): String {
-        val addons = SourceRegistry.configs.value.filter { it.kind == SourceKind.ADDON }
+        val addons = SourceRegistry.configs.value.filter { it.kind.isUserAdded }
         val addonsListHtml = if (addons.isNotEmpty()) {
-            addons.joinToString("") { addon ->
+            addons.mapIndexed { index, addon ->
+                val canMoveUp = index > 0
+                val canMoveDown = index < addons.size - 1
                 """
-                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.06); padding:12px 14px; border-radius:14px; margin-top:8px;">
-                  <div style="text-align:left; overflow:hidden; margin-right:8px;">
-                    <div style="font-weight:700; font-size:15px; color:#FFF;">${addon.displayName}</div>
-                    <div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; margin-top:2px;">${addon.baseUrl}</div>
+                <div style="background:rgba(255,255,255,0.06); padding:14px; border-radius:16px; margin-top:10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="font-size:12px; font-weight:700; color:#888; background:rgba(255,255,255,0.1); padding:2px 7px; border-radius:6px;">#${index + 1}</span>
+                      <span style="font-weight:700; font-size:15px; color:#FFF;">${addon.displayName}</span>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                      <button type="button" onclick="moveAddon(${index}, -1)" ${if (!canMoveUp) "disabled style='opacity:0.3; background:rgba(255,255,255,0.08); color:#666;'" else "style='background:rgba(255,255,255,0.14); color:#FFF;'"} border:none; border-radius:8px; padding:6px 9px; font-size:12px; cursor:pointer;">▲</button>
+                      <button type="button" onclick="moveAddon(${index}, 1)" ${if (!canMoveDown) "disabled style='opacity:0.3; background:rgba(255,255,255,0.08); color:#666;'" else "style='background:rgba(255,255,255,0.14); color:#FFF;'"} border:none; border-radius:8px; padding:6px 9px; font-size:12px; cursor:pointer;">▼</button>
+                      <button type="button" onclick="toggleAddon('${addon.id}')" style="background:${if (addon.enabled) "rgba(0,229,255,0.2)" else "rgba(255,255,255,0.1)"}; color:${if (addon.enabled) "#00E5FF" else "#AAA"}; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:bold; cursor:pointer;">
+                        ${if (addon.enabled) "Active" else "Disabled"}
+                      </button>
+                      <button type="button" onclick="deleteAddon('${addon.id}')" style="background:rgba(255,55,95,0.15); color:#FF375F; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:bold; cursor:pointer;">
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                  <div style="display:flex; gap:6px; flex-shrink:0;">
-                    <button type="button" onclick="toggleAddon('${addon.id}')" style="background:${if (addon.enabled) "rgba(0,229,255,0.2)" else "rgba(255,255,255,0.1)"}; color:${if (addon.enabled) "#00E5FF" else "#AAA"}; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:bold; cursor:pointer;">
-                      ${if (addon.enabled) "Active" else "Disabled"}
-                    </button>
-                    <button type="button" onclick="deleteAddon('${addon.id}')" style="background:rgba(255,55,95,0.15); color:#FF375F; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:bold; cursor:pointer;">
-                      ✕
+                  <div style="display:flex; gap:8px; margin-top:8px;">
+                    <input type="text" id="url_${addon.id}" value="${addon.baseUrl}" style="height:40px; margin-top:0; font-size:13px; flex:1; font-family:monospace; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:#FFF; padding:0 12px;">
+                    <button type="button" onclick="updateAddonUrl('${addon.id}')" style="background:rgba(255,255,255,0.14); color:#FFF; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0;">
+                      Update
                     </button>
                   </div>
+                  <div id="msg_${addon.id}" style="font-size:12px; margin-top:6px; text-align:right;"></div>
                 </div>
                 """.trimIndent()
-            }
+            }.joinToString("")
         } else {
             """<div style="color:#777; font-size:13px; text-align:center; padding:12px 0;">No custom addons configured yet. Paste a manifest URL above!</div>"""
         }
+
+        val addonIdsJs = addons.joinToString(",") { "'${it.id}'" }
 
         return """
 <!DOCTYPE html>
@@ -680,12 +733,12 @@ input[type=text]:focus { border-color: #FA2D48; }
 <div class="card" style="text-align: center;">
   <div style="width: 52px; height: 52px; border-radius: 50%; background: #FA2D48; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">🎛️</div>
   <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 6px;">Audio Stream Addons</h1>
-  <p style="font-size: 14px; color: #A0A0AB;">Add Lossless FLAC proxies & manage stream sources on your TV</p>
+  <p style="font-size: 14px; color: #A0A0AB;">Add, modify, and adjust priority of audio stream addons on this TV</p>
 </div>
 
 <div class="card">
   <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 6px;">Add Custom Addon</h2>
-  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your Addon Manifest URL to stream Lossless audio on this TV:</p>
+  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your Addon Manifest URL to connect custom audio sources on this TV:</p>
   <form id="addonForm" onsubmit="event.preventDefault(); submitAddon();" style="margin-top: 10px;">
     <input type="text" id="addonUrl" placeholder="https://your-domain/manifest.json" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <button type="submit" class="btn-primary" id="btnSubmit">Add Addon to TV</button>
@@ -699,16 +752,48 @@ input[type=text]:focus { border-color: #FA2D48; }
 </div>
 
 <script>
+let currentAddonIds = [$addonIdsJs];
+
+function moveAddon(idx, delta) {
+  let target = idx + delta;
+  if (target < 0 || target >= currentAddonIds.length) return;
+  let temp = currentAddonIds[idx];
+  currentAddonIds[idx] = currentAddonIds[target];
+  currentAddonIds[target] = temp;
+  fetch('/api/addon/reorder', { method: 'POST', body: 'order=' + encodeURIComponent(currentAddonIds.join(',')) })
+    .then(() => location.reload());
+}
+
+function updateAddonUrl(id) {
+  let url = document.getElementById('url_' + id).value.trim();
+  let msg = document.getElementById('msg_' + id);
+  if (!url) return;
+  msg.innerHTML = '<span style="color:#AAA;">Updating...</span>';
+  fetch('/api/addon/update', { method: 'POST', body: 'id=' + encodeURIComponent(id) + '&url=' + encodeURIComponent(url) })
+    .then(r => r.json()).then(d => {
+      if (d.success) {
+        msg.innerHTML = '<span style="color:#00E5FF;font-weight:bold;">✓ URL updated!</span>';
+        setTimeout(() => location.reload(), 800);
+      } else {
+        msg.innerHTML = '<span style="color:#FF375F;">Failed to update: ' + (d.error || 'Check URL') + '</span>';
+      }
+    }).catch(e => {
+      msg.innerHTML = '<span style="color:#FF375F;">Network error</span>';
+    });
+}
+
 function toggleAddon(id) {
   fetch('/api/addon/toggle', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
     .then(() => location.reload());
 }
+
 function deleteAddon(id) {
   if (confirm('Delete this addon from TV?')) {
     fetch('/api/addon/delete', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
       .then(() => location.reload());
   }
 }
+
 function submitAddon() {
   let url = document.getElementById('addonUrl').value.trim();
   let msg = document.getElementById('addonMsg');

@@ -212,7 +212,7 @@ fun TvSettingsScreen(
                 TvListRow(
                     title = "Audio Sources & Addons",
                     value = "${sources.count { it.enabled }} active",
-                    onFocused = { blurb = "Configure custom audio addons (e.g. Lossless FLAC proxies) and stream sources." },
+                    onFocused = { blurb = "Configure custom audio stream addons and sources." },
                     onClick = { sheet = SettingsSheet.Sources },
                 )
             }

@@ -485,6 +485,8 @@
     <string name="lyrics_share_image">Obraz</string>
     <string name="lyrics_share_saving">Zapisywanie…</string>
     <string name="lyrics_share_gradient">Gradient</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">Pokaż logo BitChord</string>
     <string name="listening_shape">Twój wzorzec słuchania</string>
     <string name="member_since">Członek od</string>

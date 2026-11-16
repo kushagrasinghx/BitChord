@@ -524,6 +524,8 @@
     <string name="lyrics_share_image">इमेज</string>
     <string name="lyrics_share_saving">सेव हो रहा है…</string>
     <string name="lyrics_share_gradient">ग्रेडिएंट</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">BitChord लोगो दिखाएँ</string>
     <string name="listening_shape">आपके सुनने का पैटर्न</string>
     <string name="member_since">सदस्य बने</string>

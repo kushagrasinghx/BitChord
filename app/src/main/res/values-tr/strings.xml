@@ -553,6 +553,8 @@
     <string name="lyrics_share_image">Görsel</string>
     <string name="lyrics_share_saving">Kaydediliyor…</string>
     <string name="lyrics_share_gradient">Gradyan</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">BitChord logosunu göster</string>
     <string name="listening_shape">Dinleme örüntün</string>
     <string name="member_since">Üyelik başlangıcı</string>

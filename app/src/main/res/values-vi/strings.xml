@@ -551,6 +551,8 @@
     <string name="lyrics_share_image">Hình ảnh</string>
     <string name="lyrics_share_saving">Đang lưu…</string>
     <string name="lyrics_share_gradient">Chuyển màu</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">Hiện logo BitChord</string>
     <string name="listening_shape">Thói quen nghe nhạc của bạn</string>
     <string name="member_since">Thành viên từ</string>

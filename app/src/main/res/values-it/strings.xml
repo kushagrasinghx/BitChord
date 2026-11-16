@@ -571,6 +571,8 @@
     <string name="lyrics_share_image">Immagine</string>
     <string name="lyrics_share_saving">Salvataggio…</string>
     <string name="lyrics_share_gradient">Sfumatura</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">Mostra logo BitChord</string>
     <string name="listening_shape">Il tuo andamento di ascolto</string>
     <string name="member_since">Membro da</string>

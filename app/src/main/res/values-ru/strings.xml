@@ -544,6 +544,8 @@
     <string name="lyrics_share_image">Изображение</string>
     <string name="lyrics_share_saving">Сохранение…</string>
     <string name="lyrics_share_gradient">Градиент</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">Показывать логотип BitChord</string>
     <string name="listening_shape">Ваша модель прослушивания</string>
     <string name="member_since">Участник с</string>

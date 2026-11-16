@@ -537,6 +537,8 @@
     <string name="lyrics_share_image">รูปภาพ</string>
     <string name="lyrics_share_saving">กำลังบันทึก…</string>
     <string name="lyrics_share_gradient">ไล่สี</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">แสดงโลโก้ BitChord</string>
     <string name="listening_shape">รูปแบบการฟังของคุณ</string>
     <string name="member_since">สมาชิกตั้งแต่</string>

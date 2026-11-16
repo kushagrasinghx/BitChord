@@ -508,6 +508,8 @@
     <string name="lyrics_share_image">圖片</string>
     <string name="lyrics_share_saving">正在儲存…</string>
     <string name="lyrics_share_gradient">漸層</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">顯示 BitChord 標誌</string>
     <string name="listening_shape">你的收聽規律</string>
     <string name="member_since">加入時間</string>

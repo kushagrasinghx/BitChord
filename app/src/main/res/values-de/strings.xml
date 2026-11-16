@@ -524,6 +524,8 @@
     <string name="lyrics_share_image">Bild</string>
     <string name="lyrics_share_saving">Wird gespeichert…</string>
     <string name="lyrics_share_gradient">Verlauf</string>
+    <string name="lyrics_share_apple_canvas">Apple</string>
+    <string name="lyrics_share_spotify_canvas">Spotify</string>
     <string name="lyrics_share_show_logo">BitChord-Logo anzeigen</string>
     <string name="listening_shape">Dein Hörmuster</string>
     <string name="member_since">Mitglied seit</string>

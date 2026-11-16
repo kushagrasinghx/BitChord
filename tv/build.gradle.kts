@@ -332,6 +332,12 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("androidx.media3:media3-common:1.11.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
+    // TV compiles the phone app's shared sources. The lyrics-share video
+    // editor lives there, so its Media3 transformer/effect/muxer classes must
+    // be on this module's compile and runtime classpath too.
+    implementation("androidx.media3:media3-transformer:1.11.0")
+    implementation("androidx.media3:media3-effect:1.11.0")
+    implementation("androidx.media3:media3-muxer:1.11.0")
     // Audio is progressive, but Apple serves its motion artwork as HLS — this
     // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")

@@ -36,6 +36,7 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.AndroidStreamHooks
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
+import com.music.bitchord.data.scrobbling.ScrobbleRetry
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
@@ -143,6 +144,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // The durable scrobble queue: it has to be open before the first listen
+        // can be accepted, and delivery starts from the flush below.
+        ScrobbleRetry.install(this)
         // Restores the addon token, so the first search after a process restart
         // doesn't have to attest the device again.
         com.music.bitchord.data.sources.addon.AddonAuth.init(this)
@@ -162,11 +166,20 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // by [Song.toMediaItem], so it has to be open before the restart
         // snapshot below is turned back into queue items.
         OriginalVersion.init(this)
-        // What's already saved to Downloads, so the song menu can say so
-        // without a media-store query per row.
-        Downloads.init(this)
-        // After both of the things a check reads: the setting and the record.
-        PlaylistSync.init(this)
+        // What's already saved to Downloads, and the playlist sync that reads
+        // it. Both parsed on their own thread: [Downloads.init] decodes three
+        // JSON blobs whose size follows the size of someone's download library,
+        // and doing that between process start and the first frame is a cost
+        // that only grows with use.
+        //
+        // Started here rather than in [backgroundInit] because PlaylistSync
+        // reads a setting as well as the record, so it has to follow
+        // [AppSettings.init] above; joined below, so everything after startup —
+        // including the orphan reclamation, which treats the record as its list
+        // of live files — still sees a fully loaded one.
+        val recordInit = thread(name = "startup-records") {
+            Downloads.init(this)
+        }
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
@@ -197,11 +210,32 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 loader.diskCache?.clear()
             }
         }
+        recordInit.join()
+        // Deliberately still on the main thread: init registers a lifecycle
+        // observer, and Android refuses addObserver off it. The join above is
+        // what lets it read a record that is already loaded rather than racing
+        // the decode.
+        PlaylistSync.init(this)
         // Initialize LastFM with saved settings if available
         initLastfm()
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // Offline packages no record points at are reclaimed away from the
+        // startup path: a save interrupted by process death, or a re-download
+        // whose directory moved, leaves the whole package — segments, lyrics
+        // and cover — with nothing that will ever read it. Deliberately after
+        // [Downloads.init] (the record is the reference) and off the joined
+        // thread, because deleting files is not something the first frame should
+        // wait for, and the age guard means nothing in flight can match.
+        CoroutineScope(Dispatchers.IO).launch {
+            Downloads.reclaimOrphanedPackages(this@BitChordApplication)
+            Downloads.reclaimOrphanedArtwork(this@BitChordApplication)
+        }
+        // Listens queued before the app was killed go out now rather than
+        // waiting for the next play to trigger a flush. Off the joined thread:
+        // a service that is slow to answer must not delay the first frame.
+        ScrobbleRetry.flushAsync()
     }
 
     /**

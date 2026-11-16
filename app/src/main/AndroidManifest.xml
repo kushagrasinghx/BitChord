@@ -650,6 +650,14 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- WorkManager promotes the recovery worker before it starts the
+             download service. Android 14+ requires the type to be declared on
+             the library's service as well. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <!-- The tap on a "new songs in this playlist" notification. See PlaylistSync. -->
         <receiver
             android:name=".download.PlaylistSyncApproval"

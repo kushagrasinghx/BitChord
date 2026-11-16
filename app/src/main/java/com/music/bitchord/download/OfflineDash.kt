@@ -77,7 +77,7 @@ internal object OfflineDash {
         // that everything which reads one reads both. The name is historical
         // and is left alone on purpose: it is a path already stored in the
         // download records of every device that has one.
-        val root = File(File(context.filesDir, "offline-hls"), id.hashCode().toUInt().toString(16))
+        val root = File(File(context.filesDir, "offline-hls"), offlinePackageDirName(id))
         root.deleteRecursively()
         if (!root.mkdirs()) error("Could not create offline package")
         try {
@@ -104,6 +104,7 @@ internal object OfflineDash {
                     body.use { input -> File(root, localName(index)).outputStream().use(input::copyTo) }
                 }
                 onProgress((index + 1).toLong(), remotes.size.toLong())
+                DownloadStore.requireTransferSpace(context, null)
             }
 
             File(root, "playlist.m3u8").writeText(playlist(plan))

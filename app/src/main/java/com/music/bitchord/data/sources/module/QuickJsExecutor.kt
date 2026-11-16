@@ -2,11 +2,13 @@ package com.music.bitchord.data.sources.module
 
 import android.util.Log
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.AsyncFunctionBinding
 import com.dokar.quickjs.binding.FunctionBinding
 import com.dokar.quickjs.binding.define
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -96,6 +98,16 @@ internal object QuickJsExecutor {
         var started = 0
         /** Engines actually made, for closing them on unload. Guarded by [lock]. */
         val made = mutableListOf<QuickJs>()
+
+        /**
+         * Callers inside one of [made] right now.
+         *
+         * Read by eviction before anything is closed. An interpreter in the
+         * middle of a call is running somebody's track: closing it under them
+         * is a native crash at best and another track's answer at worst, so a
+         * busy module is never a candidate.
+         */
+        val inUse = java.util.concurrent.atomic.AtomicInteger()
     }
 
     /** Whether [moduleId] still has a live pool, i.e. hasn't been evicted. */
@@ -111,6 +123,24 @@ internal object QuickJsExecutor {
 
     private val engineLock = Any()
 
+    /**
+     * Which modules may be closed to make room, oldest used first.
+     *
+     * A busy module is skipped rather than waited for: the caller asking for
+     * room is itself a search, and blocking it until another module's request
+     * comes back would turn parallel lookups into a queue — the exact latency
+     * the pool exists to remove. [excess] is how many slots are wanted; fewer
+     * are returned when fewer are idle, including none.
+     */
+    internal fun evictionVictims(
+        lruOrder: List<String>,
+        inUse: (String) -> Int,
+        excess: Int,
+    ): List<String> {
+        if (excess <= 0) return emptyList()
+        return lruOrder.filter { inUse(it) == 0 }.take(excess)
+    }
+
     /** LRU map: access-ordered so the oldest-used entry is first. */
     private val pools = LinkedHashMap<String, Pool>(16, 0.75f, true)
 
@@ -123,10 +153,20 @@ internal object QuickJsExecutor {
                 return Result.success(Unit)
             }
             buildList {
-                while (pools.size >= MAX_MODULES) {
-                    val lruId = pools.keys.firstOrNull() ?: break
-                    TrackLog.d(TAG, "  Evicting LRU module engine: $lruId")
-                    pools.remove(lruId)?.let { addAll(it.made) }
+                // Only a pool nobody is inside may be closed. When every one
+                // is busy the cap is briefly exceeded instead of violated: the
+                // work in flight is what bounds it, and it drains. Evicting
+                // blindly is what closed an interpreter mid-call.
+                if (pools.size >= MAX_MODULES) {
+                    val victims = evictionVictims(
+                        lruOrder = pools.keys.toList(),
+                        inUse = { id -> pools[id]?.inUse?.get() ?: 0 },
+                        excess = pools.size - MAX_MODULES + 1,
+                    )
+                    victims.forEach { id ->
+                        TrackLog.d(TAG, "  Evicting LRU module engine: $id")
+                        pools.remove(id)?.let { addAll(it.made) }
+                    }
                 }
             }
         }
@@ -154,6 +194,11 @@ internal object QuickJsExecutor {
     private suspend fun newEngine(jsCode: String, fetchBase: String): QuickJs {
         val qjs = QuickJs.create(Dispatchers.Default)
         qjs.maxStackSize = 512 * 1024L
+        // A module is untrusted code. Bound both the heap it can allocate and
+        // the wall clock a single evaluation may consume; a coroutine timeout
+        // alone cannot stop native JavaScript that ignores cancellation.
+        qjs.memoryLimit = ModuleSandboxPolicy.MEMORY_LIMIT_BYTES
+        qjs.evaluationTimeoutMillis = ModuleSandboxPolicy.EVALUATION_TIMEOUT_MS
         try {
             bindConsole(qjs)
             bindAsyncFetch(qjs, fetchBase)
@@ -240,9 +285,19 @@ internal object QuickJsExecutor {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 return@withContext Result.failure(e)
             }
+            // Marked busy for as long as the engine is out, so eviction can
+            // see that this module is not a candidate for closing.
+            pool.inUse.incrementAndGet()
+            val cancellation = kotlinx.coroutines.currentCoroutineContext()[Job]?.invokeOnCompletion { cause ->
+                if (cause is kotlinx.coroutines.CancellationException) {
+                    runCatching { qjs.interruptEvaluation() }
+                }
+            }
             try {
                 callOn(qjs, moduleId, functionName, args)
             } finally {
+                cancellation?.dispose()
+                pool.inUse.decrementAndGet()
                 // Back into circulation on every path, including a throw: an
                 // engine that is never returned is a slot the pool can never
                 // hand out again, and three of those would deadlock the module.
@@ -291,8 +346,12 @@ internal object QuickJsExecutor {
                 val rawResult = qjs.evaluate<String>("__spine_resolved_json")
                 TrackLog.d(TAG, "  callExport result (${rawResult.length} chars): ${rawResult.take(500)}")
                 rawResult
-            }.onFailure {
-                TrackLog.e(TAG, "  ✗ callExport FAILED for $moduleId.$functionName: ${it.message}", it)
+            }.onFailure { failure ->
+                // runCatching also catches cancellation. Re-throw it so the
+                // caller's deadline/coroutine cancellation actually stops the
+                // evaluation instead of being reported as a module error.
+                if (failure is kotlinx.coroutines.CancellationException) throw failure
+                TrackLog.e(TAG, "  ✗ callExport FAILED for $moduleId.$functionName: ${failure.message}", failure)
             }
         }
 
@@ -389,7 +448,7 @@ internal object QuickJsExecutor {
                     val url = resolveUrl(rawUrl, fetchBase)
 
                     TrackLog.d(TAG, "  → fetch $method ${redactModuleUrl(url)}")
-                    val (statusCode, responseBody) = fetchUrlSync(url, method, headersJson, body)
+                    val (statusCode, responseBody) = fetchUrlSync(url, method, headersJson, body, fetchBase)
                     TrackLog.d(TAG, "    HTTP $statusCode (${responseBody.length} bytes)")
 
                     val respObj = JSONObject().apply {
@@ -478,41 +537,62 @@ internal object QuickJsExecutor {
         method: String,
         headersJson: String,
         body: String?,
+        fetchBase: String,
     ): Pair<Int, String> {
-        val builder = Request.Builder().url(url)
-
-        var hasUserAgent = false
-        try {
-            val headersObj = JSONObject(headersJson)
-            for (key in headersObj.keys()) {
-                val value = headersObj.optString(key, "")
+        var currentUrl = url
+        var currentHeaders = parseHeaders(headersJson)
+        repeat(ModuleSandboxPolicy.MAX_REDIRECTS + 1) {
+            if (!ModuleSandboxPolicy.allowsDestination(currentUrl, fetchBase)) {
+                throw IllegalStateException("Module network destination is not permitted")
+            }
+            val builder = Request.Builder().url(currentUrl)
+            var hasUserAgent = false
+            for ((key, value) in currentHeaders) {
                 builder.header(key, value)
                 if (key.equals("user-agent", ignoreCase = true)) hasUserAgent = true
             }
-        } catch (_: Exception) {
-        }
+            if (!hasUserAgent) builder.header("User-Agent", MODULE_USER_AGENT)
 
-        if (!hasUserAgent) {
-            builder.header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-            )
-        }
+            when (method.uppercase(Locale.ROOT)) {
+                "POST" -> builder.post((body ?: "").toRequestBody(JSON_MEDIA))
+                "PUT" -> builder.put((body ?: "").toRequestBody(JSON_MEDIA))
+                "DELETE" -> builder.delete()
+                "HEAD" -> builder.head()
+                else -> builder.get()
+            }
 
-        when (method.uppercase(Locale.ROOT)) {
-            "POST" -> builder.post((body ?: "").toRequestBody("application/json; charset=utf-8".toMediaType()))
-            "PUT" -> builder.put((body ?: "").toRequestBody("application/json; charset=utf-8".toMediaType()))
-            "DELETE" -> builder.delete()
-            "HEAD" -> builder.head()
-            else -> builder.get()
+            syncHttpClient.newCall(builder.build()).execute().use { response ->
+                if (response.code in 300..399) {
+                    val next = response.header("Location")
+                        ?.let { response.request.url.resolve(it)?.toString() }
+                        ?: throw IllegalStateException("Module redirect without a usable Location")
+                    currentHeaders = ModuleSandboxPolicy.headersForRedirect(currentUrl, next, currentHeaders)
+                    currentUrl = next
+                    return@repeat
+                }
+                val body = response.body ?: return response.code to ""
+                if (body.contentLength() > ModuleSandboxPolicy.MAX_RESPONSE_BYTES) {
+                    throw IllegalStateException("Module response exceeded the size limit")
+                }
+                val bytes = body.byteStream().use { readBounded(it, ModuleSandboxPolicy.MAX_RESPONSE_BYTES) }
+                return response.code to bytes.toString(Charsets.UTF_8)
+            }
         }
-
-        syncHttpClient.newCall(builder.build()).execute().use { response ->
-            val responseBody = response.body?.string() ?: ""
-            return response.code to responseBody
-        }
+        throw IllegalStateException("Module request followed too many redirects")
     }
+
+    private fun parseHeaders(headersJson: String): Map<String, String> = runCatching {
+        val obj = JSONObject(headersJson)
+        buildMap {
+            for (key in obj.keys()) put(key, obj.optString(key, ""))
+        }
+    }.getOrDefault(emptyMap())
+
+    private const val MODULE_USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+    private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
     // ── Polyfills ────────────────────────────────────────────────────────
 

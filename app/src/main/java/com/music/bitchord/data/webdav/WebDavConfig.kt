@@ -30,6 +30,19 @@ object WebDavConfig {
         }
     }
 
+    /**
+     * Release builds disable Android cleartext traffic. Reject `http://`
+     * explicitly with an actionable message instead of letting every request
+     * fail as an unexplained connection error; debug builds keep local HTTP.
+     */
+    fun cleartextRefusal(url: String, cleartextAllowed: Boolean): String? {
+        val normalized = normalizeUrl(url)
+        if (!cleartextAllowed && normalized.startsWith("http://", ignoreCase = true)) {
+            return "WebDAV requires an HTTPS address; plain HTTP is blocked by Android in release builds"
+        }
+        return null
+    }
+
     fun isConfigured(url: String): Boolean {
         val normalized = normalizeUrl(url)
         if (!normalized.startsWith("http://", ignoreCase = true) &&

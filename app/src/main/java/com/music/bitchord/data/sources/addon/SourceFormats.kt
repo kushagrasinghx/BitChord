@@ -1,7 +1,9 @@
 package com.music.bitchord.data.sources.addon
 
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -46,6 +48,21 @@ sealed interface DetectedFormat {
     data class Unsupported(val reason: String) : DetectedFormat
 }
 
+/**
+ * Release builds disable Android cleartext traffic, so accepting an `http://`
+ * addon would only fail later as a generic "nothing answered". Say what is
+ * actually wrong instead. Debug builds keep local HTTP addon development.
+ */
+internal fun cleartextAddonRefusal(url: String, cleartextAllowed: Boolean): String? {
+    val parsed = url.toHttpUrlOrNull() ?: return null
+    if (!cleartextAllowed && parsed.scheme == "http") {
+        return "BitChord requires an HTTPS addon address; plain HTTP is blocked by Android in release builds"
+    }
+    return null
+}
+
+private const val MAX_INDEX_BYTES = 4L * 1024 * 1024
+
 object SourceFormats {
 
     private const val TAG = "BitChord"
@@ -81,6 +98,9 @@ object SourceFormats {
             return@withContext Result.success(
                 DetectedFormat.Unsupported("That is not a web address BitChord can open"),
             )
+        }
+        cleartextAddonRefusal(url, cleartextAllowed = BuildConfig.DEBUG)?.let { refusal ->
+            return@withContext Result.success(DetectedFormat.Unsupported(refusal))
         }
 
         val base = AddonClient.normalizeBase(url)
@@ -217,7 +237,9 @@ object SourceFormats {
                 if (response.code >= 500) throw AddonUnavailable("HTTP ${response.code}")
                 throw AddonException("HTTP ${response.code}")
             }
-            response.body?.string()?.takeIf { it.isNotBlank() }
+            val body = response.body ?: throw AddonException("Empty response")
+            val bytes = body.byteStream().use { readBounded(it, MAX_INDEX_BYTES) }
+            bytes.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
                 ?: throw AddonException("Empty response")
         }
     }.onFailure {

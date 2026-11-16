@@ -14,7 +14,6 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -33,14 +32,16 @@ import kotlinx.coroutines.launch
  *
  * It owns no state. The queue and everything known about it live in
  * [Downloads]; this drives that queue and reflects it into a notification, and
- * stops itself the moment there is nothing left to do.
+ * stops itself the moment there is nothing left to do. When and how it stops is
+ * [DrainSupervisor]'s decision, not this class's: that is where the
+ * enqueue-during-shutdown race is closed, and it is testable there in a way a
+ * `Service` subclass is not.
  */
 class DownloadService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
-    private var drain: Job? = null
-    private var notifier: Job? = null
+    private lateinit var supervisor: DrainSupervisor
 
     /** What the notification is currently about. */
     @Volatile
@@ -51,6 +52,19 @@ class DownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        supervisor = DrainSupervisor(
+            scope = scope,
+            hasWork = Downloads::busy,
+            drainPass = { drainQueue() },
+            reporter = { reflectProgress() },
+            stopService = { startId -> stopSelfResult(startId) },
+            clearNotification = {
+                // The next drain must not open with the last one's track in the
+                // title: a restarted drain has its own first track to announce.
+                current = null
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            },
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -61,20 +75,18 @@ class DownloadService : Service() {
         promote()
 
         if (intent?.action == ACTION_CANCEL_ALL) {
+            // Records the id without starting a drain: this request is the user
+            // asking for everything in flight to stop.
+            supervisor.onStartCommand(startId, drain = false)
             Downloads.active.value.keys.toList().forEach(Downloads::cancel)
-            shutdown(stopWork = true)
+            supervisor.cancelAll()
             return START_NOT_STICKY
         }
 
-        if (drain == null) {
-            drain = scope.launch {
-                drainQueue()
-                // Not shutdown(stopWork = true): this is the drain coroutine,
-                // and cancelling its own job here would be cancelling itself.
-                shutdown(stopWork = false)
-            }
-            notifier = scope.launch { reflectProgress() }
-        }
+        // Records the id even when a drain is already running — see
+        // DrainSupervisor: the id is what stops a stop decision from landing on
+        // work that arrived after it.
+        supervisor.onStartCommand(startId)
         // Not sticky: a queue is a list of things asked for in a session, and
         // reviving the service without one would put up a notification about
         // nothing.
@@ -147,18 +159,12 @@ class DownloadService : Service() {
         }
     }
 
-    private fun shutdown(stopWork: Boolean) {
-        if (stopWork) drain?.cancel()
-        notifier?.cancel()
-        drain = null
-        notifier = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
     override fun onDestroy() {
         scope.cancel()
-        Downloads.onStopped()
+        // Nothing can drain the queue now. Work that has a durable job stays
+        // queued so the recovery worker can restart this service; only work
+        // with no journal entry is reported as interrupted.
+        Downloads.onStopped(this)
         super.onDestroy()
     }
 

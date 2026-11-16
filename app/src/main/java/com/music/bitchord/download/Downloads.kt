@@ -7,6 +7,13 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
+import androidx.work.BackoffPolicy
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -17,8 +24,12 @@ import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
+import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -39,6 +50,7 @@ import kotlinx.serialization.json.Json
 import java.io.OutputStream
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /** Where a track is between "not on this device" and "on it". */
 sealed interface DownloadState {
@@ -76,6 +88,9 @@ object Downloads {
     private const val TAG = "BitChord"
     private const val KEY_SAVED_METADATA = "downloaded_tracks_metadata"
     private const val KEY_SAVED_COLLECTIONS = "downloaded_collections"
+    private const val KEY_PENDING_JOBS = "pending_download_jobs_v1"
+    private const val RECOVERY_WORK = "download-recovery"
+    private const val RECOVERY_PERIODIC_WORK = "download-recovery-periodic"
 
     private lateinit var prefs: SharedPreferences
     private val json = Json { ignoreUnknownKeys = true }
@@ -108,6 +123,8 @@ object Downloads {
         if (videoIds.isEmpty()) return
         _requested.update { it + (browseId to (it[browseId].orEmpty() + videoIds)) }
     }
+
+    private val pendingJobs = LinkedHashMap<String, PendingDownload>()
 
     private val _saved = MutableStateFlow<Map<String, String>>(emptyMap())
 
@@ -147,6 +164,22 @@ object Downloads {
      */
     private val running = LinkedHashMap<String, Job?>()
 
+    /**
+     * Where the decision to accept a download is made.
+     *
+     * Deliberately not the caller's thread, which is the UI thread for every
+     * tap. Accepting a track asks the saved record whether the file is still
+     * there, and that question is a `stat()` for a file URI or a MediaStore
+     * round trip for a content URI — per track, in a loop of forty when an
+     * album is downloaded. Doing that between the tap and the frame that
+     * acknowledges it is what made a batch feel like a freeze.
+     */
+    private val enqueueScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Exposed so a regression test can prove enqueue never moves work back to Main. */
+    internal val enqueueDispatcher: CoroutineDispatcher
+        get() = enqueueScope.coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         _saved.value = runCatching {
@@ -158,6 +191,58 @@ object Downloads {
         _collections.value = runCatching {
             json.decodeFromString(collectionSerializer, prefs.getString(KEY_SAVED_COLLECTIONS, null) ?: "{}")
         }.getOrDefault(emptyMap())
+
+        val restored = DownloadJobCodec.decode(prefs.getString(KEY_PENDING_JOBS, null))
+        if (restored.isNotEmpty()) {
+            synchronized(lock) {
+                pendingJobs.clear()
+                pending.clear()
+                restored.forEach { job ->
+                    pendingJobs[job.videoId] = job
+                    pending[job.videoId] = job.toSong()
+                }
+            }
+            _active.update { active -> active + restored.associate { it.videoId to DownloadState.Queued } }
+            restored.forEach { DownloadSession.queued(it.toSong(), it.from) }
+            scheduleRecovery(context.applicationContext)
+            Log.d(TAG, "restored ${restored.size} pending download job(s)")
+        }
+    }
+
+    internal fun hasPersistedJobs(): Boolean = synchronized(lock) { pendingJobs.isNotEmpty() }
+
+    private fun persistPendingLocked() {
+        if (!::prefs.isInitialized) return
+        prefs.edit()
+            .putString(KEY_PENDING_JOBS, DownloadJobCodec.encode(pendingJobs.values))
+            .commit()
+    }
+
+    private fun scheduleRecovery(context: Context) {
+        runCatching {
+            val work = WorkManager.getInstance(context)
+            work.enqueueUniqueWork(
+                RECOVERY_WORK,
+                // REPLACE resets a stale backoff left by a previous process.
+                // KEEP would let a background start that Android refused keep
+                // the work delayed after the app is visible and able to start
+                // the download service again.
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<DownloadRecoveryWorker>()
+                    // Recovery starts a foreground service. Expedited work is
+                    // allowed to do that on Android 12+; ordinary background
+                    // work is not. If the expedited quota is exhausted, the
+                    // OS falls back rather than dropping the job.
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
+                    .build(),
+            )
+            work.enqueueUniquePeriodicWork(
+                RECOVERY_PERIODIC_WORK,
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<DownloadRecoveryWorker>(15, TimeUnit.MINUTES).build(),
+            )
+        }.onFailure { Log.w(TAG, "could not schedule download recovery: ${it.message}") }
     }
 
     // ---- Asking -------------------------------------------------------------
@@ -181,7 +266,19 @@ object Downloads {
      *   only thing that has to say *why* forty tracks are in the queue.
      */
     fun enqueue(context: Context, song: Song, from: String? = null) {
+        // Returns before anything is decided, so a tap can never wait on the
+        // disk. Everything that decides is below, on [enqueueScope]; the queue
+        // itself is still mutated under [lock], so two fast taps for one track
+        // still resolve to one download.
+        val app = context.applicationContext
+        enqueueScope.launch { enqueueNow(app, song, from) }
+    }
+
+    private fun enqueueNow(app: Context, song: Song, from: String?) {
         val id = song.videoId
+        // A track already on disk is never re-queued: re-tapping Download is a
+        // no-op, not a second file with a second format or a second row.
+        if (alreadyDownloaded(_saved.value, id) { DownloadStore.exists(app, it.toUri()) }) return
         // A copy straight out of the song cache spends no data, so the Wi-Fi
         // rule has nothing to say about it.
         if (!AppSettings.downloadsAllowedNow && !servableFromCache(id)) {
@@ -199,11 +296,15 @@ object Downloads {
         synchronized(lock) {
             if (id in pending || id in running) return
             pending[id] = song
+            // Persist before scheduling. A process death between these two
+            // operations leaves recoverable work, never an invisible queued row.
+            pendingJobs[id] = PendingDownload.from(song, from)
+            persistPendingLocked()
         }
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
+        scheduleRecovery(app)
 
-        val app = context.applicationContext
         runCatching {
             ContextCompat.startForegroundService(app, Intent(app, DownloadService::class.java))
         }.onFailure {
@@ -211,7 +312,11 @@ object Downloads {
             // means the queue has nothing to drain it and would sit there
             // looking accepted forever.
             Log.w(TAG, "could not start the download service: ${it.message}")
-            synchronized(lock) { pending.remove(id) }
+            synchronized(lock) {
+                pending.remove(id)
+                pendingJobs.remove(id)
+                persistPendingLocked()
+            }
             fail(id, "Downloads can't start right now")
         }
     }
@@ -873,6 +978,54 @@ object Downloads {
             }
         }
 
+    /**
+     * The offline package directories the records point at.
+     *
+     * A saved uri for an HLS or DASH download is `…/offline-hls/<name>/playlist.m3u8`,
+     * and its `<name>` is what must survive reclamation. Extracted from the
+     * record rather than from the manifests, because the record is the only
+     * thing that says a package is still wanted.
+     */
+    internal fun referencedPackageNames(saved: Map<String, String> = _saved.value): Set<String> {
+        val names = HashSet<String>()
+        for (uri in saved.values) {
+            if (!uri.endsWith("/playlist.m3u8")) continue
+            val name = uri.substringBeforeLast('/').substringAfterLast('/')
+            if (name.isNotEmpty()) names += name
+        }
+        return names
+    }
+
+    /**
+     * Delete packages nothing points at; see [DownloadStore.orphanedPackages].
+     *
+     * Touches the filesystem, so it is called from a background thread at
+     * startup rather than from [init], which runs on the main thread.
+     */
+    internal suspend fun reclaimOrphanedPackages(context: Context) = withContext(Dispatchers.IO) {
+        runCatching { DownloadStore.reclaimOrphanedPackages(context, referencedPackageNames()) }
+            .onFailure { Log.w(TAG, "could not reclaim orphaned download packages: ${it.message}") }
+        Unit
+    }
+
+    /** Artwork sidecars the track and collection records still name. */
+    internal fun referencedArtworkNames(
+        metadata: Map<String, SavedSongMetadata> = _savedMetadata.value,
+        collections: Map<String, SavedCollection> = _collections.value,
+    ): Set<String> = (metadata.values.mapNotNull { it.thumbnailUrl } +
+        collections.values.mapNotNull { it.thumbnailUrl })
+        .asSequence()
+        .filter { it.startsWith("file:") }
+        .map { it.substringAfterLast('/') }
+        .filter { it.isNotBlank() }
+        .toSet()
+
+    internal suspend fun reclaimOrphanedArtwork(context: Context) = withContext(Dispatchers.IO) {
+        runCatching { MediaTagger.reclaimOrphanedArtwork(context, referencedArtworkNames()) }
+            .onFailure { Log.w(TAG, "could not reclaim orphaned artwork: ${it.message}") }
+        Unit
+    }
+
     private fun String.toUri(): Uri = Uri.parse(this)
 
     // ---- Driven by DownloadService -----------------------------------------
@@ -916,9 +1069,39 @@ object Downloads {
      * This is the whole drain going away at once — every claim in [running] is
      * void, and leaving one behind would have [enqueue] refuse that track
      * forever as already in flight.
+     *
+     * A track with a durable job is put back in the queue rather than declared
+     * failed: a service can be destroyed by the system while the process stays
+     * alive, and until the platform takes the process too the next start must
+     * be able to drain that work. Its row stays queued and recovery is
+     * scheduled; discarding the journal here would make a normal shutdown
+     * indistinguishable from a completed download. Work without a durable job
+     * (see [downloadNow]) has nowhere to be restored from and is reported as
+     * interrupted as before.
      */
-    internal fun onStopped() {
-        synchronized(lock) { running.clear() }
+    internal fun onStopped(context: Context) {
+        val (recoverable, abandoned) = synchronized(lock) {
+            val ids = LinkedHashSet(pending.keys)
+            ids += running.keys
+            pending.clear()
+            running.clear()
+            // Restore the queue in the journal's order. pendingJobs is a
+            // LinkedHashMap and survives both this call and process death, so
+            // the restarted drain picks up where this one stopped rather than
+            // in whatever order the old workers happened to be holding.
+            val durable = recoverableDownloads(ids, pendingJobs)
+            durable.forEach { job -> pending[job.videoId] = job.toSong() }
+            durable to (ids - durable.map { it.videoId }.toSet())
+        }
+        if (recoverable.isNotEmpty()) {
+            recoverable.forEach { job ->
+                _active.update { it + (job.videoId to DownloadState.Queued) }
+                DownloadSession.queued(job.toSong(), job.from)
+            }
+            scheduleRecovery(context.applicationContext)
+            Log.d(TAG, "kept ${recoverable.size} interrupted download(s) for recovery")
+        }
+        abandoned.forEach { fail(it, "Download stopped — tap to retry") }
     }
 
     /**
@@ -1019,7 +1202,7 @@ object Downloads {
         // and a FLAC already on disk is the song whatever the setting.
         LOSSLESS_EXTENSIONS.firstNotNullOfOrNull { extension ->
             DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension))
-        }?.let { uri ->
+        }?.takeIf { uri -> isOwnedDownload(song.videoId, uri.toString(), _saved.value) }?.let { uri ->
             return@withContext Prepared(song.videoId, track, route = null, alreadyAt = uri)
         }
 
@@ -1030,6 +1213,9 @@ object Downloads {
                 Log.d(TAG, "downloading ${song.videoId} from the song cache as .${route.extension}")
                 return@withContext Prepared(song.videoId, track, route = route, alreadyAt = null)
             }
+        }
+        DownloadTestRoute.routeFor(context, track)?.let { route ->
+            return@withContext Prepared(song.videoId, track, route = route, alreadyAt = null)
         }
         val route = try {
             routeFor(context, track, quality)
@@ -1071,6 +1257,15 @@ object Downloads {
      * commits or aborts, so a caller is free to call it a second time with a
      * freshly resolved plan without the first attempt leaving anything behind.
      */
+    /**
+     * How many bytes apart the mid-transfer storage check runs.
+     *
+     * Frequent enough that a doomed album fails after megabytes rather than
+     * gigabytes, rare enough that a `StatFs` per write chunk is not the cost of
+     * the download.
+     */
+    private const val SPACE_RECHECK_BYTES = 8L * 1024 * 1024
+
     private suspend fun transfer(context: Context, song: Song, plan: Prepared) {
         val id = song.videoId
         val track = plan.track
@@ -1112,7 +1307,9 @@ object Downloads {
 
                 val name = DownloadStore.fileNameFor(track, route.extension)
                 val alreadyThere = DownloadStore.existing(context, name)
-                if (alreadyThere != null) {
+                if (alreadyThere != null && isOwnedDownload(id, alreadyThere.toString(), _saved.value)) {
+                    // Only this song's own earlier file may be adopted. Two
+                    // different recordings can sanitise to the same name.
                     Log.d(TAG, "$name is already in Music; adopting it")
                     remember(song, track, alreadyThere)
                     DownloadSession.done(id)
@@ -1155,13 +1352,26 @@ object Downloads {
                     return@coroutineScope
                 }
 
-                val destination = DownloadStore.begin(context, name, route.mimeType)
+                // Reservation and allocation happen together, so two workers
+                // finishing the same artist/title cannot choose one name.
+                val destination = DownloadStore.reserveAndBegin(context, name, route.mimeType)
                 pending = destination
                 destination.openStream().use { sink ->
+                    var checkedAt = 0L
                     route.write(sink) { written, total ->
                         val fraction = written.toFloat() / total
                         _active.update { it + (id to DownloadState.Running(fraction)) }
                         DownloadSession.running(id, fraction)
+                        // The length is known here, so the remainder is exact
+                        // rather than estimated: this is the one place a doomed
+                        // transfer can be stopped with a real number to report.
+                        if (written - checkedAt >= SPACE_RECHECK_BYTES) {
+                            checkedAt = written
+                            DownloadStore.requireTransferSpace(
+                                context,
+                                (total - written).takeIf { it > 0 },
+                            )
+                        }
                     }
                 }
                 val words = lyrics?.await()
@@ -1332,7 +1542,7 @@ object Downloads {
                         extension = "m3u8",
                         mimeType = "application/vnd.apple.mpegurl",
                         describe = stream.format.summary,
-                        downloadFormat = stream.format.downloadBadge(),
+                        downloadFormat = offlinePackageBadge(dash),
                         offlineHls = Manifest(stream.url, stream.headers, dash = dash),
                         write = { sink, onProgress ->
                             Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
@@ -1511,10 +1721,18 @@ object Downloads {
 
     /** Back to "not downloaded" — used for success, where [saved] takes over, and for cancellation. */
     private fun clear(videoId: String) {
+        synchronized(lock) {
+            pendingJobs.remove(videoId)
+            persistPendingLocked()
+        }
         _active.update { it - videoId }
     }
 
     private fun fail(videoId: String, reason: String) {
+        synchronized(lock) {
+            pendingJobs.remove(videoId)
+            persistPendingLocked()
+        }
         _active.update { it + (videoId to DownloadState.Failed(reason)) }
         DownloadSession.failed(videoId, reason)
     }
@@ -1531,7 +1749,7 @@ object Downloads {
      * `Unsupported MIME type audio/webm` at least sends someone looking in the
      * right direction.
      */
-    private fun Exception.friendly(): String = when {
+    private fun Exception.friendly(): String = storageFailureMessage(this) ?: when {
         (this is IllegalStateException || this is IllegalArgumentException) &&
             !message.isNullOrBlank() -> message!!
         else -> "Download failed — check your connection"
@@ -1614,6 +1832,31 @@ object Downloads {
 
     private const val KEY_SAVED = "downloaded_tracks"
 }
+
+/**
+ * The badge of the stored offline package, not of the manifest it was fetched as.
+ *
+ * DASH is rewritten into the same `playlist.m3u8` + fMP4 package as HLS (see
+ * [OfflineDash]), so calling that row "DASH" describes the origin rather than
+ * the bytes on disk and contradicts what the app can actually open.
+ */
+internal fun offlinePackageBadge(dash: Boolean): String {
+    @Suppress("UNUSED_PARAMETER")
+    val sourceWasDash = dash
+    return "HLS"
+}
+
+/** True when the id has a saved record whose file still exists. */
+internal fun alreadyDownloaded(saved: Map<String, String>, id: String, exists: (String) -> Boolean): Boolean =
+    saved[id]?.let(exists) == true
+
+/**
+ * True only when [uri] is the file already recorded for [videoId]. A file with
+ * the same sanitised artist/title but no record for this id belongs to a
+ * different recording until proven otherwise.
+ */
+internal fun isOwnedDownload(videoId: String, uri: String, saved: Map<String, String>): Boolean =
+    saved[videoId] == uri
 
 @kotlinx.serialization.Serializable
 internal data class SavedSongMetadata(
@@ -1739,3 +1982,35 @@ data class DownloadedCollection(
     val playlist: Boolean,
     val songs: List<Song>,
 )
+
+
+/**
+ * Whether [this], or anything it was caused by, is the filesystem saying the
+ * destination is full.
+ *
+ * Worth telling apart from every other download failure: a full device is not a
+ * connection problem, and reporting it as one sends the listener to check their
+ * Wi-Fi while the answer is a storage setting. The message text is the only
+ * signal that survives the layers between `write` and here — `IOException` does
+ * not carry the errno — so the cause chain is walked looking for the forms
+ * Linux and Android actually produce.
+ */
+internal fun Throwable.isOutOfSpace(): Boolean {
+    var cause: Throwable? = this
+    val seen = HashSet<Throwable>()
+    while (cause != null && seen.add(cause)) {
+        val message = cause.message?.lowercase(Locale.ROOT).orEmpty()
+        if (message.contains("enospc") ||
+            message.contains("no space left") ||
+            message.contains("not enough space")
+        ) {
+            return true
+        }
+        cause = cause.cause
+    }
+    return false
+}
+
+/** What to tell the listener about [failure], or null when it is not a storage fault. */
+internal fun storageFailureMessage(failure: Throwable): String? =
+    if (failure.isOutOfSpace()) "Not enough free storage to finish this download" else null

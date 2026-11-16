@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.scrobbling.ScrobbleRetry
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.lyrics.LyricsSource
@@ -1829,6 +1830,10 @@ object AppSettings {
     fun setLastfmSessionKey(value: String) {
         lastfmSessionKey.value = value
         prefs.edit().putString(KEY_LASTFM_SESSION_KEY, value).apply()
+        // Disconnecting is a sign-out: the listens waiting to be delivered
+        // belong to the account that just left and must not be sent under the
+        // next one, nor left on disk for it to find.
+        if (value.isBlank()) ScrobbleRetry.clearLastFm()
     }
 
     fun setLastfmApiKey(value: String) {
@@ -1940,6 +1945,7 @@ object AppSettings {
     fun setListenBrainzToken(value: String) {
         listenBrainzToken.value = value
         prefs.edit().putString(KEY_LISTENBRAINZ_TOKEN, value).apply()
+        if (value.isBlank()) ScrobbleRetry.clearListenBrainz()
     }
 
     fun setListenBrainzPrimaryArtistOnly(value: Boolean) {

@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources.module
 
 import android.util.Log
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.sources.readBounded
 import com.music.bitchord.data.Http
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -219,12 +220,17 @@ class ModuleManager {
             }
 
             TrackLog.d(TAG, "  Resolved download URL: ${redactModuleUrl(downloadUrl)}")
+            if (!ModuleSandboxPolicy.allowsModuleDownload(downloadUrl)) {
+                throw Exception("Module ${module.id} must be served over HTTPS (or a local index)")
+            }
             val request = Request.Builder().url(downloadUrl).build()
             val jsCode = Http.client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     throw Exception("HTTP ${resp.code} downloading module ${module.id}")
                 }
-                resp.body?.string() ?: throw Exception("Empty body for module ${module.id}")
+                val body = resp.body ?: throw Exception("Empty body for module ${module.id}")
+                val bytes = body.byteStream().use { readBounded(it, ModuleSandboxPolicy.MAX_MODULE_BYTES) }
+                bytes.toString(Charsets.UTF_8)
             }
             val baseUrl = downloadUrl.substringBeforeLast("/")
 

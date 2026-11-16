@@ -3,6 +3,7 @@ package com.music.bitchord.data.webdav
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +82,7 @@ object WebDavUploads {
         val password = com.music.bitchord.data.settings.AppSettings.webdavPassword.value
         val root = WebDavConfig.normalizeUrl(url)
         require(WebDavConfig.isConfigured(root)) { "WebDAV is not configured" }
+        WebDavConfig.cleartextRefusal(root, cleartextAllowed = BuildConfig.DEBUG)?.let { error(it) }
 
         val queue = songs.filter { isUploadable(it) }
         var uploaded = 0

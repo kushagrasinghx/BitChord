@@ -656,6 +656,36 @@ object ListenTogether {
     private lateinit var appContext: Context
     private var token: String? = null
 
+    /**
+     * The party token is a bearer credential — presenting it is what rejoins a
+     * membership now — so it is kept in the Keystore-backed store rather than in
+     * plain preferences, and a copy left by an earlier build is migrated out of
+     * the plain one on first read.
+     *
+     * There is deliberately no plaintext fallback: when the Keystore is
+     * unavailable the token is simply not persisted, and the next join starts a
+     * fresh membership instead of leaving a credential readable on disk.
+     */
+    private fun readStoredToken(): String? {
+        val legacy = prefs.getString(KEY_TOKEN, null)
+        val secure = EncryptedPrefs.openSecure(appContext, SECRET_PREFS)
+        if (legacy != null) {
+            prefs.edit().remove(KEY_TOKEN).apply()
+            secure?.edit()?.putString(KEY_TOKEN, legacy)?.apply()
+            return legacy
+        }
+        return secure?.getString(KEY_TOKEN, null)
+    }
+
+    private fun writeStoredToken(value: String?) {
+        val secure = EncryptedPrefs.openSecure(appContext, SECRET_PREFS) ?: return
+        if (value == null) {
+            secure.edit().remove(KEY_TOKEN).apply()
+        } else if (!secure.edit().putString(KEY_TOKEN, value).commit()) {
+            Log.w(TAG, "could not store the party token")
+        }
+    }
+
     @Volatile
     private var session: DefaultClientWebSocketSession? = null
     private var socketJob: Job? = null
@@ -676,8 +706,9 @@ object ListenTogether {
         }
 
         val code = prefs.getString(KEY_CODE, null)
-        val saved = prefs.getString(KEY_TOKEN, null)
-        prefs.edit().remove(KEY_CODE).remove(KEY_TOKEN).apply()
+        val saved = readStoredToken()
+        prefs.edit().remove(KEY_CODE).apply()
+        writeStoredToken(null)
         if (!code.isNullOrBlank() && !saved.isNullOrBlank()) {
             releaseStaleSlot(code, saved)
         }
@@ -829,10 +860,8 @@ object ListenTogether {
         withContext(NonCancellable) {
             activePartyServerBase = serverBase
             token = membership.token
-            prefs.edit()
-                .putString(KEY_CODE, membership.code)
-                .putString(KEY_TOKEN, membership.token)
-                .apply()
+            prefs.edit().putString(KEY_CODE, membership.code).apply()
+            writeStoredToken(membership.token)
             clock.reset()
             _state.value = State(
                 code = membership.code,
@@ -886,10 +915,8 @@ object ListenTogether {
         withContext(NonCancellable) {
             activePartyServerBase = serverBase
             token = membership.token
-            prefs.edit()
-                .putString(KEY_CODE, membership.code)
-                .putString(KEY_TOKEN, membership.token)
-                .apply()
+            prefs.edit().putString(KEY_CODE, membership.code).apply()
+            writeStoredToken(membership.token)
             clock.reset()
             _state.value = State(
                 code = membership.code,
@@ -1022,10 +1049,8 @@ object ListenTogether {
 
                 // Commit new party session
                 token = membership.token
-                prefs.edit()
-                    .putString(KEY_CODE, membership.code)
-                    .putString(KEY_TOKEN, membership.token)
-                    .apply()
+                prefs.edit().putString(KEY_CODE, membership.code).apply()
+                writeStoredToken(membership.token)
                 clock.reset()
                 _state.value = State(
                     code = membership.code,
@@ -1057,7 +1082,8 @@ object ListenTogether {
             clock.reset()
             token = null
             activePartyServerBase = null
-            prefs.edit().remove(KEY_CODE).remove(KEY_TOKEN).apply()
+            prefs.edit().remove(KEY_CODE).apply()
+            writeStoredToken(null)
             _state.value = State()
             if (code != null && held != null) {
                 releaseStaleSlotOnServer(currentServer, code, held)
@@ -1647,7 +1673,22 @@ object ListenTogether {
         }
     }
 
-    private suspend fun post(url: String, body: JoinRequest): PartyMembership {
+    /**
+     * The token this device was issued for [code], when it is still the party
+     * on screen. Rejoining is authenticated with it: the server no longer hands
+     * a membership to whoever presents its device id.
+     */
+    private fun storedTokenFor(code: String): String? =
+        readStoredToken()?.takeIf {
+            it.isNotBlank() && prefs.getString(KEY_CODE, null) == code
+        }
+
+    private suspend fun post(
+        url: String,
+        body: JoinRequest,
+        rejoinToken: String? = null,
+    ): PartyMembership {
+
         val response = http.post(url) {
             contentType(ContentType.Application.Json)
             setBody(body)

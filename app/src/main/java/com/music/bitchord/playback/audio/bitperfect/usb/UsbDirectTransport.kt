@@ -185,7 +185,14 @@ internal class UsbDirectTransport private constructor(
                     ?.let { feature -> runCatching { UsbVolume.Volume.open(control, feature) }.getOrNull() }
                 if (volume == null && !allowFixedVolume) throw BitPerfectTransportException("volume_unavailable")
                 if (volume != null && rememberedDb != null) {
-                    runCatching { volume.set(control, minOf(rememberedDb, volume.snapshot.restoreLimitDb)) }
+                    try {
+                        volume.set(control, minOf(rememberedDb, volume.snapshot.restoreLimitDb))
+                    } catch (error: Throwable) {
+                        // Startup attenuation already succeeded; never leave the
+                        // DAC quieter because the remembered level was refused.
+                        runCatching { volume.restore(control) }
+                        throw BitPerfectTransportException("volume_restore", error)
+                    }
                 }
                 return UsbDirectTransport(
                     connection = connection,

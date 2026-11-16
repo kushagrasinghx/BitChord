@@ -3620,6 +3620,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeAccount(accountId: String) {
         val fallback = authStore.removeAccount(accountId)
+        forgetListenerCache(accountId)
         _googleAccounts.value = authStore.sessions
         if (fallback == null) { signOut(); return }
         selectProfile(fallback.accountId, fallback.activeProfileId ?: fallback.profiles.firstOrNull()?.profileId ?: return)
@@ -3673,7 +3674,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun listenerKey(): String? = _activeAccountId.value?.let { accountId ->
-        _activeProfileId.value?.let { profileId -> "$accountId:$profileId" }
+        _activeProfileId.value?.let { profileId -> listenerCacheKey(accountId, profileId) }
+    }
+
+    /**
+     * Drops what is cached for an account that is no longer signed in.
+     *
+     * The cache is in memory only, so this is not about the disk — it is about a
+     * removed login's library, history and playlists staying readable in the
+     * process after the account itself is gone. Removing an account is a
+     * lifecycle boundary; the data behind it leaves with it.
+     */
+    private fun forgetListenerCache(accountId: String) {
+        listenerCache.keys -= listenerCacheKeysOf(listenerCache.keys, accountId)
     }
 
     private fun clearListenerState(restoreCached: Boolean = false) {
@@ -3725,6 +3738,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         authStore.signOut()
+        listenerCache.clear()
         Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing
         // about what an anonymous walk will be told, and the clients stood down
@@ -3780,6 +3794,19 @@ internal suspend fun <T : Any> retryingOrNull(waitsMs: LongArray, attempt: suspe
  * the syllable preference pick a different answer from the same providers, so
  * a change in either is a new lookup, as switching a source on or off is.
  */
+/**
+ * The in-memory listener cache is partitioned by identity.
+ *
+ * The account id comes first and the profile after it, so an account's entries are
+ * exactly the keys carrying its `"<accountId>:"` prefix — which is what makes it
+ * possible to drop one account's cached library without touching another's.
+ */
+internal fun listenerCacheKey(accountId: String, profileId: String): String = "$accountId:$profileId"
+
+/** Every cache key still holding [accountId]'s listener data. */
+internal fun listenerCacheKeysOf(keys: Collection<String>, accountId: String): List<String> =
+    keys.filter { key -> key.startsWith("$accountId:") }
+
 internal fun lyricsLookupKey(
     videoId: String,
     sources: Set<LyricsSource>,

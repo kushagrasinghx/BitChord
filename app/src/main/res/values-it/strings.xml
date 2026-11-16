@@ -177,6 +177,7 @@
     <string name="spatial_audio">Audio spaziale</string>
     <string name="spatial_audio_subtitle">Amplia le tracce stereo per un ascolto più immersivo</string>
     <string name="spatial_audio_atmos_subtitle">In pausa per questo brano: il Dolby Atmos è già spaziale</string>
+    <string name="clear_animated_artwork">Rimuovi la sfocatura sulle copertine animate</string>
     <string name="animated_cover_cellular">Riproduci copertina animata con dati mobili</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">I tuoi brani, artisti, album e generi più ascoltati</string>

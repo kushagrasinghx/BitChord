@@ -149,6 +149,7 @@
     <string name="spatial_audio">Dźwięk przestrzenny</string>
     <string name="spatial_audio_subtitle">Większa immersja dzięki poszerzeniu utworów stereo</string>
     <string name="spatial_audio_atmos_subtitle">Wstrzymane dla tego utworu – Dolby Atmos już jest przestrzenny</string>
+    <string name="clear_animated_artwork">Usuń rozmycie przy animowanych okładkach</string>
     <string name="animated_cover_cellular">Odtwarzaj animowaną okładkę w sieci komórkowej</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Twoje top utwory, artyści, albumy i gatunki</string>

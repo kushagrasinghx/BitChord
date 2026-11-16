@@ -153,6 +153,7 @@
     <string name="spatial_audio">เสียงเชิงพื้นที่</string>
     <string name="spatial_audio_subtitle">ขยายแทร็กสเตอริโอให้ดื่มด่ำยิ่งขึ้น</string>
     <string name="spatial_audio_atmos_subtitle">หยุดไว้สำหรับแทร็กนี้ — Dolby Atmos เป็นเสียงรอบทิศทางอยู่แล้ว</string>
+    <string name="clear_animated_artwork">ปิดเอฟเฟกต์เบลอสำหรับภาพปกเคลื่อนไหว</string>
     <string name="animated_cover_cellular">เล่นปกเคลื่อนไหวผ่านเน็ตมือถือ</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">เพลง ศิลปิน อัลบั้ม และแนวเพลงยอดนิยมของคุณ</string>

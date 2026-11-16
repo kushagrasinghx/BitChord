@@ -146,6 +146,7 @@
     <string name="spatial_audio">Räumliches Audio</string>
     <string name="spatial_audio_subtitle">Verbreitert Stereo-Tracks für ein intensiveres Klangerlebnis</string>
     <string name="spatial_audio_atmos_subtitle">Für diesen Titel pausiert – Dolby Atmos ist bereits räumlich</string>
+    <string name="clear_animated_artwork">Unschärfe bei animierten Covern entfernen</string>
     <string name="animated_cover_cellular">Animiertes Cover bei mobilen Daten abspielen</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Deine meistgehörten Songs, Künstler, Alben und Genres</string>

@@ -156,6 +156,7 @@
     <string name="spatial_audio">Пространственный звук</string>
     <string name="spatial_audio_subtitle">Расширяет стереодорожки для более глубокого погружения</string>
     <string name="spatial_audio_atmos_subtitle">Приостановлено для этого трека — Dolby Atmos уже пространственный</string>
+    <string name="clear_animated_artwork">Убрать размытие для анимированных обложек</string>
     <string name="animated_cover_cellular">Воспроизводить анимированную обложку через мобильные данные</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Ваши любимые песни, исполнители, альбомы и жанры</string>

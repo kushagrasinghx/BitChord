@@ -199,6 +199,7 @@
     <string name="spatial_audio">공간 음향</string>
     <string name="spatial_audio_subtitle">더 입체적인 느낌을 내기 위해 스테레오 음원의 공간감을 넓힙니다</string>
     <string name="spatial_audio_atmos_subtitle">이 곡에서는 중지됨 — 이미 Dolby Atmos 입체 음향 제공</string>
+    <string name="clear_animated_artwork">움직이는 커버의 흐림 효과 끄기</string>
     <string name="animated_cover_cellular">모바일 데이터에서도 움직이는 커버 재생</string>
     <string name="replay">리플레이</string>
     <string name="replay_subtitle">내가 즐겨 듣는 음악, 아티스트, 앨범, 장르</string>

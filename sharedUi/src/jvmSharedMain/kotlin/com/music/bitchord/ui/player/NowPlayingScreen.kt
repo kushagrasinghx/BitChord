@@ -934,6 +934,7 @@ fun NowPlayingScreen(
     // CanvasRepository, which is also where the "is this actually the right
     // track" check lives.
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
+    val clearAnimatedArtwork by PlayerSettings.clearAnimatedArtwork.collectAsStateWithLifecycle()
     val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
     // A music video plays its own picture where the sleeve is — see
     // [MusicVideoSurface] — and takes the place of any animated cover.
@@ -1450,6 +1451,9 @@ fun NowPlayingScreen(
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone &&
         heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && canvasRendered
+    // Wait for the current clip's first frame, including when changing tracks.
+    val clearControlsBackdrop = clearAnimatedArtwork && canvas != null && canvasRendered &&
+        !videoMode && !lyricsOpen && !queueOpen && !collapseStarted
     // The clip's player, which outlives [heroClip] by the second half of a
     // collapse: mounted from the moment the player is asked back, and let go
     // of once the sleeve has settled into the header. Faded out by the half
@@ -2089,7 +2093,12 @@ fun NowPlayingScreen(
                     background = { backgroundModifier ->
                         // The whole screen is the sheets' frost source: there is
                         // no full-bleed banner here to be it instead.
-                        fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze))
+                        val backdrop = backgroundModifier.hazeSource(playerHaze)
+                        if (clearControlsBackdrop) {
+                            Box(backdrop.background(Color.Black))
+                        } else {
+                            fullArtworkBlurContent(backdrop)
+                        }
                     },
                     artwork = { artworkModifier ->
                         LandscapeArtwork(
@@ -2375,7 +2384,7 @@ fun NowPlayingScreen(
                     animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
                     label = "fullArtworkBackdropCrossfade",
                 )
-                if (legacyMeshBackdrop) {
+                if (legacyMeshBackdrop && !clearControlsBackdrop) {
                     // v1.5's backdrop, restored verbatim: no seam, because the blobs
                     // are not anchored to anything on screen — they fill the player and
                     // the artwork simply sits on top of them. Keyed on the track, so
@@ -2387,7 +2396,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
                     )
                 }
-                if (artworkMeshBackdrop) {
+                if (artworkMeshBackdrop && !clearControlsBackdrop) {
                     // Hung from where the picture stops, so the screen carries on in
                     // the colours the artwork ended in: the banner's bottom edge, or
                     // a portrait clip's or its still's. Left there as the player
@@ -2418,9 +2427,11 @@ fun NowPlayingScreen(
                         },
                     )
                 }
-                fullArtworkBlurContent(
-                    Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
-                )
+                if (!clearControlsBackdrop) {
+                    fullArtworkBlurContent(
+                        Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
+                    )
+                }
 
                 // Mount once, behind the controls. A known portrait aspect changes the
                 // invisible view to full-player bounds before its first frame is shown.
@@ -2502,7 +2513,7 @@ fun NowPlayingScreen(
                             },
                             onCoverChanged = { canvasCover.floatValue = it },
                             bottomFade = when {
-                                clipFullscreen -> 0f
+                                clipFullscreen || clearControlsBackdrop -> 0f
                                 clipPortrait -> clipFadeFraction
                                 else -> HERO_FADE_FRACTION
                             },
@@ -2564,7 +2575,7 @@ fun NowPlayingScreen(
                 // above the video. When the deck slides away this layer leaves with
                 // it as well.
                 AnimatedVisibility(
-                    visible = spotifyCanvasPresentation && spotifyCanvasControlsOpen,
+                    visible = spotifyCanvasPresentation && spotifyCanvasControlsOpen && !clearControlsBackdrop,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()

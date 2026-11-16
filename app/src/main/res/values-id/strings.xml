@@ -336,6 +336,7 @@
     <string name="library_empty">Belum ada apa pun di perpustakaan Anda</string>
     <string name="history_sign_in_required">Masuk untuk melihat apa yang telah Anda dengarkan</string>
     <string name="history_empty">Belum ada yang diputar</string>
+    <string name="clear_listening_history">Hapus riwayat di perangkat</string>
     <string name="no_results">Tidak ada hasil</string>
     <string name="downloaded_playlist_empty">Tidak ada lagi dari playlist ini yang tersimpan di perangkat ini</string>
     <string name="no_local_audio_found">Tidak ada file audio yang ditemukan di perangkat ini</string>

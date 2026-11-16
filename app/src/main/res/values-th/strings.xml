@@ -362,6 +362,7 @@
     <string name="library_empty">ยังไม่มีอะไรในคลังเพลงของคุณ</string>
     <string name="history_sign_in_required">ลงชื่อเข้าใช้เพื่อดูสิ่งที่คุณเคยฟัง</string>
     <string name="history_empty">ยังไม่มีการเล่นเพลง</string>
+    <string name="clear_listening_history">ล้างประวัติในอุปกรณ์</string>
     <string name="no_results">ไม่มีผลลัพธ์</string>
     <string name="downloaded_playlist_empty">ไม่มีเพลงจากเพลย์ลิสต์นี้เหลืออยู่ในอุปกรณ์นี้</string>
     <string name="no_local_audio_found">ไม่พบไฟล์เสียงในอุปกรณ์นี้</string>

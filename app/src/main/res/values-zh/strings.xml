@@ -336,6 +336,7 @@
     <string name="library_empty">你的资料库还是空的</string>
     <string name="history_sign_in_required">登录后即可查看你的收听记录</string>
     <string name="history_empty">尚未播放过任何内容</string>
+    <string name="clear_listening_history">清除设备上的历史记录</string>
     <string name="no_results">没有结果</string>
     <string name="downloaded_playlist_empty">此设备上已没有该播放列表中的任何内容</string>
     <string name="no_local_audio_found">此设备上未找到音频文件</string>

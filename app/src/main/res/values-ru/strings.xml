@@ -351,6 +351,7 @@
     <string name="library_empty">В библиотеке пока ничего нет</string>
     <string name="history_sign_in_required">Войдите, чтобы увидеть, что вы слушали</string>
     <string name="history_empty">Пока ничего не воспроизводилось</string>
+    <string name="clear_listening_history">Очистить историю на устройстве</string>
     <string name="no_results">Нет результатов</string>
     <string name="downloaded_playlist_empty">На этом устройстве не осталось ничего из этого плейлиста</string>
     <string name="no_local_audio_found">На этом устройстве не найдено аудиофайлов</string>

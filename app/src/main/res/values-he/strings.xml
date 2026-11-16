@@ -342,6 +342,7 @@
     <string name="library_empty">שום דבר בספרייה שלך עדיין</string>
     <string name="history_sign_in_required">היכנס כדי לראות למה האזנת</string>
     <string name="history_empty">שום דבר לא הושמע עדיין</string>
+    <string name="clear_listening_history">מחיקת ההיסטוריה במכשיר</string>
     <string name="no_results">אין תוצאות</string>
     <string name="downloaded_playlist_empty">שום דבר מרשימת ההשמעה הזו לא נשאר במכשיר הזה</string>
     <string name="no_local_audio_found">לא נמצאו קבצי שמע במכשיר זה</string>

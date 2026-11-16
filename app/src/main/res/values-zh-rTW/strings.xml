@@ -336,6 +336,7 @@
     <string name="library_empty">你的資料庫還是空的</string>
     <string name="history_sign_in_required">登入後即可檢視你的收聽記錄</string>
     <string name="history_empty">尚未播放過任何內容</string>
+    <string name="clear_listening_history">清除裝置上的記錄</string>
     <string name="no_results">沒有結果</string>
     <string name="downloaded_playlist_empty">此裝置上已沒有該播放列表中的任何內容</string>
     <string name="no_local_audio_found">此裝置上未找到音訊檔案</string>

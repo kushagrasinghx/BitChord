@@ -533,6 +533,7 @@
     <string name="library_empty">아직 라이브러리에 아무것도 없음</string>
     <string name="history_sign_in_required">로그인하여 무엇을 들었는지 확인하세요</string>
     <string name="history_empty">아직 재생한 항목 없음</string>
+    <string name="clear_listening_history">기기 내 기록 지우기</string>
     <string name="no_results">결과 없음</string>
     <string name="downloaded_playlist_empty">이 재생목록의 음악 중 기기에 남은 것이 없음</string>
     <string name="no_local_audio_found">이 기기에서 오디오 파일을 찾을 수 없음</string>

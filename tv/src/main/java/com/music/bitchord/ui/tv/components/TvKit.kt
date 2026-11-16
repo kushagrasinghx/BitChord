@@ -947,6 +947,7 @@ fun TvTextField(
     val focused by interaction.collectIsFocusedAsState()
     val textColor = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     androidx.compose.foundation.text.BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -959,7 +960,28 @@ fun TvTextField(
             autoCorrectEnabled = false,
             imeAction = imeAction,
         ),
-        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onAny = { onImeAction() }),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onDone = {
+                keyboardController?.hide()
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                onImeAction()
+            },
+            onNext = {
+                keyboardController?.hide()
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                onImeAction()
+            },
+            onSearch = {
+                keyboardController?.hide()
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                onImeAction()
+            },
+            onSend = {
+                keyboardController?.hide()
+                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                onImeAction()
+            },
+        ),
         modifier = modifier
             // One line, so Up and Down have nothing to do inside the field: they
             // always move focus. Compose only lets them out for key events from a
@@ -968,6 +990,11 @@ fun TvTextField(
             .onPreviewKeyEvent { event ->
                 if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.nativeKeyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        keyboardController?.hide()
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        true
+                    }
                     android.view.KeyEvent.KEYCODE_DPAD_UP -> {
                         focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up); true
                     }

@@ -1381,7 +1381,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
         onDispose { TvAuthServer.stop() }
     }
 
-    val currentSelected = selectedAddon
+    val currentSelected = configs.firstOrNull { it.id == selectedAddon?.id } ?: selectedAddon
     TvDialog(
         title = if (currentSelected != null) currentSelected.displayName else "Audio Sources & Addons",
         width = 576.dp,
@@ -1474,7 +1474,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                         editUrlStatus = null
                     },
                     placeholder = "https://example.com/manifest.json",
-                    modifier = Modifier.fillMaxWidth().tvInitialFocus(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 editUrlStatus?.let { msg ->
                     Text(
@@ -1519,6 +1519,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                     TvDialogButton(
                         text = "Cancel",
                         modifier = Modifier.weight(1f),
+                        initialFocus = true,
                         onClick = { editingUrl = false },
                     )
                 }
@@ -1607,6 +1608,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(20.dp))
 
             if (configs.isNotEmpty()) {
+                val sortedConfigs = remember(configs) { configs.sortedBy { it.kind.rank } }
                 Text(
                     text = "Configured Sources",
                     style = TvType.Callout,
@@ -1617,9 +1619,16 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.heightIn(max = 140.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
+                    itemsIndexed(sortedConfigs, key = { _, config -> config.id }) { _, config ->
+                        val itemTitle = if (config.kind == SourceKind.ADDON) {
+                            val userAddons = sortedConfigs.filter { it.kind.isUserAdded }
+                            val addonIdx = userAddons.indexOfFirst { it.id == config.id }
+                            if (addonIdx >= 0) "#${addonIdx + 1}  ${config.displayName}" else config.displayName
+                        } else {
+                            config.displayName
+                        }
                         TvListRow(
-                            title = config.displayName,
+                            title = itemTitle,
                             value = if (config.kind == SourceKind.ADDON) {
                                 (if (config.enabled) "Active" else "Disabled") + " ›"
                             } else {
@@ -1669,7 +1678,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                     statusText = null 
                 },
                 placeholder = "https://example.com/manifest.json",
-                modifier = Modifier.fillMaxWidth().tvInitialFocus(),
+                modifier = Modifier.fillMaxWidth(),
             )
 
             statusText?.let { msg ->
@@ -1718,6 +1727,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                 TvDialogButton(
                     text = "Back",
                     onClick = { showManualInput = false },
+                    initialFocus = true,
                     modifier = Modifier.weight(1f),
                 )
             }

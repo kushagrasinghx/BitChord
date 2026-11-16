@@ -152,6 +152,12 @@ internal class ExclusiveTransport private constructor(
             if (handle == 0L) throw BitPerfectTransportException("exclusive_unavailable", failure)
             try {
                 val device = ExclusiveNative.device(handle)
+                // AAudio may ignore the requested device and open the default
+                // route. Never accept a stream that is not on the wired DAC we
+                // asked for; the owner will report the accurate fallback.
+                if (device != wired.id) {
+                    throw BitPerfectTransportException("exclusive_device_mismatch")
+                }
                 val name = outputs.firstOrNull { it.id == device }?.productName?.toString()
                     ?.takeIf { it.isNotBlank() } ?: "AAudio"
                 return ExclusiveTransport(

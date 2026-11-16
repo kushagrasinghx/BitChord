@@ -297,7 +297,7 @@ internal object BitPerfectOutput {
                     sourceBits = sourceBits,
                     convert = convert,
                     allowFixedVolume = AppSettings.usbAllowFixedVolume.value,
-                    rememberedDb = UsbDirectDevices.rememberedVolume(device.deviceId),
+                    rememberedDb = UsbDirectDevices.rememberedVolume(device),
                 )
             }
         }
@@ -336,7 +336,7 @@ internal object BitPerfectOutput {
             val transport = synchronized(this) { active as? UsbDirectTransport } ?: return@execute
             runCatching { transport.setVolume(target) }
                 .onSuccess { snapshot ->
-                    UsbDirectDevices.rememberVolume(transport.usbDeviceId, snapshot.currentDb)
+                    UsbDirectDevices.rememberVolume(transport.usbDeviceId, transport.usbVolumeKey, snapshot.currentDb)
                     if (pendingVolume.get() == null) publishVolume(snapshot) else _hardwareVolume.value = snapshot
                 }
                 .onFailure { Log.w(TAG, "USB volume change failed", it) }

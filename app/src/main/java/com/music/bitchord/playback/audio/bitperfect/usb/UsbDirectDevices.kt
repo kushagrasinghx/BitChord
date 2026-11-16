@@ -14,6 +14,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
@@ -35,6 +36,7 @@ internal object UsbDirectDevices {
     private const val TAG = "UsbDirectDevices"
 
     private var appContext: Context? = null
+    private var volumePrefs: SharedPreferences? = null
     private var permissionAction = ""
     private var requested: Int? = null
     private val descriptors = HashMap<Int, ByteArray>()
@@ -76,6 +78,7 @@ internal object UsbDirectDevices {
         if (appContext != null) return
         val app = context.applicationContext
         appContext = app
+        volumePrefs = app.getSharedPreferences("bitchord_usb_volume", Context.MODE_PRIVATE)
         permissionAction = "${app.packageName}.USB_AUDIO_PERMISSION"
         val filter = IntentFilter(permissionAction).apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -133,10 +136,22 @@ internal object UsbDirectDevices {
     }
 
     @Synchronized
-    fun rememberedVolume(deviceId: Int): Double? = volumes[deviceId]
+    fun rememberedVolume(device: UsbDevice): Double? {
+        volumes[device.deviceId]?.let { return it }
+        val key = stableKey(device) ?: return null
+        val stored = volumePrefs?.getFloat("db:$key", Float.NaN)?.takeIf { it.isFinite() } ?: return null
+        volumes[device.deviceId] = stored.toDouble()
+        return stored.toDouble()
+    }
 
     @Synchronized
-    fun rememberVolume(deviceId: Int, db: Double) {
+    fun rememberVolume(deviceId: Int, key: String?, db: Double) {
+        if (!db.isFinite()) return
         volumes[deviceId] = db
+        if (key == null) return
+        volumePrefs?.edit()?.putFloat("db:$key", db.toFloat())?.apply()
     }
+
+    private fun stableKey(device: UsbDevice): String? =
+        runCatching { UsbVolumeIdentity.stableKey(device.serialNumber) }.getOrNull()
 }

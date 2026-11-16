@@ -3,6 +3,7 @@ package com.music.bitchord.ui.tv.auth
 import android.content.Context
 import android.util.Log
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
@@ -258,6 +259,31 @@ object TvAuthServer {
                             sendJsonResponse(writer, """{"success":true}""")
                         } else {
                             sendJsonResponse(writer, """{"success":false,"error":"No URL"}""")
+                        }
+                    }
+
+                    // 5c. Toggle Addon Active State
+                    path == "/api/addon/toggle" && method == "POST" -> {
+                        val id = parseFormParam(requestBody, "id") ?: parseQueryParam(query, "id")
+                        if (!id.isNullOrBlank()) {
+                            val cfg = SourceRegistry.config(id)
+                            if (cfg != null) {
+                                SourceRegistry.setEnabled(id, !cfg.enabled)
+                            }
+                            sendJsonResponse(writer, """{"success":true}""")
+                        } else {
+                            sendJsonResponse(writer, """{"success":false,"error":"No ID"}""")
+                        }
+                    }
+
+                    // 5d. Remove / Delete Addon
+                    path == "/api/addon/delete" && method == "POST" -> {
+                        val id = parseFormParam(requestBody, "id") ?: parseQueryParam(query, "id")
+                        if (!id.isNullOrBlank()) {
+                            SourceRegistry.remove(id)
+                            sendJsonResponse(writer, """{"success":true}""")
+                        } else {
+                            sendJsonResponse(writer, """{"success":false,"error":"No ID"}""")
                         }
                     }
 
@@ -543,8 +569,48 @@ textarea { width: 100%; height: 90px; background: rgba(0,0,0,0.5); border: 1px s
     <button type="button" class="btn-primary" onclick="submitAddon()">Add Custom Addon</button>
   </form>
   <div id="addonMsg" style="margin-top: 8px; font-size: 13px; text-align: center;"></div>
+
+  ${run {
+    val addons = SourceRegistry.configs.value.filter { it.kind == SourceKind.ADDON }
+    if (addons.isNotEmpty()) {
+        val items = addons.joinToString("") { addon ->
+            """
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.06); padding:10px 14px; border-radius:12px; margin-top:8px;">
+              <div style="text-align:left; overflow:hidden; margin-right:8px;">
+                <div style="font-weight:600; font-size:14px; color:#FFF;">${addon.displayName}</div>
+                <div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">${addon.baseUrl}</div>
+              </div>
+              <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button type="button" onclick="toggleAddon('${addon.id}')" style="background:${if (addon.enabled) "rgba(0,229,255,0.2)" else "rgba(255,255,255,0.1)"}; color:${if (addon.enabled) "#00E5FF" else "#AAA"}; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:bold; cursor:pointer;">
+                  ${if (addon.enabled) "Active" else "Disabled"}
+                </button>
+                <button type="button" onclick="deleteAddon('${addon.id}')" style="background:rgba(255,55,95,0.15); color:#FF375F; border:none; border-radius:8px; padding:6px 9px; font-size:12px; font-weight:bold; cursor:pointer;">
+                  ✕
+                </button>
+              </div>
+            </div>
+            """.trimIndent()
+        }
+        """
+        <div style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">
+          <div style="font-size:13px; font-weight:600; color:#AAA; margin-bottom:4px; text-align:left;">Configured TV Addons:</div>
+          $items
+        </div>
+        """.trimIndent()
+    } else ""
+  }}
 </div>
 <script>
+function toggleAddon(id) {
+  fetch('/api/addon/toggle', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
+    .then(() => location.reload());
+}
+function deleteAddon(id) {
+  if (confirm('Delete this addon from TV?')) {
+    fetch('/api/addon/delete', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
+      .then(() => location.reload());
+  }
+}
 function submitAddon() {
   let url = document.getElementById('addonUrl').value;
   let msg = document.getElementById('addonMsg');
@@ -553,7 +619,10 @@ function submitAddon() {
   fetch('/api/addon', { method: 'POST', body: 'addonUrl=' + encodeURIComponent(url) })
     .then(r => r.json()).then(d => {
       msg.innerHTML = d.success ? '<span style="color:#00E5FF;font-weight:bold;">✓ Addon sent to TV successfully!</span>' : '<span style="color:#FF375F;">Failed to add addon.</span>';
-      if (d.success) document.getElementById('addonUrl').value = '';
+      if (d.success) {
+        document.getElementById('addonUrl').value = '';
+        setTimeout(() => location.reload(), 1000);
+      }
     }).catch(e => { msg.innerHTML = '<span style="color:#FF375F;">Network error</span>'; });
 }
 </script>

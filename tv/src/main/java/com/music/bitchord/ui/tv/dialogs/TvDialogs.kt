@@ -85,6 +85,8 @@ import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.sources.SourceConfig
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvPinThrottle
@@ -1361,6 +1363,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
     var urlText by remember { mutableStateOf("") }
     var statusText by remember { mutableStateOf<String?>(null) }
     var showManualInput by remember { mutableStateOf(false) }
+    var selectedAddon by remember { mutableStateOf<SourceConfig?>(null) }
     var isBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var serverUrl by remember { mutableStateOf<String?>(null) }
@@ -1374,12 +1377,75 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
         onDispose { TvAuthServer.stop() }
     }
 
+    val currentSelected = selectedAddon
     TvDialog(
-        title = "Audio Sources & Addons",
+        title = currentSelected?.displayName ?: "Audio Sources & Addons",
         width = 576.dp,
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (selectedAddon != null) selectedAddon = null
+            else if (showManualInput) showManualInput = false
+            else onDismiss()
+        },
     ) {
-        if (!showManualInput) {
+        if (currentSelected != null) {
+            val addon = currentSelected
+            Text(
+                text = addon.baseUrl,
+                style = TvType.Caption,
+                color = TvGlass.TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+
+            TvListRow(
+                title = "Status",
+                value = if (addon.enabled) "Active" else "Disabled",
+                onClick = {
+                    val updated = !addon.enabled
+                    SourceRegistry.setEnabled(addon.id, updated)
+                    selectedAddon = addon.copy(enabled = updated)
+                },
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            if (addon.qualityOptions.isNotEmpty()) {
+                val currentQuality = addon.activeQuality
+                TvListRow(
+                    title = "Audio Quality",
+                    value = currentQuality?.label ?: "Default",
+                    onClick = {
+                        val options = addon.qualityOptions
+                        val curIdx = options.indexOfFirst { it.value == currentQuality?.value }
+                        val nextOption = options[(curIdx + 1) % options.size]
+                        val updated = addon.copy(pickedQuality = nextOption.value)
+                        SourceRegistry.update(updated)
+                        selectedAddon = updated
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = "Delete Addon",
+                    onClick = {
+                        SourceRegistry.remove(addon.id)
+                        selectedAddon = null
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Back",
+                    onClick = { selectedAddon = null },
+                    initialFocus = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else if (!showManualInput) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1425,9 +1491,17 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
                     itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
                         TvListRow(
                             title = config.displayName,
-                            value = if (config.enabled) "Active" else "Disabled",
+                            value = if (config.kind == SourceKind.ADDON) {
+                                (if (config.enabled) "Active" else "Disabled") + " ›"
+                            } else {
+                                if (config.enabled) "Active" else "Disabled"
+                            },
                             onClick = {
-                                SourceRegistry.setEnabled(config.id, !config.enabled)
+                                if (config.kind == SourceKind.ADDON) {
+                                    selectedAddon = config
+                                } else {
+                                    SourceRegistry.setEnabled(config.id, !config.enabled)
+                                }
                             },
                         )
                     }

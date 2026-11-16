@@ -23,6 +23,20 @@ class AuthStore(context: Context) {
     private val prefs: SharedPreferences =
         EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
 
+    private val transitionJournal = AccountTransitionJournal(
+        fromKey = KEY_PENDING_TRANSITION_FROM,
+        toKey = KEY_PENDING_TRANSITION_TO,
+        startedKey = KEY_TRANSITION_STARTED_AT,
+        readString = { prefs.getString(it, null) },
+        writeString = { key, value ->
+            prefs.edit().apply {
+                if (value == null) remove(key) else putString(key, value)
+            }.apply()
+        },
+        readLong = { prefs.getLong(it, 0L) },
+        writeLong = { key, value -> prefs.edit().putLong(key, value).apply() },
+    )
+
     var cookie: String?
         get() = prefs.getString(KEY_COOKIE, null)
         set(value) = prefs.edit().putString(KEY_COOKIE, value).apply()
@@ -218,40 +232,13 @@ class AuthStore(context: Context) {
      * Stored in the same encrypted prefs as the credentials, so it cannot be
      * tampered with independently of them.
      */
-    var pendingTransitionFrom: String?
-        get() = prefs.getString(KEY_PENDING_TRANSITION_FROM, null)
-        set(value) = prefs.edit().putString(KEY_PENDING_TRANSITION_FROM, value).apply()
+    fun beginTransition(from: String?, to: String) = transitionJournal.begin(from, to)
 
-    var pendingTransitionTo: String?
-        get() = prefs.getString(KEY_PENDING_TRANSITION_TO, null)
-        set(value) = prefs.edit().putString(KEY_PENDING_TRANSITION_TO, value).apply()
+    fun clearTransition() = transitionJournal.clear()
 
-    var transitionStartedAt: Long
-        get() = prefs.getLong(KEY_TRANSITION_STARTED_AT, 0L)
-        set(value) = prefs.edit().putLong(KEY_TRANSITION_STARTED_AT, value).apply()
+    fun hasPendingTransition(): Boolean = transitionJournal.hasPending()
 
-    fun beginTransition(from: String?, to: String) {
-        prefs.edit()
-            .putString(KEY_PENDING_TRANSITION_FROM, from)
-            .putString(KEY_PENDING_TRANSITION_TO, to)
-            .putLong(KEY_TRANSITION_STARTED_AT, System.currentTimeMillis())
-            .apply()
-    }
-
-    fun clearTransition() {
-        prefs.edit()
-            .remove(KEY_PENDING_TRANSITION_FROM)
-            .remove(KEY_PENDING_TRANSITION_TO)
-            .remove(KEY_TRANSITION_STARTED_AT)
-            .apply()
-    }
-
-    fun hasPendingTransition(): Boolean = pendingTransitionTo != null
-
-    fun pendingTransition(): AccountTransition? {
-        val to = pendingTransitionTo ?: return null
-        return AccountTransition(pendingTransitionFrom, to, transitionStartedAt)
-    }
+    fun pendingTransition(): AccountTransition? = transitionJournal.pending()
 
     fun signOut() {
         prefs.edit().remove(KEY_COOKIE).remove(KEY_SESSIONS)

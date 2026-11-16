@@ -1,8 +1,11 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateTo
+import androidx.compose.animation.core.isFinished
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -12,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -37,31 +41,16 @@ import org.jetbrains.compose.resources.vectorResource
 import kotlin.math.pow
 
 /**
- * Fits to the supplied ~30fps Next recording, not published Apple constants.
+ * Tuned to the requested conveyor choreography, not published Apple constants.
  * Progress is elapsed time / 200ms on an isolated tap; only a retarget changes
  * its speed. All geometry comes from the existing drawable, never a new triangle.
  */
 private object SkipMotion {
     const val DurationMs = 200
-    const val VisibilityThreshold = 0.0001f
     const val FrontGone = 0.20f
-    const val FrontShrinkPower = 6
-    const val SurvivorCentered = 0.30f
+    const val FrontShrinkPower = 2
     const val Settled = 0.85f
     const val NewOnset = 0.28f
-    const val NewFirstFrame = 0.33f
-    const val NewFirstScale = 0.35f
-    const val NewMiddleFrame = 0.50f
-    const val NewMiddleScale = 0.60f
-    const val NewLateFrame = 0.67f
-    const val NewLateScale = 0.88f
-    const val NewInitialAlpha = 0.40f
-    const val NewFirstAlpha = 0.45f
-    // Scale / cycle-progress tangents: smooth monotone fits to the coarse samples.
-    const val NewOnsetRate = 10f
-    const val NewFirstRate = 2.4f
-    const val NewMiddleRate = 1.55f
-    const val NewLateRate = 1.1f
     const val CircleDiameter = 1.7f
     const val CircleAlpha = 0.08f
     const val CircleFeatherStart = 0.80f
@@ -77,11 +66,10 @@ class PlayerSkipMotion internal constructor(
     internal val active: State<Boolean>,
     internal val reduceMotion: State<Boolean>,
 ) {
-    internal val cycles = Animatable(0f, visibilityThreshold = SkipMotion.VisibilityThreshold)
+    // AnimationState retains the last frame time as well as value/velocity on
+    // cancellation. Retargets can continue without another zero-time frame.
+    internal var cycles by mutableStateOf(AnimationState(0f))
     internal var requestedCycles by mutableIntStateOf(0)
-    // Animatable clears velocity on cancellation. Save it before effect cancellation
-    // so the next tween's easing can continue the actual incoming speed.
-    internal var carriedVelocity = 0f
 
     fun onTap() {
         requestedCycles++
@@ -95,13 +83,15 @@ fun rememberPlayerSkipMotion(active: Boolean, reduceMotion: Boolean): PlayerSkip
     val reduceMotionState = rememberUpdatedState(reduceMotion)
     val motion = remember { PlayerSkipMotion(activeState, reduceMotionState) }
     LaunchedEffect(motion.requestedCycles, active, foreground, reduceMotion) {
+        val cycles = motion.cycles
         val target = motion.requestedCycles.toFloat()
-        val distance = target - motion.cycles.value
+        val distance = target - cycles.value
         if (!active || !foreground || reduceMotion) {
-            motion.cycles.snapTo(target)
-            motion.carriedVelocity = 0f
+            // Consume hidden/reduced-motion taps with no old clock to replay.
+            motion.cycles = AnimationState(target)
         } else if (distance > 0f) {
-            val velocity = if (motion.carriedVelocity > 0f) motion.carriedVelocity else {
+            val continuing = !cycles.isFinished
+            val velocity = if (continuing && cycles.velocity > 0f) cycles.velocity else {
                 distance * SkipMotion.MillisPerSecond / SkipMotion.DurationMs
             }
             // Finish within one tap window, even when several taps coalesce into
@@ -113,7 +103,7 @@ fun rememberPlayerSkipMotion(active: Boolean, reduceMotion: Boolean): PlayerSkip
             ).coerceAtLeast(1)
             val slope = (velocity * duration / (distance * SkipMotion.MillisPerSecond))
                 .coerceIn(0f, SkipMotion.MaxStartSlope)
-            motion.cycles.animateTo(
+            cycles.animateTo(
                 targetValue = target,
                 animationSpec = tween(
                     durationMillis = duration,
@@ -122,11 +112,10 @@ fun rememberPlayerSkipMotion(active: Boolean, reduceMotion: Boolean): PlayerSkip
                         (slope - 1f) * t * t * t + 2f * (1f - slope) * t * t + slope * t
                     },
                 ),
-                initialVelocity = velocity,
-            ) {
-                motion.carriedVelocity = this.velocity
-            }
-            motion.carriedVelocity = 0f
+                // Use the interrupted frame's timestamp, not a fresh frame at
+                // play time zero. The Hermite slope above carries its speed.
+                sequentialAnimation = continuing,
+            )
         }
     }
     return motion
@@ -144,56 +133,15 @@ internal fun playerSkipPose(progress: Float): SkipPose {
     val p = progress.coerceIn(0f, 1f)
     val front = (1f - (p / SkipMotion.FrontGone).coerceIn(0f, 1f))
         .pow(SkipMotion.FrontShrinkPower)
-    val travel = if (p < SkipMotion.SurvivorCentered) {
-        0.5f * skipEaseOut(p / SkipMotion.SurvivorCentered)
-    } else {
-        0.5f + 0.5f * skipEaseOut(
-            (p - SkipMotion.SurvivorCentered) / (SkipMotion.Settled - SkipMotion.SurvivorCentered),
-        )
-    }
-    // Monotone, tangent-continuous fits through the coarse video samples.
-    // They decelerate into the resting pose, with no spring or scale overshoot.
-    val growth = when {
-        p <= SkipMotion.NewOnset -> 0f
-        p < SkipMotion.NewFirstFrame -> skipGrowth(p,
-            SkipMotion.NewOnset, SkipMotion.NewFirstFrame, 0f, SkipMotion.NewFirstScale,
-            SkipMotion.NewOnsetRate, SkipMotion.NewFirstRate)
-        p < SkipMotion.NewMiddleFrame -> skipGrowth(p,
-            SkipMotion.NewFirstFrame, SkipMotion.NewMiddleFrame, SkipMotion.NewFirstScale, SkipMotion.NewMiddleScale,
-            SkipMotion.NewFirstRate, SkipMotion.NewMiddleRate)
-        p < SkipMotion.NewLateFrame -> skipGrowth(p,
-            SkipMotion.NewMiddleFrame, SkipMotion.NewLateFrame, SkipMotion.NewMiddleScale, SkipMotion.NewLateScale,
-            SkipMotion.NewMiddleRate, SkipMotion.NewLateRate)
-        p < SkipMotion.Settled -> skipGrowth(p,
-            SkipMotion.NewLateFrame, SkipMotion.Settled, SkipMotion.NewLateScale, 1f,
-            SkipMotion.NewLateRate, 0f)
-        else -> 1f
-    }
-    val newAlpha = if (growth <= SkipMotion.NewFirstScale) {
-        skipMix(SkipMotion.NewInitialAlpha, SkipMotion.NewFirstAlpha, growth / SkipMotion.NewFirstScale)
-    } else {
-        skipMix(SkipMotion.NewFirstAlpha, 1f,
-            (growth - SkipMotion.NewFirstScale) / (1f - SkipMotion.NewFirstScale))
-    }
-    return SkipPose(front, travel, growth, newAlpha)
-}
-
-private fun skipGrowth(
-    progress: Float,
-    start: Float,
-    end: Float,
-    startScale: Float,
-    endScale: Float,
-    startRate: Float,
-    endRate: Float,
-): Float {
-    val span = end - start
-    val t = (progress - start) / span
-    val t2 = t * t
-    val t3 = t2 * t
-    return (2f * t3 - 3f * t2 + 1f) * startScale +
-        (t3 - 2f * t2 + t) * span * startRate +
-        (-2f * t3 + 3f * t2) * endScale + (t3 - t2) * span * endRate
+    // One ease-out for the entire trip. Two ease-outs joined at the centre
+    // bring SURVIVOR to a stop there, then abruptly accelerate it again.
+    val travel = skipEaseOut(p / SkipMotion.Settled)
+    val emergence = ((p - SkipMotion.NewOnset) / (SkipMotion.Settled - SkipMotion.NewOnset))
+        .coerceIn(0f, 1f)
+    // Smoothstep starts NEW at zero size AND opacity, with zero onset velocity.
+    // It stays subordinate while SURVIVOR passes through the single-arrow pose.
+    val growth = emergence * emergence * (3f - 2f * emergence)
+    return SkipPose(front, travel, growth, growth)
 }
 
 private fun skipMix(start: Float, end: Float, progress: Float): Float =

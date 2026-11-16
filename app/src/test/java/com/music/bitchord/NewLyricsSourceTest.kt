@@ -45,8 +45,8 @@ class NewLyricsSourceTest {
 
     /**
      * `GET https://lyrics-api.binimum.org/?track=Mockingbird&artist=Eminem&duration=251`
-     * on 2026-11-16, trimmed to the first four of 15 results. Eminem's own
-     * recording is not among them.
+     * on 2026-11-16, trimmed to the first four of 15 results. None of the 15
+     * results is Eminem's own recording.
      */
     private val mockingbirdSearch = """
         {"total":15,"source":"HIT-LRC-RED","results":[
@@ -68,7 +68,7 @@ class NewLyricsSourceTest {
     }
 
     @Test
-    fun `the binilyrics hit that is the recording is taken`() {
+    fun `a binilyrics hit with the same title, artist and length is taken`() {
         val results = lyricsJson.decodeFromString<BiniLyrics.Response>(biniSearch).results!!
         assertEquals("GBKPL2204171", BiniLyrics.best(results, "golden hour", "JVKE", 209_000)?.isrc)
     }

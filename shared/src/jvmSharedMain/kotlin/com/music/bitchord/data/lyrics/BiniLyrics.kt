@@ -81,9 +81,8 @@ object BiniLyrics {
     }
 
     /**
-     * The search by name can put another recording first. For "Mockingbird" by Eminem, the
-     * first hit is a 118-second DJ-mix medley. So a hit must pass the checks in [LrcRed.best]:
-     * same title, same artist, and a length within 3 seconds.
+     * The search by name can put a different recording first. So a hit is taken only if it
+     * passes the checks in [LrcRed.best].
      */
     fun best(results: List<Hit>, title: String, artist: String, durationMs: Long): Hit? {
         val asLrcRed = results.map {

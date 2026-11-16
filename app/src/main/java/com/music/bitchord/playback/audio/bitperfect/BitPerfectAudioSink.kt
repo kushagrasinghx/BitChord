@@ -235,6 +235,7 @@ internal class BitPerfectAudioSink(
                     markInexact()
                 }
                 submittedFrames += (buffer.position() - before) / input.frameBytes
+                val blockEnd = buffer.position()
                 output.flip()
                 try {
                     writeOutput()
@@ -242,13 +243,31 @@ internal class BitPerfectAudioSink(
                     // A failed write is how a direct route dies, and the caller
                     // answers it by falling back to the normal output with this
                     // same buffer. The converter has already advanced the buffer
-                    // by a whole block, so if the device took none of it the
-                    // block has to be handed back: otherwise every fallback
-                    // silently drops up to one block of audio [AUD-20].
-                    if (output.position() == 0) {
-                        submittedFrames -= (buffer.position() - before) / input.frameBytes
-                        buffer.position(before)
+                    // by a whole block, so whatever the device did not take has
+                    // to be handed back: otherwise the fallback silently drops
+                    // it [AUD-20].
+                    val taken = output.position()
+                    val blockFrames = (blockEnd - before) / input.frameBytes
+                    val blockOutputFrames = output.limit() / outputFrameBytes
+                    val rewoundTo = if (
+                        taken > 0 &&
+                        converter == null &&
+                        blockFrames == blockOutputFrames
+                    ) {
+                        // Frame in, frame out: the accepted prefix maps back to
+                        // a source frame boundary exactly, so only the remainder
+                        // is unconsumed and nothing is written twice.
+                        before + (taken / outputFrameBytes) * input.frameBytes
+                    } else {
+                        // Either nothing was taken, or a resampler makes the
+                        // accepted prefix unmappable to a source frame. The whole
+                        // block goes back: it is audio already written to a device
+                        // that has just failed, so re-writing it is not a second
+                        // audible copy, while dropping it would be a hole.
+                        before
                     }
+                    submittedFrames -= (blockEnd - rewoundTo) / input.frameBytes
+                    buffer.position(rewoundTo)
                     throw writeException(error)
                 }
                 if (output.hasRemaining()) return false

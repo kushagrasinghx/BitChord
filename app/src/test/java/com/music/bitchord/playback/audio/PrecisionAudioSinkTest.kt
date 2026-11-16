@@ -42,6 +42,9 @@ class PrecisionAudioSinkTest {
 
         var bytesToConsumePerCall: Int = Int.MAX_VALUE
         var lastHandledBuffer: ByteBuffer? = null
+
+        /** Bytes still unread in the buffer this sink was last handed. */
+        var lastHandledRemaining: Int = -1
         var handleBufferCallCount: Int = 0
         var lastPresentationTimeUs: Long = C.TIME_UNSET
         var lastEncodedAccessUnitCount: Int = 0
@@ -92,6 +95,7 @@ class PrecisionAudioSinkTest {
             lastEncodedAccessUnitCount = encodedAccessUnitCount
 
             val remaining = buffer.remaining()
+            lastHandledRemaining = remaining
             val consume = minOf(remaining, bytesToConsumePerCall)
             buffer.position(buffer.position() + consume)
 

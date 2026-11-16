@@ -38,8 +38,21 @@ class BitPerfectAudioSinkTest {
         var released = false
         var failOnWrite = false
 
+        /**
+         * Accept this many bytes, then fail in the same call: a device that
+         * takes a prefix of a block and is gone before the rest.
+         */
+        var acceptBytesThenFail = -1
+
         override fun write(buffer: ByteBuffer): Int {
             if (failOnWrite) throw BitPerfectTransportException("route_changed")
+            if (acceptBytesThenFail >= 0) {
+                val count = minOf(acceptBytesThenFail, buffer.remaining()) / frameBytes * frameBytes
+                repeat(count) { bytes.write(buffer.get().toInt()) }
+                written += count / frameBytes
+                acceptBytesThenFail = -1
+                throw BitPerfectTransportException("route_changed")
+            }
             val room = ((capacityFrames - (written - played)) * frameBytes).toInt()
             val count = minOf(room, buffer.remaining()) / frameBytes * frameBytes
             repeat(count) { bytes.write(buffer.get().toInt()) }

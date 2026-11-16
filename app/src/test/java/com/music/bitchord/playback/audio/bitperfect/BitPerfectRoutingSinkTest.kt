@@ -194,4 +194,62 @@ class BitPerfectRoutingSinkTest {
         assertTrue("the rest of the block is still to be written", buffer.hasRemaining())
         assertEquals("only the two frames the normal sink took were consumed", 8, buffer.position())
     }
+
+    /**
+     * A device that takes a prefix of the block and then fails: the accepted
+     * frames belong to the direct route, the rest must be handed back so the
+     * fallback writes it. One frame in, three out [AUD-20].
+     */
+    @Test
+    fun `a block the direct route partly accepted hands back only its remainder`() {
+        val rig = Rig()
+        rig.switchFromNormalToDirect(pending = false)
+        rig.routing.play()
+        rig.routing.handleBuffer(pcm16(frames = 4), 0L, 1)
+        val dac = rig.outputs.opened.single()
+
+        dac.acceptBytesThenFail = dac.frameBytes // exactly one frame
+        rig.normal.bytesToConsumePerCall = 4 // one 16-bit stereo frame
+        val buffer = pcm16(frames = 4)
+        rig.routing.handleBuffer(buffer, 1_000_000L, 1)
+
+        assertFalse("the direct route is gone", rig.routing.isBitPerfect)
+        assertEquals(
+            "one frame to the DAC, one to the normal sink, nothing else consumed",
+            8,
+            buffer.position(),
+        )
+        assertEquals("two frames are still to be written", 8, buffer.remaining())
+    }
+
+    /**
+     * The same at the other end of the buffer: three frames accepted, the last
+     * one handed back on a frame boundary.
+     */
+    @Test
+    fun `a block accepted up to its last frame hands back that frame`() {
+        val rig = Rig()
+        rig.switchFromNormalToDirect(pending = false)
+        rig.routing.play()
+        rig.routing.handleBuffer(pcm16(frames = 4), 0L, 1)
+        val dac = rig.outputs.opened.single()
+
+        dac.acceptBytesThenFail = dac.frameBytes * 3
+        rig.normal.bytesToConsumePerCall = 4
+        val buffer = pcm16(frames = 4)
+        rig.routing.handleBuffer(buffer, 1_000_000L, 1)
+
+        assertFalse("the direct route is gone", rig.routing.isBitPerfect)
+        assertEquals(
+            "three frames to the DAC, the fourth to the normal sink",
+            16,
+            buffer.position(),
+        )
+        assertEquals(
+            "the normal sink was handed exactly the one unconsumed frame",
+            4,
+            rig.normal.lastHandledRemaining,
+        )
+        assertFalse("nothing is left over", buffer.hasRemaining())
+    }
 }

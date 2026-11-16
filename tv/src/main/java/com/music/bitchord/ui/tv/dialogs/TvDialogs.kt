@@ -1360,10 +1360,10 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
     val configs by SourceRegistry.configs.collectAsState()
     var urlText by remember { mutableStateOf("") }
     var statusText by remember { mutableStateOf<String?>(null) }
+    var showManualInput by remember { mutableStateOf(false) }
     var isBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var serverUrl by remember { mutableStateOf<String?>(null) }
-    val localIp = remember { TvAuthServer.getLocalIpAddress() ?: "localhost" }
 
     DisposableEffect(Unit) {
         scope.launch {
@@ -1376,88 +1376,148 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
 
     TvDialog(
         title = "Audio Sources & Addons",
-        message = "Toggle audio stream sources, or add custom addons (e.g. Lossless FLAC proxies). You can also visit ${serverUrl ?: "http://$localIp:8765/"} on your phone to paste a manifest URL.",
-        width = 540.dp,
+        width = 576.dp,
         onDismissRequest = onDismiss,
     ) {
-        if (configs.isNotEmpty()) {
-            Text(
-                text = "Configured Sources",
-                style = TvType.Callout,
-                color = TvGlass.TextSecondary,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 180.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+        if (!showManualInput) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
-                    TvListRow(
-                        title = config.displayName,
-                        value = if (config.enabled) "Active" else "Disabled",
-                        onClick = {
-                            SourceRegistry.setEnabled(config.id, !config.enabled)
-                        },
-                    )
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val link = serverUrl
+                    if (link != null) {
+                        TvQrCodeView(content = link, size = 128.dp)
+                    } else {
+                        TvActivityIndicator(color = Color.Black)
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    TvStep(1, "Scan the QR code or visit ${serverUrl ?: "http://<tv-ip>:8765/"} on your phone.")
+                    TvStep(2, "Paste your Addon Manifest URL in the Addons section.")
+                    TvStep(3, "The TV pairs and enables Lossless FLAC streaming automatically.")
                 }
             }
-            Spacer(modifier = Modifier.height(14.dp))
-        }
 
-        TvTextField(
-            value = urlText,
-            onValueChange = { 
-                urlText = it
-                statusText = null 
-            },
-            placeholder = "https://example.com/manifest.json",
-            modifier = Modifier.fillMaxWidth(),
-        )
+            Spacer(modifier = Modifier.height(20.dp))
 
-        statusText?.let { msg ->
+            if (configs.isNotEmpty()) {
+                Text(
+                    text = "Configured Sources",
+                    style = TvType.Callout,
+                    color = TvGlass.TextSecondary,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 140.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    itemsIndexed(configs, key = { _, config -> config.id }) { _, config ->
+                        TvListRow(
+                            title = config.displayName,
+                            value = if (config.enabled) "Active" else "Disabled",
+                            onClick = {
+                                SourceRegistry.setEnabled(config.id, !config.enabled)
+                            },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = "Type URL with Remote",
+                    onClick = { showManualInput = true },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Done",
+                    onClick = onDismiss,
+                    initialFocus = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
             Text(
-                text = msg,
-                style = TvType.Caption,
-                color = if (msg.startsWith("Added")) Color(0xFF00E5FF) else TvGlass.TextSecondary,
-                modifier = Modifier.padding(vertical = 4.dp),
+                text = "Enter Addon Manifest URL:",
+                style = TvType.Callout,
+                color = TvGlass.TextSecondary,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            TvTextField(
+                value = urlText,
+                onValueChange = { 
+                    urlText = it
+                    statusText = null 
+                },
+                placeholder = "https://example.com/manifest.json",
+                modifier = Modifier.fillMaxWidth().tvInitialFocus(),
+            )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            TvDialogButton(
-                text = if (isBusy) "Connecting..." else "Add Addon URL",
-                enabled = urlText.isNotBlank() && !isBusy,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    isBusy = true
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching {
-                                val found = SourceRegistry.identify(urlText.trim()).getOrThrow()
-                                SourceRegistry.add(found)
-                                found
+            statusText?.let { msg ->
+                Text(
+                    text = msg,
+                    style = TvType.Caption,
+                    color = if (msg.startsWith("Added")) Color(0xFF00E5FF) else TvGlass.TextSecondary,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = if (isBusy) "Checking..." else "Add Addon URL",
+                    enabled = urlText.isNotBlank() && !isBusy,
+                    onClick = {
+                        val trimmed = urlText.trim()
+                        if (trimmed.isNotBlank()) {
+                            isBusy = true
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val found = SourceRegistry.identify(trimmed).getOrThrow()
+                                        SourceRegistry.add(found)
+                                        found
+                                    }
+                                }
+                                isBusy = false
+                                if (result.isSuccess) {
+                                    statusText = "Added ${result.getOrNull()?.displayName}!"
+                                    urlText = ""
+                                    showManualInput = false
+                                } else {
+                                    statusText = "Failed: ${result.exceptionOrNull()?.message ?: "Unreachable"}"
+                                }
                             }
                         }
-                        isBusy = false
-                        if (result.isSuccess) {
-                            statusText = "Added ${result.getOrNull()?.displayName}!"
-                            urlText = ""
-                        } else {
-                            statusText = "Failed: ${result.exceptionOrNull()?.message ?: "Unreachable"}"
-                        }
-                    }
-                },
-            )
-            TvDialogButton(
-                text = "Done",
-                modifier = Modifier.weight(1f),
-                onClick = onDismiss,
-            )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Back",
+                    onClick = { showManualInput = false },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

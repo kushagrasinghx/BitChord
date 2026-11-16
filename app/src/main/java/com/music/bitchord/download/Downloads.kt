@@ -7,6 +7,11 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -43,6 +48,7 @@ import kotlinx.serialization.json.Json
 import java.io.OutputStream
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /** Where a track is between "not on this device" and "on it". */
 sealed interface DownloadState {
@@ -80,6 +86,9 @@ object Downloads {
     private const val TAG = "BitChord"
     private const val KEY_SAVED_METADATA = "downloaded_tracks_metadata"
     private const val KEY_SAVED_COLLECTIONS = "downloaded_collections"
+    private const val KEY_PENDING_JOBS = "pending_download_jobs_v1"
+    private const val RECOVERY_WORK = "download-recovery"
+    private const val RECOVERY_PERIODIC_WORK = "download-recovery-periodic"
 
     private lateinit var prefs: SharedPreferences
     private val json = Json { ignoreUnknownKeys = true }
@@ -112,6 +121,8 @@ object Downloads {
         if (videoIds.isEmpty()) return
         _requested.update { it + (browseId to (it[browseId].orEmpty() + videoIds)) }
     }
+
+    private val pendingJobs = LinkedHashMap<String, PendingDownload>()
 
     private val _saved = MutableStateFlow<Map<String, String>>(emptyMap())
 
@@ -178,6 +189,47 @@ object Downloads {
         _collections.value = runCatching {
             json.decodeFromString(collectionSerializer, prefs.getString(KEY_SAVED_COLLECTIONS, null) ?: "{}")
         }.getOrDefault(emptyMap())
+
+        val restored = DownloadJobCodec.decode(prefs.getString(KEY_PENDING_JOBS, null))
+        if (restored.isNotEmpty()) {
+            synchronized(lock) {
+                pendingJobs.clear()
+                pending.clear()
+                restored.forEach { job ->
+                    pendingJobs[job.videoId] = job
+                    pending[job.videoId] = job.toSong()
+                }
+            }
+            _active.update { active -> active + restored.associate { it.videoId to DownloadState.Queued } }
+            restored.forEach { DownloadSession.queued(it.toSong(), it.from) }
+            scheduleRecovery(context.applicationContext)
+            Log.d(TAG, "restored ${restored.size} pending download job(s)")
+        }
+    }
+
+    internal fun hasPersistedJobs(): Boolean = synchronized(lock) { pendingJobs.isNotEmpty() }
+
+    private fun persistPendingLocked() {
+        if (!::prefs.isInitialized) return
+        prefs.edit()
+            .putString(KEY_PENDING_JOBS, DownloadJobCodec.encode(pendingJobs.values))
+            .commit()
+    }
+
+    private fun scheduleRecovery(context: Context) {
+        runCatching {
+            val work = WorkManager.getInstance(context)
+            work.enqueueUniqueWork(
+                RECOVERY_WORK,
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<DownloadRecoveryWorker>().build(),
+            )
+            work.enqueueUniquePeriodicWork(
+                RECOVERY_PERIODIC_WORK,
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<DownloadRecoveryWorker>(15, TimeUnit.MINUTES).build(),
+            )
+        }.onFailure { Log.w(TAG, "could not schedule download recovery: ${it.message}") }
     }
 
     // ---- Asking -------------------------------------------------------------
@@ -231,9 +283,14 @@ object Downloads {
         synchronized(lock) {
             if (id in pending || id in running) return
             pending[id] = song
+            // Persist before scheduling. A process death between these two
+            // operations leaves recoverable work, never an invisible queued row.
+            pendingJobs[id] = PendingDownload.from(song, from)
+            persistPendingLocked()
         }
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
+        scheduleRecovery(app)
 
         runCatching {
             ContextCompat.startForegroundService(app, Intent(app, DownloadService::class.java))
@@ -242,7 +299,11 @@ object Downloads {
             // means the queue has nothing to drain it and would sit there
             // looking accepted forever.
             Log.w(TAG, "could not start the download service: ${it.message}")
-            synchronized(lock) { pending.remove(id) }
+            synchronized(lock) {
+                pending.remove(id)
+                pendingJobs.remove(id)
+                persistPendingLocked()
+            }
             fail(id, "Downloads can't start right now")
         }
     }
@@ -1633,10 +1694,18 @@ object Downloads {
 
     /** Back to "not downloaded" — used for success, where [saved] takes over, and for cancellation. */
     private fun clear(videoId: String) {
+        synchronized(lock) {
+            pendingJobs.remove(videoId)
+            persistPendingLocked()
+        }
         _active.update { it - videoId }
     }
 
     private fun fail(videoId: String, reason: String) {
+        synchronized(lock) {
+            pendingJobs.remove(videoId)
+            persistPendingLocked()
+        }
         _active.update { it + (videoId to DownloadState.Failed(reason)) }
         DownloadSession.failed(videoId, reason)
     }

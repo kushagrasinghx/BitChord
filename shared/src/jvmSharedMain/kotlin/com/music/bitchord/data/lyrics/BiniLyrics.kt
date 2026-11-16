@@ -76,7 +76,21 @@ object BiniLyrics {
         val body = lyricsGet(url.toString()) ?: return@withContext null
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
             ?: return@withContext null
-        response.results?.firstOrNull()
+        val results = response.results.orEmpty()
+        if (!isrc.isNullOrBlank()) results.firstOrNull() else best(results, title, artist, durationMs)
+    }
+
+    /**
+     * The search by name can put another recording first. For "Mockingbird" by Eminem, the
+     * first hit is a 118-second DJ-mix medley. So a hit must pass the checks in [LrcRed.best]:
+     * same title, same artist, and a length within 3 seconds.
+     */
+    fun best(results: List<Hit>, title: String, artist: String, durationMs: Long): Hit? {
+        val asLrcRed = results.map {
+            LrcRed.Hit(isrc = it.isrc, title = it.trackName, artist = it.artistName, duration = it.duration?.toDouble())
+        }
+        val match = LrcRed.best(asLrcRed, title, artist, durationMs) ?: return null
+        return results.firstOrNull { it.isrc == match.isrc }
     }
 
     /**

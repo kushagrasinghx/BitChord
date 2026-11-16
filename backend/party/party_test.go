@@ -33,7 +33,7 @@ func TestPartyCreationAndJoin(t *testing.T) {
 	}
 
 	avatar := "https://example.com/a.png"
-	m1, err := p.Join("user1", "device1", "Alice", &avatar)
+	m1, err := p.Join("user1", "device1", "Alice", &avatar, "")
 	if err != nil {
 		t.Fatalf("Join failed: %v", err)
 	}
@@ -41,17 +41,19 @@ func TestPartyCreationAndJoin(t *testing.T) {
 		t.Errorf("First member should be host")
 	}
 
-	// Re-join with same deviceId should return existing member with fresh token
+	// Re-join with the same device id and its token returns the same member. The
+	// token deliberately stays put: rotating it would make a retry after a lost
+	// response fail with the token the client still holds.
 	oldToken := m1.Token
-	m1Again, err := p.Join("user1", "device1", "Alice New", &avatar)
+	m1Again, err := p.Join("user1", "device1", "Alice New", &avatar, m1.Token)
 	if err != nil {
 		t.Fatalf("Re-join failed: %v", err)
 	}
 	if m1Again.MemberId != m1.MemberId {
 		t.Errorf("Re-join should maintain same memberId")
 	}
-	if m1Again.Token == oldToken {
-		t.Errorf("Re-join should issue a fresh token")
+	if m1Again.Token != oldToken {
+		t.Errorf("Re-join must not rotate the token; a lost response would lock the device out")
 	}
 	if m1Again.DisplayName != "Alice New" {
 		t.Errorf("Re-join should update displayName")
@@ -61,14 +63,14 @@ func TestPartyCreationAndJoin(t *testing.T) {
 func TestPartyCapacityLimit(t *testing.T) {
 	p := NewParty("TEST12")
 	for i := 0; i < config.MaxMembers; i++ {
-		_, err := p.Join(fmt.Sprintf("u%d", i), fmt.Sprintf("d%d", i), fmt.Sprintf("User%d", i), nil)
+		_, err := p.Join(fmt.Sprintf("u%d", i), fmt.Sprintf("d%d", i), fmt.Sprintf("User%d", i), nil, "")
 		if err != nil {
 			t.Fatalf("Join %d failed: %v", i, err)
 		}
 	}
 
 	// Joining beyond capacity must be rejected
-	_, err := p.Join("u_extra", "d_extra", "Extra", nil)
+	_, err := p.Join("u_extra", "d_extra", "Extra", nil, "")
 	if err == nil {
 		t.Fatalf("Expected party_full error when joining past MaxMembers")
 	}
@@ -331,11 +333,11 @@ func TestQueueOperationsDoNotIncrementPlaybackSeq(t *testing.T) {
 
 func TestHostOnlyControlIsHostOnly(t *testing.T) {
 	p := NewParty("TEST13")
-	host, err := p.Join("u1", "d1", "Host", nil)
+	host, err := p.Join("u1", "d1", "Host", nil, "")
 	if err != nil {
 		t.Fatalf("host join failed: %v", err)
 	}
-	listener, err := p.Join("u2", "d2", "Listener", nil)
+	listener, err := p.Join("u2", "d2", "Listener", nil, "")
 	if err != nil {
 		t.Fatalf("listener join failed: %v", err)
 	}
@@ -360,8 +362,8 @@ func TestHostOnlyControlIsHostOnly(t *testing.T) {
 
 func TestMayControlFollowsTheSetting(t *testing.T) {
 	p := NewParty("TEST14")
-	host, _ := p.Join("u1", "d1", "Host", nil)
-	listener, _ := p.Join("u2", "d2", "Listener", nil)
+	host, _ := p.Join("u1", "d1", "Host", nil, "")
+	listener, _ := p.Join("u2", "d2", "Listener", nil, "")
 
 	// Every party starts as the shared free-for-all this feature shipped as.
 	if !p.MayControl(listener) {
@@ -388,8 +390,8 @@ func TestMayControlFollowsTheSetting(t *testing.T) {
 
 func TestHostOnlyControlPassesToTheNewHost(t *testing.T) {
 	p := NewParty("TEST15")
-	host, _ := p.Join("u1", "d1", "Host", nil)
-	listener, _ := p.Join("u2", "d2", "Listener", nil)
+	host, _ := p.Join("u1", "d1", "Host", nil, "")
+	listener, _ := p.Join("u2", "d2", "Listener", nil, "")
 	if err := p.SetHostOnlyControl(host, true); err != nil {
 		t.Fatalf("host was refused: %v", err)
 	}
@@ -410,7 +412,7 @@ func TestHostOnlyControlPassesToTheNewHost(t *testing.T) {
 
 func TestHostOnlyControlTravelsOnTheSnapshot(t *testing.T) {
 	p := NewParty("TEST16")
-	host, _ := p.Join("u1", "d1", "Host", nil)
+	host, _ := p.Join("u1", "d1", "Host", nil, "")
 
 	if wire := p.ToWire(); wire["hostOnlyControl"] != false {
 		t.Errorf("a new party must report itself unlocked, got %v", wire["hostOnlyControl"])

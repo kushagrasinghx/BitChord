@@ -375,7 +375,9 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.Lock()
-	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl)
+	// A brand-new party has no member for this device yet, so there is nothing
+	// to authenticate against; the token is issued by this call.
+	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl, "")
 	if err != nil {
 		p.Unlock()
 		store.Drop(p.Code)
@@ -422,7 +424,10 @@ func handleJoinParty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.Lock()
-	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl)
+	// The credential travels in the Authorization header rather than the body: it
+	// is the token this membership was issued, and a device id alone no longer
+	// reclaims it.
+	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl, parseBearerToken(r))
 	if err != nil {
 		p.Unlock()
 		if pe, ok := err.(*party.PartyError); ok {

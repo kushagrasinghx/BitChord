@@ -910,6 +910,7 @@ object ListenTogether {
         val membership = post(
             "$serverBase/api/parties/$cleaned/join",
             JoinRequest(who.userId, who.deviceId, who.name, who.avatar),
+            storedTokenFor(cleaned),
         )
 
         withContext(NonCancellable) {
@@ -1014,6 +1015,7 @@ object ListenTogether {
                 post(
                     "$targetBase/api/parties/$cleanedTargetCode/join",
                     JoinRequest(who.userId, who.deviceId, who.name, who.avatar),
+                    storedTokenFor(cleanedTargetCode),
                 )
             }
 
@@ -1691,6 +1693,7 @@ object ListenTogether {
 
         val response = http.post(url) {
             contentType(ContentType.Application.Json)
+            if (rejoinToken != null) header("Authorization", "Bearer $rejoinToken")
             setBody(body)
         }
         if (!response.status.isSuccess()) throw response.toPartyException()

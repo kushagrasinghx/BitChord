@@ -90,6 +90,8 @@
     <string name="testing">Đang kiểm tra…</string>
     <string name="connected">Đã kết nối</string>
     <string name="account_integrations">Tài khoản &amp; tích hợp</string>
+    <string name="youtube_premium_audio">Âm thanh YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Tôi có Premium: phát Opus chất lượng cao hơn ~256 kbps thay vì 160 kbps tiêu chuẩn</string>
     <string name="account_scrobbling">Tài khoản &amp; scrobbling</string>
     <string name="rich_presence">Trạng thái hoạt động (Rich presence)</string>
     <string name="scrobbling">Scrobbling</string>

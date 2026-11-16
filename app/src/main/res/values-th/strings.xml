@@ -87,6 +87,8 @@
     <string name="testing">กำลังทดสอบ…</string>
     <string name="connected">เชื่อมต่อแล้ว</string>
     <string name="account_integrations">บัญชีและการเชื่อมต่อ</string>
+    <string name="youtube_premium_audio">เสียง YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">ฉันมี Premium: สตรีม Opus คุณภาพสูงกว่า ~256 kbps แทน 160 kbps มาตรฐาน</string>
     <string name="account_scrobbling">บัญชีและการสโครบเบิล</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">การสโครบเบิล</string>

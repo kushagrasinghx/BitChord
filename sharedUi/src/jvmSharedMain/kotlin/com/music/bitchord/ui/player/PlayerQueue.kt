@@ -1152,37 +1152,37 @@ private fun InlineQueueRow(
                 .background(Color.White.copy(alpha = 0.08f)),
         )
         Spacer(Modifier.width(12.dp))
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            // Shrink to the longer line, but reserve the indicator before measuring text.
-            Column(Modifier.weight(1f, fill = !isCurrent)) {
-                ExplicitSongTitle(
-                    song = song,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
-                )
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.55f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (isCurrent) {
-                Spacer(Modifier.width(6.dp))
+        Column(Modifier.weight(1f)) {
+            ExplicitSongTitle(
+                song = song,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
+            )
+            Text(
+                text = song.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        when {
+            // The playing row has no handle, so the indicator takes the handle's
+            // slot and lines up with the handles on the rows below it, instead
+            // of trailing the text and leaving that slot empty.
+            isCurrent && !draggable -> {
                 Icon(
                     Icons.Rounded.GraphicEq,
                     contentDescription = stringResource(Res.string.now_playing),
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier
+                        .size(20.dp)
+                        .offset(x = if (ltr) 4.dp else (-4).dp),
                 )
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(4.dp))
             }
-        }
-        if (selectionChecked != null) {
-            Spacer(Modifier.width(24.dp))
-        } else if (!preview) {
-            handle()
+            selectionChecked != null -> Spacer(Modifier.width(24.dp))
+            !preview -> handle()
         }
     }
 }

@@ -111,6 +111,8 @@
     <string name="testing">Test in corso…</string>
     <string name="connected">Connesso</string>
     <string name="account_integrations">Account e integrazioni</string>
+    <string name="youtube_premium_audio">Audio YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Ho Premium: riproduci l\'Opus di qualità superiore a ~256 kbps invece dei 160 kbps standard</string>
     <string name="account_scrobbling">Account e scrobbling</string>
     <string name="rich_presence">Presenza avanzata</string>
     <string name="scrobbling">Scrobbling</string>

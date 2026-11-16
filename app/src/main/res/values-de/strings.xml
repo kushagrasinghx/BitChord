@@ -89,6 +89,8 @@
     <string name="testing">Wird getestet…</string>
     <string name="connected">Verbunden</string>
     <string name="account_integrations">Konto &amp; Integrationen</string>
+    <string name="youtube_premium_audio">YouTube Premium-Audio</string>
+    <string name="youtube_premium_audio_subtitle">Ich habe Premium: das hochwertigere Opus mit ~256 kbps statt der üblichen 160 kbps streamen</string>
     <string name="account_scrobbling">Konto &amp; Scrobbling</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>

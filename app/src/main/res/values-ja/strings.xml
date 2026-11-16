@@ -84,6 +84,8 @@
     <string name="testing">テスト中…</string>
     <string name="connected">接続済み</string>
     <string name="account_integrations">アカウントと連携</string>
+    <string name="youtube_premium_audio">YouTube Premium オーディオ</string>
+    <string name="youtube_premium_audio_subtitle">Premium に加入済み：標準の 160 kbps ではなく、高音質の約 256 kbps Opus で再生します</string>
     <string name="account_scrobbling">アカウントとスクロブリング</string>
     <string name="rich_presence">リッチプレゼンス</string>
     <string name="scrobbling">スクロブリング</string>

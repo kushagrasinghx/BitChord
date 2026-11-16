@@ -93,6 +93,8 @@
     <string name="testing">Test ediliyor…</string>
     <string name="connected">Bağlandı</string>
     <string name="account_integrations">Hesap ve entegrasyonlar</string>
+    <string name="youtube_premium_audio">YouTube Premium sesi</string>
+    <string name="youtube_premium_audio_subtitle">Premium\'um var: standart 160 kbps yerine daha yüksek kaliteli ~256 kbps Opus akışı</string>
     <string name="account_scrobbling">Hesap ve scrobbling</string>
     <string name="rich_presence">Zengin varlık</string>
     <string name="scrobbling">Scrobbling</string>

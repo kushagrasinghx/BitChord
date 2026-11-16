@@ -91,6 +91,8 @@
     <string name="testing">Testando…</string>
     <string name="connected">Conectado</string>
     <string name="account_integrations">Conta e integrações</string>
+    <string name="youtube_premium_audio">Áudio do YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Tenho Premium: transmitir o Opus de maior qualidade a ~256 kbps em vez dos 160 kbps padrão</string>
     <string name="account_scrobbling">Conta e scrobbling</string>
     <string name="rich_presence">Presença avançada</string>
     <string name="scrobbling">Scrobbling</string>

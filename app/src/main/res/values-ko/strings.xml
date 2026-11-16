@@ -118,6 +118,8 @@
     <string name="testing">시험 중…</string>
     <string name="connected">연결됨</string>
     <string name="account_integrations">계정 및 연동</string>
+    <string name="youtube_premium_audio">YouTube Premium 오디오</string>
+    <string name="youtube_premium_audio_subtitle">Premium 사용 중: 기본 160kbps 대신 더 높은 음질의 약 256kbps Opus로 스트리밍</string>
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">로그인하여 재생목록을 불러오세요. 재생에는 YouTube Music을 사용합니다.</string>
     <string name="spotify_sign_in">Spotify에 로그인</string>

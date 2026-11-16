@@ -84,6 +84,8 @@
     <string name="testing">测试中…</string>
     <string name="connected">已连接</string>
     <string name="account_integrations">账号与集成</string>
+    <string name="youtube_premium_audio">YouTube Premium 音频</string>
+    <string name="youtube_premium_audio_subtitle">我有 Premium：串流更高音质的约 256 kbps Opus，而不是标准的 160 kbps</string>
     <string name="account_scrobbling">账号与Scrobbling</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>

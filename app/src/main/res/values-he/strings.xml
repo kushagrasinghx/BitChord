@@ -91,6 +91,8 @@
     <string name="testing">בודק…</string>
     <string name="connected">מחובר</string>
     <string name="account_integrations">חשבון &amp; אינטגרציות</string>
+    <string name="youtube_premium_audio">אודיו של YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">יש לי Premium: הזרמת Opus באיכות גבוהה יותר של ~256 kbps במקום 160 kbps הרגילים</string>
     <string name="account_scrobbling">חשבון &amp; סקרובלינג</string>
     <string name="rich_presence">נוכחות עשירה</string>
     <string name="scrobbling">סקרובלינג</string>

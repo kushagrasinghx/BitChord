@@ -7,9 +7,11 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.music.bitchord.data.innertube.StreamResolver
@@ -221,8 +223,19 @@ object Downloads {
             val work = WorkManager.getInstance(context)
             work.enqueueUniqueWork(
                 RECOVERY_WORK,
-                ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<DownloadRecoveryWorker>().build(),
+                // REPLACE resets a stale backoff left by a previous process.
+                // KEEP would let a background start that Android refused keep
+                // the work delayed after the app is visible and able to start
+                // the download service again.
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<DownloadRecoveryWorker>()
+                    // Recovery starts a foreground service. Expedited work is
+                    // allowed to do that on Android 12+; ordinary background
+                    // work is not. If the expedited quota is exhausted, the
+                    // OS falls back rather than dropping the job.
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
+                    .build(),
             )
             work.enqueueUniquePeriodicWork(
                 RECOVERY_PERIODIC_WORK,
@@ -1200,6 +1213,9 @@ object Downloads {
                 Log.d(TAG, "downloading ${song.videoId} from the song cache as .${route.extension}")
                 return@withContext Prepared(song.videoId, track, route = route, alreadyAt = null)
             }
+        }
+        DownloadTestRoute.routeFor(context, track)?.let { route ->
+            return@withContext Prepared(song.videoId, track, route = route, alreadyAt = null)
         }
         val route = try {
             routeFor(context, track, quality)

@@ -44,6 +44,8 @@ class SleepTimerTest {
         assertEquals(0.25f, SleepTimer.calculateFadeVolume(7_500L, fadeOutEnabled = true), 0.001f)
         assertEquals(0.0f, SleepTimer.calculateFadeVolume(0L, fadeOutEnabled = true), 0.001f)
         assertEquals(0.0f, SleepTimer.calculateFadeVolume(-100L, fadeOutEnabled = true), 0.001f)
+    }
+
     private fun fakePlayer(): Player = Proxy.newProxyInstance(
         Player::class.java.classLoader,
         arrayOf(Player::class.java),

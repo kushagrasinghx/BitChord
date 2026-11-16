@@ -133,6 +133,7 @@ import com.music.bitchord.data.discord.DiscordRPC
 import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.stats.ListeningRecorder
+import com.music.bitchord.data.LocalHistoryRepository
 import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
@@ -349,25 +350,39 @@ class PlaybackService : MediaLibraryService() {
      * never has to wait this long for it.
      */
     /**
-     * [YtMusicRepository.recents] cached for Android Auto's browse tree.
+     * [YtMusicRepository.recents] cached for Android Auto's browse tree, with
+     * the owner it was fetched for: on-device history is per listener, and a
+     * cache that survived a profile switch would show one person's rows to
+     * another.
      */
-    private var cachedRecents: Pair<Long, List<Song>>? = null
+    private data class RecentsCache(val at: Long, val owner: String, val songs: List<Song>)
+    private var cachedRecents: RecentsCache? = null
     private val recentsMutex = Mutex()
     private val RECENTS_CACHE_TTL_MS = 30_000L
 
     private suspend fun cachedRecentsSongs(): List<Song> = recentsMutex.withLock {
-        cachedRecents?.let { (at, songs) ->
-            if (SystemClock.elapsedRealtime() - at < RECENTS_CACHE_TTL_MS && songs.isNotEmpty()) return songs
+        val owner = LocalHistoryRepository.ownerKey()
+        cachedRecents?.let { cache ->
+            if (
+                cache.owner == owner &&
+                SystemClock.elapsedRealtime() - cache.at < RECENTS_CACHE_TTL_MS &&
+                cache.songs.isNotEmpty()
+            ) {
+                return cache.songs
+            }
         }
-        val songs = try {
+        val remote = try {
             withTimeoutOrNull(4000L) {
                 YtMusicRepository.recents().getOrNull()
             } ?: emptyList()
         } catch (_: Exception) {
             emptyList()
         }
+        // Watch history paused, signed out, or offline: use what this device
+        // has actually played. The shared repository cannot reach this list.
+        val songs = remote.ifEmpty { LocalHistoryRepository.all() }
         if (songs.isNotEmpty()) {
-            cachedRecents = SystemClock.elapsedRealtime() to songs
+            cachedRecents = RecentsCache(SystemClock.elapsedRealtime(), owner, songs)
             songs.forEach { songCache[it.videoId] = it }
         }
         songs
@@ -385,7 +400,7 @@ class PlaybackService : MediaLibraryService() {
         cachedQuickPicks?.let { (at, songs) ->
             if (SystemClock.elapsedRealtime() - at < QUICK_PICKS_CACHE_TTL_MS && songs.isNotEmpty()) return songs
         }
-        val recentsIds = cachedRecents?.second?.mapTo(HashSet()) { it.videoId } ?: emptySet()
+        val recentsIds = cachedRecents?.songs?.mapTo(HashSet()) { it.videoId } ?: emptySet()
         val songs = try {
             withTimeoutOrNull(4000L) {
                 YtMusicRepository.quickPicks(excludeSongIds = recentsIds).getOrNull()
@@ -558,7 +573,7 @@ class PlaybackService : MediaLibraryService() {
         cards
     }
 
-    private fun snapshotRecents(): List<Song> = cachedRecents?.second.orEmpty()
+    private fun snapshotRecents(): List<Song> = cachedRecents?.songs.orEmpty()
     private fun snapshotQuickPicks(): List<Song> = cachedQuickPicks?.second.orEmpty()
     private fun snapshotLiked(): List<Song> {
         val cookie = com.music.bitchord.data.innertube.Innertube.cookie
@@ -574,7 +589,7 @@ class PlaybackService : MediaLibraryService() {
         SystemClock.elapsedRealtime() - at < ttlMs
 
     private fun isRecentsFresh(): Boolean =
-        cachedRecents?.let { (at, songs) -> songs.isNotEmpty() && isFresh(at, RECENTS_CACHE_TTL_MS) } ?: false
+        cachedRecents?.let { it.songs.isNotEmpty() && isFresh(it.at, RECENTS_CACHE_TTL_MS) } ?: false
 
     private fun isQuickPicksFresh(): Boolean =
         cachedQuickPicks?.let { (at, songs) -> songs.isNotEmpty() && isFresh(at, QUICK_PICKS_CACHE_TTL_MS) } ?: false
@@ -4317,7 +4332,9 @@ class PlaybackService : MediaLibraryService() {
     )
 
     private fun registerCurrentPlay() {
-        player?.currentMediaItem?.mediaId?.let(PlaybackTracker::onPlaying)
+        val current = player?.currentMediaItem
+        current?.mediaId?.let(PlaybackTracker::onPlaying)
+        current?.toSong()?.let(LocalHistoryRepository::record)
     }
 
     /**

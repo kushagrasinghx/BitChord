@@ -12,9 +12,12 @@ import com.music.bitchord.auth.profileId
 import com.music.bitchord.auth.sessionId
 import com.music.bitchord.auth.adjacentProfile
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.data.HistorySelection
+import com.music.bitchord.data.LocalHistoryRepository
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.selectHistory
 import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.AppleArtistPhotos
 import com.music.bitchord.data.model.ArtistRef
@@ -615,14 +618,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
 
+    /** True while [history] is showing [LocalHistoryRepository] rows. */
+    private val _historyOnDevice = MutableStateFlow(false)
+    val historyOnDevice: StateFlow<Boolean> = _historyOnDevice.asStateFlow()
+
     private val _library = MutableStateFlow<UiState<LibraryPage>>(UiState.Loading)
     val library: StateFlow<UiState<LibraryPage>> = _library.asStateFlow()
 
     /** In-memory cache is partitioned by account and profile; it is never shared. */
     private data class ListenerSnapshot(
         val account: Account?, val library: UiState<LibraryPage>,
-        val history: UiState<List<Song>>, val playlists: List<UserPlaylist>,
-        val owned: Map<String, Boolean>,
+        val history: UiState<List<Song>>, val historyOnDevice: Boolean,
+        val playlists: List<UserPlaylist>, val owned: Map<String, Boolean>,
     )
     private val listenerCache = mutableMapOf<String, ListenerSnapshot>()
 
@@ -2120,30 +2127,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * The account's listening history.
+     * Listening history: YouTube Music's cloud history when there is one,
+     * otherwise this listener's on-device records.
      *
      * Loaded on each visit rather than cached: it is a page whose whole subject
-     * is what happened most recently, and one that opened showing the state it
-     * was in last time would be answering a different question. Guests get the
-     * signed-out message straight away, since there is no account to have a
-     * history on.
+     * is what happened most recently. Signed-in accounts prefer YouTube's
+     * history, falling back to local history when it is empty (watch history
+     * paused) or the fetch fails (offline). Guests use local history directly.
      */
     fun loadHistory() {
-        if (!_signedIn.value) {
-            _history.value = UiState.Error(text(R.string.history_sign_in_required))
-            return
-        }
         val identity = listenerKey()
+        val signedIn = _signedIn.value
         _history.value = UiState.Loading
         viewModelScope.launch {
-            val next = YtMusicRepository.history().fold(
-                onSuccess = { songs ->
-                    if (songs.isEmpty()) UiState.Error(text(R.string.history_empty))
-                    else UiState.Success(songs)
-                },
-                onFailure = { UiState.Error(it.friendly()) },
-            )
-            if (identity == listenerKey()) _history.value = next
+            val local = LocalHistoryRepository.all()
+            val remote = if (signedIn) YtMusicRepository.history() else null
+            val selection = selectHistory(signedIn, remote, local)
+            val next = when (selection) {
+                is HistorySelection.Songs -> UiState.Success(selection.songs)
+                is HistorySelection.Failed -> UiState.Error(
+                    selection.error?.friendly() ?: text(R.string.history_empty),
+                )
+                HistorySelection.Empty -> UiState.Error(text(R.string.history_empty))
+            }
+            if (identity == listenerKey()) {
+                _historyOnDevice.value = selection is HistorySelection.Songs && selection.onDevice
+                _history.value = next
+            }
         }
     }
 
@@ -2165,6 +2175,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 onFailure(it)
             }
         }
+    }
+
+    /** Drops this listener's on-device history and leaves the page on its empty state. */
+    fun clearLocalHistory() {
+        LocalHistoryRepository.clear()
+        _historyOnDevice.value = false
+        _history.value = UiState.Error(text(R.string.history_empty))
     }
 
     /** Recent searches, kept on device as rich entity records. */
@@ -3705,7 +3722,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun cacheCurrentListener() {
         val key = listenerKey() ?: return
         listenerCache[key] = ListenerSnapshot(
-            _account.value, _library.value, _history.value, _playlists.value, _playlistOwned.value,
+            _account.value, _library.value, _history.value, _historyOnDevice.value,
+            _playlists.value, _playlistOwned.value,
         )
     }
 
@@ -3724,10 +3742,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _songMenu.value = null
         _library.value = UiState.Loading
         _history.value = UiState.Loading
+        _historyOnDevice.value = false
         if (restoreCached) listenerCache[listenerKey()]?.let { cached ->
             _account.value = cached.account
             _library.value = cached.library
             _history.value = cached.history
+            _historyOnDevice.value = cached.historyOnDevice
             _playlists.value = cached.playlists
             _playlistOwned.value = cached.owned
         }
@@ -3777,6 +3797,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _activeAccountId.value = null
         _activeProfileId.value = null
         _library.value = UiState.Loading
+        // History belongs to the account that just left too. Without this the
+        // next person to open History as a guest would see it still on screen.
+        _history.value = UiState.Loading
+        _historyOnDevice.value = false
         // Ratings and playlists belong to the account that just left; keeping
         // them would show the next signed-in user someone else's hearts.
         likedSyncJob?.cancel()

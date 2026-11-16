@@ -3,6 +3,7 @@ package com.music.bitchord.data.stats
 import android.content.Context
 import android.net.Uri
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.data.LocalHistoryRepository
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import kotlinx.coroutines.Dispatchers
@@ -137,6 +138,7 @@ object Backup {
         // Shares AppSettings' preference file, so it has already been
         // overwritten by the line above — it just doesn't know yet.
         SearchHistory.reload()
+        LocalHistoryRepository.reload()
         Summary(
             months = file.listening.size,
             settings = file.settings.size,

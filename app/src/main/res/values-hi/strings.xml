@@ -342,6 +342,7 @@
     <string name="library_empty">आपकी लाइब्रेरी में अभी कुछ नहीं है</string>
     <string name="history_sign_in_required">आपने क्या सुना है, यह देखने के लिए साइन इन करें</string>
     <string name="history_empty">अभी तक कुछ नहीं चलाया गया</string>
+    <string name="clear_listening_history">डिवाइस पर इतिहास साफ़ करें</string>
     <string name="no_results">कोई नतीजे नहीं मिले</string>
     <string name="downloaded_playlist_empty">इस प्लेलिस्ट का कुछ भी इस डिवाइस पर मौजूद नहीं है</string>
     <string name="no_local_audio_found">इस डिवाइस पर कोई ऑडियो फ़ाइल नहीं मिली</string>

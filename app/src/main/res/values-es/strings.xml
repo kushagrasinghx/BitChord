@@ -355,6 +355,7 @@
     <string name="library_empty">Tu biblioteca todavía está vacía</string>
     <string name="history_sign_in_required">Inicia sesión para ver lo que has escuchado</string>
     <string name="history_empty">Todavía no has reproducido nada</string>
+    <string name="clear_listening_history">Borrar historial del dispositivo</string>
     <string name="no_results">No hay resultados</string>
     <string name="downloaded_playlist_empty">Ya no queda ninguna canción de esta playlist en el dispositivo</string>
     <string name="no_local_audio_found">No se encontraron archivos de audio en este dispositivo</string>

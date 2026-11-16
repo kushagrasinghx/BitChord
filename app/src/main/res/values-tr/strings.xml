@@ -369,6 +369,7 @@
     <string name="library_empty">Kitaplığında henüz bir şey yok</string>
     <string name="history_sign_in_required">Ne dinlediğini görmek için giriş yap</string>
     <string name="history_empty">Henüz bir şey çalınmadı</string>
+    <string name="clear_listening_history">Cihazdaki geçmişi temizle</string>
     <string name="no_results">Sonuç yok</string>
     <string name="downloaded_playlist_empty">Bu çalma listesinden bu cihazda hiçbir şey kalmadı</string>
     <string name="no_local_audio_found">Bu cihazda ses dosyası bulunamadı</string>

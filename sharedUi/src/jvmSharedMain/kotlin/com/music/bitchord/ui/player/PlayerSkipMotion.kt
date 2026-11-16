@@ -38,24 +38,23 @@ import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.flow.first
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.vectorResource
-import kotlin.math.pow
 
 /**
  * Tuned to the requested conveyor choreography, not published Apple constants.
- * Progress is elapsed time / 200ms on an isolated tap; only a retarget changes
+ * Progress is elapsed time / 600ms on an isolated tap; only a retarget changes
  * its speed. All geometry comes from the existing drawable, never a new triangle.
  */
 private object SkipMotion {
-    const val DurationMs = 200
-    const val FrontGone = 0.20f
-    const val FrontShrinkPower = 2
-    const val Settled = 0.85f
+    const val DurationMs = 600
+    const val FrontGone = 0.30f
+    const val Settled = 0.90f
     const val NewOnset = 0.28f
     const val CircleDiameter = 1.7f
     const val CircleAlpha = 0.08f
     const val CircleFeatherStart = 0.80f
     const val CircleInMs = 45
     const val CircleOutMs = 100
+    const val CircleHoldMs = 125
     // A cubic Hermite easing with start slope <= 2 and end slope 1 is monotone.
     const val MaxStartSlope = 2f
     const val MillisPerSecond = 1000f
@@ -70,10 +69,18 @@ class PlayerSkipMotion internal constructor(
     // cancellation. Retargets can continue without another zero-time frame.
     internal var cycles by mutableStateOf(AnimationState(0f))
     internal var requestedCycles by mutableIntStateOf(0)
+    internal var targetCycles by mutableStateOf(0f)
 
     fun onTap() {
+        targetCycles = playerSkipTarget(cycles.value, targetCycles)
         requestedCycles++
     }
+}
+
+/** Keep the interrupted cycle and at most one pending cycle, never a tap backlog. */
+internal fun playerSkipTarget(cycles: Float, target: Float): Float {
+    val boundary = cycles - cycles % 1f + 1f
+    return if (cycles < target) boundary + 1f else boundary
 }
 
 @Composable
@@ -84,7 +91,7 @@ fun rememberPlayerSkipMotion(active: Boolean, reduceMotion: Boolean): PlayerSkip
     val motion = remember { PlayerSkipMotion(activeState, reduceMotionState) }
     LaunchedEffect(motion.requestedCycles, active, foreground, reduceMotion) {
         val cycles = motion.cycles
-        val target = motion.requestedCycles.toFloat()
+        val target = motion.targetCycles
         val distance = target - cycles.value
         if (!active || !foreground || reduceMotion) {
             // Consume hidden/reduced-motion taps with no old clock to replay.
@@ -123,6 +130,7 @@ fun rememberPlayerSkipMotion(active: Boolean, reduceMotion: Boolean): PlayerSkip
 
 internal data class SkipPose(
     val frontScale: Float,
+    val frontAlpha: Float,
     val survivorTravel: Float,
     val newScale: Float,
     val newAlpha: Float,
@@ -131,29 +139,35 @@ internal data class SkipPose(
 /** Pure, non-overshooting conveyor pose; endpoint contours are the original slots. */
 internal fun playerSkipPose(progress: Float): SkipPose {
     val p = progress.coerceIn(0f, 1f)
-    val front = (1f - (p / SkipMotion.FrontGone).coerceIn(0f, 1f))
-        .pow(SkipMotion.FrontShrinkPower)
-    // One ease-out for the entire trip. Two ease-outs joined at the centre
-    // bring SURVIVOR to a stop there, then abruptly accelerate it again.
-    val travel = skipEaseOut(p / SkipMotion.Settled)
-    val emergence = ((p - SkipMotion.NewOnset) / (SkipMotion.Settled - SkipMotion.NewOnset))
-        .coerceIn(0f, 1f)
-    // Smoothstep starts NEW at zero size AND opacity, with zero onset velocity.
-    // It stays subordinate while SURVIVOR passes through the single-arrow pose.
-    val growth = emergence * emergence * (3f - 2f * emergence)
-    return SkipPose(front, travel, growth, growth)
+    val contraction = (p / SkipMotion.FrontGone).coerceIn(0f, 1f)
+    val frontScale = 1f - skipSmoothStep(contraction)
+    // Scale already reduces visible area quadratically. Fade later so FRONT
+    // remains a recognizable triangle through the middle of its contraction.
+    val frontAlpha = 1f - skipSmoothStep(contraction * contraction)
+    val travel = skipTravel(p / SkipMotion.Settled)
+    val growth = skipSmoothStep(
+        (p - SkipMotion.NewOnset) / (SkipMotion.Settled - SkipMotion.NewOnset),
+    )
+    return SkipPose(frontScale, frontAlpha, travel, growth, growth)
 }
 
 private fun skipMix(start: Float, end: Float, progress: Float): Float =
     start + (end - start) * progress
 
-private fun skipEaseOut(progress: Float): Float {
-    val remaining = 1f - progress.coerceIn(0f, 1f)
-    return 1f - remaining * remaining
+private fun skipSmoothStep(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
+private fun skipTravel(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    // One cubic Hermite trip (start slope 1, end slope 0): less front-loaded
+    // than the old quadratic, without a midpoint stop or endpoint overshoot.
+    return t + t * t * (1f - t)
 }
 
 /**
- * Use the original painter at rest, including the final 15% of each cycle.
+ * Use the original painter at rest, including the final 10% of each cycle.
  * During motion, split its actual contours, not clipped halves of the painter:
  * the current rounded arrowheads' bounding boxes overlap slightly.
  */
@@ -190,6 +204,7 @@ fun PlayerSkipGlyph(
             val back = backNodes.toPath()
             val front = frontNodes.toPath()
             val survivor = Path()
+            val survivorNodes = backNodes.toMutableList()
             val backCenter = back.getBounds().center
             val frontCenter = front.getBounds().center
             onDrawWithContent {
@@ -202,13 +217,18 @@ fun PlayerSkipGlyph(
                     // flags. Interpolating the source coordinates also preserves
                     // their sub-pixel differences instead of assuming translation
                     // alone can make the two existing arrowheads identical.
-                    backNodes.mapIndexed { index, node ->
-                        interpolateSkipNode(node, frontNodes[index], pose.survivorTravel)
-                    }.toPath(survivor)
+                    // Reuse the node list and destination Path, not a new list
+                    // or native graphics object on every animation frame.
+                    for (index in survivorNodes.indices) {
+                        survivorNodes[index] = interpolateSkipNode(
+                            backNodes[index], frontNodes[index], pose.survivorTravel,
+                        )
+                    }
+                    survivorNodes.toPath(survivor)
                     scale(size.width / vector.viewportWidth, size.height / vector.viewportHeight,
                         pivot = androidx.compose.ui.geometry.Offset.Zero) {
                         scale(pose.frontScale, pivot = frontCenter) {
-                            drawPath(front, tint, alpha = pose.frontScale)
+                            drawPath(front, tint, alpha = pose.frontAlpha)
                         }
                         drawPath(survivor, tint)
                         scale(pose.newScale, pivot = backCenter) {
@@ -256,7 +276,7 @@ internal fun Modifier.playerSkipPressCircle(
     glyphSize: Dp,
     diameter: Dp,
 ): Modifier {
-    val target = motion.requestedCycles.toFloat()
+    val target = motion.targetCycles
     return playerPressCircle(
         interactionSource = interactionSource,
         trigger = motion.requestedCycles,
@@ -265,8 +285,10 @@ internal fun Modifier.playerSkipPressCircle(
         tint = tint,
         glyphSize = glyphSize,
         diameter = diameter,
+        // Keep the short press response (~270ms), not a 600ms pressed disc.
+        minimumHoldMs = SkipMotion.CircleHoldMs,
         hasMotion = { motion.cycles.value < target },
-        settled = { motion.cycles.value >= target - (1f - SkipMotion.Settled) },
+        settled = { true },
     )
 }
 

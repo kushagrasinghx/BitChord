@@ -8,9 +8,9 @@ import org.junit.Test
 class PlayerSkipMotionTest {
     @Test
     fun `survivor crosses the middle without stopping and restarting`() {
-        val before = playerSkipPose(0.29f).survivorTravel
-        val middle = playerSkipPose(0.30f).survivorTravel
-        val after = playerSkipPose(0.31f).survivorTravel
+        val before = playerSkipPose(0.35f).survivorTravel
+        val middle = playerSkipPose(0.36f).survivorTravel
+        val after = playerSkipPose(0.37f).survivorTravel
         val incoming = middle - before
         val outgoing = after - middle
 
@@ -21,11 +21,19 @@ class PlayerSkipMotionTest {
     }
 
     @Test
-    fun `front visibly contracts before disappearing without shrinking the survivor`() {
-        val early = playerSkipPose(0.10f)
-        assertEquals(0.25f, early.frontScale, 0.000001f)
+    fun `front retains visible size and opacity through early and middle contraction`() {
+        // 36ms and 90ms of the 180ms FRONT interval in the 600ms cycle.
+        val early = playerSkipPose(0.06f)
+        assertTrue(early.frontScale > 0.85f)
+        assertTrue(early.frontAlpha > 0.98f)
+        assertTrue(early.frontScale * early.frontScale * early.frontAlpha > 0.75f)
         assertTrue(early.survivorTravel > 0f)
-        assertEquals(0f, playerSkipPose(0.20f).frontScale, 0f)
+        val middle = playerSkipPose(0.15f)
+        assertEquals(0.5f, middle.frontScale, 0.000001f)
+        assertEquals(0.84375f, middle.frontAlpha, 0.000001f)
+        assertTrue(middle.frontScale * middle.frontScale * middle.frontAlpha > 0.20f)
+        assertEquals(0f, playerSkipPose(0.30f).frontScale, 0f)
+        assertEquals(0f, playerSkipPose(0.30f).frontAlpha, 0f)
     }
 
     @Test
@@ -33,9 +41,10 @@ class PlayerSkipMotionTest {
         val onset = playerSkipPose(0.28f)
         assertEquals(0f, onset.newScale, 0f)
         assertEquals(0f, onset.newAlpha, 0f)
-        val single = playerSkipPose(0.33f)
+        val single = playerSkipPose(0.36f)
         assertEquals(0f, single.frontScale, 0f)
-        assertTrue(single.survivorTravel in 0.5f..0.7f)
+        assertEquals(0f, single.frontAlpha, 0f)
+        assertTrue(single.survivorTravel in 0.45f..0.55f)
         assertTrue(single.newScale > 0f && single.newScale < 0.05f)
         assertTrue(single.newAlpha > 0f && single.newAlpha < 0.05f)
     }
@@ -55,14 +64,16 @@ class PlayerSkipMotionTest {
         val start = playerSkipPose(0f)
         val end = playerSkipPose(1f)
         assertEquals(1f, start.frontScale, 0f)
+        assertEquals(1f, start.frontAlpha, 0f)
         assertEquals(0f, start.survivorTravel, 0f)
         assertEquals(0f, start.newScale, 0f)
         assertEquals(0f, start.newAlpha, 0f)
         assertEquals(0f, end.frontScale, 0f)
+        assertEquals(0f, end.frontAlpha, 0f)
         assertEquals(1f, end.survivorTravel, 0f)
         assertEquals(1f, end.newScale, 0f)
         assertEquals(1f, end.newAlpha, 0f)
-        assertEquals(end, playerSkipPose(0.85f))
+        assertEquals(end, playerSkipPose(0.90f))
         assertEquals(start, playerSkipPose(-1f))
         assertEquals(end, playerSkipPose(2f))
     }
@@ -73,10 +84,32 @@ class PlayerSkipMotionTest {
         for (step in 1..1000) {
             val pose = playerSkipPose(step / 1000f)
             assertTrue(pose.frontScale in 0f..previous.frontScale)
+            assertTrue(pose.frontAlpha in 0f..previous.frontAlpha)
             assertTrue(pose.survivorTravel in previous.survivorTravel..1f)
             assertTrue(pose.newScale in previous.newScale..1f)
             assertTrue(pose.newAlpha in previous.newAlpha..1f)
             previous = pose
         }
+    }
+
+    @Test
+    fun `survivor gives front space before continuing its uninterrupted journey`() {
+        val early = playerSkipPose(0.15f).survivorTravel
+        val middle = playerSkipPose(0.50f).survivorTravel
+        assertTrue(early > 0f && early < 0.20f)
+        assertTrue(middle > 0.65f && middle < 0.75f)
+        assertEquals(1f, playerSkipPose(0.90f).survivorTravel, 0f)
+    }
+
+    @Test
+    fun `rapid taps coalesce into at most the current and one pending cycle`() {
+        assertEquals(1f, playerSkipTarget(cycles = 0f, target = 0f), 0f)
+        var target = 1f
+        for (tap in 1..1000) {
+            target = playerSkipTarget(cycles = 0.4f, target = target)
+            assertEquals(2f, target, 0f)
+        }
+        assertEquals(3f, playerSkipTarget(cycles = 1.2f, target = target), 0f)
+        assertEquals(3f, playerSkipTarget(cycles = 2f, target = 2f), 0f)
     }
 }

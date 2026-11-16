@@ -1095,6 +1095,9 @@ class CrossfadeController(
         val analysisState = AppSettings.smartAnalysis.value
         // The DJ planner is Automix now; there is no separate mode switch.
         val advanced = true
+        val isSequentialAlbum = AppSettings.automixPreserveAlbums.value &&
+            !player.shuffleModeEnabled &&
+            (nextIndex == player.currentMediaItemIndex + 1)
 
         val plan = planTransition(
             analysis = currentAnalysis,
@@ -1105,6 +1108,7 @@ class CrossfadeController(
             duration = duration / 1000.0,
             fadeSeconds = fallbackSeconds,
             mode = CrossfadeMode.SMART,
+            albumSequential = isSequentialAlbum,
             advanced = advanced,
         )
         // One line per distinct verdict rather than one per 250ms tick, so the
@@ -1381,12 +1385,14 @@ class CrossfadeController(
         return if (seconds > 0) seconds * 1000L else 0L
     }
 
-    /** BitChord doesn't carry album metadata on [MediaMetadata] yet, so [TransitionTrackInfo.album] stays blank. */
+    /** Carries title, artist, album name and album ID for transition planning. */
     private fun MediaItem.toTransitionInfo(durationMs: Long) = TransitionTrackInfo(
         id = mediaId,
         durationMs = durationMs,
         title = mediaMetadata.title?.toString().orEmpty(),
         artist = mediaMetadata.artist?.toString().orEmpty(),
+        album = mediaMetadata.albumTitle?.toString().orEmpty(),
+        albumId = mediaMetadata.extras?.getString(EXTRA_ALBUM_ID).orEmpty(),
     )
 
     /**
@@ -2424,6 +2430,7 @@ class CrossfadeController(
 
     /** Why [current] -> [next] can't be a loop mix right now, or null when it can. */
     private fun loopRefusalFor(player: ExoPlayer, current: MediaItem, next: MediaItem, state: SmartAnalysis): String? = when {
+        AppSettings.automixPreserveAlbums.value && !player.shuffleModeEnabled && isSameAlbum(current, next) -> "consecutive album tracks"
         !LoopMixRenderer.available -> "no renderer"
         AppSettings.playbackSpeed.value != 1f -> "playback speed is not 1x"
         player.skipSilenceEnabled -> "skip silence is on"
@@ -2433,6 +2440,17 @@ class CrossfadeController(
         loopPortOf(player)?.supportsLoopMix != true -> "this output can't take it"
         loopPortOf(standby()) == null -> "no standby sink"
         else -> null
+    }
+
+    private fun isSameAlbum(current: MediaItem, next: MediaItem): Boolean {
+        val currentAlbumId = current.mediaMetadata.extras?.getString(EXTRA_ALBUM_ID).orEmpty()
+        val nextAlbumId = next.mediaMetadata.extras?.getString(EXTRA_ALBUM_ID).orEmpty()
+        if (currentAlbumId.isNotBlank() && currentAlbumId == nextAlbumId) return true
+        val currentAlbum = current.mediaMetadata.albumTitle?.toString().orEmpty()
+        val nextAlbum = next.mediaMetadata.albumTitle?.toString().orEmpty()
+        val currentArtist = current.mediaMetadata.artist?.toString().orEmpty()
+        val nextArtist = next.mediaMetadata.artist?.toString().orEmpty()
+        return currentAlbum.isNotBlank() && currentAlbum == nextAlbum && currentArtist.isNotBlank() && currentArtist == nextArtist
     }
 
     /** A track whose analysis reads a matched YouTube recording rather than what plays. */

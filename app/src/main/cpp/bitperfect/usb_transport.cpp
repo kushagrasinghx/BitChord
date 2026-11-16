@@ -609,6 +609,7 @@ std::vector<Candidate> decode(const jint *v, jsize length) {
 extern "C" {
 JNIEXPORT jlong JNICALL JNI_USB(open)(JNIEnv *env, jobject, jint fd, jintArray candidates) {
     try {
+        require(candidates != nullptr, "USB candidate list is null");
         const jsize length = env->GetArrayLength(candidates);
         std::vector<jint> values(static_cast<size_t>(length));
         env->GetIntArrayRegion(candidates, 0, length, values.data());
@@ -651,6 +652,7 @@ JNIEXPORT jlong JNICALL JNI_USB(frames)(JNIEnv *env, jobject, jlong handle) {
 JNIEXPORT jbyteArray JNICALL JNI_USB(control)(JNIEnv *env, jobject, jlong handle, jboolean input, jint request,
                                               jint value, jint index, jbyteArray data) {
     try {
+        require(data != nullptr, "USB control buffer is null");
         const jsize length = env->GetArrayLength(data);
         require(length >= 0 && length <= 1024, "Invalid USB control length");
         std::vector<uint8_t> bytes(static_cast<size_t>(length));

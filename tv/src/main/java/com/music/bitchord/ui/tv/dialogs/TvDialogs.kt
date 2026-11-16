@@ -1371,7 +1371,7 @@ fun TvSourcesDialog(onDismiss: () -> Unit) {
     DisposableEffect(Unit) {
         scope.launch {
             TvAuthServer.start()?.let { (port, ip) ->
-                serverUrl = "http://$ip:$port/"
+                serverUrl = "http://$ip:$port/addons"
             }
         }
         onDispose { TvAuthServer.stop() }

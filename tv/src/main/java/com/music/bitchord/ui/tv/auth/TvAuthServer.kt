@@ -292,6 +292,11 @@ object TvAuthServer {
                         sendHtmlResponse(writer, getRemoteControlHtml())
                     }
 
+                    // 6b. Dedicated Addon Setup Page (/addons)
+                    path == "/addons" -> {
+                        sendHtmlResponse(writer, getAddonsOnlyHtml())
+                    }
+
                     // 7. Default Landing & Auth Page (/)
                     else -> {
                         sendHtmlResponse(writer, getAuthHtml())
@@ -629,6 +634,111 @@ function submitAddon() {
 </body>
 </html>
 """.trimIndent()
+
+    private fun getAddonsOnlyHtml(): String {
+        val addons = SourceRegistry.configs.value.filter { it.kind == SourceKind.ADDON }
+        val addonsListHtml = if (addons.isNotEmpty()) {
+            addons.joinToString("") { addon ->
+                """
+                <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.06); padding:12px 14px; border-radius:14px; margin-top:8px;">
+                  <div style="text-align:left; overflow:hidden; margin-right:8px;">
+                    <div style="font-weight:700; font-size:15px; color:#FFF;">${addon.displayName}</div>
+                    <div style="font-size:11px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; margin-top:2px;">${addon.baseUrl}</div>
+                  </div>
+                  <div style="display:flex; gap:6px; flex-shrink:0;">
+                    <button type="button" onclick="toggleAddon('${addon.id}')" style="background:${if (addon.enabled) "rgba(0,229,255,0.2)" else "rgba(255,255,255,0.1)"}; color:${if (addon.enabled) "#00E5FF" else "#AAA"}; border:none; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:bold; cursor:pointer;">
+                      ${if (addon.enabled) "Active" else "Disabled"}
+                    </button>
+                    <button type="button" onclick="deleteAddon('${addon.id}')" style="background:rgba(255,55,95,0.15); color:#FF375F; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:bold; cursor:pointer;">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                """.trimIndent()
+            }
+        } else {
+            """<div style="color:#777; font-size:13px; text-align:center; padding:12px 0;">No custom addons configured yet. Paste a manifest URL above!</div>"""
+        }
+
+        return """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BitChord TV • Audio Stream Addons</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #08080B; color: #FFF; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+.card { width: 100%; max-width: 460px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; padding: 24px; margin-bottom: 20px; backdrop-filter: blur(24px); }
+.btn-primary { width: 100%; height: 50px; background: #FA2D48; color: #FFF; border: none; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: 14px; box-shadow: 0 4px 16px rgba(250,45,72,0.3); }
+input[type=text] { width: 100%; height: 52px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 14px; color: #FFF; padding: 12px 14px; font-size: 14px; font-family: monospace; margin-top: 10px; outline: none; }
+input[type=text]:focus { border-color: #FA2D48; }
+</style>
+</head>
+<body>
+<div class="card" style="text-align: center;">
+  <div style="width: 52px; height: 52px; border-radius: 50%; background: #FA2D48; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">🎛️</div>
+  <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 6px;">Audio Stream Addons</h1>
+  <p style="font-size: 14px; color: #A0A0AB;">Add Lossless FLAC proxies & manage stream sources on your TV</p>
+</div>
+
+<div class="card">
+  <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 6px;">Add Custom Addon</h2>
+  <p style="font-size: 13px; color: #AAA; line-height: 1.4;">Paste your Addon Manifest URL to stream Lossless audio on this TV:</p>
+  <form id="addonForm" onsubmit="event.preventDefault(); submitAddon();" style="margin-top: 10px;">
+    <input type="text" id="addonUrl" placeholder="https://your-domain/manifest.json" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button type="submit" class="btn-primary" id="btnSubmit">Add Addon to TV</button>
+  </form>
+  <div id="addonMsg" style="margin-top: 10px; font-size: 13px; text-align: center;"></div>
+</div>
+
+<div class="card">
+  <h2 style="font-size: 17px; font-weight: bold; margin-bottom: 8px;">Configured TV Addons</h2>
+  $addonsListHtml
+</div>
+
+<script>
+function toggleAddon(id) {
+  fetch('/api/addon/toggle', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
+    .then(() => location.reload());
+}
+function deleteAddon(id) {
+  if (confirm('Delete this addon from TV?')) {
+    fetch('/api/addon/delete', { method: 'POST', body: 'id=' + encodeURIComponent(id) })
+      .then(() => location.reload());
+  }
+}
+function submitAddon() {
+  let url = document.getElementById('addonUrl').value.trim();
+  let msg = document.getElementById('addonMsg');
+  let btn = document.getElementById('btnSubmit');
+  if (!url) return;
+  msg.innerHTML = '<span style="color:#AAA;">Connecting to addon...</span>';
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  fetch('/api/addon', { method: 'POST', body: 'addonUrl=' + encodeURIComponent(url) })
+    .then(r => r.json()).then(d => {
+      if (d.success) {
+        msg.innerHTML = '<span style="color:#00E5FF;font-weight:bold;">✓ Addon added to TV successfully!</span>';
+        document.getElementById('addonUrl').value = '';
+        setTimeout(() => location.reload(), 800);
+      } else {
+        msg.innerHTML = '<span style="color:#FF375F;">Failed to add addon</span>';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    }).catch(e => {
+      msg.innerHTML = '<span style="color:#FF375F;">Network error</span>';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    });
+}
+</script>
+</body>
+</html>
+""".trimIndent()
+    }
 
     private fun getSuccessHtml(): String = """
 <!DOCTYPE html>

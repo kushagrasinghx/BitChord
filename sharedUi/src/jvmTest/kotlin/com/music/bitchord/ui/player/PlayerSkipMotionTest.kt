@@ -22,18 +22,59 @@ class PlayerSkipMotionTest {
 
     @Test
     fun `front retains visible size and opacity through early and middle contraction`() {
-        // 36ms and 90ms of the 180ms FRONT interval in the 600ms cycle.
+        // 36ms and 105ms of the 210ms FRONT interval in the 600ms cycle.
         val early = playerSkipPose(0.06f)
         assertTrue(early.frontScale > 0.85f)
         assertTrue(early.frontAlpha > 0.98f)
         assertTrue(early.frontScale * early.frontScale * early.frontAlpha > 0.75f)
         assertTrue(early.survivorTravel > 0f)
-        val middle = playerSkipPose(0.15f)
+        val middle = playerSkipPose(0.175f)
         assertEquals(0.5f, middle.frontScale, 0.000001f)
         assertEquals(0.84375f, middle.frontAlpha, 0.000001f)
         assertTrue(middle.frontScale * middle.frontScale * middle.frontAlpha > 0.20f)
-        assertEquals(0f, playerSkipPose(0.30f).frontScale, 0f)
-        assertEquals(0f, playerSkipPose(0.30f).frontAlpha, 0f)
+        assertEquals(0f, playerSkipPose(0.35f).frontScale, 0f)
+        assertEquals(0f, playerSkipPose(0.35f).frontAlpha, 0f)
+    }
+
+    @Test
+    fun `front contraction has gentler consecutive samples at supported refresh rates`() {
+        // Scale-change limits distinguish the old 180ms contraction. These are
+        // theoretical frame-clock samples, not measured display frame rates.
+        for ((hz, firstLimit, stepLimit) in listOf(
+            Triple(60, 0.020f, 0.120f),
+            Triple(80, 0.011f, 0.090f),
+            Triple(120, 0.005f, 0.060f),
+        )) {
+            var previous = playerSkipPose(0f)
+            for (frame in 1..(600 * hz / 1000)) {
+                val pose = playerSkipPose(frame * 1000f / hz / 600f)
+                val scaleDrop = previous.frontScale - pose.frontScale
+                assertTrue(scaleDrop >= 0f && scaleDrop < stepLimit)
+                if (frame == 1) assertTrue(scaleDrop < firstLimit)
+                assertTrue(pose.frontAlpha in 0f..previous.frontAlpha)
+                assertTrue(pose.survivorTravel in previous.survivorTravel..1f)
+                assertTrue(pose.newScale in previous.newScale..1f)
+                assertTrue(pose.newAlpha in previous.newAlpha..1f)
+                previous = pose
+            }
+            assertEquals(playerSkipPose(1f), previous)
+        }
+    }
+
+    @Test
+    fun `front finishes gently after the old cutoff without retiming the conveyor`() {
+        val oldCutoff = playerSkipPose(180f / 600f)
+        assertTrue(oldCutoff.frontScale > 0f)
+        assertTrue(oldCutoff.frontAlpha > 0f)
+        val beforeEnd = playerSkipPose(209f / 600f)
+        assertTrue(beforeEnd.frontScale > 0f && beforeEnd.frontScale < 0.001f)
+        assertTrue(beforeEnd.frontAlpha > 0f && beforeEnd.frontAlpha < 0.001f)
+        assertEquals(0f, playerSkipPose(210f / 600f).frontScale, 0f)
+        assertEquals(0f, playerSkipPose(210f / 600f).frontAlpha, 0f)
+        assertEquals(0f, playerSkipPose(168f / 600f).newScale, 0f)
+        assertEquals(1f, playerSkipPose(540f / 600f).survivorTravel, 0f)
+        assertEquals(1f, playerSkipPose(540f / 600f).newScale, 0f)
+        assertEquals(playerSkipPose(540f / 600f), playerSkipPose(600f / 600f))
     }
 
     @Test

@@ -46,7 +46,9 @@ import org.jetbrains.compose.resources.vectorResource
  */
 private object SkipMotion {
     const val DurationMs = 600
-    const val FrontGone = 0.30f
+    // Give FRONT 210ms: gentler initial acceleration and smaller adjacent-frame
+    // changes at every refresh rate, without retiming SURVIVOR or NEW.
+    const val FrontGone = 0.35f
     const val Settled = 0.90f
     const val NewOnset = 0.28f
     const val CircleDiameter = 1.7f

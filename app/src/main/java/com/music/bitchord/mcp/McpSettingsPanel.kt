@@ -70,8 +70,8 @@ fun McpSettingsPanel() {
         }
     }
     val playlists = remember(catalog, localPlaylists, offlinePlaylists) {
-        val localEntries = localPlaylists.map { McpPlaylistEntry(it.id, it.title, "local", false) }
-        val offlineEntries = offlinePlaylists.map { McpPlaylistEntry(it.browseId, it.title, "offline", true) }
+        val localEntries = localPlaylists.map { McpPlaylistEntry(it.id, it.title, "local", true) }
+        val offlineEntries = offlinePlaylists.map { McpPlaylistEntry(it.browseId, it.title, "offline", false) }
         (localEntries + offlineEntries + catalog.filterNot { it.source in setOf("local", "offline") })
             .distinctBy { it.id }
     }
@@ -108,14 +108,18 @@ fun McpSettingsPanel() {
             SettingsGroup(footer = stringResource(R.string.mcp_intro)) {
                 val statusLabel = when {
                     status.startsWith("Listening on ") -> R.string.mcp_status_on
-                    status == "Unable to start server" || status == "Invalid server settings" -> R.string.mcp_status_error
-                    enabled -> R.string.mcp_status_starting
+                    status.startsWith("Unable to start server") || status == "Invalid server settings" -> R.string.mcp_status_error
+                    status == "Starting server" || enabled -> R.string.mcp_status_starting
                     else -> R.string.mcp_status_off
                 }
                 McpToggle(
                     stringResource(R.string.mcp_enable), enabled,
                     subtitle = stringResource(statusLabel),
-                ) { McpSettings.enabled = it; McpForegroundService.syncFromForeground(context); revision++ }
+                ) {
+                    McpSettings.enabled = it
+                    McpForegroundService.syncFromForeground(context)
+                    revision++
+                }
                 RowDivider()
                 SettingsRow(
                     title = stringResource(R.string.mcp_address),
@@ -272,7 +276,7 @@ fun McpSettingsPanel() {
                         "spotify" -> stringResource(R.string.mcp_source_spotify)
                         else -> playlist.source
                     }
-                    val playlistSubtitle = if (playlist.readOnly) {
+                    val playlistSubtitle = if (!playlist.editable) {
                         "$sourceLabel · ${stringResource(R.string.mcp_read_only)}"
                     } else sourceLabel
                     McpToggle(playlist.title, playlist.id in selection.selectedIds, subtitle = playlistSubtitle) {

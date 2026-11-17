@@ -8,6 +8,7 @@ import java.security.SecureRandom
 /** Private, deny-by-default policy. MCP-created playlists receive access; global permissions still apply. */
 object McpSettings {
     private lateinit var prefs: SharedPreferences
+    /** "Edit playlists" is the switch that lets MCP add to and remove from any allowed playlist. */
     val permissions = listOf("now_playing", "history", "queue", "playback", "seek", "search", "playlist_read", "playlist_create", "playlist_write")
     @Volatile var onChanged: (() -> Unit)? = null
     val port: Int = 8765
@@ -37,6 +38,8 @@ object McpSettings {
     }
     fun allowed(permission: String): Boolean =
         ::prefs.isInitialized && permission in permissions && prefs.getBoolean("permission_$permission", false)
+    /** Playlist mutations require the explicit global editing permission. */
+    fun editPlaylists(): Boolean = allowed("playlist_write")
     fun setAllowed(permission: String, allowed: Boolean) {
         require(permission in permissions)
         prefs.edit().putBoolean("permission_$permission", allowed).apply()

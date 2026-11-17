@@ -4,22 +4,34 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class McpPlaylistIdTest {
-    @Test fun isolatesAccountAndProfileAndDelimiters() {
-        assertNotEquals(McpPlaylistId.scope("a", "p"), McpPlaylistId.scope("b", "p"))
-        assertNotEquals(McpPlaylistId.scope("a", "p"), McpPlaylistId.scope("a", "q"))
+    @Test fun scopeIsStableAndAccountProfileBound() {
+        val a = McpPlaylistId.scope("acct-1", "profile-1")
+        assertEquals(a, McpPlaylistId.scope("acct-1", "profile-1"))
+        assertEquals(64, a.length)
+        assertNotEquals(a, McpPlaylistId.scope("acct-1", "profile-2"))
+        assertNotEquals(a, McpPlaylistId.scope("acct-2", "profile-1"))
+    }
+    @Test fun scopeAvoidsDelimiterCollision() {
         assertNotEquals(McpPlaylistId.scope("a:b", "c"), McpPlaylistId.scope("a", "b:c"))
-        assertEquals(McpPlaylistId.scope("a", "p"), McpPlaylistId.scope("a", "p"))
     }
-    @Test fun likedAndPlaylistRoundtrip() {
-        val scope = McpPlaylistId.scope("a", "personal")
-        assertEquals(scope to "VLLM", McpPlaylistId.parseYouTube("youtube:$scope:VLLM"))
-        assertEquals(scope to "VLPL_a-1", McpPlaylistId.parseYouTube("youtube:$scope:VLPL_a-1"))
+    @Test fun parseAcceptsOnlyCanonicalShape() {
+        val scope = McpPlaylistId.scope("acct", "profile")
+        assertEquals(scope to "VLPLabc_-123", McpPlaylistId.parseYouTube("youtube:$scope:VLPLabc_-123"))
     }
-    @Test fun rejectsPathsMalformedScopeAndExtraSegments() {
-        val scope = McpPlaylistId.scope("a", "p")
-        listOf("youtube:$scope:file:///tmp", "youtube:$scope:VL../x", "youtube:bad:VLLM",
-            "youtube:$scope:VLLM:extra", "spotify:$scope:VLLM", "youtube:$scope:VL").forEach {
-            try { McpPlaylistId.parseYouTube(it); fail("Accepted $it") } catch (_: IllegalArgumentException) { }
+    @Test fun parseRejectsPathsAndAliases() {
+        val scope = McpPlaylistId.scope("acct", "profile")
+        listOf(
+            "local:playlist:sp_local_1",
+            "youtube:$scope:PLabc",
+            "youtube:$scope:VLabc:extra",
+            "youtube:${scope.uppercase()}:VLabc",
+            "youtube:$scope:VL",
+            "youtube:$scope:VL../../etc",
+            "spotify:$scope:VLabc",
+            "youtube:$scope:VL${"a".repeat(201)}",
+        ).forEach { id ->
+            try { McpPlaylistId.parseYouTube(id); fail("accepted $id") }
+            catch (_: IllegalArgumentException) { }
         }
     }
 }

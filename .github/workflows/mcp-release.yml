@@ -8,7 +8,7 @@ on:
       - '.github/workflows/mcp-release.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: mcp-release-${{ github.ref }}
@@ -32,7 +32,7 @@ jobs:
         run: |
           sdkmanager 'platforms;android-37.0' 'platforms;android-36' 'build-tools;35.0.0' 'cmake;3.22.1' 'ndk;27.0.12077973'
           [ -e "$ANDROID_HOME/platforms/android-37" ] || ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
-      - name: Optional release signing
+      - name: Release signing
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -45,8 +45,8 @@ jobs:
             printf 'storeFile=bitchord-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
             echo 'label=signed' >> "$GITHUB_OUTPUT"
           else
-            echo 'label=unsigned' >> "$GITHUB_OUTPUT"
-            echo '::warning::No release signing credentials: output is unsigned and must be signed before installation/distribution.'
+            echo '::error::Release signing credentials are required.'
+            exit 1
           fi
       - name: Unit tests
         run: ./gradlew :app:testProdReleaseUnitTest -Pbitchord.bundleWear=false --stacktrace
@@ -75,3 +75,12 @@ jobs:
           name: mcp-release-test-reports-${{ github.run_number }}
           path: app/build/reports/tests/
           if-no-files-found: ignore
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="mcp-release-${{ github.run_number }}"
+          gh release create "$TAG" release-artifacts/* \
+            --target "${{ github.sha }}" \
+            --title "BitChord MCP Release ${{ github.run_number }}" \
+            --notes "Signed optimized production release (not debug). Phone APKs; Wear installer omitted. Includes playlist editing, Spotify integration and MCP startup fixes."

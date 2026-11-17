@@ -31,6 +31,7 @@ object McpServer {
     private val mutableStatus = MutableStateFlow("Stopped")
     val status: StateFlow<String> = mutableStatus.asStateFlow()
 
+    @Synchronized
     fun start(context: Context) {
         val app = context.applicationContext
         val generation = revision.incrementAndGet()
@@ -41,6 +42,9 @@ object McpServer {
                 server?.stop()
                 server = null
                 if (!McpSettings.enabled) { mutableStatus.value = "Disabled"; return@synchronized }
+                // Always answer a start attempt with a real outcome: a status left
+                // on "Stopped" is what made re-enabling look like nothing happened.
+                mutableStatus.value = "Starting server"
                 if (McpSettings.port !in 1024..65535 || McpSettings.token.length < 32) {
                     mutableStatus.value = "Invalid server settings"; return@synchronized
                 }
@@ -51,19 +55,26 @@ object McpServer {
                     server = instance
                     instance.start(10_000, true)
                     mutableStatus.value = "Listening on ${if (McpSettings.lanEnabled) "LAN" else "localhost"}:${McpSettings.port}/mcp"
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     server?.stop(); server = null
-                    mutableStatus.value = "Unable to start server"
+                    mutableStatus.value = "Unable to start server: ${e.javaClass.simpleName}"
                 }
             }
         }
     }
 
-    fun stop() {
+    /** Cleanup and its outcome are one ordered command; stop cannot erase the error. */
+    @Synchronized
+    fun failStart(reason: String) = enqueueStop("Unable to start server: $reason")
+
+    @Synchronized
+    fun stop() = enqueueStop("Stopped")
+
+    private fun enqueueStop(outcome: String) {
         val generation = revision.incrementAndGet()
         lifecycle.trySend { synchronized(lock) {
             if (generation != revision.get()) return@synchronized
-            server?.stop(); server = null; mutableStatus.value = "Stopped"
+            server?.stop(); server = null; mutableStatus.value = outcome
         } }
     }
 

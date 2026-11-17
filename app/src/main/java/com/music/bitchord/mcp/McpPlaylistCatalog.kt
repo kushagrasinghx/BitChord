@@ -13,15 +13,21 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 
-data class McpPlaylistEntry(val id: String, val title: String, val source: String, val readOnly: Boolean)
+/** [editable] follows the write permission: editing is what "read-only" used to mean. */
+data class McpPlaylistEntry(
+    val id: String,
+    val title: String,
+    val source: String,
+    val editable: Boolean,
+)
 
 /** IDs bind Google account AND YouTube profile. No credentials enter IDs or results. */
 data class McpPlaylistCatalogResult(val entries: List<McpPlaylistEntry>, val warnings: List<String>)
 
 object McpPlaylistCatalog {
     fun localEntries(): List<McpPlaylistEntry> =
-        LocalPlaylistStore.playlists.value.map { McpPlaylistEntry(it.id, it.title, "local", false) } +
-        OfflinePlaylists.playlists.value.map { McpPlaylistEntry(it.browseId, it.title, "offline", true) }
+        LocalPlaylistStore.playlists.value.map { McpPlaylistEntry(it.id, it.title, "local", true) } +
+        OfflinePlaylists.playlists.value.map { McpPlaylistEntry(it.browseId, it.title, "offline", false) }
 
     private val _warnings = kotlinx.coroutines.flow.MutableStateFlow<List<String>>(emptyList())
     val warnings: kotlinx.coroutines.flow.StateFlow<List<String>> = _warnings
@@ -33,8 +39,7 @@ object McpPlaylistCatalog {
         } catch (e: CancellationException) { throw e }
           catch (_: Exception) { emptyList<McpPlaylistEntry>() to "${name}_catalog_unavailable" }
         val youtube = async { source("youtube") { loadYouTube(context) } }
-        val spotify = async { source("spotify") { McpSpotifyPlaylists.load(context) } }
-        val results = listOf(youtube.await(), spotify.await())
+        val results = listOf(youtube.await())
         val warnings = results.mapNotNull { it.second }
         _warnings.value = warnings
         McpPlaylistCatalogResult(localEntries() + results.flatMap { it.first }, warnings)
@@ -45,6 +50,8 @@ object McpPlaylistCatalog {
     fun currentScope(context: Context): String? {
         val store = BitChordApplication.authStore
         val session = store.activeSession ?: return null
+        // A profile that cannot be identified must fail closed: another profile's
+        // playlists are a different account scope. No silent fallback.
         val profile = store.activeProfileId ?: session.activeProfileId ?: return null
         if (session.profiles.none { it.profileId == profile }) return null
         return McpPlaylistId.scope(session.accountId, profile)
@@ -68,9 +75,16 @@ object McpPlaylistCatalog {
         val scope = currentScope(context) ?: return emptyList()
         val rows = YtMusicRepository.userPlaylists().getOrThrow() // same paged saved/own playlist feed as library
         assertScope(context, scope)
-        val remote = rows.map { McpPlaylistEntry("youtube:$scope:${it.browseId}", it.title, "youtube", true) }
+        // Writes go to the owner's own playlists only; saved ones are read-only.
+        val remote = rows.map {
+            // Subtitle text (including "Playlist") is not evidence of ownership.
+            assertScope(context, scope)
+            val owned = YtMusicRepository.playlistOwned(it.browseId).getOrThrow() == true
+            assertScope(context, scope)
+            McpPlaylistEntry("youtube:$scope:${it.browseId}", it.title, "youtube", owned)
+        }
         // Liked Music is excluded by userPlaylists' editable-list parser; add explicitly.
-        val liked = McpPlaylistEntry("youtube:$scope:${YtMusicRepository.LIKED_MUSIC}", "Liked Music", "youtube", true)
+        val liked = McpPlaylistEntry("youtube:$scope:${YtMusicRepository.LIKED_MUSIC}", "Liked Music", "youtube", false)
         currentCoroutineContext().ensureActive()
         assertScope(context, scope)
         return (listOf(liked) + remote).distinctBy { it.id }
@@ -97,5 +111,19 @@ object McpPlaylistCatalog {
         currentCoroutineContext().ensureActive()
         assertScope(context, scope)
         return songs.drop(offset).take(limit) to (songs.size.toLong() > offset.toLong() + limit || page.continuation != null)
+    }
+
+    /** Uses the same bounded, scoped pagination as playlist_read. */
+    suspend fun entries(context: Context, id: String, max: Int = 1_000): List<Song> =
+        read(context, id, 0, max).first
+
+    /** Ownership is checked fresh; catalog metadata is not a write authorization. */
+    suspend fun editable(context: Context, id: String): Boolean {
+        val browse = remoteBrowseId(context, id)
+        val scope = McpPlaylistId.parseYouTube(id).first
+        if (browse == YtMusicRepository.LIKED_MUSIC) return false
+        val owned = YtMusicRepository.playlistOwned(browse).getOrThrow()
+        assertScope(context, scope)
+        return owned == true
     }
 }

@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.widget.Toast
 import com.music.bitchord.R
@@ -19,10 +20,11 @@ import com.music.bitchord.R
 /** User-enabled MCP lifetime owner; no wake lock, boot receiver or background FGS launch. */
 class McpForegroundService : Service() {
     // McpServer no longer installs onChanged; this service is its sole lifecycle owner.
+    private var startupFailed = false
     private val settingsChanged: () -> Unit = { onSettingsChanged() }
     private fun onSettingsChanged() {
         // Preferences may notify off-main; serialize Android service lifecycle on main.
-        android.os.Handler(mainLooper).post {
+        Handler(mainLooper).post {
             if (McpSettings.onChanged === settingsChanged) {
                 if (McpSettings.enabled) McpServer.start(this) else {
                     McpServer.stop()
@@ -36,6 +38,10 @@ class McpForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         McpSettings.init(this)
+    }
+
+    private fun startForegroundAndServer() {
+        startupFailed = false
         try {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel(
@@ -63,21 +69,28 @@ class McpForegroundService : Service() {
             }
             McpSettings.onChanged = settingsChanged
             if (McpSettings.enabled) McpServer.start(this) else stopSelf()
-        } catch (_: RuntimeException) {
+        } catch (e: RuntimeException) {
+            startupFailed = true
+            // Never leave the user without a status: the panel reads McpServer.status.
+            McpServer.failStart(e.message ?: "Unable to start server")
             Toast.makeText(this, "Unable to keep MCP running. Reopen BitChord and try again.", Toast.LENGTH_LONG).show()
             stopSelf()
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!McpSettings.enabled) stopSelf(startId) else McpServer.start(this)
+        if (!McpSettings.enabled) stopSelf(startId) else {
+            // Promote synchronously, once per start command, before starting HTTP.
+            startForegroundAndServer()
+        }
         // No unattended restart: the next visible activity can retry safely.
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         if (McpSettings.onChanged === settingsChanged) McpSettings.onChanged = null
-        McpServer.stop()
+        // A failed promotion already queued cleanup with its diagnostic.
+        if (!startupFailed) McpServer.stop()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
@@ -93,14 +106,16 @@ class McpForegroundService : Service() {
             McpSettings.init(context)
             val intent = Intent(context, McpForegroundService::class.java)
             if (!McpSettings.enabled) {
-                context.stopService(intent)
+                // Order matters: stop the server first so a dying service cannot
+                // revive it from its own onDestroy.
                 McpServer.stop()
+                context.stopService(intent)
                 return
             }
             try {
                 context.startForegroundService(intent)
-            } catch (_: RuntimeException) {
-                McpServer.stop()
+            } catch (e: RuntimeException) {
+                McpServer.failStart(e.message ?: "Foreground service rejected")
                 Toast.makeText(context, "Android could not start MCP background access. Reopen BitChord and try again.", Toast.LENGTH_LONG).show()
             }
         }

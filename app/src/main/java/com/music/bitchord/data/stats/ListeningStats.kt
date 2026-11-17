@@ -181,7 +181,12 @@ object ListeningStats {
             // whoever its page opens, and crediting a feature the same as a
             // headline act puts a guest verse on a chart of what someone
             // listens to.
-            primaryArtist(song.artist)?.let { name ->
+            // A row that links its artists one by one already names the lead
+            // whole: "Tyler, The Creator" is one person, and only the bare
+            // credit string can't say so. Such a name is marked [NameEntry.stated]
+            // so reading the month back never cuts it up again.
+            val stated = song.artists.firstOrNull { it.name.isNotBlank() }?.name?.trim()
+            (stated ?: primaryArtist(song.artist))?.let { name ->
                 // Asked here rather than in the recorder, because here is where
                 // the credit has already been reduced to a person: asking about
                 // "Cheema Y & Gur Sidhu" gets a picture of nobody and a genre of
@@ -190,6 +195,7 @@ object ListeningStats {
                 val artist = bucket.artists.getOrPut(name.lowercase(Locale.ROOT)) {
                     NameEntry(name = name, art = song.thumbnailUrl)
                 }
+                if (stated != null) artist.stated = true
                 artist.ms += playedMs
                 if (countsAsPlay) artist.plays++
                 if (artist.id == null) artist.id = song.artistId
@@ -503,7 +509,7 @@ object ListeningStats {
                 // filed under a whole credit fold into the person on read
                 // instead of sitting beside them forever.
                 artists = stored.artists
-                    .map { it.copy(name = primaryArtist(it.name) ?: it.name) }
+                    .map { it.lead() }
                     .mergedBy(LinkedHashMap()) { it.name.lowercase(Locale.ROOT) },
                 albums = stored.albums.mergedBy(LinkedHashMap()) { albumKey(it.id, it.name, it.sub.orEmpty()) },
                 hours = LongArray(24) { stored.hours.getOrElse(it) { 0L } },
@@ -535,7 +541,7 @@ object ListeningStats {
                 tracks.merge(entry.id, entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.artists.forEach { entry ->
-                val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
+                val lead = entry.lead()
                 artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.albums.forEach { entry ->
@@ -570,7 +576,7 @@ object ListeningStats {
                 tracks.merge(entry.id, entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.artists.forEach { entry ->
-                val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
+                val lead = entry.lead()
                 artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.albums.forEach { entry ->
@@ -921,8 +927,15 @@ data class NameEntry(
     val key: String? = null,
     /** Per-day breakdown for weekly queries. Key: "YYYY-MM-DD". */
     var days: MutableMap<String, DayStats> = mutableMapOf(),
+    /** The name came from the row's own artist link, so it is a whole name and not a credit to split. */
+    var stated: Boolean = false,
 ) {
+    /** This entry under its lead artist; a stated name is already one. */
+    fun lead(): NameEntry =
+        if (stated) this else copy(name = ListeningStats.primaryArtist(name) ?: name)
+
     fun absorb(other: NameEntry) {
+        if (other.stated) stated = true
         ms += other.ms
         plays += other.plays
         if (art == null) art = other.art

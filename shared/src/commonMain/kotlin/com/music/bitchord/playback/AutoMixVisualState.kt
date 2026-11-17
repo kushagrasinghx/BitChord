@@ -8,6 +8,14 @@ object AutoMixArtworkTuning {
     const val MIN_WINDOW_SECONDS = 0.8
     const val OUTGOING_END_SCALE = 1f
     const val INCOMING_START_SCALE = 1f
+    const val MIXING_BADGE_FADE_MS = 400
+    const val MIXING_BADGE_SWEEP_MS = 1_800
+    const val MIXING_BADGE_SWEEP_PAUSE_MS = 3_000L
+    const val MIXING_BADGE_DIM_ALPHA = 0.55f
+    const val MIXING_BADGE_BRIGHT_ALPHA = 0.95f
+    const val MIXING_BADGE_HALO_RADIUS_DP = 3f
+    const val MIXING_BADGE_HALO_ALPHA = 0.40f
+    const val MIXING_BADGE_HALF_BAND_FRACTION = 0.32f
 
     fun ease(progress: Float): Float = progress * progress * (3f - 2f * progress)
 }

@@ -76,24 +76,31 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.composed
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.withSaveLayer
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.vectorResource
 import androidx.compose.ui.layout.layout
@@ -101,7 +108,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -121,6 +130,7 @@ import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.playback.AutoMixArtworkTuning
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -210,6 +220,7 @@ internal fun PlayerScrubber(
     loading: Boolean,
     /** An analysed Automix handoff, drawn as a travelling sheen. */
     mixing: Boolean,
+    isPlaying: Boolean,
     transitionWindow: ClosedFloatingPointRange<Float>?,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
@@ -224,7 +235,6 @@ internal fun PlayerScrubber(
     // canvas needs.
     val mixBlend = PlayerSettings.smartMixBlend.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
-    // One clock for the bar and the "Mixing" label, so they breathe on the same beat.
     val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation)
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
@@ -264,35 +274,78 @@ internal fun PlayerScrubber(
                     color = timeColor,
                 )
             }
-            // Pinned to the box's own centre rather than squeezed into the gap
-            // between the two timestamps: that gap's width changes by a digit's
-            // worth every time a minute rolls over. Cross-faded with "Mixing"
-            // for as long as a blend holds the bar.
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer { alpha = 1f - mixPulse.cover },
-            ) {
-                centerLabel()
-            }
-            val mixingShown by remember { derivedStateOf { mixPulse.cover > 0f } }
-            if (mixingShown) {
-                MixingLabel(mixPulse, Modifier.align(Alignment.Center))
-            }
+            AutoMixBadgeSlot(isPlaying, reduceAnimation, centerLabel)
         }
     }
 }
 
-/**
- * "Mixing", in the quality badge's place while an Automix blend runs, breathing on the same
- * beat as the bar above it. Its opacity is read in a graphics layer, so the pulse redraws the
- * label every frame without recomposing it. Plain text in the badge's own type, no icon and
- * no glow: over artwork, a white haze reads as grey fog rather than light.
- */
 @Composable
-private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
+private fun BoxScope.AutoMixBadgeSlot(
+    isPlaying: Boolean,
+    reduceAnimation: Boolean,
+    centerLabel: @Composable BoxScope.() -> Unit,
+) {
+    val feed = PlayerPlatform.host.autoMixVisualState
+    val visual = feed?.collectAsStateWithLifecycle()
+    val activeGeneration by remember(visual) {
+        derivedStateOf { visual?.value?.takeIf { it.mixActive }?.generation }
+    }
+    val generation = activeGeneration
+    val opacity = animateFloatAsState(
+        targetValue = if (generation != null) 1f else 0f,
+        animationSpec = tween(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS),
+        label = "mixing badge visibility",
+    )
+    // The quality label stays in its original centered slot and returns on fade-out.
+    Box(Modifier.matchParentSize().graphicsLayer { alpha = 1f - opacity.value }) {
+        centerLabel()
+    }
+    val stillVisible by remember(opacity) { derivedStateOf { opacity.value > 0f } }
+    if (generation != null || stillVisible) {
+        val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
+        val reducedMotion = reduceAnimation || systemMotion?.scaleFactor == 0f
+        val sweepGeneration = generation.takeIf { isPlaying && !reducedMotion }
+        val sweep = remember(sweepGeneration) { Animatable(0f) }
+        if (sweepGeneration != null) {
+            LaunchedEffect(sweepGeneration) {
+                delay(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS.toLong())
+                while (true) {
+                    sweep.animateTo(
+                        1f,
+                        tween(AutoMixArtworkTuning.MIXING_BADGE_SWEEP_MS, easing = LinearEasing),
+                    )
+                    sweep.snapTo(0f)
+                    delay(AutoMixArtworkTuning.MIXING_BADGE_SWEEP_PAUSE_MS)
+                }
+            }
+        }
+        MixingLabel(
+            modifier = Modifier.align(Alignment.Center),
+            opacity = { opacity.value },
+            bright = reducedMotion,
+            sweepProgress = {
+                // A pending draw must not show a sweep after the producer cancels it.
+                if (sweepGeneration != null && systemMotion?.scaleFactor != 0f &&
+                    feed?.value?.let { it.mixActive && it.generation == sweepGeneration } == true
+                ) sweep.value else 0f
+            },
+        )
+    }
+}
+
+@Composable
+private fun MixingLabel(
+    modifier: Modifier,
+    opacity: () -> Float,
+    bright: Boolean,
+    sweepProgress: () -> Float,
+) {
+    var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val baseColor = if (bright) Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_BRIGHT_ALPHA)
+    else chromeWhite(AutoMixArtworkTuning.MIXING_BADGE_DIM_ALPHA)
     Text(
         text = stringResource(Res.string.mixing),
+        onTextLayout = { textLayout = it },
         modifier = modifier
             // Opens the mix view. Plain text that takes taps: no padding, no
             // ripple, so it lays out exactly as the label always did and
@@ -302,16 +355,57 @@ private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
                 interactionSource = remember { MutableInteractionSource() },
             ) { MixViewRequest.open = true }
             .graphicsLayer {
-                alpha = pulse.cover * pulse.alpha(1f, restShare = MIXING_LABEL_REST)
+                alpha = opacity()
                 // A buffer to fade through would cut the blend below off from the backdrop.
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            .additiveChrome(LocalPlayerChrome.current),
+            .additiveChrome(LocalPlayerChrome.current)
+            .drawWithCache {
+                val glowRadius = AutoMixArtworkTuning.MIXING_BADGE_HALO_RADIUS_DP.dp.toPx()
+                val haloInset = 2f * glowRadius
+                val bounds = Rect(-haloInset, -haloInset, size.width + haloInset, size.height + haloInset)
+                val paint = Paint()
+                val halo = Shadow(
+                    color = Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_HALO_ALPHA),
+                    blurRadius = glowRadius,
+                )
+                val halfBand = size.width * AutoMixArtworkTuning.MIXING_BADGE_HALF_BAND_FRACTION
+                onDrawWithContent {
+                    val layout = textLayout
+                    val progress = sweepProgress()
+                    if (layout == null) {
+                        drawContent()
+                    } else {
+                        // Set the shadow explicitly: the highlight shares this paragraph's paint.
+                        drawText(layout, color = baseColor, shadow = Shadow.None)
+                        if (halfBand > 0f && progress > 0f && progress < 1f) {
+                            val overhang = halfBand + haloInset
+                            val center = (size.width + 2f * overhang) * progress - overhang
+                            // Mask only the bright glyphs and their halo, not the base or backdrop.
+                            drawContext.canvas.withSaveLayer(bounds, paint) {
+                                drawText(layout, color = Color.White, shadow = halo)
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to Color.Transparent,
+                                        0.5f to Color.White,
+                                        1f to Color.Transparent,
+                                        startX = center - halfBand,
+                                        endX = center + halfBand,
+                                    ),
+                                    topLeft = bounds.topLeft,
+                                    size = bounds.size,
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
         style = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Medium,
             fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
         ),
-        color = chromeWhite(0.85f),
+        color = baseColor,
         maxLines = 1,
     )
 }
@@ -319,9 +413,6 @@ private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
 /** How far "Upgrading quality" fades between breaths, and how long each half takes. */
 private const val UPGRADING_PULSE_LOW = 0.4f
 private const val UPGRADING_PULSE_MS = 900
-
-/** The label dips only to half between beats: text fading further stops reading as a word. */
-private const val MIXING_LABEL_REST = 0.5f
 
 /**
  * Sp over labelMedium for the quality badge and what stands in for it. Was a

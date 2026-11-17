@@ -63,6 +63,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.SongMarquee
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
@@ -452,19 +453,12 @@ fun MiniPlayer(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                // The badge in the artist line's colour and a long line faded
-                // out at its end, as on the glass bar's mini player.
-                ExplicitSongTitle(
+                SongMarquee(
                     song = song,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    titleStyle = MaterialTheme.typography.titleMedium,
+                    artistStyle = MaterialTheme.typography.bodyMedium,
+                    titleColor = MaterialTheme.colorScheme.onBackground,
+                    artistColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (isLoading) {

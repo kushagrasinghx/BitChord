@@ -332,8 +332,14 @@ private fun PlayerMeshBackdrop(
     seamTarget: () -> Dp,
     alpha: () -> Float,
     modifier: Modifier = Modifier,
+    ambient: AutoMixAmbient,
+    entry: QueueEntryIdentity?,
 ) {
-    val mesh = key(trackKey) { rememberArtworkMesh(imageUrl, canvasFrame(), ART_PX) }
+    val seed = ambient.incoming?.mesh
+    val snapKey = rememberAmbientSnapKey(ambient.snapKey(seed != null))
+    val mix = ambient.mixFor(seed != null)
+    val url = imageUrl ?: ambient.incoming?.resolvedUrl
+    val mesh = key(trackKey, snapKey) { rememberArtworkMesh(url, canvasFrame(), ART_PX, seed) }
     val currentSeamTarget by rememberUpdatedState(seamTarget)
     val seam = remember { Animatable(Snapshot.withoutReadObservation { seamTarget() }, Dp.VectorConverter) }
     // Glides to a clip's edge as the clip fades in, and is put straight where
@@ -347,11 +353,15 @@ private fun PlayerMeshBackdrop(
             }
         }
     }
-    ArtworkMeshBackdrop(
-        mesh = mesh,
-        seam = { seam.value },
-        modifier = modifier.graphicsLayer { this.alpha = alpha() },
-    )
+    key(snapKey) {
+        ArtworkMeshBackdrop(
+            mesh = mesh,
+            seam = { seam.value },
+            modifier = modifier.graphicsLayer { this.alpha = alpha() },
+            mix = mix,
+            currentIsOutgoing = entry == mix?.outgoing,
+        )
+    }
 }
 
 /** The legacy theme's backdrop, in a scope of its own for the same reason. */
@@ -361,11 +371,24 @@ private fun LegacyMeshBackdrop(
     canvasFrame: () -> ImageBitmap?,
     trackKey: String,
     modifier: Modifier,
+    ambient: AutoMixAmbient,
+    entry: QueueEntryIdentity?,
 ) {
+    val url = imageUrl ?: ambient.incoming?.resolvedUrl
+    val settled = ambient.incoming?.palette
+    val requestedSnap = ambient.snapKey(settled != null)
+    val snapKey = rememberAmbientSnapKey(requestedSnap)
+    val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled }
+    val palette = key(snapKey) { rememberArtworkColors(url, canvasFrame(), seed) }
+    val mix = ambient.mixFor(settled != null)
     MeshGradientBackground(
-        palette = rememberArtworkColors(imageUrl, canvasFrame()),
+        palette = palette,
         trackKey = trackKey,
         modifier = modifier,
+        mix = mix,
+        snapKey = snapKey,
+        settled = requestedSnap != null,
+        currentIsOutgoing = entry == mix?.outgoing,
     )
 }
 
@@ -1884,25 +1907,43 @@ fun NowPlayingScreen(
     // Opening lyrics/queue, and rotating into or out of landscape, therefore
     // reuse the same tiny pre-blurred bitmap instead of running a screen-sized
     // effect.
+    val ambient = rememberAutoMixAmbient(coverEntry, remoteArt)
+    val ambientBlurUrl = remoteArt ?: ambient.incoming?.resolvedUrl
+    val blurSeed = ambient.incoming?.blur
+    val blurSnapKey = rememberAmbientSnapKey(ambient.snapKey(blurSeed != null))
     val fullArtworkBlurImage = rememberFullArtworkBlurImage(
-        imageUrl = remoteArt,
+        imageUrl = ambientBlurUrl,
         artPx = ART_PX,
+        seed = blurSeed,
         // Straight away when it is the main player's backdrop too: the decode
         // and blur run off the main thread, and the last cover's blur is held
         // on screen until this one is ready.
         prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
             lyricsOpen || queueOpen || playerPrewarmStage >= 1,
     )
+    val blurMix = ambient.mixFor(blurSeed != null)
+    val heldBlurAvailable = remember(blurMix) {
+        blurMix != null && (cachedFullArtworkBlur(blurMix.outgoingUrl) != null ||
+            (coverEntry == blurMix.outgoing && fullArtworkBlurImage != null))
+    }
+    val blurAvailable = if (blurMix != null) heldBlurAvailable else blurSeed != null || fullArtworkBlurImage != null
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
     // changes when the artwork preparation above completes for another song.
-    val currentFullArtworkBlurImage = rememberUpdatedState(fullArtworkBlurImage)
+    val currentFullArtworkBlurImage = rememberUpdatedState(
+        blurSeed ?: (if (ambient.cancelled) cachedFullArtworkBlur(ambientBlurUrl) else null) ?: fullArtworkBlurImage,
+    )
+    val currentBlurMix = rememberUpdatedState(blurMix)
+    val currentBlurSnapKey = rememberUpdatedState(blurSnapKey)
+    val currentBlurIsOutgoing = rememberUpdatedState(coverEntry == blurMix?.outgoing)
     val fullArtworkBlurContent = remember {
         movableContentOf<Modifier> { backdropModifier ->
-            FullArtworkBlurBackdrop(
-                image = currentFullArtworkBlurImage.value,
-                modifier = backdropModifier,
-            )
+            key(currentBlurSnapKey.value) {
+                FullArtworkBlurBackdrop(
+                    currentFullArtworkBlurImage.value, backdropModifier,
+                    currentBlurMix.value, currentBlurIsOutgoing.value,
+                )
+            }
         }
     }
 
@@ -2540,7 +2581,7 @@ fun NowPlayingScreen(
                 val fullArtworkBackdropAlpha by animateFloatAsState(
                     targetValue = if (
                         !legacyMeshBackdrop &&
-                        (tabletArtworkBackdrop || fullArtworkBlurImage != null) &&
+                        (tabletArtworkBackdrop || blurAvailable) &&
                         (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
                         (!artworkMeshBackdrop || lyricsOpen || queueOpen)
                     ) 1f else 0f,
@@ -2555,6 +2596,8 @@ fun NowPlayingScreen(
                         // the artwork simply sits on top of them. Keyed on the track, so
                         // they drift when the player opens and on every skip, then rest.
                         LegacyMeshBackdrop(
+                            ambient = ambient,
+                            entry = coverEntry,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame },
                             trackKey = song.videoId,
@@ -2574,6 +2617,8 @@ fun NowPlayingScreen(
                         // Stays mounted under a full-screen Spotify Canvas, undrawn, for
                         // a panel opening over it to find ready.
                         PlayerMeshBackdrop(
+                            ambient = ambient,
+                            entry = coverEntry,
                             trackKey = song.videoId,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame },

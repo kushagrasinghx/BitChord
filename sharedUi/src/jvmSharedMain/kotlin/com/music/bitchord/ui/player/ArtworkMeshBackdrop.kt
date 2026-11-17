@@ -1,9 +1,10 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,7 +13,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -20,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.BitmapPainter
@@ -102,11 +108,20 @@ fun rememberFullArtworkBlurImage(
     imageUrl: String?,
     artPx: Int = CARD_ART_PX,
     prepare: Boolean = true,
+): ImageBitmap? = rememberFullArtworkBlurImage(imageUrl, artPx, prepare, seed = null)
+
+@Composable
+internal fun rememberFullArtworkBlurImage(
+    imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var image by remember { mutableStateOf(imageUrl?.let(fullBlurCache::get)) }
+    var image by remember { mutableStateOf(seed ?: imageUrl?.let(fullBlurCache::get)) }
 
-    LaunchedEffect(imageUrl, artPx, prepare) {
+    LaunchedEffect(imageUrl, artPx, prepare, seed) {
+        if (seed != null) {
+            image = seed
+            return@LaunchedEffect
+        }
         imageUrl?.let(fullBlurCache::get)?.let {
             image = it
             return@LaunchedEffect
@@ -147,13 +162,18 @@ suspend fun prefetchAutoMixArtwork(
     isStillArmed: (Long) -> Boolean,
 ) {
     val loader = SingletonImageLoader.get(context)
+    val ambient = coverGeneration?.takeIf(isStillArmed)?.let { PreparedAutoMixAmbient(it, imageUrl) }
+    if (ambient != null) preparedAutoMixAmbient = ambient
     if (meshCache[imageUrl] == null) {
         val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
         val result = loader.execute(request)
         (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
     }
+    if (ambient != null && isStillArmed(ambient.generation)) ambient.mesh = meshCache[imageUrl]
     if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
-    prefetchArtworkPalette(context, imageUrl)
+    if (ambient != null && isStillArmed(ambient.generation)) ambient.blur = fullBlurCache[imageUrl]
+    val palette = prefetchArtworkPalette(context, imageUrl)
+    if (ambient != null && isStillArmed(ambient.generation)) ambient.palette = palette
 
     // The mini surfaces derive their target from layout constraints. Warm their URL
     // with an inexact row-sized decode, using the same crop scale as AsyncImage.
@@ -200,20 +220,31 @@ fun FullArtworkBlurBackdrop(
     image: ImageBitmap?,
     modifier: Modifier = Modifier,
 ) {
+    FullArtworkBlurBackdrop(image, modifier, mix = null, currentIsOutgoing = false)
+}
+
+@Composable
+internal fun FullArtworkBlurBackdrop(
+    image: ImageBitmap?, modifier: Modifier, mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean,
+) {
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
-        Crossfade(
-            targetState = image,
-            animationSpec = tween(320, easing = FastOutSlowInEasing),
-            label = "preparedBackdropImage",
-        ) { bitmap ->
-            if (bitmap != null) {
-                val painter = remember(bitmap) { BitmapPainter(bitmap) }
-                Image(
-                    painter = painter,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+        val history = remember { BlurLayers() }
+        val heldTarget = remember(mix) {
+            if (mix == null) null else history.target ?: cachedFullArtworkBlur(mix.outgoingUrl)
+                ?: image.takeIf { currentIsOutgoing }
+        }
+        FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null)
+        if (mix != null) {
+            val held = remember(mix) {
+                history.layers?.map { (bitmap, alpha) -> bitmap to alpha.value }
+                    ?: listOfNotNull((cachedFullArtworkBlur(mix.outgoingUrl)
+                        ?: image.takeIf { currentIsOutgoing })?.let { it to 1f })
+            }
+            held.forEach { (bitmap, opacity) ->
+                FullBlurImage(bitmap, Modifier.fillMaxSize().graphicsLayer { alpha = opacity })
+            }
+            mix.prepared?.blur?.let {
+                FullBlurImage(it, Modifier.fillMaxSize().graphicsLayer { alpha = mix.ease() })
             }
         }
 
@@ -222,6 +253,45 @@ fun FullArtworkBlurBackdrop(
         // bright sleeves from lowering contrast.
         Canvas(Modifier.fillMaxSize()) { drawRect(brush = FullArtworkScrim) }
     }
+}
+
+private class BlurLayers {
+    var target: ImageBitmap? = null
+    var layers: List<Pair<ImageBitmap, State<Float>>>? = null
+}
+
+/** The ordinary Crossfade behavior, with its visible layers accessible for the AutoMix hold. */
+@Composable
+private fun FullBlurTrackFade(image: ImageBitmap?, history: BlurLayers, draw: Boolean) {
+    val fade = updateTransition(image, label = "preparedBackdropImage")
+    val visible = remember { mutableStateListOf(fade.currentState) }
+    if (fade.currentState == fade.targetState && visible.size > 1) {
+        visible.removeAll { it != fade.targetState }
+    }
+    if (fade.targetState !in visible) visible.add(fade.targetState)
+    val layers = visible.mapNotNull { bitmap ->
+        key(bitmap) {
+            val alpha = fade.animateFloat(transitionSpec = { tween(320, easing = FastOutSlowInEasing) }) {
+                if (it == bitmap) 1f else 0f
+            }
+            bitmap?.let {
+                if (draw) FullBlurImage(it, Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha.value })
+                it to alpha
+            }
+        }
+    }
+    SideEffect {
+        if (draw) {
+            history.target = image
+            history.layers = layers
+        }
+    }
+}
+
+@Composable
+private fun FullBlurImage(bitmap: ImageBitmap, modifier: Modifier) {
+    val painter = remember(bitmap) { BitmapPainter(bitmap) }
+    Image(painter = painter, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
 }
 
 /**
@@ -245,6 +315,11 @@ fun rememberArtworkMesh(
      * second copy of the same cover comes over the wire.
      */
     artPx: Int = CARD_ART_PX,
+): ArtworkMesh? = rememberArtworkMesh(imageUrl, canvasFrame, artPx, seed = null)
+
+@Composable
+internal fun rememberArtworkMesh(
+    imageUrl: String?, canvasFrame: ImageBitmap?, artPx: Int, seed: ArtworkMesh?,
 ): ArtworkMesh? {
     val context = LocalPlatformContext.current
     // The last mesh that was on screen, whatever it was read from. A cover
@@ -260,7 +335,7 @@ fun rememberArtworkMesh(
     // A clip's last mesh comes first: the player reopening on that clip's still
     // should stand on the clip's colours, not fade to them from the sleeve's.
     var mesh by remember(imageUrl) {
-        mutableStateOf(imageUrl?.let { clipMeshFor(it) ?: meshCache[it] } ?: heldMesh.value)
+        mutableStateOf(seed ?: imageUrl?.let { clipMeshFor(it) ?: meshCache[it] } ?: heldMesh.value)
     }
     // What the mesh on screen was actually read from: null while it is a
     // carry-over from the previous cover. Without this the guard below would
@@ -268,7 +343,7 @@ fun rememberArtworkMesh(
     // new one.
     var meshUrl by remember(imageUrl) {
         mutableStateOf(
-            if (imageUrl != null && (clipMeshFor(imageUrl) != null || meshCache[imageUrl] != null)) {
+            if (imageUrl != null && (seed != null || clipMeshFor(imageUrl) != null || meshCache[imageUrl] != null)) {
                 imageUrl
             } else {
                 null
@@ -355,6 +430,14 @@ fun ArtworkMeshBackdrop(
     /** What the surface is before any artwork has been read. */
     fallback: Color = FallbackBackdrop,
 ) {
+    ArtworkMeshBackdrop(mesh, modifier, seam, fallback, mix = null)
+}
+
+@Composable
+internal fun ArtworkMeshBackdrop(
+    mesh: ArtworkMesh?, modifier: Modifier, seam: () -> Dp, fallback: Color = FallbackBackdrop,
+    mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean = false,
+) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
     // The mesh on screen, and the one fading in over it. Two states rather than
@@ -365,7 +448,8 @@ fun ArtworkMeshBackdrop(
     var incoming by remember { mutableStateOf<ArtworkMesh?>(null) }
     val fade = remember { Animatable(0f) }
 
-    LaunchedEffect(mesh) {
+    LaunchedEffect(mesh, mix) {
+        if (mix != null) return@LaunchedEffect
         val next = mesh ?: return@LaunchedEffect
         // A change arriving mid-fade. Whatever was fading in has been on screen
         // for a while and is what the new one should fade *from*; leaving it in
@@ -389,6 +473,14 @@ fun ArtworkMeshBackdrop(
         incoming = null
     }
 
+    // If a still/frame fade was running, pin the last drawn blend, not its target.
+    val drawn = remember { DrawnMesh() }
+    val outgoing = remember(mix) {
+        if (mix == null) null else drawn.copy().also {
+            if (!it.wasDrawn) it.base = mix.outgoingUrl?.let { url -> clipMeshFor(url) ?: meshCache[url] }
+                ?: mesh.takeIf { currentIsOutgoing }
+        }
+    }
     Canvas(
         modifier = modifier
             .fillMaxSize()
@@ -397,10 +489,18 @@ fun ArtworkMeshBackdrop(
             .background(fallback),
     ) {
         val seamY = seam().toPx().coerceIn(0f, size.height)
-        shown?.let { drawMesh(it, seamY, alpha = 1f) }
-        // Read here rather than in composition: an Animatable read inside a
-        // draw lambda invalidates the drawing and leaves composition out of it.
-        incoming?.let { drawMesh(it, seamY, alpha = fade.value) }
+        if (outgoing != null && mix != null) {
+            outgoing.base?.let { drawMesh(it, seamY, alpha = 1f) }
+            outgoing.overlay?.let { drawMesh(it, seamY, alpha = outgoing.alpha) }
+            mix.prepared?.mesh?.let { drawMesh(it, seamY, alpha = mix.ease()) }
+        } else {
+            drawn.wasDrawn = true
+            drawn.base = shown
+            drawn.overlay = incoming
+            drawn.alpha = fade.value
+            drawn.base?.let { drawMesh(it, seamY, alpha = 1f) }
+            drawn.overlay?.let { drawMesh(it, seamY, alpha = drawn.alpha) }
+        }
 
         // Enough of a scrim to keep white text off a bright sleeve, and no
         // more. The old backdrop needed a heavier one because it lightened
@@ -416,6 +516,13 @@ fun ArtworkMeshBackdrop(
         )
     }
 }
+
+private data class DrawnMesh(
+    var wasDrawn: Boolean = false,
+    var base: ArtworkMesh? = null,
+    var overlay: ArtworkMesh? = null,
+    var alpha: Float = 0f,
+)
 
 /**
  * Paints [mesh] over the whole surface: the grid from [seamY] down, and its
@@ -468,6 +575,8 @@ private const val FULL_BLUR_SOURCE_PX = 128
 private const val FULL_BLUR_PASSES = 3
 
 /** A handful of recent covers; each entry is only 64 KiB at 128x128 ARGB. */
+internal fun cachedFullArtworkBlur(imageUrl: String?): ImageBitmap? = imageUrl?.let(fullBlurCache::get)
+
 private val fullBlurCache = object : LinkedHashMap<String, ImageBitmap>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ImageBitmap>) = size > 8
 }

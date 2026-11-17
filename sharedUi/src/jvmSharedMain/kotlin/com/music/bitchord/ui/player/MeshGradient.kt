@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,10 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import coil3.compose.LocalPlatformContext
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
@@ -121,27 +124,49 @@ fun MeshGradientBackground(
      */
     paused: Boolean = false,
 ) {
+    MeshGradientBackground(palette, modifier, trackKey, driftMillis, continuous, blurRadius, animated,
+        colorFadeMillis, paused, mix = null, snapKey = null, settled = false, currentIsOutgoing = false)
+}
+
+@Composable
+internal fun MeshGradientBackground(
+    palette: MeshPalette, modifier: Modifier, trackKey: Any?, driftMillis: Int = 8_000,
+    continuous: Boolean = false, blurRadius: Dp = 64.dp, animated: Boolean = true,
+    colorFadeMillis: Int = 1400, paused: Boolean = false, mix: AutoMixAmbientMix?,
+    snapKey: Any?, settled: Boolean, currentIsOutgoing: Boolean,
+) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
-    val tuned = (palette.colors.ifEmpty { FallbackColors } + FallbackColors)
-        .take(4)
-        .map { it.tuned() }
+    val lastDrawn = remember { LastLegacyAmbientColors() }
+    val held = remember(mix) {
+        if (mix == null) null else lastDrawn.colors ?: run {
+            val slots = (cachedArtworkPalette(mix.outgoingUrl)
+                ?: if (currentIsOutgoing) palette else MeshPalette(FallbackColors)).tunedSlots()
+            LegacyAmbientColors(slots, slots.first().dimmed())
+        }
+    }
+    val tuned = held?.slots ?: palette.tunedSlots()
 
     // Each colour slot crossfades independently when the track (palette) changes,
     // unless "reduce animation" is on, in which case colours snap straight to target.
     val colorSpec: AnimationSpec<Color> = if (reduceAnimation || !animated) snap() else tween(colorFadeMillis)
-    val animatedColors = tuned.mapIndexed { index, color ->
-        animateColorAsState(color, colorSpec, label = "meshColor$index").value
+    val (animatedColors, baseColor) = key(snapKey) {
+        val slots = tuned.mapIndexed { index, color ->
+            animateColorAsState(color, colorSpec, label = "meshColor$index")
+        }
+        slots to animateColorAsState(held?.base ?: tuned.first().dimmed(), colorSpec, label = "meshBase")
     }
-    val baseColor by animateColorAsState(tuned.first().dimmed(), colorSpec, label = "meshBase")
+    val target = remember(mix) {
+        mix?.prepared?.palette?.tunedSlots()?.let { LegacyAmbientColors(it, it.first().dimmed()) }
+    }
 
     // Read in the draw lambda, not here: an Animatable read during draw
     // invalidates only the drawing, leaving composition out of the loop.
     val phase = remember { Animatable(0f) }
-    LaunchedEffect(trackKey, reduceAnimation, continuous, animated, paused) {
+    LaunchedEffect(trackKey, reduceAnimation, continuous, animated, paused, mix, settled) {
         when {
             !animated || reduceAnimation -> phase.snapTo(0f)
-            paused -> Unit
+            paused || mix != null || settled -> Unit
             // A full turn at a time, restarted rather than looped with an
             // infinite spec: the blobs' speeds are irrational multiples of each
             // other, so the pattern never repeats, and a linear phase keeps the
@@ -181,7 +206,9 @@ fun MeshGradientBackground(
                 scaleX = 1.3f
                 scaleY = 1.3f
             }
-            .background(baseColor)
+            .then(if (held == null || mix == null) Modifier.background(baseColor.value) else Modifier.drawBehind {
+                drawRect(ambientColor(held.base, target?.base, mix.ease()))
+            })
             .blur(blurRadius),
     ) {
         val anchors = listOf(
@@ -193,7 +220,13 @@ fun MeshGradientBackground(
         val speeds = listOf(1f, -0.7f, 0.85f, -1.15f)
         val drift = phase.value
 
-        animatedColors.forEachIndexed { index, color ->
+        val e = mix?.ease() ?: 0f
+        val slots = held?.slots ?: animatedColors.map { it.value }
+        if (held == null && trackKey != null) {
+            lastDrawn.colors = LegacyAmbientColors(slots, baseColor.value)
+        }
+        slots.forEachIndexed { index, slot ->
+            val color = ambientColor(slot, target?.slots?.get(index), e)
             val anchor = anchors[index]
             val center = Offset(
                 x = (anchor.x + 0.16f * cos(drift * speeds[index] + index * 1.7f)) * size.width,
@@ -227,6 +260,18 @@ fun MeshGradientBackground(
             ),
         )
     }
+}
+
+private class LastLegacyAmbientColors(var colors: LegacyAmbientColors? = null)
+private class LegacyAmbientColors(val slots: List<Color>, val base: Color)
+
+private fun MeshPalette.tunedSlots(): List<Color> =
+    (colors.ifEmpty { FallbackColors } + FallbackColors).take(4).map { it.tuned() }
+
+private fun ambientColor(from: Color, to: Color?, e: Float): Color = when {
+    to == null || e <= 0f -> from
+    e >= 1f -> to
+    else -> lerp(from, to, e) // Compose interpolates in Oklab.
 }
 
 /** A blob's opacity at its centre. */
@@ -293,16 +338,20 @@ fun cyclingMeshPalette(
  * takes over from there, crossfading in exactly like a track skip.
  */
 @Composable
-fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): MeshPalette {
+fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): MeshPalette =
+    rememberArtworkColors(imageUrl, canvasFrame, seed = null)
+
+@Composable
+internal fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap?, seed: MeshPalette?): MeshPalette {
     val context = LocalPlatformContext.current
-    var palette by remember(imageUrl) { mutableStateOf(MeshPalette(FallbackColors)) }
+    var palette by remember(imageUrl) { mutableStateOf(seed ?: MeshPalette(FallbackColors)) }
 
     LaunchedEffect(imageUrl) {
-        if (imageUrl == null) return@LaunchedEffect
-        val bitmap = prefetchedArtworkPalette?.takeIf { it.url == imageUrl }?.bitmap
-            ?: loadArtworkPaletteBitmap(context, imageUrl)
-            ?: return@LaunchedEffect
-        palette = MeshPalette(paletteOf(bitmap))
+        if (imageUrl == null || seed != null) return@LaunchedEffect
+        val next = cachedArtworkPalette(imageUrl)
+            ?: MeshPalette(paletteOf(loadArtworkPaletteBitmap(context, imageUrl) ?: return@LaunchedEffect))
+        artworkPaletteCache[imageUrl] = next
+        palette = next
     }
 
     LaunchedEffect(canvasFrame) {
@@ -317,15 +366,19 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
     return palette
 }
 
-// One prefetched software decode on Main. Coil can put the full cover in the
-// same cache slot if the URL cannot be resized; keep the 128px pixels reusable.
-private class PrefetchedArtworkPalette(val url: String, val bitmap: ImageBitmap)
-private var prefetchedArtworkPalette: PrefetchedArtworkPalette? = null
+// Keep quantized still palettes ready for ambient handoff, not just their 128px decodes.
+private val artworkPaletteCache = object : LinkedHashMap<String, MeshPalette>(0, 0.75f, true) {
+    override fun removeEldestEntry(eldest: Map.Entry<String, MeshPalette>) = size > 8
+}
 
-internal suspend fun prefetchArtworkPalette(context: PlatformContext, imageUrl: String) {
-    if (prefetchedArtworkPalette?.url == imageUrl) return
-    val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return
-    prefetchedArtworkPalette = PrefetchedArtworkPalette(imageUrl, bitmap)
+internal fun cachedArtworkPalette(imageUrl: String?): MeshPalette? = imageUrl?.let(artworkPaletteCache::get)
+
+internal suspend fun prefetchArtworkPalette(context: PlatformContext, imageUrl: String): MeshPalette? {
+    cachedArtworkPalette(imageUrl)?.let { return it }
+    val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return null
+    val palette = withContext(Dispatchers.Default) { MeshPalette(paletteOf(bitmap)) }
+    artworkPaletteCache[imageUrl] = palette
+    return palette
 }
 
 private suspend fun loadArtworkPaletteBitmap(context: PlatformContext, imageUrl: String): ImageBitmap? {

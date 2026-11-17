@@ -35,10 +35,14 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.ui.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
+import coil3.size.Precision
+import coil3.size.Scale
 import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -108,21 +112,62 @@ fun rememberFullArtworkBlurImage(
             return@LaunchedEffect
         }
         if (!prepare || imageUrl == null) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            // Same URL as the player's 1200px sleeve, so this is a small decode
-            // from Coil's shared fetch/disk result rather than another download.
-            .data(imageUrl.artworkAt(artPx))
-            .size(FULL_BLUR_SOURCE_PX)
-            .forPixelAccess()
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
-        val blurred = withContext(Dispatchers.Default) { bitmap.boxBlurred(FULL_BLUR_PASSES) }
-        val ready = blurred
-        fullBlurCache[imageUrl] = ready
+        val ready = loadFullArtworkBlur(context, imageUrl, artPx) ?: return@LaunchedEffect
         image = ready
     }
     return image
+}
+
+private suspend fun loadFullArtworkBlur(context: PlatformContext, imageUrl: String, artPx: Int): ImageBitmap? {
+    val request = artworkPixelsRequest(context, imageUrl, artPx, FULL_BLUR_SOURCE_PX)
+    val result = SingletonImageLoader.get(context).execute(request)
+    val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return null
+    val ready = withContext(Dispatchers.Default) { bitmap.boxBlurred(FULL_BLUR_PASSES) }
+    fullBlurCache[imageUrl] = ready
+    return ready
+}
+
+// Read the same artwork URL as the sleeve, so small pixel reads can share its disk entry.
+private fun artworkPixelsRequest(
+    context: PlatformContext,
+    imageUrl: String,
+    artPx: Int,
+    decodePx: Int,
+): ImageRequest = ImageRequest.Builder(context)
+    .data(imageUrl.artworkAt(artPx))
+    .size(decodePx)
+    .forPixelAccess()
+    .build()
+
+/** Warms one incoming cover. Call on Main, like the effects that own the URL-keyed ambient caches. */
+suspend fun prefetchAutoMixArtwork(context: PlatformContext, imageUrl: String) {
+    val loader = SingletonImageLoader.get(context)
+    if (meshCache[imageUrl] == null) {
+        val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
+        val result = loader.execute(request)
+        (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
+    }
+    if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
+    prefetchArtworkPalette(context, imageUrl)
+
+    // The mini surfaces derive their target from layout constraints. Warm their URL
+    // with an inexact row-sized decode, using the same crop scale as AsyncImage.
+    loader.execute(
+        ImageRequest.Builder(context)
+            .data(imageUrl.artworkAt(ROW_ART_PX))
+            .size(ROW_ART_PX)
+            .scale(Scale.FILL)
+            .precision(Precision.INEXACT)
+            .build(),
+    )
+    // Coil can give different decode sizes the same key. Leave the full-player
+    // cover in that slot when URLs coincide; the prepared ambient assets are separate.
+    loader.execute(
+        playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
+            .scale(Scale.FILL)
+            .precision(Precision.INEXACT)
+            .build(),
+    )
 }
 
 /**
@@ -223,11 +268,7 @@ fun rememberArtworkMesh(
 
     LaunchedEffect(imageUrl, artPx) {
         if (imageUrl == null || meshUrl == imageUrl) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(artPx))
-            .size(MESH_PX)
-            .forPixelAccess() // the sleeve has to be read back pixel by pixel
-            .build()
+        val request = artworkPixelsRequest(context, imageUrl, artPx, MESH_PX)
         // Tried more than once, because this effect is keyed on the artwork and
         // nothing else: a read that fails is not retried by Coil and cannot be
         // re-triggered from here, so one dropped connection used to leave the
@@ -239,9 +280,8 @@ fun rememberArtworkMesh(
             val result = SingletonImageLoader.get(context).execute(request)
             val bitmap = (result as? SuccessResult)?.image?.toImageBitmap()
             if (bitmap != null) {
-                val found = withContext(Dispatchers.Default) { meshOf(bitmap, imageUrl.hashCode()) }
+                val found = cacheStillMesh(imageUrl, bitmap)
                 if (found != null) {
-                    meshCache[imageUrl] = found
                     mesh = found
                 }
                 // A cover that decoded but had no mesh in it — see [meshOf] —
@@ -482,14 +522,20 @@ private fun boxBlurPass(
 /**
  * Meshes already read, keyed by artwork URL — the artwork at a URL cannot
  * change, so reading it twice buys a decode and a downsample for the same
- * answer. Touched from composition and from the resumption of
- * [rememberArtworkMesh]'s effect, both on the main thread, so it needs no lock.
+ * answer. Composition, [rememberArtworkMesh]'s effect and AutoMix prefetch
+ * all access it on the main thread, so it needs no lock.
  *
  * Clip frames never land here: the next one for the same URL is a different
  * picture, and there would be a new entry several times a second.
  */
 private val meshCache = object : LinkedHashMap<String, ArtworkMesh>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ArtworkMesh>) = size > MESH_CACHE_ENTRIES
+}
+
+private suspend fun cacheStillMesh(imageUrl: String, bitmap: ImageBitmap): ArtworkMesh? {
+    val found = withContext(Dispatchers.Default) { meshOf(bitmap, imageUrl.hashCode()) }
+    if (found != null) meshCache[imageUrl] = found
+    return found
 }
 
 /** The mesh of the clip last on screen, kept for when the player comes back to it. */

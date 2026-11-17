@@ -184,6 +184,8 @@ class CrossfadeController(
      * a later gapless boundary without waiting on the service.
      */
     private val onArmIncoming: (MediaItem, String?) -> Unit = { _, _ -> },
+    /** The armed incoming item, only when AutoMix owns the overlap. */
+    private val onArmAutoMixIncoming: (MediaItem) -> Unit = {},
     /**
      * A smooth headroom trim for both players while two tracks overlap:
      * `1 / sqrt(incomingGain + outgoingGain)`, 1 otherwise.
@@ -1503,6 +1505,7 @@ class CrossfadeController(
         }
 
         phase = Phase.ARMING
+        if (smart) items.getOrNull(nextIndex)?.let(onArmAutoMixIncoming)
         return true
     }
 
@@ -2625,6 +2628,7 @@ class CrossfadeController(
                 "incoming from ${"%.3f".format(Locale.ROOT, session.inStartTrack)}s, handover at " +
                 "${"%.3f".format(Locale.ROOT, session.handoverTrack)}s, mix ${"%.1f".format(Locale.ROOT, session.clock.elementAt)}s",
         )
+        items.getOrNull(nextIndex)?.let(onArmAutoMixIncoming)
     }
 
     /** Waits for the outgoing sink to splice over to the renderer. */

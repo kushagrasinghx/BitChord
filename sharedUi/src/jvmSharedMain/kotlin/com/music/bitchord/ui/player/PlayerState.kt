@@ -92,6 +92,9 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     return canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
 }
 
+internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): ImageRequest.Builder =
+    ImageRequest.Builder(context).data(artworkUrl).size(ART_PX)
+
 /**
  * The player's cover: the one request every surface draws it from, whether it
  * has loaded, and the bounded retries after a failure.
@@ -165,9 +168,7 @@ internal class PlayerArtwork(
      */
     val request: ImageRequest by derivedStateOf {
         val attempt = attempt
-        ImageRequest.Builder(context)
-            .data(url)
-            .size(ART_PX)
+        playerCoverRequest(context, url)
             // Not part of the cache key, so the mesh and the palette still share it.
             .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison

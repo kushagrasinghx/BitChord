@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.music.bitchord.ui.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
+import coil3.PlatformContext
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
@@ -298,13 +299,9 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
 
     LaunchedEffect(imageUrl) {
         if (imageUrl == null) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl)
-            .size(128) // palette quality is fine at thumbnail size, and it's fast
-            .forPixelAccess() // Palette needs pixel access
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
+        val bitmap = prefetchedArtworkPalette?.takeIf { it.url == imageUrl }?.bitmap
+            ?: loadArtworkPaletteBitmap(context, imageUrl)
+            ?: return@LaunchedEffect
         palette = MeshPalette(paletteOf(bitmap))
     }
 
@@ -318,6 +315,27 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
         palette = MeshPalette(colors)
     }
     return palette
+}
+
+// One prefetched software decode on Main. Coil can put the full cover in the
+// same cache slot if the URL cannot be resized; keep the 128px pixels reusable.
+private class PrefetchedArtworkPalette(val url: String, val bitmap: ImageBitmap)
+private var prefetchedArtworkPalette: PrefetchedArtworkPalette? = null
+
+internal suspend fun prefetchArtworkPalette(context: PlatformContext, imageUrl: String) {
+    if (prefetchedArtworkPalette?.url == imageUrl) return
+    val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return
+    prefetchedArtworkPalette = PrefetchedArtworkPalette(imageUrl, bitmap)
+}
+
+private suspend fun loadArtworkPaletteBitmap(context: PlatformContext, imageUrl: String): ImageBitmap? {
+    val request = ImageRequest.Builder(context)
+        .data(imageUrl)
+        .size(128) // palette quality is fine at thumbnail size, and it's fast
+        .forPixelAccess()
+        .build()
+    val result = SingletonImageLoader.get(context).execute(request)
+    return (result as? SuccessResult)?.image?.toImageBitmap()
 }
 
 /**

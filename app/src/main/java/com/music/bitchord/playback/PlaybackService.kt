@@ -103,6 +103,7 @@ import com.music.bitchord.data.listentogether.partyUpcomingAfter
 import com.music.bitchord.R
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
@@ -137,6 +138,7 @@ import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.remote.RemoteArtworkStore
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
 import com.music.bitchord.data.scrobbling.ScrobbleManager
@@ -153,6 +155,7 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.ui.player.prefetchAutoMixArtwork
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
 import com.music.bitchord.wear.WearBridge
@@ -2070,6 +2073,39 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    private var autoMixArtworkJob: Job? = null
+
+    private fun prefetchAutoMixIncoming(item: MediaItem) {
+        autoMixArtworkJob?.cancel()
+        autoMixArtworkJob = scope.launch {
+            val song = item.toSong()
+            // Canvas resolution is independent of still-art extraction and decoding.
+            launch {
+                if (AppSettings.animatedCanvas.value &&
+                    (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
+                ) {
+                    // The repository handles provider settings and caches both hits and settled misses.
+                    CanvasRepository.canvasFor(song)
+                }
+            }
+
+            try {
+                val artUrl = song.thumbnailUrl ?: if (
+                    song.videoId.startsWith("webdav:") || song.videoId.startsWith("smb:")
+                ) {
+                    withContext(Dispatchers.IO) { RemoteArtworkStore.resolveArt(this@PlaybackService, song) }
+                } else {
+                    null
+                }
+                if (artUrl != null) prefetchAutoMixArtwork(this@PlaybackService, artUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "AutoMix artwork prefetch failed", e)
+            }
+        }
+    }
+
     private fun createCrossfadeController() = CrossfadeController(
             scope,
             active = { requireNotNull(player) },
@@ -2115,6 +2151,7 @@ class PlaybackService : MediaLibraryService() {
             // levelled on its own sink before it renders a frame, and the
             // outgoing track keeps its own gain for the rest of the blend.
             onArmIncoming = { item, nextId -> spareLoudness().track(item.mediaId, nextId) },
+            onArmAutoMixIncoming = ::prefetchAutoMixIncoming,
             // Both sinks, not a role: the trim is about what the pair sums to.
             onBlendHeadroom = { trim ->
                 loudnessA.setBlendTrim(trim)

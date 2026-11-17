@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class McpLifecycleTest {
-    @Test fun failureSurvivesQueuedStopAndCanBeRetried() = runBlocking {
+    @Test fun failureSurvivesQueuedStopAndCanBeRetried(): Unit = runBlocking {
         try {
             repeat(100) { attempt ->
                 McpServer.stop()

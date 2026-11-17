@@ -2226,6 +2226,11 @@ class PlaybackService : MediaLibraryService() {
                 CommandButton.ICON_SHUFFLE_OFF
             },
         )
+            // The player's own crossed strands, as with the star above; Previous
+            // and Next follow it through res/drawable-anydpi-v4/media3_icon_*.
+            .setCustomIconResId(
+                if (shuffleEnabled) R.drawable.ic_notification_shuffle else R.drawable.ic_notification_shuffle_off,
+            )
             .setSessionCommand(shuffleCommand)
             .setDisplayName(if (shuffleEnabled) "Shuffle off" else "Shuffle on")
             .build()

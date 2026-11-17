@@ -240,6 +240,12 @@ android {
         resources {
             // SMBJ's BouncyCastle and jspecify both ship this descriptor.
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // BouncyCastle data nothing here reads (~1.2 MB); see app/build.gradle.kts.
+            excludes += setOf(
+                "org/bouncycastle/pqc/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+                "org/bouncycastle/pkix/CertPathReviewerMessages*.properties",
+            )
         }
     }
     buildFeatures {

@@ -224,6 +224,15 @@ android {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
             // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one licence between them.
             pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
+            // BouncyCastle data nothing here reads (~1.2 MB): the Picnic
+            // post-quantum signature tables and the certificate-path
+            // reviewer's message bundles. SMBJ, libadb and the watch
+            // installer only use digests, AES/GCM, HKDF and the X.509 builder.
+            excludes += setOf(
+                "org/bouncycastle/pqc/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+                "org/bouncycastle/pkix/CertPathReviewerMessages*.properties",
+            )
         }
     }
     buildFeatures {

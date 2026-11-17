@@ -580,11 +580,14 @@ object ListeningStats {
             // Merge day-level sub-buckets for the flat days map and cross-month totals.
             addDaySubs(bucket)
             bucket.days.forEach { (day, ms) ->
-                val candidate = "${bucket.month}-%02d".format(day)
-                val date = runCatching { LocalDate.parse(candidate.replace("-", "/")) }.getOrNull()
+                // Built from numbers rather than parsed back from a string:
+                // "2026/11/05" is not ISO, so every day used to be dropped and
+                // the week never had a busiest day.
+                val date = runCatching { YearMonth.parse(bucket.month).atDay(day) }.getOrNull()
                     ?: return@forEach
                 if (date >= range.first && date <= range.second) {
-                    days[candidate] = (days[candidate] ?: 0L) + ms
+                    val key = date.toString()
+                    days[key] = (days[key] ?: 0L) + ms
                 }
             }
         }

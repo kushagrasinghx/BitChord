@@ -63,6 +63,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaLibraryService.LibraryParams
@@ -1992,6 +1993,7 @@ class PlaybackService : MediaLibraryService() {
         )
             .setId(SESSION_ID)
             .setSessionActivity(sessionActivity())
+            .setSessionExtras(transportSlotReservations())
             .build()
         refreshCustomLayouts()
 
@@ -1999,6 +2001,26 @@ class PlaybackService : MediaLibraryService() {
         // whose queue is already restored.
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+    }
+
+    /**
+     * Keeps Previous and Next in their places even while there is nowhere to go.
+     *
+     * Without these, Media3 converts the custom layout by moving its first
+     * button into the Back slot when Previous is unavailable, and into the
+     * Forward slot when Next is: on the last song of a queue, or a single song
+     * opened from a link, that was Favorite, sitting exactly where Next was.
+     * System UI follows the same two keys when it lays out the platform
+     * session. Phones whose panels hold their button positions turned a tap on
+     * "Next" into a Like on YouTube Music. With them set, an unavailable
+     * Previous or Next just leaves its slot empty or disabled.
+     *
+     * Queue edits copy [MediaSession.getSessionExtras] before adding to them,
+     * so these stay set for the life of the session.
+     */
+    private fun transportSlotReservations() = Bundle().apply {
+        putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true)
+        putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true)
     }
 
     private fun newSessionPlayer(player: Player, crossfade: CrossfadeController) = SessionPlayer(

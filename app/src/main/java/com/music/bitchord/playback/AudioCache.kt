@@ -987,6 +987,20 @@ object AudioCache {
     }
 
     /**
+     * Whether [mediaId] has a complete rendition on disk.
+     *
+     * Cache-ahead spends the network for the next item only after the item
+     * currently playing has itself made it safely into the cache. A few head
+     * bytes are not enough: they are normal streaming buffer and must not
+     * unlock a whole-file fetch for another track.
+     */
+    fun hasCompleteCopy(mediaId: String): Boolean {
+        if (!::cache.isInitialized || mediaId.isBlank()) return false
+        val keys = keysOf(mediaId)
+        return keys.any(::isComplete)
+    }
+
+    /**
      * Takes every rendition of [mediaId] off disk, and with it the track's row
      * in the Cached songs folder. The listener asked, from a song's menu or
      * the folder itself.

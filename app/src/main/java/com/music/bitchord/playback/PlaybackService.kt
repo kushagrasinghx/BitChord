@@ -4349,6 +4349,12 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        if (cacheAheadCurrentMediaId != mediaItem?.mediaId) {
+            cancelCacheAhead("the current item changed")
+            cacheAheadCurrentMediaId = null
+            cacheAheadCurrentPlayedMs = 0L
+            cacheAheadLastSampleAt = 0L
+        }
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -7395,11 +7401,10 @@ class PlaybackService : MediaLibraryService() {
      *
      * ### The shape of a pass
      *
-     * One track is worked at a time, in play order: the first eligible item
-     * after the one playing, out to [CACHE_AHEAD_DEPTH]. "Fully cached" is the
-     * mark condition, so a pass is idempotent — a track already on disk marks
-     * within a step, the chain moves to the one behind it, and the queue ahead
-     * fills while the current track plays.
+     * Only the immediate next item is worked. It becomes eligible after the
+     * current item has played for a little while and has a complete local
+     * copy. A skip or a queue edit changes that current/next pair and cancels
+     * its work, rather than carrying a fetch over to a different queue.
      *
      * ### What the existing flow still owns
      *
@@ -7424,6 +7429,16 @@ class PlaybackService : MediaLibraryService() {
 
     /** The media id [cacheAheadJob] is resolving or caching, or null. */
     private var cacheAheadFor: String? = null
+
+    /** The playback pair [cacheAheadJob] belongs to. */
+    private data class CacheAheadContext(val currentMediaId: String, val nextMediaId: String)
+
+    private var cacheAheadContext: CacheAheadContext? = null
+
+    /** Actual uninterrupted playback accumulated for the current item. */
+    private var cacheAheadCurrentMediaId: String? = null
+    private var cacheAheadCurrentPlayedMs = 0L
+    private var cacheAheadLastSampleAt = 0L
 
     /**
      * The last cache-ahead pass each media id had, and how many passes it
@@ -7468,68 +7483,85 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun cacheAheadTick() {
         val exoPlayer = player ?: return
-        if (!AppSettings.prefetchNextTrack.value) return
-        if (DirectSourceGate.isActive()) return
-        if (ListenTogether.state.value.inParty) return
+        if (!AppSettings.prefetchNextTrack.value ||
+            DirectSourceGate.isActive() ||
+            ListenTogether.state.value.inParty
+        ) {
+            cancelCacheAhead("cache-ahead is unavailable")
+            return
+        }
         // The mark is final — a marked item keeps its rendition for the whole
         // play — so the work is only worth doing when the setting asks for the
         // thing the addons exist to serve. Under the lower ceilings the addons
         // are never asked for playback at all.
-        if (SourceResolver.requestForNow() !is StreamRequest.Lossless) return
-        if (!exoPlayer.isPlaying) return
+        if (SourceResolver.requestForNow() !is StreamRequest.Lossless || !exoPlayer.isPlaying) {
+            if (!exoPlayer.isPlaying) cacheAheadLastSampleAt = 0L
+            cancelCacheAhead("playback is not eligible")
+            return
+        }
         // Mid-blend the incoming track is already open on the standby, which
         // copied the queue before the fade began; a mark from here would race
         // the handoff.
-        if (crossfade?.isTransitioning() == true) return
-
-        // One fetch at a time. It runs to completion unless its item has left
-        // the queue entirely — anything else (a skip promoting it, the queue
-        // reordering) is settled by the fetch's own mark step, which
-        // re-validates before it touches the item.
-        val activeFor = cacheAheadFor?.takeIf { cacheAheadJob?.isActive == true }
-        if (activeFor != null) {
-            val stillQueued = (0 until exoPlayer.mediaItemCount)
-                .any { exoPlayer.getMediaItemAt(it).mediaId == activeFor }
-            if (stillQueued) return
-            cacheAheadJob?.cancel()
-            cacheAheadFor = null
+        if (crossfade?.isTransitioning() == true) {
+            cacheAheadLastSampleAt = 0L
+            cancelCacheAhead("a crossfade started")
+            return
         }
 
-        val target = upcomingCacheAheadItem(exoPlayer) ?: return
-        startCacheAheadFetch(target)
+        val current = exoPlayer.currentMediaItem ?: run {
+            cancelCacheAhead("there is no current item")
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (cacheAheadCurrentMediaId != current.mediaId) {
+            cacheAheadCurrentMediaId = current.mediaId
+            cacheAheadCurrentPlayedMs = 0L
+        } else if (cacheAheadLastSampleAt != 0L) {
+            cacheAheadCurrentPlayedMs += now - cacheAheadLastSampleAt
+        }
+        cacheAheadLastSampleAt = now
+        val nextIndex = exoPlayer.nextMediaItemIndex
+        if (nextIndex == C.INDEX_UNSET) {
+            cancelCacheAhead("there is no next item")
+            return
+        }
+        val next = exoPlayer.getMediaItemAt(nextIndex)
+        val context = CacheAheadContext(current.mediaId, next.mediaId)
+
+        // A fetch is valid only for the exact current/next pair that started
+        // it. Retargeting after a skip is wasted work and can park a stale
+        // addon URL for an item that is no longer next.
+        if (cacheAheadJob?.isActive == true) {
+            if (cacheAheadContext == context) return
+            cancelCacheAhead("the current or next item changed")
+        }
+
+        if (cacheAheadCurrentPlayedMs < CACHE_AHEAD_CURRENT_PLAYED_MS) return
+        if (!AudioCache.hasCompleteCopy(current.mediaId)) return
+        if (!cacheAheadEligible(next)) return
+
+        val attempt = cacheAheadTried[next.mediaId]
+        val dueAt = attempt?.let { it.at + cacheAheadBackoffMs(it.tries) } ?: 0L
+        if (SystemClock.elapsedRealtime() < dueAt) return
+        startCacheAheadFetch(next, context)
     }
 
     /**
-     * The first eligible item strictly after the one playing, in play order
-     * and out to [CACHE_AHEAD_DEPTH] — or null.
-     *
-     * Deeper than one because the chain is the point: each mark frees the
-     * fetch for the next track, so the queue ahead fills while the current
-     * one plays, and skipping two songs in still lands on disk. The walk uses
-     * the timeline's own next-index, which follows the shuffle order the
-     * player is playing by, not the row order it is stored in.
+     * Stops an unfinished cache-ahead request and removes its parked source.
+     * The bytes written before cancellation remain normal cache contents, but
+     * no queued item is marked to use them.
      */
-    private fun upcomingCacheAheadItem(exoPlayer: ExoPlayer): MediaItem? {
-        val timeline = exoPlayer.currentTimeline
-        if (timeline.isEmpty) return null
-        val shuffle = exoPlayer.shuffleModeEnabled
-        var index = timeline.getNextWindowIndex(
-            exoPlayer.currentMediaItemIndex,
-            Player.REPEAT_MODE_OFF,
-            shuffle,
-        )
-        var depth = 0
-        while (index != C.INDEX_UNSET && depth < CACHE_AHEAD_DEPTH) {
-            val item = exoPlayer.getMediaItemAt(index)
-            val attempt = cacheAheadTried[item.mediaId]
-            val dueAt = attempt?.let { it.at + cacheAheadBackoffMs(it.tries) } ?: 0L
-            if (cacheAheadEligible(item) && SystemClock.elapsedRealtime() >= dueAt) {
-                return item
-            }
-            index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffle)
-            depth++
+    private fun cancelCacheAhead(reason: String) {
+        val mediaId = cacheAheadFor
+        if (cacheAheadJob?.isActive == true) {
+            TrackLog.d("BitChord", "cache-ahead: cancelled because $reason", about = mediaId)
+            cacheAheadJob?.cancel()
         }
-        return null
+        mediaId?.let(QualityUpgrade::forget)
+        cacheAheadJob = null
+        cacheAheadFor = null
+        cacheAheadContext = null
+        cacheAheadTried.clear()
     }
 
     /**
@@ -7560,12 +7592,13 @@ class PlaybackService : MediaLibraryService() {
      * scheme exists to make irrelevant. Until the mark the item keeps its
      * original URI and resolves live at its open, as it always has.
      */
-    private fun startCacheAheadFetch(next: MediaItem) {
+    private fun startCacheAheadFetch(next: MediaItem, context: CacheAheadContext) {
         val mediaId = next.mediaId
         val attempt = cacheAheadTried.computeIfAbsent(mediaId) { CacheAheadAttempt() }
         attempt.at = SystemClock.elapsedRealtime()
         attempt.tries++
         cacheAheadFor = mediaId
+        cacheAheadContext = context
         val song = next.toSong()
         val target = TrackMatcher.targetOf(song)
         TrackLog.d("BitChord", "cache-ahead: asking the addons for '${song.title}'", about = mediaId)
@@ -7593,18 +7626,19 @@ class PlaybackService : MediaLibraryService() {
             val manifestStream = StreamContainer.isManifest(stream.url)
             if (!manifestStream) QualityUpgrade.force(mediaId, stream)
 
-            // The queue can move while the search ran. An item that became
-            // current in that time is already resolving live through the
-            // ordinary path; its found stream goes to the shelf that flow
-            // reads rather than being dropped.
-            val becameCurrent = withContext(Dispatchers.Main) {
-                player?.currentMediaItem?.mediaId == mediaId
+            // The queue can move while the search ran. This fetch is only
+            // valid while its original item is still the immediate next one.
+            val stillTarget = withContext(Dispatchers.Main) {
+                cacheAheadContext == context &&
+                    player?.currentMediaItem?.mediaId == context.currentMediaId &&
+                    player?.nextMediaItemIndex?.let { index ->
+                        index != C.INDEX_UNSET && player?.getMediaItemAt(index)?.mediaId == mediaId
+                    } == true
             }
-            if (becameCurrent) {
-                QualityUpgrade.shelve(mediaId, stream)
+            if (!stillTarget) {
                 TrackLog.d(
                     "BitChord",
-                    "cache-ahead: '$mediaId' became current mid-lookup; shelved its ${stream.format.summary}",
+                    "cache-ahead: '$mediaId' stopped because its queue context changed",
                     about = mediaId,
                 )
                 return@launch
@@ -7648,7 +7682,7 @@ class PlaybackService : MediaLibraryService() {
                 "cache-ahead: '$mediaId' is fully cached ahead of its open",
                 about = mediaId,
             )
-            markCacheAheadItem(mediaId, stream)
+            markCacheAheadItem(mediaId, stream, context)
         }
     }
 
@@ -7661,11 +7695,23 @@ class PlaybackService : MediaLibraryService() {
      * progress is checked too: [replaceMediaItem] during one races the
      * handoff for a queue copy the standby may already hold.
      */
-    private suspend fun markCacheAheadItem(mediaId: String, stream: SourceStream) {
+    private suspend fun markCacheAheadItem(
+        mediaId: String,
+        stream: SourceStream,
+        context: CacheAheadContext,
+    ) {
         withContext(Dispatchers.Main) {
             val exoPlayer = player ?: return@withContext
+            if (cacheAheadContext != context ||
+                exoPlayer.currentMediaItem?.mediaId != context.currentMediaId ||
+                exoPlayer.nextMediaItemIndex == C.INDEX_UNSET ||
+                exoPlayer.getMediaItemAt(exoPlayer.nextMediaItemIndex).mediaId != mediaId
+            ) {
+                QualityUpgrade.forget(mediaId)
+                return@withContext
+            }
             if (crossfade?.isTransitioning() == true) {
-                QualityUpgrade.shelve(mediaId, stream)
+                QualityUpgrade.forget(mediaId)
                 return@withContext
             }
             val index = (0 until exoPlayer.mediaItemCount)
@@ -7681,15 +7727,6 @@ class PlaybackService : MediaLibraryService() {
             val item = exoPlayer.getMediaItemAt(index)
             val uri = item.localConfiguration?.uri
             if (uri == null || QualityUpgrade.cacheTag(uri) != null) return@withContext
-            if (exoPlayer.currentMediaItem?.mediaId == mediaId) {
-                QualityUpgrade.shelve(mediaId, stream)
-                TrackLog.d(
-                    "BitChord",
-                    "cache-ahead: '$mediaId' came current mid-cache; shelved its ${stream.format.summary}",
-                    about = mediaId,
-                )
-                return@withContext
-            }
             val finalUri = QualityUpgrade.upgradedUri(uri.toString())
             cacheAheadTried.remove(mediaId)
             QualityUpgrade.settleAhead(mediaId)
@@ -7712,6 +7749,14 @@ class PlaybackService : MediaLibraryService() {
                 "cache-ahead: next '$mediaId' opens on ${stream.format.summary} straight from the cache",
                 about = mediaId,
             )
+            // The parked stream now belongs to the upgraded queue item. Do
+            // not let a later queue reset treat it as an unfinished fetch and
+            // remove the stream the marked item must still read.
+            if (cacheAheadContext == context) {
+                cacheAheadFor = null
+                cacheAheadContext = null
+                cacheAheadJob = null
+            }
         }
     }
 
@@ -10853,14 +10898,8 @@ class PlaybackService : MediaLibraryService() {
          */
         const val CACHE_AHEAD_STEP_MS = 2_000L
 
-        /**
-         * How many tracks past the one playing cache-ahead works through, one
-         * at a time in play order. Three covers a skip or two ahead of the
-         * fetches without turning every radio queue into a whole-album
-         * prefetch: each lossless file is tens of megabytes, and the cache
-         * they land in has a limit it enforces by evicting.
-         */
-        const val CACHE_AHEAD_DEPTH = 3
+        /** The current track must have played this long before cache-ahead starts. */
+        const val CACHE_AHEAD_CURRENT_PLAYED_MS = 25_000L
 
         /**
          * How long after a pass started for an item before the *first* retry.

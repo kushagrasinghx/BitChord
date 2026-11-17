@@ -68,7 +68,8 @@ import kotlinx.coroutines.delay
 private const val VIDEO_CONTROLS_IDLE_MS = 3_500L
 
 /**
- * A music video on a phone held sideways: the picture is the whole screen,
+ * A music video on a phone held sideways, or on a tablet whose full-screen
+ * button asked for it, in either orientation: the picture is the whole screen,
  * letterboxed in black, with the system bars away. A tap brings the controls
  * up over it — the title, the scrubber and the transport — and they stand
  * down again a few seconds after the last touch while it plays, as in every

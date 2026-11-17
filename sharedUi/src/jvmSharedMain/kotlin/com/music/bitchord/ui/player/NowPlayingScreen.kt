@@ -32,6 +32,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -631,6 +632,21 @@ private fun tabletSizedPlayer(windowWidth: Dp): Boolean =
 fun landscapePlayerAvailable(windowWidth: Dp, windowHeight: Dp): Boolean =
     windowWidth > windowHeight && windowWidth >= LANDSCAPE_PLAYER_MIN_WIDTH
 
+/**
+ * The smallest window side from which a music video's full screen is a layout
+ * switched in place rather than a turn of the screen: Android's large-screen
+ * line, past which it ignores an app's orientation requests anyway.
+ */
+private val IN_PLACE_VIDEO_FULLSCREEN_MIN_SIDE = 600.dp
+
+/**
+ * Whether a music video goes full screen where it stands — a tablet, an
+ * unfolded foldable — rather than by turning the screen, as on a phone. Asked
+ * of the window's shorter side, so the answer doesn't flip with the device.
+ */
+private fun videoFullscreenInPlace(windowWidth: Dp, windowHeight: Dp): Boolean =
+    minOf(windowWidth, windowHeight) >= IN_PLACE_VIDEO_FULLSCREEN_MIN_SIDE
+
 /** How long the player stands under the lyrics untouched before standing down. */
 private const val LYRICS_CONTROLS_IDLE_MS = 5_000L
 /** Default Spotify Canvas delay before its optional automatic collapse. */
@@ -974,18 +990,40 @@ fun NowPlayingScreen(
     // The picture's shape, read only at layout (see the sleeve's card rect), so
     // a new aspect re-lays the sleeve out without recomposing the player.
     val videoAspectState = PlayerPlatform.host.musicVideoAspect.collectAsStateWithLifecycle()
-    // One rule for a music video: held upright it is the player, sideways it
-    // is the whole screen. The full-screen buttons turn the phone's screen
-    // rather than switching a layout.
+    // One rule for a music video on a phone: held upright it is the player,
+    // sideways it is the whole screen. The full-screen buttons turn the phone's
+    // screen rather than switching a layout.
     val screenOrientation = rememberScreenOrientation()
     // Whether a full-screen button turned the screen, which outlasts the video
     // that asked: the queue can move on to a song while it is still sideways.
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
+    // A tablet is the other way round: landscape is where it is usually held,
+    // so the video stays in the player there as it does upright, and full
+    // screen is a layout its buttons switch in place. Turning the screen isn't
+    // on offer anyway — Android ignores orientation requests on large screens.
+    val fullscreenInPlace = videoFullscreenInPlace(windowWidth, windowHeight)
+    var inPlaceFullscreen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(fullscreenInPlace, videoMode) {
+        if (!fullscreenInPlace || !videoMode) inPlaceFullscreen = false
+    }
+    val videoFullscreen = videoMode && if (fullscreenInPlace) inPlaceFullscreen else sideways
+    val enterFullscreen = {
+        if (fullscreenInPlace) {
+            inPlaceFullscreen = true
+        } else {
+            fullscreenRequested = true
+            screenOrientation.landscape()
+        }
+    }
     val exitFullscreen = {
-        fullscreenRequested = false
-        screenOrientation.portrait()
+        if (fullscreenInPlace) {
+            inPlaceFullscreen = false
+        } else {
+            fullscreenRequested = false
+            screenOrientation.portrait()
+        }
     }
     var canvasAspect by remember(canvas) { mutableFloatStateOf(0f) }
     // Whether the clip actually has a frame on screen right now, and one of
@@ -1217,7 +1255,10 @@ fun NowPlayingScreen(
     // than past it to the mini player: with the phone lying flat no sensor
     // turns the screen back, so Home would be left sideways. First in this list
     // so anything opened over the video, such as its quality sheet, closes first.
-    PlayerBackHandler(enabled = sideways && (videoMode || fullscreenRequested), onBack = exitFullscreen)
+    PlayerBackHandler(
+        enabled = if (fullscreenInPlace) videoFullscreen else sideways && (videoMode || fullscreenRequested),
+        onBack = exitFullscreen,
+    )
 
     // Back out of the lyrics panel to the player, and only from the player
     // itself out to the mini player.
@@ -2011,14 +2052,14 @@ fun NowPlayingScreen(
         // controls. On over a Canvas: the controls only show with its dim and
         // glass deck up, so the glyphs blend into the blurred, darkened clip.
         // And off everywhere with "Disable blend effects".
-        chrome = !disableBlendEffects && !(landscape && videoMode),
+        chrome = !disableBlendEffects && !videoFullscreen,
         frost = frost,
         live = spotifyCanvasPresentation,
         // Not the host's ⋯ menu: that takes its own still, of everything.
         overlayOpen = { overlayOpen.value && !currentMenuOpen() },
         overlays = playerOverlays,
     ) {
-        if (landscape && videoMode) {
+        if (videoFullscreen) {
             val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
             val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
             Box(modifier = Modifier.fillMaxSize().then(dockHost)) {
@@ -2216,6 +2257,44 @@ fun NowPlayingScreen(
                                     closeLyrics()
                                 },
                         ) {
+                            // A music video where the window doesn't make it the
+                            // whole screen — a tablet held sideways: the picture
+                            // takes the sleeve's own square, letterboxed in black
+                            // (or cropped to it, under square video thumbnails),
+                            // with the same corner buttons as the upright card.
+                            // Put away for the trip to the mini player, as the
+                            // portrait card is: the cover in the bar is the still.
+                            if (videoMode) {
+                                WhileShown({ !docking() }) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer {
+                                                shape = landscapeArtShape()
+                                                clip = true
+                                            }
+                                            .background(Color.Black),
+                                    ) {
+                                        if (!videoRendered) VideoLoadingBackdrop(Modifier.fillMaxSize())
+                                        MusicVideoSurface(
+                                            videoId = song.videoId,
+                                            fit = !squareVideo,
+                                            onRenderedChanged = { videoRendered = it },
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                        if (!panelOpen) {
+                                            VideoCornerControls(
+                                                fullscreen = false,
+                                                onToggleFullscreen = enterFullscreen,
+                                                onOpenQuality = { showVideoQuality = true },
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(8.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             // The stats belong to the player, not to the sleeve, so
                             // they leave it along with the rest of the player.
                             SleeveNerdStats(
@@ -3683,10 +3762,7 @@ fun NowPlayingScreen(
                                     )
                                     VideoCornerControls(
                                         fullscreen = false,
-                                        onToggleFullscreen = {
-                                            fullscreenRequested = true
-                                            screenOrientation.landscape()
-                                        },
+                                        onToggleFullscreen = enterFullscreen,
                                         onOpenQuality = { showVideoQuality = true },
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)

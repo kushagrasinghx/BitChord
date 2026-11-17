@@ -2444,6 +2444,7 @@ class PlaybackService : MediaLibraryService() {
 
         versionSwapJob?.cancel()
         val generation = ++versionSwapGeneration
+        AppSettings.versionSwapSheen.value = false
         versionSwapJob = scope.launch(Dispatchers.Main) {
             val mediaId = targetMediaItem.mediaId
             swappingMediaId = mediaId
@@ -2617,6 +2618,7 @@ class PlaybackService : MediaLibraryService() {
             val swapCrossfadeMs = 550L
             val fadeStart = SystemClock.elapsedRealtime()
             if (!holdsSwitchBar) {
+                AppSettings.versionSwapSheen.value = true
                 AppSettings.smartMixInProgress.value = true
             }
 
@@ -2665,6 +2667,7 @@ class PlaybackService : MediaLibraryService() {
             }
             } finally {
                 if (generation == versionSwapGeneration) {
+                    AppSettings.versionSwapSheen.value = false
                     AppSettings.versionAlignmentInProgress.value = false
                 }
             }

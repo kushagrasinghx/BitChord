@@ -131,6 +131,7 @@ import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.AutoMixArtworkTuning
+import com.music.bitchord.playback.AutoMixVisualState
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -218,8 +219,7 @@ internal fun PlayerScrubber(
     durationMs: Long,
     /** A version switch's wait, drawn along the bar — see [ThinSlider.loading]. */
     loading: Boolean,
-    /** An analysed Automix handoff, drawn as a travelling sheen. */
-    mixing: Boolean,
+    scrubbing: Boolean,
     isPlaying: Boolean,
     transitionWindow: ClosedFloatingPointRange<Float>?,
     onScrub: (Float) -> Unit,
@@ -229,22 +229,28 @@ internal fun PlayerScrubber(
     val shown = shown()
     val showTotalDuration by PlayerSettings.showTotalDuration.collectAsStateWithLifecycle()
     val totalDuration = durationMs.takeIf { it > 0L }
-    // Held as a State and read only inside the bar's draw: the blend republishes
-    // every fade tick, and collecting it by value here would recompose the
-    // scrubber and its labels thirty times a second for a change only the
-    // canvas needs.
-    val mixBlend = PlayerSettings.smartMixBlend.collectAsStateWithLifecycle()
+    val host = PlayerPlatform.host
+    val feed = host.autoMixVisualState
+    val visual = feed?.collectAsStateWithLifecycle()
+    val versionSwapSheen = host.versionSwapSheen?.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation)
+    val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
             value = shown,
             onValueChange = onScrub,
             onValueChangeFinished = onScrubFinished,
             loading = loading,
-            mixing = mixing,
-            mixPulse = mixPulse,
+            mixing = !scrubbing && versionSwapSheen?.value == true,
             transitionWindow = transitionWindow,
+            autoMixGlow = {
+                val sample = visual?.value
+                // A draw can precede lifecycle collection of the cancellation.
+                val live = feed?.value
+                if (!scrubbing && sample != null && live != null && live.mixActive &&
+                    sample.generation == live.generation
+                ) sample.seekGlow(reduceAnimation || systemMotion?.scaleFactor == 0f) else 0f
+            },
         )
         Box(
             modifier = Modifier
@@ -277,6 +283,21 @@ internal fun PlayerScrubber(
             AutoMixBadgeSlot(isPlaying, reduceAnimation, centerLabel)
         }
     }
+}
+
+private fun AutoMixVisualState.seekGlow(reducedMotion: Boolean): Float {
+    val start = overlapStartSeconds ?: return 0f
+    if (!mixActive) return 0f
+    val swap = swapSeconds
+    val attack = if (reducedMotion) AutoMixArtworkTuning.SEEK_GLOW_REDUCED_FADE_SECONDS
+        else AutoMixArtworkTuning.SEEK_GLOW_ATTACK_SECONDS
+    val release = if (reducedMotion) AutoMixArtworkTuning.SEEK_GLOW_REDUCED_FADE_SECONDS
+        else AutoMixArtworkTuning.SEEK_GLOW_RELEASE_SECONDS
+    // Freeze the attack level at the actual handoff; a short overlap need not reach full glow.
+    val attackAt = if (swap == null) audioSeconds else minOf(audioSeconds, swap)
+    val rise = ((attackAt - start) / attack).coerceIn(0.0, 1.0).toFloat()
+    val fall = if (swap == null) 0f else ((audioSeconds - swap) / release).coerceIn(0.0, 1.0).toFloat()
+    return AutoMixArtworkTuning.ease(rise) * (1f - AutoMixArtworkTuning.ease(fall))
 }
 
 @Composable

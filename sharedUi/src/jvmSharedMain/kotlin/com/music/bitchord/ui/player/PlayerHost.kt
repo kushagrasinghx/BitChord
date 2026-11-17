@@ -37,6 +37,9 @@ interface PlayerHost {
     /** Optional in-process feed; platforms without AutoMix leave it absent. */
     val autoMixVisualState: StateFlow<AutoMixVisualState?>? get() = null
 
+    /** The non-AutoMix audio-version crossfade that uses the scrubber's travelling sheen. */
+    val versionSwapSheen: StateFlow<Boolean>? get() = null
+
     /** Visual-only seek intent, before the scrubber dispatches its transport command. */
     fun onAutoMixScrubIntent() = Unit
 

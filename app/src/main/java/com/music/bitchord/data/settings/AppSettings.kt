@@ -887,6 +887,9 @@ object AppSettings {
      */
     val versionAlignmentInProgress = MutableStateFlow(false)
 
+    /** Sheen during a version crossfade that does not already hold the bar for alignment. */
+    val versionSwapSheen = MutableStateFlow(false)
+
     /**
      * How much of the *upcoming* transition has been analysed, for stats for
      * nerds. Published by the crossfade controller, which is the only thing

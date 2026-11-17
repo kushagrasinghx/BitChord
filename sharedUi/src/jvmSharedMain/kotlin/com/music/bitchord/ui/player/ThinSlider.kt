@@ -36,15 +36,18 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MixBlend
+import com.music.bitchord.playback.AutoMixArtworkTuning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -99,6 +102,8 @@ fun ThinSlider(
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
     /** Halfway between the two track colours: visible against unplayed, invisible under played. */
     markerColor: Color = Color.White.copy(alpha = 0.5f),
+    /** Draw-only intensity for the full-player AutoMix glow. */
+    autoMixGlow: (() -> Float)? = null,
 ) {
     var dragging by remember { mutableStateOf(false) }
     val height by animateDpAsState(
@@ -243,14 +248,39 @@ fun ThinSlider(
             val filled = size.width * fraction * fillFactor
             if (filled > 0f) {
                 val alpha = if (dragging) activeColor.alpha else mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
-                drawRoundRect(
-                    color = activeColor.copy(alpha = alpha),
-                    size = Size(
-                        filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width),
-                        size.height,
-                    ),
-                    cornerRadius = radius,
-                )
+                val fillColor = activeColor.copy(alpha = alpha)
+                val fillWidth = filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width)
+                val glow = if (dragging || sheenVisible) 0f else autoMixGlow?.invoke() ?: 0f
+                if (glow > 0f) {
+                    val extraHeight = AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_DP.dp.toPx() * glow
+                    val coreHeight = size.height + extraHeight
+                    val coreTop = -extraHeight / 2f
+                    val bright = Color.White.copy(alpha = AutoMixArtworkTuning.SEEK_GLOW_FILL_ALPHA)
+                    // Feather vertically only, keeping even the halo within the played width.
+                    val outset = AutoMixArtworkTuning.SEEK_GLOW_HALO_OUTSET_DP.dp.toPx()
+                    val haloTop = coreTop - outset
+                    val haloHeight = coreHeight + 2f * outset
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.5f to Color.White.copy(alpha = AutoMixArtworkTuning.SEEK_GLOW_HALO_ALPHA * glow),
+                            1f to Color.Transparent,
+                            startY = haloTop,
+                            endY = haloTop + haloHeight,
+                        ),
+                        topLeft = Offset(0f, haloTop),
+                        size = Size(fillWidth, haloHeight),
+                        cornerRadius = CornerRadius(haloHeight / 2f),
+                    )
+                    drawRoundRect(
+                        color = lerp(fillColor, bright, glow),
+                        topLeft = Offset(0f, coreTop),
+                        size = Size(fillWidth, coreHeight),
+                        cornerRadius = CornerRadius(coreHeight / 2f),
+                    )
+                } else {
+                    drawRoundRect(color = fillColor, size = Size(fillWidth, size.height), cornerRadius = radius)
+                }
             }
         }
         // Composed only while switching or mixing. The infinite animation therefore costs no

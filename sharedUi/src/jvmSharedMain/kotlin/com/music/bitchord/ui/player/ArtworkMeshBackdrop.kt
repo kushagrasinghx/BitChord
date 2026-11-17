@@ -140,7 +140,12 @@ private fun artworkPixelsRequest(
     .build()
 
 /** Warms one incoming cover. Call on Main, like the effects that own the URL-keyed ambient caches. */
-suspend fun prefetchAutoMixArtwork(context: PlatformContext, imageUrl: String) {
+suspend fun prefetchAutoMixArtwork(
+    context: PlatformContext,
+    imageUrl: String,
+    coverGeneration: Long?,
+    isStillArmed: (Long) -> Boolean,
+) {
     val loader = SingletonImageLoader.get(context)
     if (meshCache[imageUrl] == null) {
         val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
@@ -162,12 +167,15 @@ suspend fun prefetchAutoMixArtwork(context: PlatformContext, imageUrl: String) {
     )
     // Coil can give different decode sizes the same key. Leave the full-player
     // cover in that slot when URLs coincide; the prepared ambient assets are separate.
-    loader.execute(
+    val cover = loader.execute(
         playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
             .scale(Scale.FILL)
             .precision(Precision.INEXACT)
             .build(),
     )
+    if (cover is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
+        AutoMixPreparedCover.retain(coverGeneration, cover)
+    }
 }
 
 /**

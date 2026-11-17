@@ -149,7 +149,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.VideoThumbnails
 import com.music.bitchord.ui.components.menuAnchor
@@ -1517,6 +1516,12 @@ fun NowPlayingScreen(
     // never fires again. Keyed on the cover there is nothing to reset: the
     // bitmap really is still loaded, so the state stays true.
     val art = rememberPlayerArtwork(remoteArt)
+    val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
+        coverOccurrence(song, queue, queueIndex)
+    }
+    val autoMixCover = rememberAutoMixCover(coverEntry, art)
+    val autoMixFrames = autoMixCover.framesFor(coverEntry)
+    fun coverLoaded() = autoMixFrames != null || art.loaded
     // Sticky, unlike [PlayerArtwork.loaded]: the banner is the shape of the player rather
     // than a property of the track in it. Waiting on each new cover would
     // collapse the banner into a card and blow it back out on every skip —
@@ -1537,9 +1542,11 @@ fun NowPlayingScreen(
     // can land in the middle of the sleeve coming back out of a panel —
     // recomposed this whole screen to run a block that, every time after the
     // first, had nothing left to do.
-    LaunchedEffect(art, canvasRenderedState) {
+    LaunchedEffect(art, coverEntry, canvasRenderedState) {
         if (heroSettled) return@LaunchedEffect
-        snapshotFlow { art.loaded || canvasRenderedState.value }.first { it }
+        snapshotFlow {
+            autoMixCover.framesFor(coverEntry) != null || art.loaded || canvasRenderedState.value
+        }.first { it }
         heroSettled = true
         lastHeroSettled = true
     }
@@ -1618,7 +1625,7 @@ fun NowPlayingScreen(
         targetValue = if (
             // Latched first, so a clip coming and going isn't listened for
             // once the banner has settled — see [heroSettled].
-            heroMode && (heroSettled || art.loaded || canvasRendered)
+            heroMode && (heroSettled || coverLoaded() || canvasRendered)
         ) 1f else 0f,
         animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
         label = "heroCanvas",
@@ -2204,9 +2211,9 @@ fun NowPlayingScreen(
                     },
                     artwork = { artworkModifier ->
                         LandscapeArtwork(
-                            artRequest = art.request,
-                            artLoaded = art.loaded,
-                            onArtState = art::onState,
+                            art = art,
+                            autoMixFrames = autoMixFrames,
+                            artLoaded = coverLoaded(),
                             canvas = canvas,
                             canvasRendered = canvasRendered,
                             isPlaying = isPlaying,
@@ -3440,14 +3447,14 @@ fun NowPlayingScreen(
                                     // collapse, once the dissolve has all but gone. Let
                                     // go of on the way to the mini player, whose cover
                                     // sits flat in its bar.
-                                    shadowElevation = if (art.loaded) {
+                                    shadowElevation = if (coverLoaded()) {
                                         10.dp.toPx() * (1f - 2f * shown).coerceAtLeast(0f) * dockT()
                                     } else {
                                         0f
                                     }
                                     shape = dockFrame.cornerShape(sleeveCorner())
                                     // What `.shadow` did: it clips only when it casts.
-                                    clip = art.loaded
+                                    clip = coverLoaded()
                                 }
                                 .graphicsLayer {
                                     // Clipped a second time, as `.shadow` and then
@@ -3536,7 +3543,7 @@ fun NowPlayingScreen(
                                     .background(Color.Black.copy(alpha = 0.18f)),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (!art.loaded && !canvasRendered) {
+                                if (!coverLoaded() && !canvasRendered) {
                                     Icon(
                                         imageVector = BitChordIcons.MusicNote,
                                         contentDescription = null,
@@ -3551,7 +3558,7 @@ fun NowPlayingScreen(
                                     )
                                 }
                             }
-                            AsyncImage(
+                            AutoMixPlayerCover(
                                 // Decode at the sleeve's *expanded* size, always.
                                 // Coil otherwise sizes the decode to however large
                                 // this is when the request goes out — and changing
@@ -3566,12 +3573,8 @@ fun NowPlayingScreen(
                                 // sleeve's: the banner is taller than the card is
                                 // wide, and the one bitmap has to serve both shapes
                                 // with nothing to upscale between them.
-                                model = art.request,
-                                contentDescription = null,
-                                // Video thumbnails are 16:9; letterboxing them inside
-                                // the square sleeve looks like a broken frame.
-                                contentScale = ContentScale.Crop,
-                                onState = art::onState,
+                                art = art,
+                                frames = autoMixFrames,
                                 // TextureView-backed canvas frames can arrive
                                 // before Coil has decoded the sleeve. Alpha alone
                                 // doesn't hide this layer for that window: a
@@ -3591,7 +3594,7 @@ fun NowPlayingScreen(
                                     .drawWithContent {
                                         val frame = still()
                                         if (frame == null) {
-                                            if (art.loaded || !canvasRendered) drawContent()
+                                            if (coverLoaded() || !canvasRendered) drawContent()
                                         } else if (
                                             // The clip's still in place of the cover —
                                             // see [stillTakesOver] — and, for the reason
@@ -3599,7 +3602,7 @@ fun NowPlayingScreen(
                                             stillTakesOver() || !canvasRendered ||
                                             (heroMode && canvasCover.floatValue < 1f)
                                         ) {
-                                            if (canvas?.source == CanvasSource.APPLE && stillTakesOver() && art.loaded) {
+                                            if (canvas?.source == CanvasSource.APPLE && stillTakesOver() && coverLoaded()) {
                                                 drawContent()
                                                 drawCropped(frame.image, alpha = clipTransitionAlpha())
                                             } else {
@@ -3627,7 +3630,7 @@ fun NowPlayingScreen(
                                         // the still is drawn by the sleeve around it.
                                         presentationAlpha = {
                                             if (stillTakesOver()) 0f
-                                            else if (canvas.source == CanvasSource.APPLE && art.loaded) clipTransitionAlpha()
+                                            else if (canvas.source == CanvasSource.APPLE && coverLoaded()) clipTransitionAlpha()
                                             else 1f
                                         },
                                         startPositionMs = stillStart?.positionMs ?: 0L,

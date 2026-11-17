@@ -2084,6 +2084,7 @@ class PlaybackService : MediaLibraryService() {
 
     private fun prefetchAutoMixIncoming(item: MediaItem) {
         autoMixArtworkJob?.cancel()
+        val coverGeneration = AutoMixVisualFeed.state.value?.takeIf { it.phase == AutoMixVisualPhase.ARMED }?.generation
         autoMixArtworkJob = scope.launch {
             val song = item.toSong()
             // Canvas resolution is independent of still-art extraction and decoding.
@@ -2104,7 +2105,11 @@ class PlaybackService : MediaLibraryService() {
                 } else {
                     null
                 }
-                if (artUrl != null) prefetchAutoMixArtwork(this@PlaybackService, artUrl)
+                if (artUrl != null) {
+                    prefetchAutoMixArtwork(this@PlaybackService, artUrl, coverGeneration) { generation ->
+                        AutoMixVisualFeed.pending(generation)?.phase == AutoMixVisualPhase.ARMED
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

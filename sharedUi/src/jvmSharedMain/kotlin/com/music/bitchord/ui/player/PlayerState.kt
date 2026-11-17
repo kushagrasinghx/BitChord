@@ -138,6 +138,15 @@ internal class PlayerArtwork(
 
     /** This cover's memory-cache entry, once it has been drawn. */
     private var shown: MemoryCache.Key? = null
+    private var decodedCover: DecodedAutoMixCover? = null
+    private var decodedDuringMix: Long? = null
+
+    fun decodedCoverBefore(generation: Long): DecodedAutoMixCover? =
+        decodedCover?.takeIf { decodedDuringMix != generation }
+
+    fun noteDisplayedCover(cover: DecodedAutoMixCover) {
+        shown = cover.cacheKey
+    }
 
     /**
      * What the next cover should stand on while it loads: this one, or, if it
@@ -190,6 +199,8 @@ internal class PlayerArtwork(
         if (state is AsyncImagePainter.State.Success) {
             failed = false
             shown = state.result.memoryCacheKey
+            decodedCover = state.result.decodedAutoMixCover()
+            decodedDuringMix = PlayerPlatform.host.autoMixVisualState?.value?.takeIf { it.mixActive }?.generation
         }
         if (state is AsyncImagePainter.State.Error) failed = true
     }

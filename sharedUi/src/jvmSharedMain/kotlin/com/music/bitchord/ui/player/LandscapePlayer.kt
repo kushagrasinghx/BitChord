@@ -53,14 +53,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
-import coil3.request.ImageRequest
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.haptics.Haptic
@@ -279,9 +275,9 @@ internal fun LandscapePlayerLayout(
  */
 @Composable
 internal fun LandscapeArtwork(
-    artRequest: ImageRequest,
+    art: PlayerArtwork,
+    autoMixFrames: AutoMixCoverFrames?,
     artLoaded: Boolean,
-    onArtState: (AsyncImagePainter.State) -> Unit,
     canvas: CanvasArtwork?,
     canvasRendered: Boolean,
     isPlaying: Boolean,
@@ -336,11 +332,9 @@ internal fun LandscapeArtwork(
                     modifier = Modifier.fillMaxSize(0.36f),
                 )
             }
-            AsyncImage(
-                model = artRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                onState = onArtState,
+            AutoMixPlayerCover(
+                art = art,
+                frames = autoMixFrames,
                 // Not drawn under a clip that got there first — see the
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier

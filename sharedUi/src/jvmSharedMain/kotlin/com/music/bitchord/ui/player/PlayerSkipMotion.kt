@@ -53,7 +53,8 @@ private object SkipMotion {
     const val NewOnset = 0.28f
     const val CircleDiameter = 1.7f
     const val CircleAlpha = 0.08f
-    const val CircleFeatherStart = 0.80f
+    // A broad, uniform translucent disc; soften only the outer 8% of its radius.
+    const val CircleFeatherStart = 0.92f
     const val CircleInMs = 45
     const val CircleOutMs = 100
     const val CircleHoldMs = 125

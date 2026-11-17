@@ -581,7 +581,7 @@ object ListeningStats {
             addDaySubs(bucket)
             bucket.days.forEach { (day, ms) ->
                 val candidate = "${bucket.month}-%02d".format(day)
-                val date = runCatching { LocalDate.parse(candidate.replace("-", "/")) }.getOrNull()
+                val date = runCatching { LocalDate.parse(candidate) }.getOrNull()
                     ?: return@forEach
                 if (date >= range.first && date <= range.second) {
                     days[candidate] = (days[candidate] ?: 0L) + ms
@@ -677,8 +677,9 @@ object ListeningStats {
                     }
             }
 
+            val releases = foldAlbumsByTitle(albums.values)
             val rankedAlbums = if (weekRange != null) {
-                albums.values
+                releases
                     .mapNotNull { entry ->
                         val (ms, plays) = entry.weekRange(weekRange)
                         if (ms > 0) entry to (ms to plays) else null
@@ -690,7 +691,7 @@ object ListeningStats {
                         RankedEntry(entry.name, entry.sub, entry.art, entry.id, ms, plays)
                     }
             } else {
-                albums.values
+                releases
                     .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
                     .map { RankedEntry(it.name, it.sub, it.art, it.id, it.ms, it.plays) }
             }
@@ -771,6 +772,37 @@ object ListeningStats {
     /** @see albumKey(albumId, name, artist) — overload for keyed lookups. */
     private fun albumKey(albumId: String?, name: String, artist: String): String =
         albumId?.let { it } ?: albumKey(name, artist)
+
+    /**
+     * [albums] with every entry that would be drawn as the same row folded into one.
+     *
+     * Filing by [albumKey] (id first) keeps one release apart from another, but
+     * it also keeps one album apart from *itself*: a month written before the
+     * track carried an album id files it by name, a later month files it by id,
+     * and YouTube hands out more than one id for the same record. Over a year
+     * those land as two entries with the same title and artist, which splits the
+     * album's minutes across two rows and gives the Replay list two items with
+     * the same key, which Compose answers by crashing.
+     *
+     * Entries with an id go first so the one that survives can still open the
+     * album page; among those, the most played one's picture and id win.
+     * Copies are folded, never the entries passed in.
+     */
+    internal fun foldAlbumsByTitle(albums: Collection<NameEntry>): List<NameEntry> {
+        val folded = LinkedHashMap<String, NameEntry>()
+        albums
+            .sortedWith(compareByDescending<NameEntry> { it.id != null }.thenByDescending { it.ms })
+            .forEach { entry ->
+                val key = albumKey(entry.name, entry.sub.orEmpty())
+                val existing = folded[key]
+                if (existing == null) {
+                    folded[key] = entry.copy(days = entry.days.mapValuesTo(mutableMapOf()) { it.value.copy() })
+                } else {
+                    existing.absorb(entry)
+                }
+            }
+        return folded.values.toList()
+    }
 
     /** @see albumKey */
     private val ALBUM_KEY_SEPARATOR = Char(UNIT_SEPARATOR).toString()

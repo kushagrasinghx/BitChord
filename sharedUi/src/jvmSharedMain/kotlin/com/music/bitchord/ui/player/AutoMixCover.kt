@@ -16,9 +16,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import coil3.BitmapImage
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
 import coil3.compose.asPainter
 import coil3.memory.MemoryCache
@@ -30,16 +32,21 @@ import com.music.bitchord.playback.AutoMixVisualPhase
 import com.music.bitchord.playback.AutoMixVisualState
 
 /** Hold pixels and hold-over key without retaining a request's platform context. */
-internal class DecodedAutoMixCover(val image: BitmapImage, val cacheKey: MemoryCache.Key?)
+internal class DecodedAutoMixCover(
+    val image: BitmapImage,
+    val cacheKey: MemoryCache.Key?,
+    val painter: Painter? = null,
+)
 
-internal fun SuccessResult.decodedAutoMixCover(): DecodedAutoMixCover? {
+internal fun SuccessResult.decodedAutoMixCover(painter: Painter? = null): DecodedAutoMixCover? {
     val bitmap = image as? BitmapImage ?: return null
-    return DecodedAutoMixCover(bitmap, memoryCacheKey)
+    return DecodedAutoMixCover(bitmap, memoryCacheKey, painter)
 }
 
-/** The actual full-size Phase 1 result, not a guess at the incoming track's URL. Main only. */
+/** The actual Phase 1 results, retained separately by surface size. Main only. */
 internal object AutoMixPreparedCover {
     private var latest: Pair<Long, DecodedAutoMixCover>? = null
+    private var latestMini: Pair<Long, DecodedAutoMixCover>? = null
 
     fun retain(generation: Long, result: SuccessResult) {
         latest = result.decodedAutoMixCover()?.let { generation to it }
@@ -47,6 +54,13 @@ internal object AutoMixPreparedCover {
 
     fun forGeneration(generation: Long): DecodedAutoMixCover? =
         latest?.takeIf { it.first == generation }?.second
+
+    fun retainMini(generation: Long, result: SuccessResult) {
+        latestMini = result.decodedAutoMixCover()?.let { generation to it }
+    }
+
+    fun miniForGeneration(generation: Long): DecodedAutoMixCover? =
+        latestMini?.takeIf { it.first == generation }?.second
 }
 
 internal fun coverOccurrence(song: Song, queue: List<Song>, index: Int): QueueEntryIdentity? {
@@ -58,7 +72,9 @@ internal fun coverOccurrence(song: Song, queue: List<Song>, index: Int): QueueEn
     return QueueEntryIdentity(song.videoId, song.queueEntryId, ordinal)
 }
 
-internal class AutoMixCoverState {
+internal class AutoMixCoverState(
+    private val miniOutgoing: ((AutoMixVisualState) -> DecodedAutoMixCover?)? = null,
+) {
     private class PairFrames(
         val generation: Long,
         val outgoing: QueueEntryIdentity,
@@ -76,7 +92,7 @@ internal class AutoMixCoverState {
     private var promoted by mutableStateOf<Pair<QueueEntryIdentity, AutoMixCoverFrames>?>(null)
     private var progress by mutableFloatStateOf(0f)
 
-    fun bind(occurrence: QueueEntryIdentity?, art: PlayerArtwork, visual: AutoMixVisualState?) {
+    fun bind(occurrence: QueueEntryIdentity?, art: PlayerArtwork?, visual: AutoMixVisualState?) {
         if (current != occurrence && promoted?.first == current) promoted = null
         current = occurrence
         currentArt = art
@@ -117,10 +133,12 @@ internal class AutoMixCoverState {
                     // The two assets must have succeeded before overlap began. Neither
                     // a late Coil callback nor opening this surface mid-mix can retry the pair.
                     val outgoing = promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
+                        ?: miniOutgoing?.invoke(visual)
                         ?: (armedArt.takeIf { armedGeneration == visual.generation }
                             ?: currentArt.takeIf { visual.outgoing.identity == current })
                             ?.decodedCoverBefore(visual.generation)
-                    val incoming = AutoMixPreparedCover.forGeneration(visual.generation)
+                    val incoming = if (miniOutgoing == null) AutoMixPreparedCover.forGeneration(visual.generation)
+                    else AutoMixPreparedCover.miniForGeneration(visual.generation)
                     frozen = if (outgoing != null && incoming != null) PairFrames(
                         visual.generation, visual.outgoing.identity, visual.incoming.identity,
                         AutoMixCoverFrames(outgoing, incoming) { progress },
@@ -178,6 +196,67 @@ internal fun rememberAutoMixCover(occurrence: QueueEntryIdentity?, art: PlayerAr
     return cover
 }
 
+private class DisplayedMiniCovers {
+    private class Frame(
+        val occurrence: QueueEntryIdentity,
+        val cover: DecodedAutoMixCover,
+        val decodedDuring: Long?,
+    )
+
+    private var latest: Frame? = null
+    private var previous: Frame? = null
+
+    fun before(visual: AutoMixVisualState): DecodedAutoMixCover? =
+        latest.eligibleFor(visual)
+            // The new row may report a success before the collector sees the mix.
+            ?: previous.eligibleFor(visual).takeIf { latest?.decodedDuring == visual.generation }
+
+    private fun Frame?.eligibleFor(visual: AutoMixVisualState): DecodedAutoMixCover? =
+        this?.takeIf { it.occurrence == visual.outgoing.identity && it.decodedDuring != visual.generation }?.cover
+
+    fun rememberSuccess(occurrence: QueueEntryIdentity, state: AsyncImagePainter.State.Success, visual: AutoMixVisualState?) {
+        // Coil's success painter is the decoded endpoint, not its arrival crossfade.
+        val cover = state.result.decodedAutoMixCover(state.painter) ?: return
+        val active = visual?.takeIf { it.mixActive }
+        if (active != null && active.outgoing.identity == occurrence && before(active) != null) return
+        if (latest?.occurrence != occurrence) previous = latest
+        latest = Frame(occurrence, cover, active?.generation)
+    }
+}
+
+/** Own once above the mini layouts; invoke the returned artwork slot inside their existing frames. */
+@Composable
+fun rememberMiniAutoMixArtwork(
+    song: Song?,
+    queue: List<Song>,
+    index: Int,
+): @Composable (String?, Modifier) -> Unit {
+    val occurrence = remember(song?.videoId, song?.queueEntryId, queue, index) {
+        song?.let { coverOccurrence(it, queue, index) }
+    }
+    val feed = PlayerPlatform.host.autoMixVisualState
+    val displayed = remember(feed) { DisplayedMiniCovers() }
+    val cover = remember(feed) { AutoMixCoverState(displayed::before) }
+    SideEffect { cover.bind(occurrence, null, feed?.value) }
+    LaunchedEffect(feed, cover) { feed?.collect { cover.update(it) } }
+
+    return { model, modifier ->
+        AutoMixCover(cover.framesFor(occurrence), modifier) { artworkModifier ->
+            AsyncImage(
+                model = model,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                onSuccess = { state ->
+                    if (occurrence != null && state.result.request.data == model) {
+                        displayed.rememberSuccess(occurrence, state, feed?.value)
+                    }
+                },
+                modifier = artworkModifier,
+            )
+        }
+    }
+}
+
 internal class AutoMixCoverFrames(
     val base: DecodedAutoMixCover,
     val incoming: DecodedAutoMixCover? = null,
@@ -225,7 +304,7 @@ internal fun AutoMixCover(
 @Composable
 private fun DecodedCover(result: DecodedAutoMixCover, modifier: Modifier) {
     val context = LocalPlatformContext.current
-    val painter = remember(result.image, context) { result.image.asPainter(context) }
+    val painter = result.painter ?: remember(result.image, context) { result.image.asPainter(context) }
     Image(painter, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
 }
 

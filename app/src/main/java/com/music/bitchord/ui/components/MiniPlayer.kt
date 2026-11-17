@@ -365,6 +365,7 @@ fun MiniPlayer(
     /** Dragging the bar up into the player. */
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
@@ -431,12 +432,7 @@ fun MiniPlayer(
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                MiniPlayerArtwork(song, autoMixArtwork)
                 // A music video keeps playing in the cover's place, cropped to
                 // it, as the web player's mini player does — the full player,
                 // when it is up, takes the picture over.
@@ -508,6 +504,17 @@ fun MiniPlayer(
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun MiniPlayerArtwork(song: Song, autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?) {
+    val model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX)
+    val modifier = Modifier.fillMaxSize()
+    if (autoMixArtwork != null) {
+        autoMixArtwork(model, modifier)
+    } else {
+        AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
     }
 }
 

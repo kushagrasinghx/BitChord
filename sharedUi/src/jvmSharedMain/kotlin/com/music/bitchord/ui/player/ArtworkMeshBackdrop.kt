@@ -157,7 +157,7 @@ suspend fun prefetchAutoMixArtwork(
 
     // The mini surfaces derive their target from layout constraints. Warm their URL
     // with an inexact row-sized decode, using the same crop scale as AsyncImage.
-    loader.execute(
+    val mini = loader.execute(
         ImageRequest.Builder(context)
             .data(imageUrl.artworkAt(ROW_ART_PX))
             .size(ROW_ART_PX)
@@ -165,8 +165,11 @@ suspend fun prefetchAutoMixArtwork(
             .precision(Precision.INEXACT)
             .build(),
     )
+    if (mini is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
+        AutoMixPreparedCover.retainMini(coverGeneration, mini)
+    }
     // Coil can give different decode sizes the same key. Leave the full-player
-    // cover in that slot when URLs coincide; the prepared ambient assets are separate.
+    // cover in that slot when URLs coincide; retain the mini decode separately.
     val cover = loader.execute(
         playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
             .scale(Scale.FILL)

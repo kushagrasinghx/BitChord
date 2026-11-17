@@ -2267,24 +2267,25 @@ class PlaybackService : MediaLibraryService() {
     private val carControllers = mutableSetOf<MediaSession.ControllerInfo>()
 
     /**
-     * Pushes the current button state to every surface. The phone/lock-screen
-     * notification is driven by Media3's own internal controller, so it gets
-     * an explicit override limited to Favorite/Shuffle; every other connected
-     * controller falls back to the broadcast layout, which also carries
-     * Radio/Revert.
+     * Pushes the current button state to every surface: Favorite/Shuffle on
+     * the phone, plus Radio/Revert while a car is connected.
      *
-     * Media3 mirrors the notification controller's layout into the platform
-     * session's custom actions, and Android Auto reads the platform session,
-     * not the broadcast layout. So while a car is connected the notification
-     * override carries the car buttons too, or Radio/Revert vanish from Auto.
+     * The phone's media panel, Android Auto and a car's own media centre all
+     * read the platform session's custom actions, and Media3 has one slot for
+     * those that both the broadcast layout and the notification controller's
+     * override write into: whichever lands last wins. So both get the same
+     * list. A broadcast that always carried the car buttons put Start radio
+     * and Revert on the phone's panel and made its buttons flicker between
+     * two and four, depending on which write a playback update caught.
      */
     private fun refreshCustomLayouts() {
         val session = mediaSession ?: return
-        val car = carButtons()
-        session.setCustomLayout(car)
-        session.getMediaNotificationControllerInfo()?.let {
-            session.setCustomLayout(it, if (carControllers.isEmpty()) notificationButtons() else car)
-        }
+        val buttons = if (carControllers.isEmpty()) notificationButtons() else carButtons()
+        session.setCustomLayout(buttons)
+        // The broadcast reaches the notification controller and the platform
+        // session too, but only this per-controller call republishes the
+        // platform playback state straight away.
+        session.getMediaNotificationControllerInfo()?.let { session.setCustomLayout(it, buttons) }
     }
 
     /**

@@ -339,10 +339,10 @@ internal fun Modifier.playerPressCircle(
         }
     }
     return drawWithCache {
-        // Existing skip touch boxes are smaller than the reference's 1.7x disc.
-        // Cap rather than enlarge their targets or spill over neighbouring controls.
+        // The transport row leaves room for a disc just outside the skip touch
+        // box. Enlarge drawing only, never the glyph, layout, or hit target.
         val circleSize = minOf(diameter.toPx(), glyphSize.toPx() * SkipMotion.CircleDiameter)
-        val radius = minOf(size.width, size.height, circleSize) / 2f
+        val radius = circleSize / 2f
         val fill = tint.copy(alpha = tint.alpha * SkipMotion.CircleAlpha)
         val brush = Brush.radialGradient(
             0f to fill,

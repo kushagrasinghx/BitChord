@@ -840,13 +840,13 @@ private fun TransportGlyph(
                     enabled = enabled,
                     tint = Color.White.copy(alpha = alpha),
                     glyphSize = size,
-                    diameter = PLAYER_SKIP_TOUCH_SIZE,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
                 ) else if (playPauseMotion != null) Modifier.expandedPlayPausePressCircle(
                     motion = playPauseMotion,
                     interactionSource = interactionSource,
                     tint = Color.White.copy(alpha = alpha),
                     glyphSize = size,
-                    diameter = PLAYER_SKIP_TOUCH_SIZE,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
                 ) else Modifier,
             )
             .clickable(
@@ -897,6 +897,9 @@ private fun TransportGlyph(
 /** The skip glyphs' width, and their touch box, beside the larger play button. */
 private val PLAYER_SKIP_ICON_SIZE = 53.dp
 private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
+
+/** Draw-only diameter shared by expanded playback controls; hit targets stay unchanged. */
+private val PLAYER_PRESS_CIRCLE_DIAMETER = 60.dp
 
 /**
  * The skip glyphs are drawn a little flatter than they are wide, so the pair

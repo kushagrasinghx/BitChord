@@ -16,6 +16,7 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.data.settings.TransitionWindow
+import com.music.bitchord.playback.AutoMixVisualState
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,12 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface PlayerHost {
     val settings: PlayerSettingsSource
+
+    /** Optional in-process feed; platforms without AutoMix leave it absent. */
+    val autoMixVisualState: StateFlow<AutoMixVisualState?>? get() = null
+
+    /** Visual-only seek intent, before the scrubber dispatches its transport command. */
+    fun onAutoMixScrubIntent() = Unit
 
     /** A Canvas already settled for [song], without a lookup. */
     fun cachedCanvas(song: Song): CanvasArtwork?

@@ -26,6 +26,7 @@ import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.AutoMixVisualFeed
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
@@ -58,6 +59,10 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
+
+    override val autoMixVisualState get() = AutoMixVisualFeed.state
+
+    override fun onAutoMixScrubIntent() = AutoMixVisualFeed.cancel()
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas

@@ -928,6 +928,14 @@
     <string name="version_cut_aligned">aligned</string>
     <string name="automix_enabled_subtitle">Times and blends every transition from the tracks themselves. Turn it off if the phone gets hot or playback stutters.</string>
     <string name="automix_disabled_subtitle">Times and blends transitions automatically, without a slider. Performance may vary on slower devices.</string>
+    <string name="automix_models_downloading">Downloading Automix (%1$d MB)… %2$d%%. Songs crossfade normally until it finishes.</string>
+    <string name="automix_model">Automix model</string>
+    <string name="automix_model_missing">Not downloaded. Automix fetches it when you turn it on, or download it now.</string>
+    <string name="automix_model_download">Download (%1$d MB)</string>
+    <string name="automix_model_ready">Downloaded, using %1$d MB on this device.</string>
+    <string name="automix_models_failed">Couldn\'t download the model. Check your connection and retry.</string>
+    <string name="automix_model_delete_title">Delete Automix model?</string>
+    <string name="automix_model_delete_warning">This frees %1$d MB and turns Automix off. Turning Automix on again downloads the model again.</string>
     <string name="advanced_automix">Advanced Automix</string>
     <string name="advanced_automix_subtitle">Mixes like a DJ: keeps the beats locked, makes each move on the beat, and cuts between songs that won\'t blend. No extra processing.</string>
     <string name="no_lyrics_sources_enabled">None. Lyrics will not be fetched.</string>
@@ -1360,7 +1368,4 @@
     <string name="queue_selected_count">%1$d selected</string>
     <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
-    <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
-    <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
-    <string name="diwali_cta">Let\'s Celebrate</string>
 </resources>

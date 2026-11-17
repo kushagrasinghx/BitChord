@@ -74,6 +74,14 @@ android {
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
 
+    // Automix's models stay in src/main/assets (the desktop build and the
+    // release that hosts them read them from there) but are not packaged: the
+    // app downloads them on first use, see AutomixModels. The rest is AGP's
+    // default pattern, which setting this replaces.
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.onnx"
+    }
+
     defaultConfig {
         // Its own id, so the TV app is a separate install from the phone app
         // rather than an upgrade over it (or under it).
@@ -433,10 +441,12 @@ dependencies {
     implementation("com.hierynomus:smbj:0.15.0")
 
     // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
-    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
-    // files, which would put an offline conversion step between the model and
-    // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+    // onnxruntime-android 1.28.0 with libonnxruntime.so rebuilt from the same
+    // tag holding only the operators Automix's two models use: ~25 MB less per
+    // ABI than the published AAR, which carries every operator plus the WebGPU,
+    // NNAPI and XNNPACK providers. Its Java API and JNI library are the official
+    // ones. Rebuilt by native/onnxruntime/build.sh; rerun it when a model changes.
+    implementation(files("../app/libs/onnxruntime-android-1.28.0-automix.aar"))
 
     // ---- Casting: Google Cast sender + the route discovery it sits on ----
     // The framework and the router only. media3-cast is left out on purpose:

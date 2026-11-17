@@ -680,6 +680,14 @@
     <string name="version_cut_aligned">đã khớp</string>
     <string name="automix_enabled_subtitle">Tự động căn thời gian và hòa âm từng đoạn chuyển bài dựa trên bản nhạc. Tắt đi nếu điện thoại nóng lên hoặc nhạc bị giật lag.</string>
     <string name="automix_disabled_subtitle">Tự động căn thời gian và hòa âm đoạn chuyển bài mà không cần thanh trượt. Hiệu năng có thể khác nhau trên các thiết bị yếu hơn.</string>
+    <string name="automix_models_downloading">Đang tải Automix (%1$d MB)… %2$d%%. Cho đến khi xong, bài hát chuyển bằng crossfade thông thường.</string>
+    <string name="automix_model">Mô hình Automix</string>
+    <string name="automix_model_missing">Chưa tải xuống. Automix sẽ tải khi bạn bật, hoặc tải ngay bây giờ.</string>
+    <string name="automix_model_download">Tải xuống (%1$d MB)</string>
+    <string name="automix_model_ready">Đã tải xuống, dùng %1$d MB trên thiết bị này.</string>
+    <string name="automix_models_failed">Không thể tải mô hình. Hãy kiểm tra kết nối và thử lại.</string>
+    <string name="automix_model_delete_title">Xóa mô hình Automix?</string>
+    <string name="automix_model_delete_warning">Thao tác này giải phóng %1$d MB và tắt Automix. Bật lại Automix sẽ tải lại mô hình.</string>
     <string name="advanced_automix">Automix nâng cao</string>
     <string name="advanced_automix_subtitle">Trộn nhạc như DJ: giữ nhịp khớp nhau, chuyển bài đúng phách và cắt giữa những bài không hòa hợp. Không xử lý thêm.</string>
     <string name="no_lyrics_sources_enabled">Không có. Sẽ không tải lời bài hát.</string>
@@ -1383,9 +1391,6 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
-    <string name="diwali_title">BitChord chúc bạn một mùa Diwali hạnh phúc</string>
-    <string name="diwali_subtitle">Chúc lễ hội ánh sáng này mang niềm vui đến ngôi nhà bạn và âm nhạc đến mỗi ngày của bạn.</string>
-    <string name="diwali_cta">Cùng ăn mừng nào</string>
     <string name="find_a_playlist">Tìm danh sách phát</string>
     <string name="no_playlists_match">Không có danh sách phát nào khớp với “%1$s”</string>
     <string name="hide_lyrics_preview">Ẩn lời bài hát</string>

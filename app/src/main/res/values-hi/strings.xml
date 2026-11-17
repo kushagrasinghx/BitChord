@@ -651,6 +651,14 @@
     <string name="version_cut_aligned">अलाइन हो गया</string>
     <string name="automix_enabled_subtitle">ट्रैक्स से खुद हर ट्रांज़िशन का समय और मिश्रण तय करता है। फ़ोन गर्म होने या प्लेबैक अटकने पर इसे बंद कर दें।</string>
     <string name="automix_disabled_subtitle">बिना स्लाइडर के, ट्रांज़िशन का समय और मिश्रण अपने आप तय करता है। धीमे डिवाइस पर परफ़ॉर्मेंस अलग हो सकती है।</string>
+    <string name="automix_models_downloading">Automix डाउनलोड हो रहा है (%1$d MB)… %2$d%%. पूरा होने तक गाने सामान्य क्रॉसफ़ेड से बदलेंगे।</string>
+    <string name="automix_model">Automix मॉडल</string>
+    <string name="automix_model_missing">डाउनलोड नहीं हुआ। Automix चालू करने पर यह अपने आप आ जाएगा, या अभी डाउनलोड करें।</string>
+    <string name="automix_model_download">डाउनलोड करें (%1$d MB)</string>
+    <string name="automix_model_ready">डाउनलोड हो गया, इस डिवाइस पर %1$d MB ले रहा है।</string>
+    <string name="automix_models_failed">मॉडल डाउनलोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से कोशिश करें।</string>
+    <string name="automix_model_delete_title">Automix मॉडल हटाएं?</string>
+    <string name="automix_model_delete_warning">इससे %1$d MB खाली होंगे और Automix बंद हो जाएगा। Automix फिर से चालू करने पर मॉडल दोबारा डाउनलोड होगा।</string>
     <string name="advanced_automix">एडवांस्ड ऑटोमिक्स</string>
     <string name="advanced_automix_subtitle">DJ की तरह मिक्स करता है: बीट्स को मिलाए रखता है, हर बदलाव बीट पर करता है और जो गाने मेल नहीं खाते उनके बीच कट करता है। कोई अतिरिक्त प्रोसेसिंग नहीं।</string>
     <string name="no_lyrics_sources_enabled">कोई नहीं। लिरिक्स नहीं लिए जाएंगे।</string>
@@ -1466,9 +1474,6 @@
     <string name="bit_perfect_status_inexact">%1$s · सटीक नहीं: यह सोर्स लॉसलेस PCM नहीं है</string>
     <string name="bit_perfect_status_waiting">समर्थित आउटपुट पर लॉसलेस ट्रैक का इंतज़ार है</string>
     <string name="bit_perfect_status_unavailable">इस ट्रैक के लिए उपलब्ध नहीं (%1$s)</string>
-    <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
-    <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
-    <string name="diwali_cta">चलो जश्न मनाएँ</string>
     <string name="find_a_playlist">प्लेलिस्ट खोजें</string>
     <string name="no_playlists_match">“%1$s” से कोई प्लेलिस्ट मेल नहीं खाती</string>
     <string name="hide_lyrics_preview">लिरिक्स छिपाएँ</string>

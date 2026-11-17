@@ -602,6 +602,14 @@
     <string name="version_cut_aligned">wyrównano</string>
     <string name="automix_enabled_subtitle">Dostosowuje czas i miesza przejścia każdego z utworów. Wyłącz, jeżeli urządzenie się grzeje lub muzyka przycina.</string>
     <string name="automix_disabled_subtitle">Dostosowuje czas i miesza przejścia automatycznie, bez suwaka. Wydajność może różnić się na wolniejszych urządzeniach.</string>
+    <string name="automix_models_downloading">Pobieranie Automix (%1$d MB)… %2$d%%. Do końca utwory przechodzą zwykłym przenikaniem.</string>
+    <string name="automix_model">Model Automix</string>
+    <string name="automix_model_missing">Nie pobrano. Automix pobierze go po włączeniu albo pobierz go teraz.</string>
+    <string name="automix_model_download">Pobierz (%1$d MB)</string>
+    <string name="automix_model_ready">Pobrano, zajmuje %1$d MB na tym urządzeniu.</string>
+    <string name="automix_models_failed">Nie udało się pobrać modelu. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="automix_model_delete_title">Usunąć model Automix?</string>
+    <string name="automix_model_delete_warning">Zwolni to %1$d MB i wyłączy Automix. Ponowne włączenie Automix pobierze model jeszcze raz.</string>
     <string name="advanced_automix">Zaawansowany Automix</string>
     <string name="advanced_automix_subtitle">Miksuje jak DJ: utrzymuje zgrane bity, każdą zmianę robi w rytm i tnie między utworami, które do siebie nie pasują. Bez dodatkowego przetwarzania.</string>
     <string name="no_lyrics_sources_enabled">Brak. Teksty nie zostaną pobrane.</string>
@@ -1506,9 +1514,6 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
-    <string name="diwali_title">BitChord życzy Ci szczęśliwego Diwali</string>
-    <string name="diwali_subtitle">Niech to święto świateł wypełni Twój dom radością, a Twoje dni muzyką.</string>
-    <string name="diwali_cta">Świętujmy</string>
     <string name="find_a_playlist">Znajdź playlistę</string>
     <string name="no_playlists_match">Brak playlist pasujących do „%1$s”</string>
     <string name="hide_lyrics_preview">Ukryj tekst</string>

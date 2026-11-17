@@ -365,8 +365,6 @@ import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.ui.onboarding.OnboardingScreen
-import com.music.bitchord.ui.festive.DiwaliGate
-import com.music.bitchord.ui.festive.DiwaliGreetingScreen
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -837,23 +835,6 @@ private fun BitChordApp(
     onboardingShown.targetState = !onboardingComplete
     val onboardingVisible = onboardingShown.currentState || onboardingShown.targetState
 
-    // ---- Diwali (greeting once after the welcome, golden home wordmark) ----
-    // Indian users only, by the device timezone alone, and only on Diwali
-    // itself (see DiwaliGate). Asked again each time the app comes to the
-    // front, so one left open overnight into the day still greets — and one
-    // left open past it lets the gold go.
-    val diwaliFestive = remember(appForeground) {
-        DiwaliGate.isIndianTimezone() && DiwaliGate.isDiwaliDay()
-    }
-    var showDiwali by rememberSaveable { mutableStateOf(false) }
-    var diwaliAutoShown by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(diwaliFestive, onboardingComplete) {
-        if (diwaliFestive && onboardingComplete && !diwaliAutoShown) {
-            diwaliAutoShown = true
-            if (!AppSettings.diwaliGreetingShown.value) showDiwali = true
-        }
-    }
-
     // ---- Navigation ----
     // One back stack for every page: the routes pushed over the tabs, and the
     // album / artist / playlist pages interleaved with them — see
@@ -883,7 +864,7 @@ private fun BitChordApp(
     }
 
     SystemBarIcons(
-        dark = !darkTheme && !showNowPlaying && route != AppRoute.Replay && replayStory == null && !onboardingVisible && !showDiwali,
+        dark = !darkTheme && !showNowPlaying && route != AppRoute.Replay && replayStory == null && !onboardingVisible,
     )
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
@@ -3506,8 +3487,6 @@ private fun BitChordApp(
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),
-                                festiveLogo = diwaliFestive,
-                                onFestiveLogoClick = { showDiwali = true },
                                 signedIn = signedIn,
                                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                                 onItemClick = { item, shelfTitle ->
@@ -3546,7 +3525,7 @@ private fun BitChordApp(
                                 onMoodClick = playMood.takeUnless { hideHomeMoods },
                                 onMoodsShowAll = { navigator.push(AppRoute.Moods) },
                                 // Nothing on Home is seen while the greeting covers it.
-                                artworkMotion = artworkMotion && !showDiwali,
+                                artworkMotion = artworkMotion,
                                 onTopPickLongPress = { pick ->
                                     pick.browseId?.let { browseId ->
                                         onShelfLongPress(
@@ -5667,22 +5646,8 @@ private fun BitChordApp(
             }
         }
 
-        // ---- Diwali greeting ----
-        AnimatedVisibility(
-            visible = showDiwali,
-            enter = fadeIn(tween(400)),
-            exit = fadeOut(tween(300)),
-        ) {
-            val dismissDiwali = {
-                showDiwali = false
-                AppSettings.setDiwaliGreetingShown()
-            }
-            BackHandler(onBack = dismissDiwali)
-            DiwaliGreetingScreen(onDismiss = dismissDiwali)
-        }
-
-        // ---- Update available (once per launch; held until the welcome and Diwali greeting are done) ----
-        if (showUpdateDialog && onboardingComplete && !showDiwali) {
+        // ---- Update available (once per launch; held until the welcome is done) ----
+        if (showUpdateDialog && onboardingComplete) {
             updateNotice?.let { update ->
                 UpdateAvailableDialog(
                     version = update.version,

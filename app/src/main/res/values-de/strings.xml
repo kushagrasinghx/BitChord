@@ -651,6 +651,14 @@
     <string name="version_cut_aligned">ausgerichtet</string>
     <string name="automix_enabled_subtitle">Timing und Überblendung jedes Übergangs werden direkt aus den Titeln bestimmt. Schalte dies aus, wenn das Telefon heiß wird oder die Wiedergabe stockt.</string>
     <string name="automix_disabled_subtitle">Timing und Überblendung von Übergängen erfolgen automatisch, ohne Regler. Die Leistung kann auf langsameren Geräten variieren.</string>
+    <string name="automix_models_downloading">Automix wird heruntergeladen (%1$d MB)… %2$d%%. Bis dahin werden Titel normal überblendet.</string>
+    <string name="automix_model">Automix-Modell</string>
+    <string name="automix_model_missing">Nicht heruntergeladen. Automix lädt es beim Einschalten, oder lade es jetzt herunter.</string>
+    <string name="automix_model_download">Herunterladen (%1$d MB)</string>
+    <string name="automix_model_ready">Heruntergeladen, belegt %1$d MB auf diesem Gerät.</string>
+    <string name="automix_models_failed">Das Modell konnte nicht heruntergeladen werden. Prüfe deine Verbindung und versuche es erneut.</string>
+    <string name="automix_model_delete_title">Automix-Modell löschen?</string>
+    <string name="automix_model_delete_warning">Dadurch werden %1$d MB frei und Automix wird ausgeschaltet. Beim erneuten Einschalten wird das Modell wieder heruntergeladen.</string>
     <string name="advanced_automix">Erweiterter Automix</string>
     <string name="advanced_automix_subtitle">Mischt wie ein DJ: hält die Beats synchron, setzt jeden Übergang auf den Beat und schneidet zwischen Songs, die nicht zusammenpassen. Keine zusätzliche Verarbeitung.</string>
     <string name="no_lyrics_sources_enabled">Keine. Songtexte werden nicht abgerufen.</string>
@@ -1466,9 +1474,6 @@
     <string name="bit_perfect_status_inexact">%1$s · nicht exakt: Diese Quelle ist kein verlustfreies PCM</string>
     <string name="bit_perfect_status_waiting">Warte auf einen verlustfreien Titel an einem unterstützten Ausgang</string>
     <string name="bit_perfect_status_unavailable">Für diesen Titel nicht verfügbar (%1$s)</string>
-    <string name="diwali_title">BitChord wünscht dir ein frohes Diwali</string>
-    <string name="diwali_subtitle">Möge dieses Lichterfest dein Zuhause mit Freude und deine Tage mit Musik erfüllen.</string>
-    <string name="diwali_cta">Lass uns feiern</string>
     <string name="find_a_playlist">Playlist finden</string>
     <string name="no_playlists_match">Keine Playlists für „%1$s“</string>
     <string name="hide_lyrics_preview">Songtext ausblenden</string>

@@ -873,6 +873,14 @@
     <string name="version_cut_aligned">정렬됨</string>
     <string name="automix_enabled_subtitle">모든 음악 간의 전환을 타이밍에 맞춰 자연스럽게 연결합니다. 폰이 뜨거워지거나 재생이 끊기면 설정을 끄세요.</string>
     <string name="automix_disabled_subtitle">슬라이더 없이 자연스러운 타이밍에 전환을 시도합니다. 저사양 기기에서는 성능이 떨어질 수 있습니다.</string>
+    <string name="automix_models_downloading">Automix 다운로드 중(%1$d MB)… %2$d%%. 완료될 때까지 곡은 일반 크로스페이드로 넘어갑니다.</string>
+    <string name="automix_model">Automix 모델</string>
+    <string name="automix_model_missing">다운로드되지 않았습니다. Automix를 켜면 받아오며, 지금 다운로드할 수도 있습니다.</string>
+    <string name="automix_model_download">다운로드 (%1$d MB)</string>
+    <string name="automix_model_ready">다운로드됨, 이 기기에서 %1$d MB 사용 중.</string>
+    <string name="automix_models_failed">모델을 다운로드하지 못했습니다. 연결을 확인하고 다시 시도하세요.</string>
+    <string name="automix_model_delete_title">Automix 모델을 삭제할까요?</string>
+    <string name="automix_model_delete_warning">%1$d MB가 확보되고 Automix가 꺼집니다. Automix를 다시 켜면 모델을 다시 다운로드합니다.</string>
     <string name="advanced_automix">고급 자동 믹스</string>
     <string name="advanced_automix_subtitle">DJ처럼 믹싱합니다. 비트에 맞춰 전환하며, 어울리지 않는 곡 사이는 컷으로 넘깁니다. 처리를 추가로 요하지 않습니다.</string>
     <string name="no_lyrics_sources_enabled">없음. 가사를 가져오지 않습니다.</string>
@@ -1316,9 +1324,6 @@
     <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
     <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
     <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
-    <string name="diwali_title">BitChord가 행복한 디왈리를 기원합니다</string>
-    <string name="diwali_subtitle">빛의 축제가 집에는 기쁨을, 하루하루에는 음악을 가득 채워 주길 바랍니다.</string>
-    <string name="diwali_cta">함께 축하해요</string>
     <string name="find_a_playlist">재생목록 찾기</string>
     <string name="no_playlists_match">“%1$s”와(과) 일치하는 재생목록이 없습니다</string>
     <string name="hide_lyrics_preview">가사 숨기기</string>

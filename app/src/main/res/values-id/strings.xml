@@ -632,6 +632,14 @@
     <string name="version_cut_aligned">selaras</string>
     <string name="automix_enabled_subtitle">Mengatur waktu dan memadukan setiap transisi dari trek itu sendiri. Nonaktifkan jika ponsel menjadi panas atau pemutaran tersendat.</string>
     <string name="automix_disabled_subtitle">Mengatur waktu dan memadukan transisi secara otomatis, tanpa penggeser. Performa dapat bervariasi pada perangkat yang lebih lambat.</string>
+    <string name="automix_models_downloading">Mengunduh Automix (%1$d MB)… %2$d%%. Lagu memakai crossfade biasa sampai selesai.</string>
+    <string name="automix_model">Model Automix</string>
+    <string name="automix_model_missing">Belum diunduh. Automix mengunduhnya saat diaktifkan, atau unduh sekarang.</string>
+    <string name="automix_model_download">Unduh (%1$d MB)</string>
+    <string name="automix_model_ready">Sudah diunduh, memakai %1$d MB di perangkat ini.</string>
+    <string name="automix_models_failed">Tidak dapat mengunduh model. Periksa koneksi Anda dan coba lagi.</string>
+    <string name="automix_model_delete_title">Hapus model Automix?</string>
+    <string name="automix_model_delete_warning">Ini mengosongkan %1$d MB dan menonaktifkan Automix. Mengaktifkan Automix lagi akan mengunduh model kembali.</string>
     <string name="advanced_automix">Automix Lanjutan</string>
     <string name="advanced_automix_subtitle">Mencampur seperti DJ: menjaga ketukan tetap selaras, melakukan setiap perpindahan tepat di ketukan, dan memotong antar lagu yang tidak cocok. Tanpa pemrosesan tambahan.</string>
     <string name="no_lyrics_sources_enabled">Tidak ada. Lirik tidak akan diambil.</string>
@@ -1443,9 +1451,6 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
-    <string name="diwali_title">BitChord mengucapkan Selamat Hari Diwali</string>
-    <string name="diwali_subtitle">Semoga festival cahaya ini memenuhi rumahmu dengan kebahagiaan dan hari-harimu dengan musik.</string>
-    <string name="diwali_cta">Ayo Rayakan</string>
     <string name="find_a_playlist">Cari playlist</string>
     <string name="no_playlists_match">Tidak ada playlist yang cocok dengan “%1$s”</string>
     <string name="hide_lyrics_preview">Sembunyikan lirik</string>

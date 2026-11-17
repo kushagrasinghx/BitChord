@@ -632,6 +632,14 @@
     <string name="version_cut_aligned">同期済み</string>
     <string name="automix_enabled_subtitle">トラック自体からすべての切り替えのタイミングとブレンドを計算します。端末が熱くなったり再生が途切れたりする場合はオフにしてください。</string>
     <string name="automix_disabled_subtitle">スライダーなしで切り替えのタイミングとブレンドを自動的に計算します。低スペック端末ではパフォーマンスが変わることがあります。</string>
+    <string name="automix_models_downloading">Automix をダウンロード中（%1$d MB）… %2$d%%。完了までは通常のクロスフェードで切り替わります。</string>
+    <string name="automix_model">Automix モデル</string>
+    <string name="automix_model_missing">未ダウンロードです。Automix をオンにすると取得されます。今すぐダウンロードもできます。</string>
+    <string name="automix_model_download">ダウンロード (%1$d MB)</string>
+    <string name="automix_model_ready">ダウンロード済み。この端末で %1$d MB を使用しています。</string>
+    <string name="automix_models_failed">モデルをダウンロードできませんでした。接続を確認して再試行してください。</string>
+    <string name="automix_model_delete_title">Automix モデルを削除しますか？</string>
+    <string name="automix_model_delete_warning">%1$d MB が解放され、Automix はオフになります。再びオンにするとモデルが再度ダウンロードされます。</string>
     <string name="advanced_automix">高度なオートミックス</string>
     <string name="advanced_automix_subtitle">DJ のようにミックスします。ビートを揃え、切り替えを拍に合わせ、合わない曲同士はカットでつなぎます。追加の処理は不要です。</string>
     <string name="no_lyrics_sources_enabled">なし。歌詞は取得されません。</string>
@@ -1444,9 +1452,6 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
-    <string name="diwali_title">BitChord より、ハッピー・ディワリ</string>
-    <string name="diwali_subtitle">光の祭典が、あなたの家を喜びで、毎日を音楽で満たしますように。</string>
-    <string name="diwali_cta">お祝いしよう</string>
     <string name="find_a_playlist">プレイリストを検索</string>
     <string name="no_playlists_match">「%1$s」に一致するプレイリストはありません</string>
     <string name="hide_lyrics_preview">歌詞を非表示</string>

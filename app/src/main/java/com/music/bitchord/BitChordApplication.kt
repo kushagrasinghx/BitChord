@@ -143,6 +143,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // After AppSettings: fetches Automix's models as soon as Automix is on,
+        // rather than waiting for the first song it would mix.
+        com.music.bitchord.playback.smart.AutomixModels.install(this)
         // Restores the addon token, so the first search after a process restart
         // doesn't have to attest the device again.
         com.music.bitchord.data.sources.addon.AddonAuth.init(this)

@@ -95,7 +95,7 @@ class VocalTracker(
      *
      * A path rather than a [Context]: this is the only thing the tracker ever
      * wanted the platform for, and each application already knows how to put
-     * its own copy of the weights somewhere readable — unpacked from assets on
+     * its own copy of the weights somewhere readable — downloaded on first use on
      * Android, from the jar's resources on the desktop.
      */
     private val modelPath: () -> String,
@@ -115,16 +115,14 @@ class VocalTracker(
             runCatching { session?.close() }
             session = null
             return runCatching {
-                val file = File(modelPath())
-                val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(threads)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                    // Same reasoning as BeatTracker: the arena retains every block it allocates for
-                    // the life of the session, which a backgrounded music player cannot justify.
-                    setCPUArenaAllocator(false)
-                    setMemoryPatternOptimization(false)
-                }
-                OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
+                val path = File(modelPath()).absolutePath
+                // Same fallback as BeatTracker, for the same reduced Android runtime.
+                runCatching { open(path, threads, OrtSession.SessionOptions.OptLevel.ALL_OPT) }
+                    .recoverCatching {
+                        AnalysisLog.warn("Vocal model failed at ALL_OPT; retrying at BASIC_OPT", it)
+                        open(path, threads, OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+                    }
+                    .getOrThrow()
                     .also {
                         session = it
                         sessionThreads = threads
@@ -132,6 +130,18 @@ class VocalTracker(
             }.onFailure { AnalysisLog.warn("Vocal model unavailable; no mask will be produced", it) }
                 .getOrNull()
         }
+    }
+
+    private fun open(path: String, threads: Int, level: OrtSession.SessionOptions.OptLevel): OrtSession {
+        val options = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(threads)
+            setOptimizationLevel(level)
+            // Same reasoning as BeatTracker: the arena retains every block it allocates for
+            // the life of the session, which a backgrounded music player cannot justify.
+            setCPUArenaAllocator(false)
+            setMemoryPatternOptimization(false)
+        }
+        return OrtEnvironment.getEnvironment().createSession(path, options)
     }
 
     /**

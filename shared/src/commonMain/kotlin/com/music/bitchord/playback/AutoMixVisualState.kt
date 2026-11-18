@@ -3,20 +3,21 @@ package com.music.bitchord.playback
 import com.music.bitchord.data.model.QueueEntryIdentity
 
 object AutoMixArtworkTuning {
-    const val START_LAG_AFTER_SWAP = 1.0
-    const val WINDOW_SECONDS = 2.0
+    const val START_LAG_AFTER_SWAP = 0.6
+    const val WINDOW_SECONDS = 2.6
     const val MIN_WINDOW_SECONDS = 0.8
+    private const val LINEAR_REVEAL_WEIGHT = 0.25f
     const val OUTGOING_END_SCALE = 1f
     const val INCOMING_START_SCALE = 1f
     const val BLUR_START_DP = 20f
     const val BLUR_END_PROGRESS = 0.85f
     const val BLUR_RADIUS_STEPS = 64
     const val NOISE_SCALE = 3f
-    const val NOISE_SOFTNESS = 0.22f
+    const val NOISE_SOFTNESS = 0.30f
     const val NOISE_DRIFT = 0.16f
     const val NOISE_OCTAVES = 3
-    const val SLEEVE_MASK_STRENGTH = 0.30f
-    const val HERO_MASK_STRENGTH = 0.90f
+    const val SLEEVE_MASK_STRENGTH = 0.24f
+    const val HERO_MASK_STRENGTH = 0.50f
     const val HERO_MASK_FULL_ASPECT = 1.5f
     const val CANVAS_PREPARE_TIMEOUT_MS = 4_000L
     // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
@@ -38,6 +39,12 @@ object AutoMixArtworkTuning {
     const val SEEK_GLOW_HALO_ALPHA = 0.40f
 
     fun ease(progress: Float): Float = progress * progress * (3f - 2f * progress)
+
+    fun revealProgress(progress: Float): Float {
+        // Keep a gentle start and finish without hiding most of a short window in the tails.
+        val smooth = ease(progress)
+        return smooth + (progress - smooth) * LINEAR_REVEAL_WEIGHT
+    }
 }
 
 /** The index is the arming index, not a live index; use the entry identity where available. */

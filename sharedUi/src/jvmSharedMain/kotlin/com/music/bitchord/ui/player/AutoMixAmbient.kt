@@ -120,7 +120,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
                         if (currentEntry.value == visual.incoming.identity) 1f else 0f
                     live.artworkWindow == null || observed?.generation != live.generation -> 0f
                     live.phase == AutoMixVisualPhase.COMPLETED -> 1f
-                    else -> AutoMixArtworkTuning.ease(live.artworkProgress)
+                    else -> AutoMixArtworkTuning.revealProgress(live.artworkProgress)
                 }
             },
         )

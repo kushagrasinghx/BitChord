@@ -284,13 +284,13 @@ internal fun AutoMixCover(
             val appReduced = PlayerSettings.reduceAnimation.collectAsState()
             val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
             val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
+            val eased = { AutoMixArtworkTuning.revealProgress(frames.progress()) }
             DecodedCover(base, Modifier.fillMaxSize().graphicsLayer {
                 val scale = if (reducedMotion()) 1f else
-                    1f + (AutoMixArtworkTuning.OUTGOING_END_SCALE - 1f) * AutoMixArtworkTuning.ease(frames.progress())
+                    1f + (AutoMixArtworkTuning.OUTGOING_END_SCALE - 1f) * eased()
                 scaleX = scale
                 scaleY = scale
             })
-            val eased = { AutoMixArtworkTuning.ease(frames.progress()) }
             val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion)
             else Modifier.graphicsLayer { alpha = eased() }
             DecodedCover(incoming, Modifier.fillMaxSize().then(reveal))

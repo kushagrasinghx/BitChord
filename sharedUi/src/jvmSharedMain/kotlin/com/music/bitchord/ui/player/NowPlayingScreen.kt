@@ -3622,7 +3622,15 @@ fun NowPlayingScreen(
                                         shape = TileShape
                                         clip = share > 0f
                                     }
-                                    .background(Color.Black.copy(alpha = 0.18f)),
+                                    .drawWithContent {
+                                        // A live hero is behind this sleeve. AutoMix makes the
+                                        // sleeve visible again for the incoming still, not its
+                                        // square empty-state tile over the outgoing video.
+                                        if (!heroMode || pair?.liveOutgoing != true || stillTakesOver()) {
+                                            drawRect(Color.Black.copy(alpha = 0.18f))
+                                            drawContent()
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 if (!coverLoaded() && !canvasRendered) {

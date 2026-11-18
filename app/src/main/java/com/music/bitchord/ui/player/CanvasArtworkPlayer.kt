@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +61,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasCache
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -215,6 +217,7 @@ internal fun AndroidCanvasArtworkPlayer(
     captureStill: Boolean = false,
     onStillCaptured: (ImageBitmap?, Long) -> Unit = { _, _ -> },
     onResumed: () -> Unit = {},
+    nowPlaying: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -246,26 +249,8 @@ internal fun AndroidCanvasArtworkPlayer(
     val teardown = remember { Teardown() }
     val gate = remember { ResumeGate() }
 
-    val player = remember {
-        ExoPlayer.Builder(context)
-            // Shares the app's one OkHttp client, as everything that fetches
-            // over the network here does — and wrapped in CanvasCache so a
-            // loop past the first is read off disk rather than re-fetched;
-            // see that object's doc for why this matters far more here than
-            // it would for a clip played once.
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(CanvasCache.dataSourceFactory(OkHttpDataSource.Factory(Http.client))),
-            )
-            .build()
-            .apply {
-                volume = 0f
-                repeatMode = Player.REPEAT_MODE_ONE
-                trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                    .apply { CanvasPlaybackLimits.maxFrameRate?.let(::setMaxVideoFrameRate) }
-                    .build()
-            }
-    }
+    val owned = if (nowPlaying) rememberNowPlayingDecoder(context, teardown) else null
+    val player = if (nowPlaying) owned?.player ?: return else remember { newCanvasDecoder(context) }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -294,22 +279,20 @@ internal fun AndroidCanvasArtworkPlayer(
         }
         player.addListener(listener)
         onDispose {
-            player.removeListener(listener)
-            // Not release(), which blocks the main thread until the decoder
-            // has been torn down — 40-50ms, landing on the last frame of the
-            // player closing. stop() hands the decoder back on the player's
-            // own thread; the release left after that is a thread quitting,
-            // and runs once the close is long over. The surface goes with it,
-            // for the reason [Teardown.orphan] gives.
+            if (owned?.closed != true) player.removeListener(listener)
             teardown.disposed = true
-            player.stop()
-            mainHandler.postDelayed(
-                {
-                    player.release()
-                    teardown.releaseOrphan()
-                },
-                DEFERRED_RELEASE_MS,
-            )
+            if (!nowPlaying) {
+                // Unmanaged callers retain the deferred teardown. Now Playing
+                // holds its decoder lease until release() finishes.
+                player.stop()
+                mainHandler.postDelayed(
+                    {
+                        player.release()
+                        teardown.releaseOrphan()
+                    },
+                    DEFERRED_RELEASE_MS,
+                )
+            }
         }
     }
 
@@ -323,8 +306,15 @@ internal fun AndroidCanvasArtworkPlayer(
         // first frame painted is that still and takes over from it unseen.
         val startAt = currentStartPositionMs
         gate.holdingStill = startAt > 0L
-        player.setMediaItem(item.build(), startAt)
-        player.prepare()
+        if (nowPlaying) {
+            runCatching {
+                player.setMediaItem(item.build(), startAt)
+                player.prepare()
+            }.onFailure { rendered = false }
+        } else {
+            player.setMediaItem(item.build(), startAt)
+            player.prepare()
+        }
     }
 
     // Gated on the app being on screen as well as on the caller's own state.
@@ -524,6 +514,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         // artwork immediately so an empty replacement surface
                         // can never become the only visible artwork layer.
                         rendered = false
+                        if (owned?.closed == true) return true
                         // Going with the player — see [Teardown.orphan].
                         if (currentPausedForTransition || teardown.disposed) {
                             teardown.orphan = surface
@@ -581,7 +572,9 @@ internal fun AndroidCanvasArtworkPlayer(
             val applied = frame.applied
             // Set on the view itself. A Compose alpha layer over a TextureView
             // is not reliably composited, and this is the same fade either way.
-            view.alpha = if (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f) {
+            view.alpha = if ((nowPlaying && !rendered) ||
+                (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f)
+            ) {
                 0f
             } else {
                 // Called here, in the view's update, so a fade driven by the
@@ -935,7 +928,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
  * Apple serves HLS, Tidal and the community index serve MP4. Naming the type
  * saves ExoPlayer a sniff, and an unrecognised URL is left for it to work out.
  */
-private fun mimeTypeOf(url: String): String? {
+internal fun mimeTypeOf(url: String): String? {
     val path = url.substringBefore('?').lowercase(Locale.ROOT)
     return when {
         path.endsWith(".m3u8") -> MimeTypes.APPLICATION_M3U8
@@ -944,9 +937,56 @@ private fun mimeTypeOf(url: String): String? {
     }
 }
 
+/** Shared by the displayed clip and the AutoMix standby; silent and no audio focus. */
+internal fun newCanvasDecoder(context: Context): ExoPlayer {
+    val player = ExoPlayer.Builder(context)
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(CanvasCache.dataSourceFactory(OkHttpDataSource.Factory(Http.client))),
+        )
+        .build()
+    try {
+        player.volume = 0f
+        player.repeatMode = Player.REPEAT_MODE_ONE
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .apply { CanvasPlaybackLimits.maxFrameRate?.let(::setMaxVideoFrameRate) }
+            .build()
+        return player
+    } catch (e: Exception) {
+        runCatching { player.release() }
+        throw e
+    }
+}
+
+@Composable
+private fun rememberNowPlayingDecoder(context: Context, teardown: Teardown): NowPlayingCanvasDecoders.Lease? {
+    var lease by remember(context) { mutableStateOf<NowPlayingCanvasDecoders.Lease?>(null) }
+    LaunchedEffect(context) {
+        // Do not allocate a third player during the apply pass of a layout switch.
+        NowPlayingCanvasDecoders.awaitCapacity()
+        val opened = NowPlayingCanvasDecoders.open(context) ?: return@LaunchedEffect
+        try {
+            lease = opened
+            awaitCancellation()
+        } finally {
+            teardown.disposed = true
+            opened.close()
+            teardown.releaseOrphan()
+        }
+    }
+    return lease
+}
+
 /** The phone's decoder behind [CanvasArtworkPlayer] — see [PlayerHost.CanvasVideo]. */
 @Composable
 internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
+    key(spec.canvas.url.takeIf { spec.nowPlaying }) {
+        AndroidCanvasVideoContents(spec, modifier)
+    }
+}
+
+@Composable
+private fun AndroidCanvasVideoContents(spec: CanvasVideoSpec, modifier: Modifier) {
     AndroidCanvasArtworkPlayer(
         canvas = spec.canvas,
         isPlaying = spec.isPlaying,
@@ -970,6 +1010,7 @@ internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
         captureStill = spec.captureStill,
         onStillCaptured = spec.onStillCaptured,
         onResumed = spec.onResumed,
+        nowPlaying = spec.nowPlaying,
     )
 }
 

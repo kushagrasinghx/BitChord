@@ -18,6 +18,9 @@ object AutoMixArtworkTuning {
     const val SLEEVE_MASK_STRENGTH = 0.30f
     const val HERO_MASK_STRENGTH = 0.90f
     const val HERO_MASK_FULL_ASPECT = 1.5f
+    const val CANVAS_PREPARE_TIMEOUT_MS = 4_000L
+    // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
+    const val CANVAS_READY_MARGIN_SECONDS = 0.05
     const val MIXING_BADGE_FADE_MS = 400
     const val MIXING_BADGE_SWEEP_MS = 1_800
     const val MIXING_BADGE_SWEEP_PAUSE_MS = 3_000L

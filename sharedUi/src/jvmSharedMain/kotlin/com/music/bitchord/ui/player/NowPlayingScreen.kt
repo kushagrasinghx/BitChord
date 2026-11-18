@@ -1013,13 +1013,11 @@ fun NowPlayingScreen(
     // Square video thumbnails: the picture takes the sleeve's own slot, cropped
     // to it, in place of the full-width box at the video's shape.
     val squareVideo = videoMode && VideoThumbnails.square
-    val canvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }?.let {
-        // Apple's 3:4 rendition runs under the whole phone screen, the way its
-        // own player shows it; the square one stays the fallback.
-        val tall = it.portraitUrl
-        if (tall != null && playerFillsWindow(windowWidth)) {
-            it.copy(url = tall, fallbackUrl = it.url, portraitUrl = null)
-        } else it
+    val fullCanvasWindow = playerFillsWindow(windowWidth)
+    val sessionCanvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
+        ?.nowPlayingRendition(fullCanvasWindow)
+    val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
+        coverOccurrence(song, queue, queueIndex)
     }
     // Whether the picture has a frame on screen; the still frame shows until then.
     var videoRendered by remember(song.videoId) { mutableStateOf(false) }
@@ -1034,6 +1032,10 @@ fun NowPlayingScreen(
     // that asked: the queue can move on to a song while it is still sideways.
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
+    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow)
+    val pair = canvasPair.visual?.takeIf { it.contains(coverEntry) }
+    val canvas = if (pair == null) sessionCanvas else pair.pinnedClip
+    val staticCanvasMix = pair != null && (pair.showStatic || coverEntry == pair.incoming)
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
     // A tablet is the other way round: landscape is where it is usually held,
     // so the video stays in the player there as it does upright, and full
@@ -1073,7 +1075,9 @@ fun NowPlayingScreen(
     // the Spotify deck keeps its state and captured measurements instead of
     // snapping open mid-loop. A different clip resets them with itself.
     val canvasRenderedState = remember(canvas?.url) { mutableStateOf(false) }
-    var canvasRendered by canvasRenderedState
+    var canvasSurfaceRendered by canvasRenderedState
+    val canvasRendered = canvasSurfaceRendered && !staticCanvasMix
+    RememberDisplayedAutoMixCanvas(canvasPair, coverEntry, canvas, canvasRendered)
     var canvasFrame by remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
     // Spotify's phone presentation starts with the full control deck over its
     // video. It leaves on a Canvas tap, or after the optional idle timeout.
@@ -1539,9 +1543,6 @@ fun NowPlayingScreen(
     // never fires again. Keyed on the cover there is nothing to reset: the
     // bitmap really is still loaded, so the state stays true.
     val art = rememberPlayerArtwork(remoteArt)
-    val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
-        coverOccurrence(song, queue, queueIndex)
-    }
     val autoMixCover = rememberAutoMixCover(coverEntry, art)
     val autoMixFrames = autoMixCover.framesFor(coverEntry)
     fun coverLoaded() = autoMixFrames != null || art.loaded
@@ -2259,7 +2260,8 @@ fun NowPlayingScreen(
                             canvas = canvas,
                             canvasRendered = canvasRendered,
                             isPlaying = isPlaying,
-                            onCanvasRenderedChange = { canvasRendered = it },
+                            onCanvasRenderedChange = { canvasSurfaceRendered = it },
+                            hideCanvas = staticCanvasMix,
                             transitionAlpha = dockFade,
                             transitionStill = { still()?.image },
                             transitionStillVisible = { dockMoving && stillTakesOver() },
@@ -2601,7 +2603,7 @@ fun NowPlayingScreen(
                             ambient = ambient,
                             entry = coverEntry,
                             imageUrl = remoteArt,
-                            canvasFrame = { canvasFrame },
+                            canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
                             trackKey = song.videoId,
                             modifier = Modifier
                                 .then(if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier)
@@ -2623,7 +2625,7 @@ fun NowPlayingScreen(
                             entry = coverEntry,
                             trackKey = song.videoId,
                             imageUrl = remoteArt,
-                            canvasFrame = { canvasFrame },
+                            canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
                             modifier = if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier,
                             seamTarget = {
                                 val stillBottom = stillBottomPx()
@@ -2692,7 +2694,7 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                if (stillTakesOver()) 0f
+                                if (staticCanvasMix || stillTakesOver()) 0f
                                 else clipTransitionAlpha()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
@@ -2701,18 +2703,19 @@ fun NowPlayingScreen(
                             resumeDelayMs = if (clipFullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
                             startPositionMs = stillStart?.positionMs ?: 0L,
                             revealInstantly = stillStart != null,
-                            captureStill = stillMoving && !clipFullscreen,
+                            captureStill = !staticCanvasMix && stillMoving && !clipFullscreen,
                             onStillCaptured = onStillCaptured,
                             onResumed = onClipResumed,
-                            onRenderedChanged = { canvasRendered = it },
+                            onRenderedChanged = { canvasSurfaceRendered = it },
+                            nowPlaying = true,
                             // Frames only for a mesh that will use them.
-                            frameCapturePx = if (tintsOffClip && !clipFullscreen && !tabletArtworkBackdrop) {
+                            frameCapturePx = if (!staticCanvasMix && tintsOffClip && !clipFullscreen && !tabletArtworkBackdrop) {
                                 CANVAS_FRAME_CAPTURE_PX
                             } else {
                                 0
                             },
                             onFrameCaptured = {
-                                if (!clipFullscreen && !tabletArtworkBackdrop &&
+                                if (!staticCanvasMix && !clipFullscreen && !tabletArtworkBackdrop &&
                                     !lyricsOpen && !queueOpen && !queueDragging
                                 ) canvasFrame = it
                             },
@@ -2720,7 +2723,7 @@ fun NowPlayingScreen(
                             // Keeping this null also removes the old three-second GPU
                             // readback cadence from this provider alone.
                             refreshFrameEveryMs = if (
-                                clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
+                                staticCanvasMix || clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
                                 queueDragging || dockMoving
                             ) {
                                 null
@@ -3473,7 +3476,7 @@ fun NowPlayingScreen(
                                     // again by the time it unmounts.
                                     // Whole while the clip's still is standing in for it.
                                     alpha = (
-                                        if (stillTakesOver()) 1f
+                                        if (staticCanvasMix || stillTakesOver()) 1f
                                         else if (heroClip != null) 1f - canvasCover.floatValue
                                         else 1f
                                         ) *
@@ -3639,6 +3642,10 @@ fun NowPlayingScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .drawWithContent {
+                                        if (staticCanvasMix) {
+                                            drawContent()
+                                            return@drawWithContent
+                                        }
                                         val frame = still()
                                         if (frame == null) {
                                             if (coverLoaded() || !canvasRendered) drawContent()
@@ -3674,30 +3681,31 @@ fun NowPlayingScreen(
                                         pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
                                             collapseStarted || dockMoving || overlayOpen.value,
                                         // The same stand-in as the banner's clip; here
-                                        // the still is drawn by the sleeve around it.
+                                        // still is drawn by the sleeve around it.
                                         presentationAlpha = {
-                                            if (stillTakesOver()) 0f
+                                            if (staticCanvasMix || stillTakesOver()) 0f
                                             else if (canvas.source == CanvasSource.APPLE && coverLoaded()) clipTransitionAlpha()
                                             else 1f
                                         },
                                         startPositionMs = stillStart?.positionMs ?: 0L,
                                         revealInstantly = stillStart != null,
-                                        captureStill = stillMoving,
+                                        captureStill = !staticCanvasMix && stillMoving,
                                         onStillCaptured = onStillCaptured,
                                         onResumed = onClipResumed,
-                                        onRenderedChanged = { canvasRendered = it },
-                                        frameCapturePx = if (tintsOffClip && !tabletArtworkBackdrop) {
+                                        onRenderedChanged = { canvasSurfaceRendered = it },
+                                        nowPlaying = true,
+                                        frameCapturePx = if (!staticCanvasMix && tintsOffClip && !tabletArtworkBackdrop) {
                                             CANVAS_FRAME_CAPTURE_PX
                                         } else {
                                             0
                                         },
                                         onFrameCaptured = {
-                                            if (!tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
+                                            if (!staticCanvasMix && !tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
                                                 canvasFrame = it
                                             }
                                         },
                                         refreshFrameEveryMs = if (
-                                            tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
+                                            staticCanvasMix || tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
                                         ) null else meshRefreshMs,
                                         modifier = Modifier.fillMaxSize(),
                                     )

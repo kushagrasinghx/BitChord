@@ -49,6 +49,11 @@ interface PlayerHost {
     fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
         Modifier.graphicsLayer { alpha = eased() }
 
+    val supportsAutoMixCanvas: Boolean get() = false
+
+    /** Main-thread preparation; true means a buffer on this clip's own output, false a failure. */
+    fun prepareAutoMixCanvas(clip: CanvasArtwork, onFrame: (Boolean) -> Unit): (() -> Unit)? = null
+
     /** A Canvas already settled for [song], without a lookup. */
     fun cachedCanvas(song: Song): CanvasArtwork?
 
@@ -416,6 +421,7 @@ class CanvasVideoSpec(
     val captureStill: Boolean,
     val onStillCaptured: (ImageBitmap?, Long) -> Unit,
     val onResumed: () -> Unit,
+    val nowPlaying: Boolean = false,
 )
 
 /**
@@ -459,6 +465,7 @@ fun CanvasArtworkPlayer(
     onStillCaptured: (ImageBitmap?, Long) -> Unit = { _, _ -> },
     /** The clip has moved on from the frame it was last captured or started at. */
     onResumed: () -> Unit = {},
+    nowPlaying: Boolean = false,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -483,6 +490,7 @@ fun CanvasArtworkPlayer(
             captureStill = captureStill,
             onStillCaptured = onStillCaptured,
             onResumed = onResumed,
+            nowPlaying = nowPlaying,
         ),
         modifier,
     )

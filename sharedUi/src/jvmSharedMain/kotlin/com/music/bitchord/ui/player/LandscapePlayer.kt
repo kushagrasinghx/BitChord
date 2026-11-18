@@ -282,6 +282,7 @@ internal fun LandscapeArtwork(
     canvasRendered: Boolean,
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
+    hideCanvas: Boolean,
     transitionAlpha: () -> Float,
     transitionStill: () -> ImageBitmap?,
     transitionStillVisible: () -> Boolean,
@@ -341,7 +342,7 @@ internal fun LandscapeArtwork(
                     .fillMaxSize()
                     .drawWithContent {
                         if (artLoaded || !canvasRendered) drawContent()
-                        if (canvas?.source == CanvasSource.APPLE && transitionStillVisible()) {
+                        if (!hideCanvas && canvas?.source == CanvasSource.APPLE && transitionStillVisible()) {
                             transitionStill()?.let { drawCropped(it, if (artLoaded) transitionAlpha() else 1f) }
                         }
                     },
@@ -352,16 +353,18 @@ internal fun LandscapeArtwork(
                     isPlaying = isPlaying,
                     pausedForTransition = pausedForTransition,
                     presentationAlpha = {
-                        if (clip.source != CanvasSource.APPLE) 1f
+                        if (hideCanvas) 0f
+                        else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
                         else if (artLoaded) transitionAlpha() else 1f
                     },
-                    captureStill = clip.source == CanvasSource.APPLE && captureStill,
+                    captureStill = !hideCanvas && clip.source == CanvasSource.APPLE && captureStill,
                     onStillCaptured = { image, position ->
                         if (clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
                     },
                     onResumed = { if (clip.source == CanvasSource.APPLE) onClipResumed() },
                     onRenderedChanged = onCanvasRenderedChange,
+                    nowPlaying = true,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

@@ -69,6 +69,11 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     override fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
         androidAutoMixIncomingReveal(eased, reducedMotion)
 
+    override val supportsAutoMixCanvas: Boolean get() = true
+
+    override fun prepareAutoMixCanvas(clip: CanvasArtwork, onFrame: (Boolean) -> Unit): (() -> Unit)? =
+        prepareAndroidAutoMixCanvas(app, clip, onFrame)
+
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
         override val audioQualityCellular get() = AppSettings.audioQualityCellular

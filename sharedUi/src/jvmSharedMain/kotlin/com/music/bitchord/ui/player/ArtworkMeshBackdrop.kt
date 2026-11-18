@@ -100,8 +100,9 @@ class ArtworkMesh internal constructor(internal val image: ImageBitmap)
  * The small decode and CPU pass are staggered by the caller after a song change,
  * so they never land on the track hand-off itself.
  *
- * The last cover's blur is held until the new one is ready, so a skip never
- * drops the backdrop to its fallback grey in between.
+ * The last cover is held only while the selected cover is being decoded.
+ * On failure the renderer fades to the selected cover's cached mesh or its
+ * opaque fallback, rather than treating the held cover as a decode result.
  */
 @Composable
 fun rememberFullArtworkBlurImage(
@@ -112,23 +113,21 @@ fun rememberFullArtworkBlurImage(
 
 @Composable
 internal fun rememberFullArtworkBlurImage(
-    imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?,
+    imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?, selection: Any? = null,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var image by remember { mutableStateOf(seed ?: imageUrl?.let(fullBlurCache::get)) }
+    var held by remember { mutableStateOf<ImageBitmap?>(null) }
+    val cached = cachedFullArtworkBlur(imageUrl)
+    var image by remember(selection, imageUrl, artPx, prepare, seed) {
+        mutableStateOf(seed ?: cached ?: imageUrl?.let(meshCache::get)?.image ?: held.takeIf { prepare && imageUrl != null })
+    }
 
-    LaunchedEffect(imageUrl, artPx, prepare, seed) {
-        if (seed != null) {
-            image = seed
-            return@LaunchedEffect
-        }
-        imageUrl?.let(fullBlurCache::get)?.let {
-            image = it
-            return@LaunchedEffect
-        }
-        if (!prepare || imageUrl == null) return@LaunchedEffect
-        val ready = loadFullArtworkBlur(context, imageUrl, artPx) ?: return@LaunchedEffect
+    LaunchedEffect(selection, imageUrl, artPx, prepare, seed) {
+        val ready = seed ?: cached ?: if (prepare && imageUrl != null) {
+            loadFullArtworkBlur(context, imageUrl, artPx) ?: meshCache[imageUrl]?.image
+        } else imageUrl?.let(meshCache::get)?.image
         image = ready
+        held = ready
     }
     return image
 }
@@ -320,40 +319,16 @@ fun rememberArtworkMesh(
 @Composable
 internal fun rememberArtworkMesh(
     imageUrl: String?, canvasFrame: ImageBitmap?, artPx: Int, seed: ArtworkMesh?,
+    clipKey: Any? = imageUrl,
 ): ArtworkMesh? {
     val context = LocalPlatformContext.current
-    // The last mesh that was on screen, whatever it was read from. A cover
-    // the cache has never seen decodes *over* this instead of blanking the
-    // backdrop to nothing for the beat the decode takes — which is the
-    // flicker a version switch showed every time its cut arrived carrying
-    // its own thumbnail. Wrong colour for one decode is the trade; absent
-    // colour was the flicker.
-    val heldMesh = remember { mutableStateOf<ArtworkMesh?>(null) }
-    // Seeded from the cache so a cover that has been seen before is on colour
-    // in its first frame, with nothing to fade in from — and from
-    // [heldMesh] otherwise, carried over for the reason above.
-    // A clip's last mesh comes first: the player reopening on that clip's still
-    // should stand on the clip's colours, not fade to them from the sleeve's.
-    var mesh by remember(imageUrl) {
-        mutableStateOf(seed ?: imageUrl?.let { clipMeshFor(it) ?: meshCache[it] } ?: heldMesh.value)
+    var still by remember(imageUrl, artPx, seed) {
+        mutableStateOf(seed ?: imageUrl?.let(meshCache::get))
     }
-    // What the mesh on screen was actually read from: null while it is a
-    // carry-over from the previous cover. Without this the guard below would
-    // read the carried mesh as this cover's own answer and never decode the
-    // new one.
-    var meshUrl by remember(imageUrl) {
-        mutableStateOf(
-            if (imageUrl != null && (seed != null || clipMeshFor(imageUrl) != null || meshCache[imageUrl] != null)) {
-                imageUrl
-            } else {
-                null
-            },
-        )
-    }
-    LaunchedEffect(mesh) { heldMesh.value = mesh }
+    var clip by remember(imageUrl, clipKey) { mutableStateOf(clipMeshFor(clipKey)) }
 
-    LaunchedEffect(imageUrl, artPx) {
-        if (imageUrl == null || meshUrl == imageUrl) return@LaunchedEffect
+    LaunchedEffect(imageUrl, artPx, seed) {
+        if (imageUrl == null || still != null) return@LaunchedEffect
         val request = artworkPixelsRequest(context, imageUrl, artPx, MESH_PX)
         // Tried more than once, because this effect is keyed on the artwork and
         // nothing else: a read that fails is not retried by Coil and cannot be
@@ -366,19 +341,15 @@ internal fun rememberArtworkMesh(
             val result = SingletonImageLoader.get(context).execute(request)
             val bitmap = (result as? SuccessResult)?.image?.toImageBitmap()
             if (bitmap != null) {
-                val found = cacheStillMesh(imageUrl, bitmap)
-                if (found != null) {
-                    mesh = found
-                }
+                still = cacheStillMesh(imageUrl, bitmap)
                 // A cover that decoded but had no mesh in it — see [meshOf] —
                 // is an answer, not a failure. Asking again gets the same one.
-                meshUrl = imageUrl
                 return@LaunchedEffect
             }
         }
     }
 
-    LaunchedEffect(canvasFrame) {
+    LaunchedEffect(imageUrl, clipKey, canvasFrame) {
         val frame = canvasFrame ?: return@LaunchedEffect
         // Reject frames that are too dark or uniform — they are almost always
         // the first read after a surface recreation, before ExoPlayer has
@@ -387,11 +358,10 @@ internal fun rememberArtworkMesh(
         val found = withContext(Dispatchers.Default) {
             if (isLikelyBlackFrame(frame)) null else meshOf(frame, imageUrl?.hashCode() ?: 0)
         } ?: return@LaunchedEffect
-        mesh = found
-        meshUrl = imageUrl
-        if (imageUrl != null) lastClipMesh = ClipMesh(imageUrl, found)
+        clip = found
+        if (clipKey != null) lastClipMesh = ClipMesh(clipKey, found)
     }
-    return mesh
+    return clip ?: still
 }
 
 /**
@@ -446,17 +416,19 @@ internal fun ArtworkMeshBackdrop(
     // has finished with it.
     var shown by remember { mutableStateOf(mesh) }
     var incoming by remember { mutableStateOf<ArtworkMesh?>(null) }
+    var fadingToFallback by remember { mutableStateOf(false) }
     val fade = remember { Animatable(0f) }
 
-    LaunchedEffect(mesh, mix) {
+    LaunchedEffect(mesh, mix, reduceAnimation) {
         if (mix != null) return@LaunchedEffect
-        val next = mesh ?: return@LaunchedEffect
+        val next = mesh
         // A change arriving mid-fade. Whatever was fading in has been on screen
         // for a while and is what the new one should fade *from*; leaving it in
         // [incoming] would restart the fade from the mesh before it, and a clip
         // sending frames faster than the fade runs would never settle at all.
         incoming?.let { shown = it }
         incoming = null
+        fadingToFallback = false
         val current = shown
         if (next === current) return@LaunchedEffect
 
@@ -467,10 +439,12 @@ internal fun ArtworkMeshBackdrop(
             return@LaunchedEffect
         }
         incoming = next
+        fadingToFallback = next == null
         fade.snapTo(0f)
         fade.animateTo(1f, tween(MESH_FADE_MS, easing = FastOutSlowInEasing))
         shown = next
         incoming = null
+        fadingToFallback = false
     }
 
     // If a still/frame fade was running, pin the last drawn blend, not its target.
@@ -490,15 +464,16 @@ internal fun ArtworkMeshBackdrop(
     ) {
         val seamY = seam().toPx().coerceIn(0f, size.height)
         if (outgoing != null && mix != null) {
-            outgoing.base?.let { drawMesh(it, seamY, alpha = 1f) }
+            outgoing.base?.let { drawMesh(it, seamY, alpha = outgoing.baseAlpha) }
             outgoing.overlay?.let { drawMesh(it, seamY, alpha = outgoing.alpha) }
             mix.prepared?.mesh?.let { drawMesh(it, seamY, alpha = mix.ease()) }
         } else {
             drawn.wasDrawn = true
             drawn.base = shown
+            drawn.baseAlpha = if (fadingToFallback) 1f - fade.value else 1f
             drawn.overlay = incoming
             drawn.alpha = fade.value
-            drawn.base?.let { drawMesh(it, seamY, alpha = 1f) }
+            drawn.base?.let { drawMesh(it, seamY, alpha = drawn.baseAlpha) }
             drawn.overlay?.let { drawMesh(it, seamY, alpha = drawn.alpha) }
         }
 
@@ -520,6 +495,7 @@ internal fun ArtworkMeshBackdrop(
 private data class DrawnMesh(
     var wasDrawn: Boolean = false,
     var base: ArtworkMesh? = null,
+    var baseAlpha: Float = 1f,
     var overlay: ArtworkMesh? = null,
     var alpha: Float = 0f,
 )
@@ -659,13 +635,13 @@ private suspend fun cacheStillMesh(imageUrl: String, bitmap: ImageBitmap): Artwo
 }
 
 /** The mesh of the clip last on screen, kept for when the player comes back to it. */
-private class ClipMesh(val imageUrl: String, val mesh: ArtworkMesh)
+private class ClipMesh(val key: Any, val mesh: ArtworkMesh)
 
 /** One at a time: a clip's frames only matter for the clip that is playing. */
 private var lastClipMesh: ClipMesh? = null
 
-private fun clipMeshFor(imageUrl: String): ArtworkMesh? =
-    lastClipMesh?.takeIf { it.imageUrl == imageUrl }?.mesh
+private fun clipMeshFor(key: Any?): ArtworkMesh? =
+    lastClipMesh?.takeIf { it.key == key }?.mesh
 
 /** A session's worth of covers, at four kilobytes of texture each. */
 private const val MESH_CACHE_ENTRIES = 64

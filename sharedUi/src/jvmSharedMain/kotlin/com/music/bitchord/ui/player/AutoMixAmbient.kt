@@ -131,7 +131,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     val ownsSettlement = stage != null && stage.generation != history.closedGeneration &&
         (holdsPair || stage.generation == history.mixingGeneration)
     val cancelled = ownsSettlement && stage.phase == AutoMixVisualPhase.CANCELLED && (outgoing || incoming)
-    val promoted = ownsSettlement && target != null && visual?.artworkWindow != null &&
+    val promoted = ownsSettlement && incoming && visual?.artworkWindow != null &&
         (stage.windowEnded || stage.phase == AutoMixVisualPhase.COMPLETED)
     val retained = history.settled?.takeIf { (owner, ambient) ->
         val preparedUrl = ambient.incoming?.resolvedUrl
@@ -139,7 +139,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     }?.second
     val settled = if (stage != null && entry != null && (cancelled || promoted)) {
         AutoMixAmbient(settled = stage.generation to entry, incoming = target, cancelled = cancelled)
-    } else retained
+    } else retained.takeUnless { holdsPair }
     SideEffect {
         if (holdsPair && (outgoing || incoming)) history.mixingGeneration = stage.generation
         // The feed can retain a terminal sample across ordinary queue navigation. Consume it

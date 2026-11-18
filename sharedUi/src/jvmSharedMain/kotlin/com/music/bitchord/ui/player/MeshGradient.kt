@@ -342,28 +342,32 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap? = null): 
     rememberArtworkColors(imageUrl, canvasFrame, seed = null)
 
 @Composable
-internal fun rememberArtworkColors(imageUrl: String?, canvasFrame: ImageBitmap?, seed: MeshPalette?): MeshPalette {
+internal fun rememberArtworkColors(
+    imageUrl: String?, canvasFrame: ImageBitmap?, seed: MeshPalette?, clipKey: Any? = imageUrl,
+): MeshPalette {
     val context = LocalPlatformContext.current
-    var palette by remember(imageUrl) { mutableStateOf(seed ?: MeshPalette(FallbackColors)) }
+    var still by remember(imageUrl, seed) { mutableStateOf(seed ?: cachedArtworkPalette(imageUrl)) }
+    var clip by remember(imageUrl, clipKey) { mutableStateOf<MeshPalette?>(null) }
+    val fallback = remember { MeshPalette(FallbackColors) }
 
-    LaunchedEffect(imageUrl) {
-        if (imageUrl == null || seed != null) return@LaunchedEffect
-        val next = cachedArtworkPalette(imageUrl)
-            ?: MeshPalette(paletteOf(loadArtworkPaletteBitmap(context, imageUrl) ?: return@LaunchedEffect))
+    LaunchedEffect(imageUrl, seed) {
+        if (imageUrl == null || still != null) return@LaunchedEffect
+        val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return@LaunchedEffect
+        val next = withContext(Dispatchers.Default) { MeshPalette(paletteOf(bitmap)) }
         artworkPaletteCache[imageUrl] = next
-        palette = next
+        still = next
     }
 
-    LaunchedEffect(canvasFrame) {
+    LaunchedEffect(imageUrl, clipKey, canvasFrame) {
         val frame = canvasFrame ?: return@LaunchedEffect
         // Reject near-black frames (first read after surface recreation, before
         // ExoPlayer decodes real content).  A dark sleeve will still exceed the
         // threshold because compression noise pushes mean luminance above ~12.
         if (isLikelyBlackFrame(frame)) return@LaunchedEffect
         val colors = withContext(Dispatchers.Default) { paletteOf(frame) }
-        palette = MeshPalette(colors)
+        clip = MeshPalette(colors)
     }
-    return palette
+    return clip ?: still ?: fallback
 }
 
 // Keep quantized still palettes ready for ambient handoff, not just their 128px decodes.

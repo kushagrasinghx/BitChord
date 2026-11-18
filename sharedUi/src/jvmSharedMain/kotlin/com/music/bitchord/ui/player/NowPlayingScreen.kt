@@ -329,6 +329,7 @@ private fun PlayerMeshBackdrop(
     trackKey: String,
     imageUrl: String?,
     canvasFrame: () -> ImageBitmap?,
+    canvasKey: Any?,
     seamTarget: () -> Dp,
     alpha: () -> Float,
     modifier: Modifier = Modifier,
@@ -339,7 +340,7 @@ private fun PlayerMeshBackdrop(
     val snapKey = rememberAmbientSnapKey(ambient.snapKey(seed != null))
     val mix = ambient.mixFor(seed != null)
     val url = imageUrl ?: ambient.incoming?.resolvedUrl
-    val mesh = key(trackKey, snapKey) { rememberArtworkMesh(url, canvasFrame(), ART_PX, seed) }
+    val mesh = key(entry ?: trackKey, snapKey) { rememberArtworkMesh(url, canvasFrame(), ART_PX, seed, canvasKey) }
     val currentSeamTarget by rememberUpdatedState(seamTarget)
     val seam = remember { Animatable(Snapshot.withoutReadObservation { seamTarget() }, Dp.VectorConverter) }
     // Glides to a clip's edge as the clip fades in, and is put straight where
@@ -369,6 +370,7 @@ private fun PlayerMeshBackdrop(
 private fun LegacyMeshBackdrop(
     imageUrl: String?,
     canvasFrame: () -> ImageBitmap?,
+    canvasKey: Any?,
     trackKey: String,
     modifier: Modifier,
     ambient: AutoMixAmbient,
@@ -379,11 +381,11 @@ private fun LegacyMeshBackdrop(
     val requestedSnap = ambient.snapKey(settled != null)
     val snapKey = rememberAmbientSnapKey(requestedSnap)
     val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled }
-    val palette = key(snapKey) { rememberArtworkColors(url, canvasFrame(), seed) }
+    val palette = key(entry ?: trackKey, snapKey) { rememberArtworkColors(url, canvasFrame(), seed, canvasKey) }
     val mix = ambient.mixFor(settled != null)
     MeshGradientBackground(
         palette = palette,
-        trackKey = trackKey,
+        trackKey = entry ?: trackKey,
         modifier = modifier,
         mix = mix,
         snapKey = snapKey,
@@ -1078,7 +1080,8 @@ fun NowPlayingScreen(
     var canvasSurfaceRendered by canvasRenderedState
     val canvasRendered = canvasSurfaceRendered && !staticCanvasMix
     RememberDisplayedAutoMixCanvas(canvasPair, coverEntry, canvas, canvasRendered)
-    var canvasFrame by remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
+    var canvasFrame by remember(coverEntry, remoteArt, canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
+    val ambientCanvasKey = canvas?.url?.takeUnless { staticCanvasMix }?.let { Triple(coverEntry, remoteArt, it) }
     // Spotify's phone presentation starts with the full control deck over its
     // video. It leaves on a Canvas tap, or after the optional idle timeout.
     var spotifyCanvasControlsOpen by remember(canvas?.url) { mutableStateOf(true) }
@@ -1916,6 +1919,7 @@ fun NowPlayingScreen(
         imageUrl = ambientBlurUrl,
         artPx = ART_PX,
         seed = blurSeed,
+        selection = coverEntry ?: song.videoId,
         // Straight away when it is the main player's backdrop too: the decode
         // and blur run off the main thread, and the last cover's blur is held
         // on screen until this one is ready.
@@ -2604,6 +2608,7 @@ fun NowPlayingScreen(
                             entry = coverEntry,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
+                            canvasKey = ambientCanvasKey,
                             trackKey = song.videoId,
                             modifier = Modifier
                                 .then(if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier)
@@ -2626,6 +2631,7 @@ fun NowPlayingScreen(
                             trackKey = song.videoId,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
+                            canvasKey = ambientCanvasKey,
                             modifier = if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier,
                             seamTarget = {
                                 val stillBottom = stillBottomPx()

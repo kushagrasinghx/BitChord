@@ -57,7 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 enum class QueueBulkAction { PLAYLIST, DOWNLOAD }
 
 internal val QueueTracks.rows: List<QueueTrack>
-    get() = history + listOfNotNull(nowPlaying) + user + context + autoplay
+    get() = history + user + context + autoplay
 
 private val QueueTrack.selectionKey: String
     get() = uniqueEntryId?.let { "entry:$it" } ?: key

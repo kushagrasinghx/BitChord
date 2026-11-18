@@ -99,6 +99,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.withSaveLayer
@@ -118,6 +119,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.ui.components.LINE_FADE
@@ -135,6 +137,7 @@ import com.music.bitchord.playback.AutoMixArtworkTuning
 import com.music.bitchord.playback.AutoMixVisualState
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -368,6 +371,8 @@ private fun MixingLabel(
     glowProgress: () -> Float,
 ) {
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val haloRadius = AutoMixArtworkTuning.MIXING_BADGE_HALO_RADIUS_DP.dp
+    val additive = LocalPlayerChrome.current
     val baseColor = if (bright) Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_BRIGHT_ALPHA)
     else chromeWhite(AutoMixArtworkTuning.MIXING_BADGE_DIM_ALPHA)
     Text(
@@ -386,9 +391,22 @@ private fun MixingLabel(
                 // A buffer to fade through would cut the blend below off from the backdrop.
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            .additiveChrome(LocalPlayerChrome.current)
+            .then(if (additive) Modifier.drawWithCache {
+                // Plus forces an offscreen buffer. Size that buffer to the halo,
+                // not the text layout, and keep the label at its original origin.
+                val inset = ceil(2f * haloRadius.toPx()).toInt()
+                val paddedSize = IntSize(size.width.toInt() + 2 * inset, size.height.toInt() + 2 * inset)
+                val layer = obtainGraphicsLayer().apply { blendMode = BlendMode.Plus }
+                onDrawWithContent {
+                    val padding = inset.toFloat()
+                    layer.record(size = paddedSize) {
+                        translate(left = padding, top = padding) { this@onDrawWithContent.drawContent() }
+                    }
+                    translate(left = -padding, top = -padding) { drawLayer(layer) }
+                }
+            } else Modifier)
             .drawWithCache {
-                val glowRadius = AutoMixArtworkTuning.MIXING_BADGE_HALO_RADIUS_DP.dp.toPx()
+                val glowRadius = haloRadius.toPx()
                 val haloInset = 2f * glowRadius
                 val bounds = Rect(-haloInset, -haloInset, size.width + haloInset, size.height + haloInset)
                 val paint = Paint()

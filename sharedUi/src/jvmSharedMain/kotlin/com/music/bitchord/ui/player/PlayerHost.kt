@@ -420,8 +420,11 @@ class CanvasVideoSpec(
     val onStillCaptured: (ImageBitmap?, Long) -> Unit,
     val onResumed: () -> Unit,
     val nowPlaying: Boolean = false,
-    val organicReveal: Boolean = false,
+    val organicReveal: CanvasOrganicReveal? = null,
 )
+
+/** Identifies the incoming mask and supplies its audio-clock coverage, not its view opacity. */
+class CanvasOrganicReveal(val generation: Long, val progress: () -> Float)
 
 /**
  * The looping video that plays over a track's cover art — see
@@ -465,8 +468,8 @@ fun CanvasArtworkPlayer(
     /** The clip has moved on from the frame it was last captured or started at. */
     onResumed: () -> Unit = {},
     nowPlaying: Boolean = false,
-    /** Interpret [presentationAlpha] as reveal coverage on a compatible incoming slot. */
-    organicReveal: Boolean = false,
+    /** Optional spatial reveal for a compatible incoming slot. */
+    organicReveal: CanvasOrganicReveal? = null,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(

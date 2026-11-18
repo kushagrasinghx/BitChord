@@ -119,6 +119,8 @@ internal class AutoMixCanvasTracks(
 
     fun standbyOpacity(): Float = if (windowOpen && liveIncoming) reveal() else 0f
 
+    val organicReveal = CanvasOrganicReveal(generation, ::standbyOpacity)
+
     /** Make the live/still choice once; a late frame cannot change it. */
     fun sealIncoming(): Boolean {
         if (!choiceSealed) {
@@ -260,6 +262,20 @@ internal fun rememberAutoMixCanvasPair(
 internal fun AutoMixCoverFrames?.baseUnderCanvas(pair: AutoMixCanvasTracks?): AutoMixCoverFrames? =
     if (this != null && pair != null && (pair.liveOutgoing || pair.liveIncoming)) AutoMixCoverFrames(base)
     else this
+
+/** Full-window crops match each other, as do the fixed-height cropped banners. */
+internal fun sharesHeroRevealFootprint(
+    outgoingFullscreen: Boolean,
+    incomingFullscreen: Boolean,
+    outgoingAspect: Float,
+    incomingAspect: Float,
+): Boolean = if (outgoingFullscreen || incomingFullscreen) {
+    outgoingFullscreen && incomingFullscreen
+} else {
+    // Contained portrait clips carry a separate, aspect-dependent bottom fade and
+    // outgoing opacity envelope. Keep that path rather than exposing the backdrop.
+    outgoingAspect.isFinite() && incomingAspect.isFinite() && outgoingAspect >= 1f && incomingAspect >= 1f
+}
 
 internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean): CanvasArtwork {
     val tall = portraitUrl

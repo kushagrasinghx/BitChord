@@ -149,7 +149,7 @@ internal fun AndroidCanvasArtworkPlayer(
     portraitRevealBounds: IntSize = IntSize.Zero,
     /** Fades a full-player portrait clip away as the existing sleeve collapses. */
     presentationAlpha: () -> Float = { 1f },
-    organicReveal: Boolean = false,
+    organicReveal: CanvasOrganicReveal? = null,
     /** Fires once the clip has an actual frame on screen, and again if it drops back to none. */
     onRenderedChanged: (Boolean) -> Unit = {},
     /** A single frame off the playing clip, for callers that want to re-tint around it. */
@@ -502,8 +502,8 @@ internal fun AndroidCanvasArtworkPlayer(
         }
     }
 
-    val reducedMotion = if (organicReveal) AppSettings.reduceAnimation.collectAsState() else null
-    val systemMotion = if (organicReveal) rememberCoroutineScope().coroutineContext[MotionDurationScale] else null
+    val reducedMotion = if (organicReveal != null) AppSettings.reduceAnimation.collectAsState() else null
+    val systemMotion = if (organicReveal != null) rememberCoroutineScope().coroutineContext[MotionDurationScale] else null
     AndroidView(
         factory = { viewContext ->
             val texture = TextureView(viewContext).apply {
@@ -614,10 +614,12 @@ internal fun AndroidCanvasArtworkPlayer(
                 alpha * presentationAlpha()
             }
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val progress = if (organicReveal && nowPlaying && reducedMotion?.value != true &&
+                val progress = if (organicReveal != null && nowPlaying && reducedMotion?.value != true &&
                     systemMotion?.scaleFactor != 0f
-                ) opacity else 0f
-                frame.applyOrganicReveal(progress, bounds)
+                ) organicReveal.progress() else 0f
+                // Readiness and presentation fades take precedence. Only replace the
+                // texture alpha when coverage is the sole reason it is below full opacity.
+                frame.applyOrganicReveal(organicReveal?.generation, if (opacity == progress) progress else 0f)
             } else false
             // Unlike a zero-alpha View, a transparent texture-layer paint still
             // allows traversal to latch buffers on the hidden standby slot.
@@ -906,23 +908,26 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var revealFailed = false
     private var revealProgress = 0f
     private var revealBounds = IntSize.Zero
+    private var revealGeneration: Long? = null
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    fun applyOrganicReveal(progress: Float, bounds: IntSize): Boolean {
-        if (revealFailed || !isHardwareAccelerated || progress <= 0f || progress >= 1f ||
+    fun applyOrganicReveal(generation: Long?, progress: Float): Boolean {
+        val bounds = IntSize(width, height)
+        if (generation == null || revealFailed || !isHardwareAccelerated || progress <= 0f || progress >= 1f ||
             bounds.width <= 0 || bounds.height <= 0
         ) {
             clearOrganicReveal()
             return false
         }
-        if (progress == revealProgress && bounds == revealBounds) return true
+        if (progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
         return runCatching {
             val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
             // The wrapper's RenderNode contains its child. Leave the TextureView's own
             // crop and bottom fade intact, and never change its decoder or surface.
-            setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress))
+            setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation))
             revealProgress = progress
             revealBounds = bounds
+            revealGeneration = generation
             true
         }.getOrElse {
             revealFailed = true

@@ -173,9 +173,14 @@ internal class LiveAutoMixMask {
         half4 main(float2 xy) {
             return content.eval(xy) * half(revealCoverage(xy));
         }
-    """.trimIndent()).apply { setPattern(0L) }
+    """.trimIndent())
+    private var patternGeneration: Long? = null
 
-    fun effect(width: Float, height: Float, progress: Float): PlatformRenderEffect {
+    fun effect(width: Float, height: Float, progress: Float, generation: Long): PlatformRenderEffect {
+        if (patternGeneration != generation) {
+            shader.setPattern(generation)
+            patternGeneration = generation
+        }
         shader.setFloatUniform("bounds", width, height)
         shader.setFloatUniform("progress", progress)
         return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")

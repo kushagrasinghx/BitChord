@@ -21,6 +21,16 @@ class AutoMixCanvasTest {
     )
 
     @Test
+    fun onlyMatchingCroppedHeroSlotsCanUseTheLiveReveal() {
+        assertTrue(sharesHeroRevealFootprint(true, true, 0f, 0f))
+        assertTrue(sharesHeroRevealFootprint(false, false, 1f, 16f / 9f))
+        assertFalse(sharesHeroRevealFootprint(true, false, 1f, 1f))
+        assertFalse(sharesHeroRevealFootprint(false, false, 1f, 0.56f))
+        assertFalse(sharesHeroRevealFootprint(false, false, 0.56f, 0.56f))
+        assertFalse(sharesHeroRevealFootprint(false, false, 1f, 0f))
+    }
+
+    @Test
     fun readyIncomingTransfersWithoutReplacingItsClip() {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))

@@ -373,7 +373,7 @@ internal fun LandscapeArtwork(
                     },
                     revealInstantly = standby,
                     nowPlaying = true,
-                    organicReveal = standby && !pausedForTransition,
+                    organicReveal = canvasPair?.organicReveal.takeIf { standby && !pausedForTransition },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

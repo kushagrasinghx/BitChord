@@ -98,6 +98,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.withSaveLayer
@@ -325,18 +326,23 @@ private fun BoxScope.AutoMixBadgeSlot(
     if (generation != null || stillVisible) {
         val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
         val reducedMotion = reduceAnimation || systemMotion?.scaleFactor == 0f
-        val sweepGeneration = generation.takeIf { isPlaying && !reducedMotion }
-        val sweep = remember(sweepGeneration) { Animatable(0f) }
-        if (sweepGeneration != null) {
-            LaunchedEffect(sweepGeneration) {
+        val glowGeneration = generation.takeIf { isPlaying && !reducedMotion }
+        val glow = remember(glowGeneration) { Animatable(0f) }
+        if (glowGeneration != null) {
+            LaunchedEffect(glowGeneration) {
                 delay(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS.toLong())
                 while (true) {
-                    sweep.animateTo(
+                    glow.animateTo(
                         1f,
-                        tween(AutoMixArtworkTuning.MIXING_BADGE_SWEEP_MS, easing = LinearEasing),
+                        tween(AutoMixArtworkTuning.MIXING_BADGE_ILLUMINATE_MS, easing = LinearEasing),
                     )
-                    sweep.snapTo(0f)
-                    delay(AutoMixArtworkTuning.MIXING_BADGE_SWEEP_PAUSE_MS)
+                    delay(AutoMixArtworkTuning.MIXING_BADGE_FULL_HOLD_MS)
+                    glow.animateTo(
+                        2f,
+                        tween(AutoMixArtworkTuning.MIXING_BADGE_EXTINGUISH_MS, easing = LinearEasing),
+                    )
+                    glow.snapTo(0f) // Both endpoints are fully dim.
+                    delay(AutoMixArtworkTuning.MIXING_BADGE_DIM_HOLD_MS)
                 }
             }
         }
@@ -344,11 +350,11 @@ private fun BoxScope.AutoMixBadgeSlot(
             modifier = Modifier.align(Alignment.Center),
             opacity = { opacity.value },
             bright = reducedMotion,
-            sweepProgress = {
-                // A pending draw must not show a sweep after the producer cancels it.
-                if (sweepGeneration != null && systemMotion?.scaleFactor != 0f &&
-                    feed?.value?.let { it.mixActive && it.generation == sweepGeneration } == true
-                ) sweep.value else 0f
+            glowProgress = {
+                // A pending draw must not show a glow after the producer cancels it.
+                if (glowGeneration != null && systemMotion?.scaleFactor != 0f &&
+                    feed?.value?.let { it.mixActive && it.generation == glowGeneration } == true
+                ) glow.value else 0f
             },
         )
     }
@@ -359,7 +365,7 @@ private fun MixingLabel(
     modifier: Modifier,
     opacity: () -> Float,
     bright: Boolean,
-    sweepProgress: () -> Float,
+    glowProgress: () -> Float,
 ) {
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val baseColor = if (bright) Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_BRIGHT_ALPHA)
@@ -390,33 +396,38 @@ private fun MixingLabel(
                     color = Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_HALO_ALPHA),
                     blurRadius = glowRadius,
                 )
-                val halfBand = size.width * AutoMixArtworkTuning.MIXING_BADGE_HALF_BAND_FRACTION
+                val feather = size.width * AutoMixArtworkTuning.MIXING_BADGE_EDGE_FEATHER_FRACTION
+                val illuminate = Brush.horizontalGradient(
+                    colors = listOf(Color.White, Color.Transparent), startX = 0f, endX = feather,
+                )
+                val extinguish = Brush.horizontalGradient(
+                    colors = listOf(Color.Transparent, Color.White), startX = 0f, endX = feather,
+                )
                 onDrawWithContent {
                     val layout = textLayout
-                    val progress = sweepProgress()
+                    val progress = glowProgress()
                     if (layout == null) {
                         drawContent()
                     } else {
                         // Set the shadow explicitly: the highlight shares this paragraph's paint.
                         drawText(layout, color = baseColor, shadow = Shadow.None)
-                        if (halfBand > 0f && progress > 0f && progress < 1f) {
-                            val overhang = halfBand + haloInset
-                            val center = (size.width + 2f * overhang) * progress - overhang
+                        if (feather > 0f && progress > 0f && progress < 2f) {
+                            val lighting = progress <= 1f
+                            val phase = if (lighting) progress else progress - 1f
+                            // Both fronts travel across the shadow as well as the glyphs.
+                            val edge = bounds.left - feather + (bounds.width + feather) * phase
                             // Mask only the bright glyphs and their halo, not the base or backdrop.
                             drawContext.canvas.withSaveLayer(bounds, paint) {
                                 drawText(layout, color = Color.White, shadow = halo)
-                                drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        0f to Color.Transparent,
-                                        0.5f to Color.White,
-                                        1f to Color.Transparent,
-                                        startX = center - halfBand,
-                                        endX = center + halfBand,
-                                    ),
-                                    topLeft = bounds.topLeft,
-                                    size = bounds.size,
-                                    blendMode = BlendMode.DstIn,
-                                )
+                                // Move the cached shader, not the mask's coverage rectangle.
+                                translate(left = edge) {
+                                    drawRect(
+                                        brush = if (lighting) illuminate else extinguish,
+                                        topLeft = Offset(bounds.left - edge, bounds.top),
+                                        size = bounds.size,
+                                        blendMode = BlendMode.DstIn,
+                                    )
+                                }
                             }
                         }
                     }

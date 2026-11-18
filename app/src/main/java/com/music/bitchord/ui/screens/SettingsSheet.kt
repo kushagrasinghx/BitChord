@@ -222,6 +222,8 @@ fun SettingsScreen(
     section: SettingsCategory? = null,
     /** Opens one category as a page of its own. */
     onOpenSection: (SettingsCategory) -> Unit = {},
+    /** Opens the opt-in cross-device sync controls. */
+    onOpenSyncSettings: () -> Unit = {},
     /** Opens a choice with more options than its row can show, as a page. */
     onOpenChoice: (SettingsChoiceKind) -> Unit = {},
 ) {
@@ -1623,6 +1625,15 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setReplayGenres(!replayGenres) },
+                )
+            }
+            val syncTitle = stringResource(R.string.cross_device_sync)
+            row(syncTitle, "sync", "cloud", "devices") {
+                SettingsRow(
+                    icon = SfIcons.Cloud,
+                    title = syncTitle,
+                    subtitle = stringResource(R.string.cross_device_sync_subtitle),
+                    onClick = onOpenSyncSettings,
                 )
             }
             val exportDataTitle = stringResource(R.string.export_data)

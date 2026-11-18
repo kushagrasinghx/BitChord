@@ -302,6 +302,7 @@ fun SettingsScreen(
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
     val squareVideoThumbnails by AppSettings.squareVideoThumbnails.collectAsStateWithLifecycle()
+    val albumTitleLogos by AppSettings.albumTitleLogos.collectAsStateWithLifecycle()
     val hideRecents by AppSettings.hideRecents.collectAsStateWithLifecycle()
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
     val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
@@ -1111,6 +1112,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setSquareVideoThumbnails(!squareVideoThumbnails) },
+                )
+            }
+            val albumTitleLogosTitle = stringResource(R.string.album_title_logos)
+            row(albumTitleLogosTitle, "album", "logo", "title", "custom", "png") {
+                SettingsRow(
+                    icon = SfIcons.Album,
+                    title = albumTitleLogosTitle,
+                    subtitle = stringResource(R.string.album_title_logos_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = albumTitleLogos,
+                            onCheckedChange = AppSettings::setAlbumTitleLogos,
+                        )
+                    },
+                    onClick = { AppSettings.setAlbumTitleLogos(!albumTitleLogos) },
                 )
             }
         }

@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.player
 
 import android.graphics.BlendMode
+import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RenderEffect as PlatformRenderEffect
 import android.graphics.RuntimeShader
@@ -23,6 +25,7 @@ import kotlin.random.Random
 
 // UI thread only. A driver/shader failure must not be retried on every transition.
 private var revealFailed = false
+private var cachedBlur: BlurSteps? = null
 
 @Composable
 internal fun androidAutoMixIncomingReveal(
@@ -34,7 +37,9 @@ internal fun androidAutoMixIncomingReveal(
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || revealFailed || reducedMotion()) return plain
 
     val density = LocalDensity.current.density
-    val blur = remember(density) { createBlurSteps(density) } ?: return plain
+    val blur = remember(density) {
+        cachedBlur?.takeIf { it.density == density } ?: BlurSteps(density).also { cachedBlur = it }
+    }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return Modifier.graphicsLayer {
             val e = eased()
@@ -49,20 +54,21 @@ internal fun androidAutoMixIncomingReveal(
 }
 
 @RequiresApi(Build.VERSION_CODES.S)
-private fun createBlurSteps(density: Float): Array<RenderEffect?>? = runCatching {
-    // Cache native effects up front: changing the layer radius never allocates a new effect.
-    Array<RenderEffect?>(Tuning.BLUR_RADIUS_STEPS + 1) { step ->
-        if (step == 0) null else {
-            val radius = Tuning.BLUR_START_DP * density * step / Tuning.BLUR_RADIUS_STEPS
-            PlatformRenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP).asComposeRenderEffect()
-        }
-    }
-}.onFailure { revealFailed = true }.getOrNull()
+private class BlurSteps(val density: Float) {
+    // Immutable effects are safe to share. Only instantiate the radii actually drawn.
+    private val effects = arrayOfNulls<RenderEffect>(Tuning.BLUR_RADIUS_STEPS + 1)
 
-private fun Array<RenderEffect?>.at(eased: Float): RenderEffect? {
-    if (eased <= 0f || eased >= Tuning.BLUR_END_PROGRESS) return null
-    val remaining = 1f - eased / Tuning.BLUR_END_PROGRESS
-    return this[(remaining * remaining * Tuning.BLUR_RADIUS_STEPS).roundToInt()]
+    fun at(eased: Float): RenderEffect? {
+        if (eased <= 0f || eased >= Tuning.BLUR_END_PROGRESS) return null
+        val remaining = 1f - eased / Tuning.BLUR_END_PROGRESS
+        val step = (remaining * remaining * Tuning.BLUR_RADIUS_STEPS).roundToInt()
+        if (step == 0) return null
+        return effects[step] ?: runCatching {
+            val radius = Tuning.BLUR_START_DP * density * step / Tuning.BLUR_RADIUS_STEPS
+            PlatformRenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                .asComposeRenderEffect().also { effects[step] = it }
+        }.onFailure { revealFailed = true }.getOrNull()
+    }
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -164,19 +170,33 @@ private fun RuntimeShader.setPattern(generation: Long) {
 internal class LiveAutoMixMask {
     private val shader = RuntimeShader("""
         uniform shader content;
+        uniform shader bottomFade;
         $ORGANIC_MASK_FIELD
         half4 main(float2 xy) {
-            return content.eval(xy) * half(revealCoverage(xy));
+            return content.eval(xy) * (bottomFade.eval(xy).a * half(revealCoverage(xy)));
         }
     """.trimIndent())
     private var patternGeneration: Long? = null
+    private val opaque = LinearGradient(0f, 0f, 0f, 1f, Color.BLACK, Color.BLACK, Shader.TileMode.CLAMP)
+    private var appliedBottomFade: Shader? = null
+    private var appliedWidth = 0f
+    private var appliedHeight = 0f
 
-    fun effect(width: Float, height: Float, progress: Float, generation: Long): PlatformRenderEffect {
+    fun effect(width: Float, height: Float, progress: Float, generation: Long, bottomFade: Shader?): PlatformRenderEffect {
         if (patternGeneration != generation) {
             shader.setPattern(generation)
             patternGeneration = generation
         }
-        shader.setFloatUniform("bounds", width, height)
+        val gradient = bottomFade ?: opaque
+        if (appliedBottomFade !== gradient) {
+            shader.setInputShader("bottomFade", gradient)
+            appliedBottomFade = gradient
+        }
+        if (appliedWidth != width || appliedHeight != height) {
+            shader.setFloatUniform("bounds", width, height)
+            appliedWidth = width
+            appliedHeight = height
+        }
         shader.setFloatUniform("progress", progress)
         return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")
     }

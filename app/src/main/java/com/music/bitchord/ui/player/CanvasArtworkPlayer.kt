@@ -626,7 +626,7 @@ internal fun AndroidCanvasArtworkPlayer(
             }
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)
-                if (fadeChanged) frame.bottomEffect = createBottomFade(bottomFade, bounds, bottomFadeEndPx)
+                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx)
                 val generation = organicReveal?.generation?.takeIf {
                     organicReveal.allowSpatialMask && nowPlaying && visibility > 0f &&
                         reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
@@ -818,12 +818,12 @@ private fun TextureView.applyContentTransform(
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): RenderEffect? {
+private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): LinearGradient? {
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
     if (fraction <= 0.001f || endY <= 0f) return null
     // Along smootherstep, as the still sleeve's banner dissolves, so the clip
     // and a still of it standing in for it end the same way.
-    val gradient = LinearGradient(
+    return LinearGradient(
         0f,
         endY * (1f - fraction.coerceAtMost(1f)),
         0f,
@@ -833,14 +833,6 @@ private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): R
         },
         FloatArray(FADE_CURVE_STOPS + 1) { i -> i / FADE_CURVE_STOPS.toFloat() },
         Shader.TileMode.CLAMP,
-    )
-    // createOffsetEffect(0, 0) is the identity effect over the node's own
-    // content, which is the only way to name "what this view drew" as the
-    // destination of a blend.
-    return RenderEffect.createBlendModeEffect(
-        RenderEffect.createOffsetEffect(0f, 0f),
-        RenderEffect.createShaderEffect(gradient),
-        BlendMode.DST_IN,
     )
 }
 
@@ -904,13 +896,27 @@ private class AppliedLook {
 private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
+    private var bottomShader: LinearGradient? = null
     var bottomEffect: RenderEffect? = null
+        private set
     private var textureOpacity = 0
     private var reveal: LiveAutoMixMask? = null
     private var revealFailed = false
     private var revealProgress = 0f
     private var revealBounds = IntSize.Zero
     private var revealGeneration: Long? = null
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
+        bottomShader = createBottomFade(fraction, bounds, endPx)
+        bottomEffect = bottomShader?.let {
+            RenderEffect.createBlendModeEffect(
+                RenderEffect.createOffsetEffect(0f, 0f), // This node's own content.
+                RenderEffect.createShaderEffect(it),
+                BlendMode.DST_IN,
+            )
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     fun applyOrganicReveal(view: TextureView, generation: Long?, progress: Float, fadeChanged: Boolean): Boolean {
@@ -924,10 +930,9 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
         if (!fadeChanged && progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
         return runCatching {
             val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
-            val spatial = mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation)
             // Bind to the RenderNode that records drawTextureLayer, preserving its
-            // existing bottom fade and leaving the attached video surface alone.
-            view.setRenderEffect(bottomEffect?.let { RenderEffect.createChainEffect(spatial, it) } ?: spatial)
+            // existing bottom gradient without an intermediate image filter.
+            view.setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation, bottomShader))
             revealProgress = progress
             revealBounds = bounds
             revealGeneration = generation

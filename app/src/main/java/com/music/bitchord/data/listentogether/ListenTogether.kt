@@ -7,6 +7,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import com.music.bitchord.BitChordApplication
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import io.ktor.client.HttpClient
@@ -58,7 +59,6 @@ import kotlinx.serialization.json.put
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import java.net.URI
-import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -653,6 +653,7 @@ object ListenTogether {
     }
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var appContext: Context
     private var token: String? = null
 
     @Volatile
@@ -660,6 +661,7 @@ object ListenTogether {
     private var socketJob: Job? = null
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val rawSaved = prefs.getString(KEY_SERVER, null)?.trim().orEmpty()
         val normalizedSaved = when (val res = parseAndNormalizeServerUrl(rawSaved)) {
@@ -814,7 +816,7 @@ object ListenTogether {
     }
 
     private suspend fun doCreateOnServer(serverBase: String, nickname: String, maxMembers: Int): String {
-        val who = identity(nickname) ?: throw PartyException("not_signed_in", "Sign in to listen together.")
+        val who = identity(nickname, serverBase) ?: throw PartyException("not_signed_in", "Sign in to listen together.")
         if (serverBase.isBlank()) throw PartyException("no_server", "Set the party server address first.")
         val membership = post(
             "$serverBase/api/parties",
@@ -869,7 +871,7 @@ object ListenTogether {
     }
 
     private suspend fun doJoinOnServer(serverBase: String, code: String, nickname: String): String {
-        val who = identity(nickname) ?: throw PartyException("not_signed_in", "Sign in to listen together.")
+        val who = identity(nickname, serverBase) ?: throw PartyException("not_signed_in", "Sign in to listen together.")
         if (serverBase.isBlank()) throw PartyException("no_server", "Set the party server address first.")
         val cleaned = code.filter { it.isLetterOrDigit() }.uppercase()
         if (cleaned.length != CODE_LENGTH) {
@@ -933,13 +935,6 @@ object ListenTogether {
         nickname: String = nickname(),
     ): SwitchPartyResult = switchMutex.withLock {
         withContext(Dispatchers.IO) {
-            val who = identity(nickname)
-                ?: return@withContext if (_state.value.inParty) {
-                    SwitchPartyResult.TargetFailedRecovered(_state.value.code.orEmpty(), "Sign in to listen together.")
-                } else {
-                    SwitchPartyResult.TargetFailedNoParty("Sign in to listen together.")
-                }
-
             val normTarget = when (val res = parseAndNormalizeServerUrl(targetCustomServer)) {
                 is ServerUrlValidationResult.Valid -> res.normalizedUrl
                 is ServerUrlValidationResult.Invalid -> return@withContext if (_state.value.inParty) {
@@ -957,6 +952,13 @@ object ListenTogether {
                     SwitchPartyResult.TargetFailedNoParty("Target server address is invalid or missing.")
                 }
             }
+
+            val who = identity(nickname, targetBase)
+                ?: return@withContext if (_state.value.inParty) {
+                    SwitchPartyResult.TargetFailedRecovered(_state.value.code.orEmpty(), "Sign in to listen together.")
+                } else {
+                    SwitchPartyResult.TargetFailedNoParty("Sign in to listen together.")
+                }
 
             val cleanedTargetCode = targetCode.filter { it.isLetterOrDigit() }.uppercase()
             if (cleanedTargetCode.length != CODE_LENGTH) {
@@ -1465,7 +1467,10 @@ object ListenTogether {
      * which Google account it stands for, and a party server that accumulated
      * real account identifiers would be holding something it has no use for.
      */
-    private fun identity(nickname: String = nickname()): Identity? {
+    private fun identity(
+        nickname: String = nickname(),
+        serverBase: String = activePartyServerBase ?: resolveHttpBase(effectiveIdleServerBase()),
+    ): Identity? {
         val store = BitChordApplication.authStore
         if (!store.isSignedIn) return null
         val account = store.activeSession ?: return null
@@ -1476,9 +1481,16 @@ object ListenTogether {
             ?: account.name.takeIf { it.isNotBlank() }
             ?: account.email.substringBefore('@').takeIf { it.isNotBlank() }
             ?: return null
+        // Fail closed when secure pseudonym storage is unavailable. Never fall
+        // back to a raw account/device identifier or a plaintext key.
+        val secret = pseudonymSecret() ?: return null
         return Identity(
-            userId = sha256("${account.accountId}:${profile?.profileId.orEmpty()}").take(32),
-            deviceId = deviceId(),
+            userId = PartyPseudonyms.derive(
+                secret,
+                serverBase,
+                "user:${account.accountId}:${profile?.profileId.orEmpty()}",
+            ),
+            deviceId = PartyPseudonyms.derive(secret, serverBase, "device:${deviceId()}"),
             name = name,
             avatar = profile?.avatar?.takeIf { it.startsWith("http") },
         )
@@ -1565,6 +1577,25 @@ object ListenTogether {
         return UUID.randomUUID().toString().also {
             prefs.edit().putString(KEY_DEVICE, it).apply()
         }
+    }
+
+    /**
+     * Local derivation key for [PartyPseudonyms]. It is held in the same
+     * Keystore-backed store as the other credentials, with a one-time
+     * migration from the earlier plain preference. It never leaves the device
+     * and is backup-excluded; losing it only gives the party a new pseudonym.
+     */
+    private fun pseudonymSecret(): String? {
+        val secure = EncryptedPrefs.openSecure(appContext, SECRET_PREFS) ?: return null
+        return PartySecretStore(
+            readSecure = { secure.getString(KEY_PSEUDONYM_SECRET, null) },
+            writeSecureVerified = { value ->
+                secure.edit().putString(KEY_PSEUDONYM_SECRET, value).commit() &&
+                    secure.getString(KEY_PSEUDONYM_SECRET, null) == value
+            },
+            readLegacy = { prefs.getString(KEY_PSEUDONYM_SECRET, null) },
+            removeLegacy = { prefs.edit().remove(KEY_PSEUDONYM_SECRET).apply() },
+        ).secretOrNull()
     }
 
     private fun recordActivity(entry: PartyActivity) {
@@ -1686,10 +1717,6 @@ object ListenTogether {
             .replaceFirst("http://", "ws://")
     }
 
-    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray())
-        .joinToString("") { "%02x".format(it) }
-
     const val CODE_LENGTH = 6
 
     private const val TAG = "ListenTogether"
@@ -1705,6 +1732,8 @@ object ListenTogether {
     private const val KEY_CODE = "party_code"
     private const val KEY_TOKEN = "party_token"
     private const val KEY_DEVICE = "device_id"
+    private const val KEY_PSEUDONYM_SECRET = "pseudonym_secret"
+    private const val SECRET_PREFS = "bitchord_party_secret"
     private const val KEY_NICKNAME = "party_nickname"
     private const val KEY_KICKED = "party_kicked_until"
 

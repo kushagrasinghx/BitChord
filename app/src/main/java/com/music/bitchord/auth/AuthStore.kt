@@ -23,6 +23,20 @@ class AuthStore(context: Context) {
     private val prefs: SharedPreferences =
         EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
 
+    private val transitionJournal = AccountTransitionJournal(
+        fromKey = KEY_PENDING_TRANSITION_FROM,
+        toKey = KEY_PENDING_TRANSITION_TO,
+        startedKey = KEY_TRANSITION_STARTED_AT,
+        readString = { prefs.getString(it, null) },
+        writeString = { key, value ->
+            prefs.edit().apply {
+                if (value == null) remove(key) else putString(key, value)
+            }.apply()
+        },
+        readLong = { prefs.getLong(it, 0L) },
+        writeLong = { key, value -> prefs.edit().putLong(key, value).apply() },
+    )
+
     var cookie: String?
         get() = prefs.getString(KEY_COOKIE, null)
         set(value) = prefs.edit().putString(KEY_COOKIE, value).apply()
@@ -102,6 +116,27 @@ class AuthStore(context: Context) {
     var discordToken: String?
         get() = prefs.getString(KEY_DISCORD_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
+
+    /** Spotify web-player cookie; a full-account bearer in everything but name. */
+    var spotifySpdcToken: String?
+        get() = prefs.getString(KEY_SPOTIFY_SPDC, null)
+        set(value) = prefs.edit().putString(KEY_SPOTIFY_SPDC, value).apply()
+
+    var lastfmSessionKey: String?
+        get() = prefs.getString(KEY_LASTFM_SESSION, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_SESSION, value).apply()
+
+    var lastfmApiKey: String?
+        get() = prefs.getString(KEY_LASTFM_API_KEY, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_API_KEY, value).apply()
+
+    var lastfmSecret: String?
+        get() = prefs.getString(KEY_LASTFM_SECRET, null)
+        set(value) = prefs.edit().putString(KEY_LASTFM_SECRET, value).apply()
+
+    var listenBrainzToken: String?
+        get() = prefs.getString(KEY_LISTENBRAINZ_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_LISTENBRAINZ_TOKEN, value).apply()
 
     /**
      * The WebDAV server password. Encrypted like every other credential here:
@@ -185,10 +220,31 @@ class AuthStore(context: Context) {
     /**
      * Signs out of YouTube Music only — the Discord login is a separate account.
      */
+    /**
+     * Persisted account-transition state.
+     *
+     * An account switch is not instantaneous: detaching the old account's
+     * session, clearing its WebView state and activating the new one are separate
+     * steps, and the process can die between them. Recording which transition is
+     * in flight lets the next launch finish or roll it back instead of leaving
+     * two accounts' state interleaved in the shared session.
+     *
+     * Stored in the same encrypted prefs as the credentials, so it cannot be
+     * tampered with independently of them.
+     */
+    fun beginTransition(from: String?, to: String) = transitionJournal.begin(from, to)
+
+    fun clearTransition() = transitionJournal.clear()
+
+    fun hasPendingTransition(): Boolean = transitionJournal.hasPending()
+
+    fun pendingTransition(): AccountTransition? = transitionJournal.pending()
+
     fun signOut() {
         prefs.edit().remove(KEY_COOKIE).remove(KEY_SESSIONS)
             .remove(KEY_ACTIVE_ACCOUNT).remove(KEY_ACTIVE_PROFILE).apply()
         clearChannel()
+        clearTransition()
         // The in-app browser keeps its own copy of the Google login, and a
         // sign-out that leaves it in place is not one: the next sign-in is
         // waved straight through as the account just signed out of, with no
@@ -227,8 +283,16 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_DATASYNC_ID = "channel_datasync_id"
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
+        private const val KEY_PENDING_TRANSITION_FROM = "pending_transition_from"
+        private const val KEY_PENDING_TRANSITION_TO = "pending_transition_to"
+        private const val KEY_TRANSITION_STARTED_AT = "transition_started_at"
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
+        private const val KEY_SPOTIFY_SPDC = "spotify_spdc"
+        private const val KEY_LASTFM_SESSION = "lastfm_session_key"
+        private const val KEY_LASTFM_API_KEY = "lastfm_api_key"
+        private const val KEY_LASTFM_SECRET = "lastfm_secret"
+        private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
     }
 }

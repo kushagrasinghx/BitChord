@@ -76,6 +76,20 @@ class PresenceTest {
     }
 
     @Test
+    fun disabledPresenceSendsNothing() {
+        val presence = Presence(
+            PresencePlatform.Android,
+            id,
+            server.url("/api/presence").toString(),
+            enabled = false,
+        )
+        presence.setOpen(true)
+        presence.setOpen(false)
+        presence.closeBlocking()
+        assertNull(nextPing(timeoutSec = 1))
+    }
+
+    @Test
     fun closeBlockingSendsOnTheCallingThread() {
         val presence = Presence(PresencePlatform.Pc, id, server.url("/api/presence").toString())
         presence.setOpen(true)

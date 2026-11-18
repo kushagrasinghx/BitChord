@@ -44,7 +44,7 @@ Java_com_music_bitchord_playback_loopmix_LoopMixRenderer_nativeSetDeck(
     jdoubleArray knotFrames, jdoubleArray knotPositions, jboolean runOn, jdouble stopAt,
     jdouble preroll, jfloat level) {
   Deck* deck = DeckOf(handle, index);
-  if (deck == nullptr) return;
+  if (deck == nullptr || left == nullptr || right == nullptr) return;
   const jsize frames = std::min(env->GetArrayLength(left), env->GetArrayLength(right));
   deck->left.resize(frames);
   deck->right.resize(frames);
@@ -54,6 +54,7 @@ Java_com_music_bitchord_playback_loopmix_LoopMixRenderer_nativeSetDeck(
   deck->loopStart = loopStart;
   deck->loopEnd = loopEnd;
   deck->releaseAt = releaseAt;
+  if (knotFrames == nullptr || knotPositions == nullptr) return;
   const jsize knots = std::min(env->GetArrayLength(knotFrames), env->GetArrayLength(knotPositions));
   deck->knotTimes.resize(knots);
   deck->knotPositions.resize(knots);
@@ -72,7 +73,7 @@ Java_com_music_bitchord_playback_loopmix_LoopMixRenderer_nativeSetEnvelope(
   Deck* deck = DeckOf(handle, index);
   if (deck == nullptr) return;
   Envelope* envelope = kind == 0 ? &deck->gain : kind == 1 ? &deck->lowDb : kind == 2 ? &deck->highPassHz : nullptr;
-  if (envelope == nullptr) return;
+  if (envelope == nullptr || times == nullptr || values == nullptr) return;
   const jsize points = std::min(env->GetArrayLength(times), env->GetArrayLength(values));
   envelope->times.resize(points);
   envelope->values.resize(points);
@@ -94,12 +95,16 @@ Java_com_music_bitchord_playback_loopmix_LoopMixRenderer_nativeFirstFrame(JNIEnv
 JNIEXPORT void JNICALL
 Java_com_music_bitchord_playback_loopmix_LoopMixRenderer_nativeRender(
     JNIEnv* env, jclass, jlong handle, jlong frame, jfloatArray interleaved, jint offsetFrames, jint frames) {
-  if (handle == 0 || frames <= 0) return;
+  if (handle == 0 || interleaved == nullptr || frames <= 0 || offsetFrames < 0) return;
+  const jsize samples = env->GetArrayLength(interleaved);
+  // Stereo interleaved: two floats per frame, and the whole destination range
+  // must be inside the Java array before handing it to the native renderer.
+  if (offsetFrames > samples / 2 || frames > samples / 2 - offsetFrames) return;
   // Critical access: no copy of the block, and render() itself never calls back into Java.
-  auto* samples = static_cast<jfloat*>(env->GetPrimitiveArrayCritical(interleaved, nullptr));
-  if (samples == nullptr) return;
-  From(handle)->render(frame, samples + 2 * offsetFrames, frames);
-  env->ReleasePrimitiveArrayCritical(interleaved, samples, 0);
+  auto* data = static_cast<jfloat*>(env->GetPrimitiveArrayCritical(interleaved, nullptr));
+  if (data == nullptr) return;
+  From(handle)->render(frame, data + 2 * offsetFrames, frames);
+  env->ReleasePrimitiveArrayCritical(interleaved, data, 0);
 }
 
 JNIEXPORT void JNICALL

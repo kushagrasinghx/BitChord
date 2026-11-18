@@ -2113,7 +2113,7 @@ class PlaybackService : MediaLibraryService() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "AutoMix artwork prefetch failed", e)
+                Log.w("BitChord", "AutoMix artwork prefetch failed", e)
             }
         }
     }

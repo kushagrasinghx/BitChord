@@ -104,7 +104,7 @@ private class IncomingMask {
     }
 }
 
-private val MOTTLED_MASK = """
+private val ORGANIC_MASK_FIELD = """
     uniform float2 bounds;
     uniform float progress;
 
@@ -120,7 +120,7 @@ private val MOTTLED_MASK = """
                    mix(hashCell(cell + float2(0.0, 1.0)), hashCell(cell + float2(1.0)), f.x), f.y);
     }
 
-    half4 main(float2 xy) {
+    float revealCoverage(float2 xy) {
         float2 uv = xy / bounds;
         // Keep the field stationary so every pixel reveals monotonically with the audio clock.
         float2 point = uv * ${Tuning.NOISE_SCALE};
@@ -136,7 +136,31 @@ private val MOTTLED_MASK = """
         float softness = ${Tuning.NOISE_SOFTNESS};
         float threshold = mix(1.0 + softness, -softness, progress);
         float field = clamp((noise / total - ${Tuning.NOISE_LOW}) / (${Tuning.NOISE_HIGH} - ${Tuning.NOISE_LOW}), 0.0, 1.0);
-        float coverage = smoothstep(threshold - softness, threshold + softness, field);
-        return half4(0.0, 0.0, 0.0, coverage);
+        return smoothstep(threshold - softness, threshold + softness, field);
     }
 """.trimIndent()
+
+private val MOTTLED_MASK = """
+    $ORGANIC_MASK_FIELD
+    half4 main(float2 xy) {
+        return half4(0.0, 0.0, 0.0, revealCoverage(xy));
+    }
+""".trimIndent()
+
+/** The native wrapper supplies the already drawn TextureView as a GPU input. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+internal class LiveAutoMixMask {
+    private val shader = RuntimeShader("""
+        uniform shader content;
+        $ORGANIC_MASK_FIELD
+        half4 main(float2 xy) {
+            return content.eval(xy) * half(revealCoverage(xy));
+        }
+    """.trimIndent())
+
+    fun effect(width: Float, height: Float, progress: Float): PlatformRenderEffect {
+        shader.setFloatUniform("bounds", width, height)
+        shader.setFloatUniform("progress", progress)
+        return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")
+    }
+}

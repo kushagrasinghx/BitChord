@@ -2737,6 +2737,10 @@ fun NowPlayingScreen(
                                 }
                             },
                             nowPlaying = true,
+                            // Both native layers fill the same window without a bottom fade.
+                            // Other hero combinations keep their paired geometry/opacity fade.
+                            organicReveal = standby && fullscreen && clipFullscreen && pair?.liveOutgoing == true &&
+                                !collapseStarted && !dockMoving && !lyricsOpen && !queueOpen && !queueDragging,
                             // Frames only for a mesh that will use them.
                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {
                                 CANVAS_FRAME_CAPTURE_PX
@@ -3748,6 +3752,8 @@ fun NowPlayingScreen(
                                                 }
                                             },
                                             nowPlaying = true,
+                                            organicReveal = standby && !collapseStarted && !dockMoving &&
+                                                !lyricsOpen && !queueOpen && !queueDragging,
                                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !tabletArtworkBackdrop) {
                                                 CANVAS_FRAME_CAPTURE_PX
                                             } else 0,

@@ -420,6 +420,7 @@ class CanvasVideoSpec(
     val onStillCaptured: (ImageBitmap?, Long) -> Unit,
     val onResumed: () -> Unit,
     val nowPlaying: Boolean = false,
+    val organicReveal: Boolean = false,
 )
 
 /**
@@ -464,6 +465,8 @@ fun CanvasArtworkPlayer(
     /** The clip has moved on from the frame it was last captured or started at. */
     onResumed: () -> Unit = {},
     nowPlaying: Boolean = false,
+    /** Interpret [presentationAlpha] as reveal coverage on a compatible incoming slot. */
+    organicReveal: Boolean = false,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -489,6 +492,7 @@ fun CanvasArtworkPlayer(
             onStillCaptured = onStillCaptured,
             onResumed = onResumed,
             nowPlaying = nowPlaying,
+            organicReveal = organicReveal,
         ),
         modifier,
     )

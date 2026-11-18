@@ -27,6 +27,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -34,11 +35,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onSizeChanged
@@ -62,6 +65,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasCache
+import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -145,6 +149,7 @@ internal fun AndroidCanvasArtworkPlayer(
     portraitRevealBounds: IntSize = IntSize.Zero,
     /** Fades a full-player portrait clip away as the existing sleeve collapses. */
     presentationAlpha: () -> Float = { 1f },
+    organicReveal: Boolean = false,
     /** Fires once the clip has an actual frame on screen, and again if it drops back to none. */
     onRenderedChanged: (Boolean) -> Unit = {},
     /** A single frame off the playing clip, for callers that want to re-tint around it. */
@@ -497,6 +502,8 @@ internal fun AndroidCanvasArtworkPlayer(
         }
     }
 
+    val reducedMotion = if (organicReveal) AppSettings.reduceAnimation.collectAsState() else null
+    val systemMotion = if (organicReveal) rememberCoroutineScope().coroutineContext[MotionDurationScale] else null
     AndroidView(
         factory = { viewContext ->
             val texture = TextureView(viewContext).apply {
@@ -606,9 +613,15 @@ internal fun AndroidCanvasArtworkPlayer(
                 // recomposing the player around it.
                 alpha * presentationAlpha()
             }
+            val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val progress = if (organicReveal && nowPlaying && reducedMotion?.value != true &&
+                    systemMotion?.scaleFactor != 0f
+                ) opacity else 0f
+                frame.applyOrganicReveal(progress, bounds)
+            } else false
             // Unlike a zero-alpha View, a transparent texture-layer paint still
             // allows traversal to latch buffers on the hidden standby slot.
-            if (nowPlaying) frame.setTextureOpacity(view, opacity) else view.alpha = opacity
+            if (nowPlaying) frame.setTextureOpacity(view, if (masked) 1f else opacity) else view.alpha = opacity
             // Only when something they are made of has changed. The fade above
             // re-runs this block on every frame of a collapse or of the player
             // closing into the mini player, and each pass built a fresh matrix,
@@ -889,6 +902,41 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
     private var textureOpacity = 0
+    private var reveal: LiveAutoMixMask? = null
+    private var revealFailed = false
+    private var revealProgress = 0f
+    private var revealBounds = IntSize.Zero
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    fun applyOrganicReveal(progress: Float, bounds: IntSize): Boolean {
+        if (revealFailed || !isHardwareAccelerated || progress <= 0f || progress >= 1f ||
+            bounds.width <= 0 || bounds.height <= 0
+        ) {
+            clearOrganicReveal()
+            return false
+        }
+        if (progress == revealProgress && bounds == revealBounds) return true
+        return runCatching {
+            val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
+            // The wrapper's RenderNode contains its child. Leave the TextureView's own
+            // crop and bottom fade intact, and never change its decoder or surface.
+            setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress))
+            revealProgress = progress
+            revealBounds = bounds
+            true
+        }.getOrElse {
+            revealFailed = true
+            clearOrganicReveal()
+            false
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun clearOrganicReveal() {
+        if (revealProgress == 0f) return
+        setRenderEffect(null)
+        revealProgress = 0f
+    }
 
     fun setTextureOpacity(view: TextureView, opacity: Float) {
         val alpha = (opacity.coerceIn(0f, 1f) * 255).roundToInt()
@@ -1031,6 +1079,7 @@ private fun AndroidCanvasVideoContents(spec: CanvasVideoSpec, modifier: Modifier
         onAspectRatioChanged = spec.onAspectRatioChanged,
         portraitRevealBounds = spec.portraitRevealBounds,
         presentationAlpha = spec.presentationAlpha,
+        organicReveal = spec.organicReveal,
         onRenderedChanged = spec.onRenderedChanged,
         onFrameCaptured = spec.onFrameCaptured,
         refreshFrameEveryMs = spec.refreshFrameEveryMs,

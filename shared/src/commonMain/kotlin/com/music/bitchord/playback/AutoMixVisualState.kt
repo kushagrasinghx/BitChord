@@ -12,13 +12,11 @@ object AutoMixArtworkTuning {
     const val BLUR_START_DP = 20f
     const val BLUR_END_PROGRESS = 0.85f
     const val BLUR_RADIUS_STEPS = 64
-    const val NOISE_SCALE = 3f
-    const val NOISE_SOFTNESS = 0.30f
-    const val NOISE_DRIFT = 0.16f
+    const val NOISE_SCALE = 2.6f
+    const val NOISE_SOFTNESS = 0.17f
+    const val NOISE_LOW = 0.18f
+    const val NOISE_HIGH = 0.82f
     const val NOISE_OCTAVES = 3
-    const val SLEEVE_MASK_STRENGTH = 0.24f
-    const val HERO_MASK_STRENGTH = 0.50f
-    const val HERO_MASK_FULL_ASPECT = 1.5f
     const val CANVAS_PREPARE_TIMEOUT_MS = 4_000L
     // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
     const val CANVAS_READY_MARGIN_SECONDS = 0.05

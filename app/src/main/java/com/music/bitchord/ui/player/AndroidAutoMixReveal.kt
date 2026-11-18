@@ -87,10 +87,6 @@ private class IncomingMask {
             val useMask = !revealFailed && !reducedMotion() && canvas.isHardwareAccelerated && runCatching {
                 mask.setFloatUniform("bounds", width, height)
                 mask.setFloatUniform("progress", e)
-                // The sleeve/landscape container is square; the opened hero is tall.
-                val hero = ((height / width - 1f) / (Tuning.HERO_MASK_FULL_ASPECT - 1f)).coerceIn(0f, 1f)
-                mask.setFloatUniform("strength", Tuning.SLEEVE_MASK_STRENGTH +
-                    (Tuning.HERO_MASK_STRENGTH - Tuning.SLEEVE_MASK_STRENGTH) * hero)
                 true
             }.getOrElse {
                 revealFailed = true
@@ -111,7 +107,6 @@ private class IncomingMask {
 private val MOTTLED_MASK = """
     uniform float2 bounds;
     uniform float progress;
-    uniform float strength;
 
     float hashCell(float2 cell) {
         return fract(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
@@ -127,7 +122,8 @@ private val MOTTLED_MASK = """
 
     half4 main(float2 xy) {
         float2 uv = xy / bounds;
-        float2 point = uv * ${Tuning.NOISE_SCALE} + float2(0.3, -0.7) * (progress * ${Tuning.NOISE_DRIFT});
+        // Keep the field stationary so every pixel reveals monotonically with the audio clock.
+        float2 point = uv * ${Tuning.NOISE_SCALE};
         float noise = 0.0;
         float weight = 0.5;
         float total = 0.0;
@@ -139,7 +135,8 @@ private val MOTTLED_MASK = """
         }
         float softness = ${Tuning.NOISE_SOFTNESS};
         float threshold = mix(1.0 + softness, -softness, progress);
-        float mottled = smoothstep(threshold - softness, threshold + softness, noise / total);
-        return half4(0.0, 0.0, 0.0, mix(progress, mottled, strength));
+        float field = clamp((noise / total - ${Tuning.NOISE_LOW}) / (${Tuning.NOISE_HIGH} - ${Tuning.NOISE_LOW}), 0.0, 1.0);
+        float coverage = smoothstep(threshold - softness, threshold + softness, field);
+        return half4(0.0, 0.0, 0.0, coverage);
     }
 """.trimIndent()

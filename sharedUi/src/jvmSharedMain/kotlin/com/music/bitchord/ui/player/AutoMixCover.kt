@@ -281,21 +281,22 @@ internal fun AutoMixCover(
         if (incoming == null) {
             DecodedCover(base, Modifier.fillMaxSize())
         } else {
-            val appReduced = PlayerSettings.reduceAnimation.collectAsState()
-            val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
-            val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
             val eased = { AutoMixArtworkTuning.revealProgress(frames.progress()) }
-            DecodedCover(base, Modifier.fillMaxSize().graphicsLayer {
-                val scale = if (reducedMotion()) 1f else
-                    1f + (AutoMixArtworkTuning.OUTGOING_END_SCALE - 1f) * eased()
-                scaleX = scale
-                scaleY = scale
-            })
-            val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion)
-            else Modifier.graphicsLayer { alpha = eased() }
-            DecodedCover(incoming, Modifier.fillMaxSize().then(reveal))
+            DecodedCover(base, Modifier.fillMaxSize())
+            AutoMixIncomingStill(incoming, eased, polish)
         }
     }
+}
+
+/** Only the incoming still is isolated by the effect, never the outgoing Canvas. */
+@Composable
+internal fun AutoMixIncomingStill(result: DecodedAutoMixCover, eased: () -> Float, polish: Boolean = true) {
+    val appReduced = PlayerSettings.reduceAnimation.collectAsState()
+    val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
+    val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
+    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion)
+    else Modifier.graphicsLayer { alpha = eased() }
+    DecodedCover(result, Modifier.fillMaxSize().then(reveal))
 }
 
 @Composable

@@ -378,7 +378,7 @@ internal fun LandscapeArtwork(
             }
             val incoming = autoMixFrames?.incoming
             if (incoming != null && canvasPair?.liveOutgoing == true && !canvasPair.liveIncoming) {
-                DecodedCover(incoming, Modifier.fillMaxSize().graphicsLayer { alpha = canvasPair.reveal() })
+                AutoMixIncomingStill(incoming, canvasPair::reveal)
             }
         }
         overlay()

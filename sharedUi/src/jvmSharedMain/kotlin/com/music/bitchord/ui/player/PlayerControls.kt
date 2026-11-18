@@ -76,10 +76,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
@@ -98,7 +100,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.withSaveLayer
@@ -327,22 +328,23 @@ private fun BoxScope.AutoMixBadgeSlot(
         val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
         val reducedMotion = reduceAnimation || systemMotion?.scaleFactor == 0f
         val glowGeneration = generation.takeIf { isPlaying && !reducedMotion }
-        val glow = remember(glowGeneration) { Animatable(0f) }
+        val glow = remember(glowGeneration) { mutableFloatStateOf(0f) }
         if (glowGeneration != null) {
             LaunchedEffect(glowGeneration) {
-                delay(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS.toLong())
+                val fill = AutoMixArtworkTuning.MIXING_BADGE_ILLUMINATE_MS
+                val removeStart = fill + AutoMixArtworkTuning.MIXING_BADGE_FULL_HOLD_MS
+                val remove = AutoMixArtworkTuning.MIXING_BADGE_EXTINGUISH_MS
+                val dimStart = removeStart + remove
+                val cycle = dimStart + AutoMixArtworkTuning.MIXING_BADGE_DIM_HOLD_MS
+                val start = withFrameNanos { it }
                 while (true) {
-                    glow.animateTo(
-                        1f,
-                        tween(AutoMixArtworkTuning.MIXING_BADGE_ILLUMINATE_MS, easing = LinearEasing),
-                    )
-                    delay(AutoMixArtworkTuning.MIXING_BADGE_FULL_HOLD_MS)
-                    glow.animateTo(
-                        2f,
-                        tween(AutoMixArtworkTuning.MIXING_BADGE_EXTINGUISH_MS, easing = LinearEasing),
-                    )
-                    glow.snapTo(0f) // Both endpoints are fully dim.
-                    delay(AutoMixArtworkTuning.MIXING_BADGE_DIM_HOLD_MS)
+                    val time = ((withFrameNanos { it } - start) / 1_000_000.0) % cycle
+                    glow.floatValue = when {
+                        time < fill -> (time / fill).toFloat()
+                        time < removeStart -> 1f
+                        time < dimStart -> 1f + ((time - removeStart) / remove).toFloat()
+                        else -> 0f
+                    }
                 }
             }
         }
@@ -354,7 +356,7 @@ private fun BoxScope.AutoMixBadgeSlot(
                 // A pending draw must not show a glow after the producer cancels it.
                 if (glowGeneration != null && systemMotion?.scaleFactor != 0f &&
                     feed?.value?.let { it.mixActive && it.generation == glowGeneration } == true
-                ) glow.value else 0f
+                ) glow.floatValue else 0f
             },
         )
     }
@@ -386,7 +388,6 @@ private fun MixingLabel(
                 // A buffer to fade through would cut the blend below off from the backdrop.
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            .additiveChrome(LocalPlayerChrome.current)
             .drawWithCache {
                 val glowRadius = AutoMixArtworkTuning.MIXING_BADGE_HALO_RADIUS_DP.dp.toPx()
                 val haloInset = 2f * glowRadius
@@ -396,39 +397,32 @@ private fun MixingLabel(
                     color = Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_HALO_ALPHA),
                     blurRadius = glowRadius,
                 )
-                val feather = size.width * AutoMixArtworkTuning.MIXING_BADGE_EDGE_FEATHER_FRACTION
-                val illuminate = Brush.horizontalGradient(
-                    colors = listOf(Color.White, Color.Transparent), startX = 0f, endX = feather,
-                )
-                val extinguish = Brush.horizontalGradient(
-                    colors = listOf(Color.Transparent, Color.White), startX = 0f, endX = feather,
-                )
+                val coreHalo = halo.copy(blurRadius = glowRadius * 0.42f)
+                val illuminate = listOf(Color.White, Color.Transparent)
+                val extinguish = listOf(Color.Transparent, Color.White)
                 onDrawWithContent {
                     val layout = textLayout
                     val progress = glowProgress()
-                    if (layout == null) {
-                        drawContent()
-                    } else {
-                        // Set the shadow explicitly: the highlight shares this paragraph's paint.
-                        drawText(layout, color = baseColor, shadow = Shadow.None)
-                        if (feather > 0f && progress > 0f && progress < 2f) {
-                            val lighting = progress <= 1f
-                            val phase = if (lighting) progress else progress - 1f
-                            // Both fronts travel across the shadow as well as the glyphs.
-                            val edge = bounds.left - feather + (bounds.width + feather) * phase
-                            // Mask only the bright glyphs and their halo, not the base or backdrop.
-                            drawContext.canvas.withSaveLayer(bounds, paint) {
-                                drawText(layout, color = Color.White, shadow = halo)
-                                // Move the cached shader, not the mask's coverage rectangle.
-                                translate(left = edge) {
-                                    drawRect(
-                                        brush = if (lighting) illuminate else extinguish,
-                                        topLeft = Offset(bounds.left - edge, bounds.top),
-                                        size = bounds.size,
-                                        blendMode = BlendMode.DstIn,
-                                    )
-                                }
-                            }
+                    // Clear the paragraph shadow before painting the dim pass again.
+                    if (layout == null) drawContent() else drawText(layout, color = baseColor, shadow = Shadow.None)
+                    if (layout != null && size.width > 0f && progress > 0f && progress < 2f) {
+                        val lighting = progress <= 1f
+                        val phase = if (lighting) progress else progress - 1f
+                        val feather = size.width * AutoMixArtworkTuning.MIXING_BADGE_EDGE_FEATHER_FRACTION
+                        val front = (size.width + feather) * phase
+                        // Clamp extends the lit plateau to the entire side behind/ahead of the
+                        // front. Only the short edge is feathered, not the already lit letters.
+                        // No text-sized additive layer around the overhanging glow.
+                        // Draw both glow radii, then mask glyphs and halo together.
+                        drawContext.canvas.withSaveLayer(bounds, paint) {
+                            drawText(layout, color = Color.White, shadow = halo)
+                            drawText(layout, color = Color.White, shadow = coreHalo)
+                            if (progress != 1f) drawRect(
+                                brush = Brush.horizontalGradient(if (lighting) illuminate else extinguish, front - feather, front),
+                                topLeft = bounds.topLeft,
+                                size = bounds.size,
+                                blendMode = BlendMode.DstIn,
+                            )
                         }
                     }
                 }

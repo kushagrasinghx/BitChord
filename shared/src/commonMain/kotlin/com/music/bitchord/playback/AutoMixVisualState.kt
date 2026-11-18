@@ -33,10 +33,10 @@ object AutoMixArtworkTuning {
     const val SEEK_GLOW_ATTACK_SECONDS = 0.8
     const val SEEK_GLOW_RELEASE_SECONDS = 1.0
     const val SEEK_GLOW_REDUCED_FADE_SECONDS = 0.15
-    const val SEEK_GLOW_FILL_ALPHA = 0.98f
-    const val SEEK_GLOW_EXTRA_HEIGHT_DP = 1.25f
-    const val SEEK_GLOW_HALO_OUTSET_DP = 3f
-    const val SEEK_GLOW_HALO_ALPHA = 0.40f
+    const val SEEK_IDLE_FILL_ALPHA = 0.88f
+    const val SEEK_GLOW_EXTRA_HEIGHT_FRACTION = 0.12f
+    const val SEEK_GLOW_HALO_OUTSET_DP = 4f
+    const val SEEK_GLOW_HALO_ALPHA = 0.26f
 
     fun ease(progress: Float): Float = progress * progress * (3f - 2f * progress)
 

@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MixBlend
@@ -152,6 +153,25 @@ fun ThinSlider(
         animationSpec = tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing),
         label = "fillFactor",
     )
+    val density = LocalDensity.current
+    val haloOutset = with(density) { AutoMixArtworkTuning.SEEK_GLOW_HALO_OUTSET_DP.dp.toPx() }
+    val trackHeight = with(density) { height.roundToPx().toFloat() }
+    val haloCore = trackHeight * (1f + AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_FRACTION)
+    val haloHeight = haloCore + 2f * haloOutset
+    val haloTop = (trackHeight - haloHeight) / 2f
+    val halo = if (autoMixGlow != null) remember(trackHeight, haloOutset) {
+        val feather = haloOutset / haloHeight
+        val ramp = (0..4).map { step ->
+            val t = step / 4f
+            val alpha = AutoMixArtworkTuning.SEEK_GLOW_HALO_ALPHA * AutoMixArtworkTuning.ease(t)
+            t * feather to Color.White.copy(alpha = alpha)
+        }
+        Brush.verticalGradient(
+            colorStops = (ramp + ramp.asReversed().map { (t, color) -> 1f - t to color }).toTypedArray(),
+            startY = haloTop,
+            endY = haloTop + haloHeight,
+        )
+    } else null
 
     Box(
         modifier = modifier
@@ -247,33 +267,28 @@ fun ThinSlider(
             // dot under the sheen.
             val filled = size.width * fraction * fillFactor
             if (filled > 0f) {
-                val alpha = if (dragging) activeColor.alpha else mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
+                val alpha = when {
+                    dragging -> activeColor.alpha
+                    !sheenVisible && halo != null && mixPulse?.active != true -> AutoMixArtworkTuning.SEEK_IDLE_FILL_ALPHA
+                    else -> mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
+                }
                 val fillColor = activeColor.copy(alpha = alpha)
                 val fillWidth = filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width)
                 val glow = if (dragging || sheenVisible) 0f else autoMixGlow?.invoke() ?: 0f
-                if (glow > 0f) {
-                    val extraHeight = AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_DP.dp.toPx() * glow
+                if (glow > 0f && halo != null) {
+                    val extraHeight = size.height * AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_FRACTION * glow
                     val coreHeight = size.height + extraHeight
                     val coreTop = -extraHeight / 2f
-                    val bright = Color.White.copy(alpha = AutoMixArtworkTuning.SEEK_GLOW_FILL_ALPHA)
-                    // Feather vertically only, keeping even the halo within the played width.
-                    val outset = AutoMixArtworkTuning.SEEK_GLOW_HALO_OUTSET_DP.dp.toPx()
-                    val haloTop = coreTop - outset
-                    val haloHeight = coreHeight + 2f * outset
+                    // Only our draw alpha changes each tick; the soft falloff stays cached.
                     drawRoundRect(
-                        brush = Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            0.5f to Color.White.copy(alpha = AutoMixArtworkTuning.SEEK_GLOW_HALO_ALPHA * glow),
-                            1f to Color.Transparent,
-                            startY = haloTop,
-                            endY = haloTop + haloHeight,
-                        ),
+                        brush = halo,
+                        alpha = glow,
                         topLeft = Offset(0f, haloTop),
                         size = Size(fillWidth, haloHeight),
                         cornerRadius = CornerRadius(haloHeight / 2f),
                     )
                     drawRoundRect(
-                        color = lerp(fillColor, bright, glow),
+                        color = lerp(fillColor, Color.White, glow),
                         topLeft = Offset(0f, coreTop),
                         size = Size(fillWidth, coreHeight),
                         cornerRadius = CornerRadius(coreHeight / 2f),

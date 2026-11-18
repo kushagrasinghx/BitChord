@@ -23,15 +23,15 @@ object AutoMixArtworkTuning {
     // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
     const val CANVAS_READY_MARGIN_SECONDS = 0.05
     const val MIXING_BADGE_FADE_MS = 400
-    const val MIXING_BADGE_ILLUMINATE_MS = 650
-    const val MIXING_BADGE_FULL_HOLD_MS = 160L
-    const val MIXING_BADGE_EXTINGUISH_MS = 550
-    const val MIXING_BADGE_DIM_HOLD_MS = 1_000L
+    const val MIXING_BADGE_ILLUMINATE_MS = 950
+    const val MIXING_BADGE_FULL_HOLD_MS = 120L
+    const val MIXING_BADGE_EXTINGUISH_MS = 950
+    const val MIXING_BADGE_DIM_HOLD_MS = 1_100L
     const val MIXING_BADGE_DIM_ALPHA = 0.55f
     const val MIXING_BADGE_BRIGHT_ALPHA = 0.95f
-    const val MIXING_BADGE_HALO_RADIUS_DP = 6f
-    const val MIXING_BADGE_HALO_ALPHA = 0.90f
-    const val MIXING_BADGE_EDGE_FEATHER_FRACTION = 0.10f
+    const val MIXING_BADGE_HALO_RADIUS_DP = 4.5f
+    const val MIXING_BADGE_HALO_ALPHA = 0.62f
+    const val MIXING_BADGE_EDGE_FEATHER_FRACTION = 0.20f
     const val SEEK_GLOW_ATTACK_SECONDS = 0.8
     const val SEEK_GLOW_RELEASE_SECONDS = 1.0
     const val SEEK_GLOW_REDUCED_FADE_SECONDS = 0.15

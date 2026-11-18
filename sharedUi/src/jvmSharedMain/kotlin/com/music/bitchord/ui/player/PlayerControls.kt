@@ -397,12 +397,19 @@ private fun MixingLabel(
                     blurRadius = glowRadius,
                 )
                 val feather = size.width * AutoMixArtworkTuning.MIXING_BADGE_EDGE_FEATHER_FRACTION
-                val illuminate = Brush.horizontalGradient(
-                    colors = listOf(Color.White, Color.Transparent), startX = 0f, endX = feather,
+                // Like the lyrics wipe, feather into the glyphs ahead of the front. Ease the
+                // alpha at both ends so neither the full light nor the dim text has a visible seam.
+                fun featherBrush(lighting: Boolean): Brush = Brush.horizontalGradient(
+                    *Array(9) { index ->
+                        val t = index / 8f
+                        val eased = t * t * (3f - 2f * t)
+                        t to Color.White.copy(alpha = if (lighting) 1f - eased else eased)
+                    },
+                    startX = 0f,
+                    endX = feather,
                 )
-                val extinguish = Brush.horizontalGradient(
-                    colors = listOf(Color.Transparent, Color.White), startX = 0f, endX = feather,
-                )
+                val illuminate = featherBrush(lighting = true)
+                val extinguish = featherBrush(lighting = false)
                 onDrawWithContent {
                     val layout = textLayout
                     val progress = glowProgress()

@@ -29,7 +29,7 @@ object AutoMixArtworkTuning {
     const val MIXING_BADGE_BRIGHT_ALPHA = 0.95f
     const val MIXING_BADGE_HALO_RADIUS_DP = 4.5f
     const val MIXING_BADGE_HALO_ALPHA = 0.62f
-    const val MIXING_BADGE_EDGE_FEATHER_FRACTION = 0.20f
+    const val MIXING_BADGE_EDGE_FEATHER_FRACTION = 0.34f
     const val SEEK_GLOW_ATTACK_SECONDS = 0.8
     const val SEEK_GLOW_RELEASE_SECONDS = 1.0
     const val SEEK_GLOW_REDUCED_FADE_SECONDS = 0.15

@@ -268,6 +268,7 @@ internal class AutoMixCoverFrames(
 internal fun AutoMixCover(
     frames: AutoMixCoverFrames?,
     modifier: Modifier,
+    polish: Boolean = false,
     fallback: @Composable (Modifier) -> Unit,
 ) {
     if (frames == null) {
@@ -289,14 +290,10 @@ internal fun AutoMixCover(
                 scaleX = scale
                 scaleY = scale
             })
-            DecodedCover(incoming, Modifier.fillMaxSize().graphicsLayer {
-                val eased = AutoMixArtworkTuning.ease(frames.progress())
-                alpha = eased
-                val scale = if (reducedMotion()) 1f else
-                    1f + (AutoMixArtworkTuning.INCOMING_START_SCALE - 1f) * (1f - eased)
-                scaleX = scale
-                scaleY = scale
-            })
+            val eased = { AutoMixArtworkTuning.ease(frames.progress()) }
+            val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion)
+            else Modifier.graphicsLayer { alpha = eased() }
+            DecodedCover(incoming, Modifier.fillMaxSize().then(reveal))
         }
     }
 }
@@ -310,7 +307,7 @@ private fun DecodedCover(result: DecodedAutoMixCover, modifier: Modifier) {
 
 @Composable
 internal fun AutoMixPlayerCover(art: PlayerArtwork, frames: AutoMixCoverFrames?, modifier: Modifier) {
-    AutoMixCover(frames, modifier) { artworkModifier ->
+    AutoMixCover(frames, modifier, polish = true) { artworkModifier ->
         AsyncImage(
             model = art.request,
             contentDescription = null,

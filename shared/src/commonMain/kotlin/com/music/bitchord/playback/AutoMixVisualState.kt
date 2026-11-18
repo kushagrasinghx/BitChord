@@ -8,6 +8,16 @@ object AutoMixArtworkTuning {
     const val MIN_WINDOW_SECONDS = 0.8
     const val OUTGOING_END_SCALE = 1f
     const val INCOMING_START_SCALE = 1f
+    const val BLUR_START_DP = 20f
+    const val BLUR_END_PROGRESS = 0.85f
+    const val BLUR_RADIUS_STEPS = 64
+    const val NOISE_SCALE = 3f
+    const val NOISE_SOFTNESS = 0.22f
+    const val NOISE_DRIFT = 0.16f
+    const val NOISE_OCTAVES = 3
+    const val SLEEVE_MASK_STRENGTH = 0.30f
+    const val HERO_MASK_STRENGTH = 0.90f
+    const val HERO_MASK_FULL_ASPECT = 1.5f
     const val MIXING_BADGE_FADE_MS = 400
     const val MIXING_BADGE_SWEEP_MS = 1_800
     const val MIXING_BADGE_SWEEP_PAUSE_MS = 3_000L

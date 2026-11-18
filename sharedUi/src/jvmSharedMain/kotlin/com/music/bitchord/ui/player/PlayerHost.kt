@@ -2,6 +2,7 @@ package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.data.canvas.CanvasArtwork
@@ -42,6 +43,11 @@ interface PlayerHost {
 
     /** Visual-only seek intent, before the scrubber dispatches its transport command. */
     fun onAutoMixScrubIntent() = Unit
+
+    /** Incoming layer only. Non-Android hosts use the same eased alpha as the mini player. */
+    @Composable
+    fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
+        Modifier.graphicsLayer { alpha = eased() }
 
     /** A Canvas already settled for [song], without a lookup. */
     fun cachedCanvas(song: Song): CanvasArtwork?

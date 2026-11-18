@@ -65,6 +65,10 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     override fun onAutoMixScrubIntent() = AutoMixVisualFeed.cancel()
 
+    @Composable
+    override fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
+        androidAutoMixIncomingReveal(eased, reducedMotion)
+
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
         override val audioQualityCellular get() = AppSettings.audioQualityCellular

@@ -25,6 +25,7 @@ import (
 	"github.com/KabirSinghBhatia/BitChord/backend/party"
 	"github.com/KabirSinghBhatia/BitChord/backend/presence"
 	"github.com/KabirSinghBhatia/BitChord/backend/protocol"
+	"github.com/KabirSinghBhatia/BitChord/backend/syncapi"
 )
 
 var (
@@ -75,6 +76,35 @@ func main() {
 	mux.HandleFunc("GET /ws/parties/{code}", handleWebSocket)
 
 	handler := corsMiddleware(mux)
+
+	if config.SyncPort == config.Port {
+		log.Fatalf("SYNC_PORT (%d) must differ from PORT (%d)", config.SyncPort, config.Port)
+	}
+	if net.ParseIP(config.SyncBindAddr) == nil {
+		log.Fatalf("SYNC_BIND_ADDR must be an IP literal, got %q", config.SyncBindAddr)
+	}
+	syncStore, err := syncapi.NewStore(config.SyncStatePath)
+	if err != nil {
+		log.Fatalf("Could not open sync store: %v", err)
+	}
+	syncAddr := net.JoinHostPort(config.SyncBindAddr, fmt.Sprintf("%d", config.SyncPort))
+	syncServer := &http.Server{
+		Addr:              syncAddr,
+		Handler: syncapi.NewHandler(syncStore, syncapi.HandlerOptions{
+			TrustedProxy:         config.SyncTrustProxy,
+			AllowProfileCreation: config.SyncAllowProfileCreation,
+		}),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Printf("BitChord account sync API starting on %s (state file: %s)", syncAddr, config.SyncStatePath)
+	go func() {
+		if err := syncServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Sync API stopped: %v", err)
+		}
+	}()
 
 	addr := fmt.Sprintf("0.0.0.0:%d", config.Port)
 	log.Printf("BitChord Listen Together (Go) starting on %s...", addr)

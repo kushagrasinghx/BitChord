@@ -790,8 +790,8 @@
     <string name="lyrics_share_image">Image</string>
     <string name="lyrics_share_saving">Saving…</string>
     <string name="lyrics_share_gradient">Gradient</string>
-    <string name="lyrics_share_apple_canvas">Apple</string>
-    <string name="lyrics_share_spotify_canvas">Spotify</string>
+    <string name="lyrics_share_apple_canvas" translatable="false">Apple</string>
+    <string name="lyrics_share_spotify_canvas" translatable="false">Spotify</string>
     <string name="lyrics_share_show_logo">Show BitChord logo</string>
     <string name="listening_shape">Your listening pattern</string>
     <string name="member_since">Member since</string>
@@ -1369,4 +1369,38 @@
     <string name="queue_selected_count">%1$d selected</string>
     <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
+    <string name="cross_device_sync">Cross-device sync</string>
+    <string name="cross_device_sync_subtitle">Sync selected settings across your devices</string>
+    <string name="sync_service_note">Requires a compatible HTTPS sync server. Choose a trusted server; snapshots are encrypted on your device.</string>
+    <string name="sync_server_url">Sync server URL</string>
+    <string name="sync_create_profile">Enable sync</string>
+    <string name="sync_invitation_code">Pairing code</string>
+    <string name="sync_join_profile">Join with code</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_create_pairing">Pair another device</string>
+    <string name="sync_enabled_label">Sync enabled</string>
+    <string name="sync_paused_label">Sync paused</string>
+    <string name="sync_pairing_warning">This code contains your encryption key. Share it only with a trusted device.</string>
+    <string name="sync_copy_code">Copy pairing code</string>
+    <string name="sync_pairing_ready">Pairing code created</string>
+    <string name="sync_ready">Sync complete</string>
+    <string name="sync_copied">Pairing code copied</string>
+    <string name="sync_pause">Pause sync</string>
+    <string name="sync_resume">Resume sync</string>
+    <string name="sync_error">Sync failed: %1$s</string>
+    <string name="sync_devices_header">Linked devices</string>
+    <string name="sync_no_other_devices">No other devices paired</string>
+    <string name="sync_this_device">This device</string>
+    <string name="sync_other_device">Other device</string>
+    <string name="sync_device_id">Device %1$s</string>
+    <string name="sync_refresh_devices">Refresh devices</string>
+    <string name="sync_revoke_device">Revoke</string>
+    <string name="sync_revoke_title">Revoke device access?</string>
+    <string name="sync_revoke_body">Device %1$s will lose access and must be paired again to sync.</string>
+    <string name="sync_device_revoked">Device access revoked</string>
+    <string name="sync_devices_refreshed">Device list refreshed</string>
+    <string name="sync_reset_local">Reset local sync data</string>
+    <string name="sync_reset_title">Reset local sync data?</string>
+    <string name="sync_reset_body">This erases the saved sync key and token on this device, but does not revoke the device on the server. If possible, revoke it from another linked device first.</string>
+    <string name="sync_reset_done">Local sync data reset</string>
 </resources>

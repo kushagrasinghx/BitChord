@@ -14,6 +14,8 @@ import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.sync.SyncSnapshot
+import com.music.bitchord.sync.SyncValue
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -2257,6 +2259,18 @@ object AppSettings {
             }
         }.apply()
         reload()
+    }
+
+    /** Export only the explicit portable settings allowlist for account sync. */
+    fun exportSyncablePrefs(): Map<String, SyncValue> {
+        if (!this::prefs.isInitialized) return emptyMap()
+        return SyncSettingsBridge(prefs).export()
+    }
+
+    /** Apply a decrypted snapshot only where local settings still match the observed values. */
+    fun applySyncSnapshot(snapshot: SyncSnapshot, expectedCurrent: Map<String, SyncValue>) {
+        if (!this::prefs.isInitialized) return
+        if (SyncSettingsBridge(prefs).apply(snapshot, expectedCurrent)) reload()
     }
 
     /**

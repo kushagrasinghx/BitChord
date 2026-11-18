@@ -20,6 +20,14 @@ func getInt(key string, fallback int) int {
 	return parsed
 }
 
+func getString(key, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
 func getCSV(key string, fallback string) []string {
 	val := os.Getenv(key)
 	if val == "" {
@@ -86,17 +94,22 @@ var (
 	MaxQueueLength       = getInt("JAM_MAX_QUEUE_LENGTH", 1+MaxUpcomingQueue)
 	// Render Free has 0.1 CPU. Fifty rooms (at most 250 sockets) is a safe
 	// starting ceiling; raise it only after measuring CPU and memory usage.
-	MaxParties           = getInt("JAM_MAX_PARTIES", 50)
-	CreateRatePerMinute  = getInt("JAM_CREATE_RATE_PER_MINUTE", 2)
-	RateLimitMaxEntries  = getInt("JAM_RATE_LIMIT_MAX_ENTRIES", 10000)
-	RequestMaxBytes      = int64(getInt("JAM_REQUEST_MAX_BYTES", 16*1024))
-	WebSocketMaxBytes    = int64(getInt("JAM_WEBSOCKET_MAX_BYTES", 16*1024))
-	ConnectionIdleMs     = int64(getInt("JAM_CONNECTION_IDLE_MS", 15*60*1000))
-	FrameRatePerSecond   = float64(getInt("JAM_FRAME_RATE_PER_SECOND", 30))
-	AllowedOrigins       = getCSV("JAM_ALLOWED_ORIGINS", "")
-	TrustProxy           = getBool("JAM_TRUST_PROXY", false)
-	PublicOrigin         = getOrigin("JAM_PUBLIC_ORIGIN")
-	Port                 = getInt("PORT", 8000)
+	MaxParties               = getInt("JAM_MAX_PARTIES", 50)
+	CreateRatePerMinute      = getInt("JAM_CREATE_RATE_PER_MINUTE", 2)
+	RateLimitMaxEntries      = getInt("JAM_RATE_LIMIT_MAX_ENTRIES", 10000)
+	RequestMaxBytes          = int64(getInt("JAM_REQUEST_MAX_BYTES", 16*1024))
+	WebSocketMaxBytes        = int64(getInt("JAM_WEBSOCKET_MAX_BYTES", 16*1024))
+	ConnectionIdleMs         = int64(getInt("JAM_CONNECTION_IDLE_MS", 15*60*1000))
+	FrameRatePerSecond       = float64(getInt("JAM_FRAME_RATE_PER_SECOND", 30))
+	AllowedOrigins           = getCSV("JAM_ALLOWED_ORIGINS", "")
+	TrustProxy               = getBool("JAM_TRUST_PROXY", false)
+	PublicOrigin             = getOrigin("JAM_PUBLIC_ORIGIN")
+	Port                     = getInt("PORT", 8000)
+	SyncPort                 = getInt("SYNC_PORT", 8081)
+	SyncBindAddr             = getString("SYNC_BIND_ADDR", "127.0.0.1")
+	SyncStatePath            = getString("SYNC_STATE_PATH", "./data/sync-state.json")
+	SyncTrustProxy           = getBool("SYNC_TRUST_PROXY", false)
+	SyncAllowProfileCreation = getBool("SYNC_ALLOW_PROFILE_CREATION", false)
 )
 
 // Open-app heartbeats. The interval is handed back on every ping, so it can be

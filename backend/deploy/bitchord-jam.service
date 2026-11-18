@@ -1,5 +1,5 @@
 [Unit]
-Description=BitChord Listen Together server
+Description=BitChord Listen Together and account sync API
 After=network-online.target
 Wants=network-online.target
 
@@ -9,9 +9,13 @@ ExecStart=/opt/bitchord-jam/server
 Restart=always
 RestartSec=2
 
-# Caddy terminates TLS on 443 and forwards X-Forwarded-For; port 8000 stays
-# closed to the internet (only 80/443 are opened by setup.sh).
+# Caddy terminates TLS on 443 and forwards X-Forwarded-For; ports 8000 and
+# 8081 stay closed to the internet (only 80/443 are opened by setup.sh).
 Environment=PORT=8000
+Environment=SYNC_PORT=8081
+Environment=SYNC_BIND_ADDR=127.0.0.1
+Environment=SYNC_STATE_PATH=/var/lib/bitchord-sync/state.json
+Environment=SYNC_TRUST_PROXY=true
 Environment=JAM_TRUST_PROXY=true
 Environment=JAM_MAX_MEMBERS=5
 Environment=JAM_STATE_HEARTBEAT_MS=5000
@@ -22,6 +26,8 @@ Environment=JAM_CONNECTION_IDLE_MS=900000
 # Browser origins the web player runs on (no wildcards; see config.IsAllowedOrigin).
 Environment=JAM_ALLOWED_ORIGINS=https://bitchord.in,https://bitchord-8bw.pages.dev,http://localhost:5173
 
+StateDirectory=bitchord-sync
+StateDirectoryMode=0700
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

@@ -127,26 +127,21 @@ private val ORGANIC_MASK_FIELD = """
     }
 
     float revealCoverage(float2 xy) {
-        // Equal pixel scale on both axes; avoid stretching noise cells into rectangles.
-        float2 point = (xy - bounds * 0.5) * (${Tuning.NOISE_SCALE} / min(bounds.x, bounds.y));
-        // Bend the lattice before sampling and unalign the octave axes. The field stays
-        // stationary per generation, so increasing audio progress can only reveal pixels.
-        point += ${Tuning.NOISE_WARP} * sin(point.yx * 2.0 + seedOffset);
-        point += seedOffset;
+        // Keep the pattern broad over the whole artwork, even on tall or wide covers.
+        // Translate the smooth field once per generation instead of warping its lattice.
+        float2 point = xy / bounds * ${Tuning.NOISE_SCALE} + seedOffset;
         float noise = 0.0;
         float weight = 0.5;
         float total = 0.0;
         for (int i = 0; i < ${Tuning.NOISE_OCTAVES}; ++i) {
             noise += valueNoise(point) * weight;
             total += weight;
-            point = float2(0.8 * point.x - 0.6 * point.y, 0.6 * point.x + 0.8 * point.y)
-                * 2.0 + float2(3.9, 5.1);
+            point = point * 2.0 + float2(3.9, 5.1);
             weight *= 0.5;
         }
         float softness = ${Tuning.NOISE_SOFTNESS};
         float threshold = mix(1.0 + softness, -softness, progress);
-        // Restore contrast without creating flat, abruptly clamped islands in the field.
-        float field = smoothstep(0.0, 1.0, noise / total);
+        float field = clamp((noise / total - ${Tuning.NOISE_LOW}) / (${Tuning.NOISE_HIGH} - ${Tuning.NOISE_LOW}), 0.0, 1.0);
         return smoothstep(threshold - softness, threshold + softness, field);
     }
 """.trimIndent()

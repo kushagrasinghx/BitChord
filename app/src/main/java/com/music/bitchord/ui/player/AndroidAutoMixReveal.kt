@@ -159,7 +159,7 @@ private fun RuntimeShader.setPattern(generation: Long) {
     setFloatUniform("seedOffset", random.nextFloat() * Tuning.NOISE_SEED_SPAN, random.nextFloat() * Tuning.NOISE_SEED_SPAN)
 }
 
-/** The native wrapper supplies the already drawn TextureView as a GPU input. */
+/** The TextureView's RenderNode supplies the live texture as a GPU input. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 internal class LiveAutoMixMask {
     private val shader = RuntimeShader("""

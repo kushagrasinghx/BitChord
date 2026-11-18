@@ -201,7 +201,7 @@ internal fun AndroidCanvasArtworkPlayer(
     onCoverChanged: (Float) -> Unit = {},
     /**
      * Share of the clip's height, measured up from its bottom edge, over which
-     * it dissolves to nothing — 0 for a hard edge. See [setBottomFade] for why
+     * it dissolves to nothing — 0 for a hard edge. See [createBottomFade] for why
      * this is a parameter here rather than a mask the caller could draw.
      */
     bottomFade: Float = 0f,
@@ -489,8 +489,10 @@ internal fun AndroidCanvasArtworkPlayer(
     // it is. Zeroed on the way out, or a caller would be left holding something
     // hidden behind a clip that is no longer mounted.
     val reportCover by rememberUpdatedState(onCoverChanged)
+    val currentOrganicReveal by rememberUpdatedState(organicReveal)
     LaunchedEffect(Unit) {
-        snapshotFlow { alpha * currentPresentationAlpha() }.collect { reportCover(it) }
+        snapshotFlow { alpha * currentPresentationAlpha() * (currentOrganicReveal?.progress?.invoke() ?: 1f) }
+            .collect { reportCover(it) }
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -502,8 +504,8 @@ internal fun AndroidCanvasArtworkPlayer(
         }
     }
 
-    val reducedMotion = if (organicReveal != null) AppSettings.reduceAnimation.collectAsState() else null
-    val systemMotion = if (organicReveal != null) rememberCoroutineScope().coroutineContext[MotionDurationScale] else null
+    val reducedMotion = if (organicReveal?.allowSpatialMask == true) AppSettings.reduceAnimation.collectAsState() else null
+    val systemMotion = if (organicReveal?.allowSpatialMask == true) rememberCoroutineScope().coroutineContext[MotionDurationScale] else null
     AndroidView(
         factory = { viewContext ->
             val texture = TextureView(viewContext).apply {
@@ -603,7 +605,7 @@ internal fun AndroidCanvasArtworkPlayer(
             val applied = frame.applied
             // Set on the view itself. A Compose alpha layer over a TextureView
             // is not reliably composited, and this is the same fade either way.
-            val opacity = if ((nowPlaying && !rendered) ||
+            val visibility = if ((nowPlaying && !rendered) ||
                 (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f)
             ) {
                 0f
@@ -613,17 +615,7 @@ internal fun AndroidCanvasArtworkPlayer(
                 // recomposing the player around it.
                 alpha * presentationAlpha()
             }
-            val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val progress = if (organicReveal != null && nowPlaying && reducedMotion?.value != true &&
-                    systemMotion?.scaleFactor != 0f
-                ) organicReveal.progress() else 0f
-                // Readiness and presentation fades take precedence. Only replace the
-                // texture alpha when coverage is the sole reason it is below full opacity.
-                frame.applyOrganicReveal(organicReveal?.generation, if (opacity == progress) progress else 0f)
-            } else false
-            // Unlike a zero-alpha View, a transparent texture-layer paint still
-            // allows traversal to latch buffers on the hidden standby slot.
-            if (nowPlaying) frame.setTextureOpacity(view, if (masked) 1f else opacity) else view.alpha = opacity
+            val progress = organicReveal?.progress?.invoke() ?: 1f
             // Only when something they are made of has changed. The fade above
             // re-runs this block on every frame of a collapse or of the player
             // closing into the mini player, and each pass built a fresh matrix,
@@ -632,14 +624,28 @@ internal fun AndroidCanvasArtworkPlayer(
             if (applied.transformDiffers(clipAspect, contentMode, alignPortraitTop, view.width, view.height)) {
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)) {
-                    view.setBottomFade(bottomFade, bounds, bottomFadeEndPx)
+            val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)
+                if (fadeChanged) frame.bottomEffect = createBottomFade(bottomFade, bounds, bottomFadeEndPx)
+                val generation = organicReveal?.generation?.takeIf {
+                    organicReveal.allowSpatialMask && nowPlaying && visibility > 0f &&
+                        reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    frame.applyOrganicReveal(view, generation, progress, fadeChanged)
+                } else {
+                    if (fadeChanged) view.setRenderEffect(frame.bottomEffect)
+                    false
                 }
             } else {
                 frame.fadeFraction = bottomFade
                 frame.fadeEndPx = bottomFadeEndPx
+                false
             }
+            // Texture paint keeps hidden standby traversable so it can latch a frame.
+            // Only readiness/presentation goes here when the shader supplies coverage.
+            val opacity = visibility * (if (masked) 1f else progress)
+            if (nowPlaying) frame.setTextureOpacity(view, opacity) else view.alpha = opacity
         },
         modifier = modifier.onSizeChanged { bounds = it },
     )
@@ -812,12 +818,9 @@ private fun TextureView.applyContentTransform(
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
+private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): RenderEffect? {
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
-    if (fraction <= 0.001f || endY <= 0f) {
-        setRenderEffect(null)
-        return
-    }
+    if (fraction <= 0.001f || endY <= 0f) return null
     // Along smootherstep, as the still sleeve's banner dissolves, so the clip
     // and a still of it standing in for it end the same way.
     val gradient = LinearGradient(
@@ -834,18 +837,16 @@ private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: F
     // createOffsetEffect(0, 0) is the identity effect over the node's own
     // content, which is the only way to name "what this view drew" as the
     // destination of a blend.
-    setRenderEffect(
-        RenderEffect.createBlendModeEffect(
-            RenderEffect.createOffsetEffect(0f, 0f),
-            RenderEffect.createShaderEffect(gradient),
-            BlendMode.DST_IN,
-        ),
+    return RenderEffect.createBlendModeEffect(
+        RenderEffect.createOffsetEffect(0f, 0f),
+        RenderEffect.createShaderEffect(gradient),
+        BlendMode.DST_IN,
     )
 }
 
 /**
  * The pre-[Build.VERSION_CODES.S] bottom fade: the same dissolve
- * [setBottomFade] gets from a [RenderEffect], done the way it was done before
+ * [createBottomFade] gets from a [RenderEffect], done the way it was done before
  * there was one.
  *
  * Draw the child into an offscreen layer, paint a gradient over that layer with
@@ -903,6 +904,7 @@ private class AppliedLook {
 private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
+    var bottomEffect: RenderEffect? = null
     private var textureOpacity = 0
     private var reveal: LiveAutoMixMask? = null
     private var revealFailed = false
@@ -911,35 +913,36 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var revealGeneration: Long? = null
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    fun applyOrganicReveal(generation: Long?, progress: Float): Boolean {
-        val bounds = IntSize(width, height)
-        if (generation == null || revealFailed || !isHardwareAccelerated || progress <= 0f || progress >= 1f ||
+    fun applyOrganicReveal(view: TextureView, generation: Long?, progress: Float, fadeChanged: Boolean): Boolean {
+        val bounds = IntSize(view.width, view.height)
+        if (generation == null || revealFailed || !view.isHardwareAccelerated || !(progress > 0f && progress < 1f) ||
             bounds.width <= 0 || bounds.height <= 0
         ) {
-            clearOrganicReveal()
+            restoreBottomEffect(view, fadeChanged)
             return false
         }
-        if (progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
+        if (!fadeChanged && progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
         return runCatching {
             val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
-            // The wrapper's RenderNode contains its child. Leave the TextureView's own
-            // crop and bottom fade intact, and never change its decoder or surface.
-            setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation))
+            val spatial = mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation)
+            // Bind to the RenderNode that records drawTextureLayer, preserving its
+            // existing bottom fade and leaving the attached video surface alone.
+            view.setRenderEffect(bottomEffect?.let { RenderEffect.createChainEffect(spatial, it) } ?: spatial)
             revealProgress = progress
             revealBounds = bounds
             revealGeneration = generation
             true
         }.getOrElse {
             revealFailed = true
-            clearOrganicReveal()
+            restoreBottomEffect(view, fadeChanged)
             false
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
-    private fun clearOrganicReveal() {
-        if (revealProgress == 0f) return
-        setRenderEffect(null)
+    private fun restoreBottomEffect(view: TextureView, fadeChanged: Boolean) {
+        if (revealProgress == 0f && !fadeChanged) return
+        view.setRenderEffect(bottomEffect)
         revealProgress = 0f
     }
 

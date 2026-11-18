@@ -2664,12 +2664,15 @@ fun NowPlayingScreen(
                 // invisible view to full-player bounds before its first frame is shown.
                 if ((heroMode && heroHeight > 0.dp) || incomingFullWindow || clipFullscreen) {
                     val standbyClip = pair?.incomingClip?.takeIf { !(lyricsOpen || queueOpen) || !collapseDone }
+                    val matchedLiveHero = pair?.liveOutgoing == true && pair.liveIncoming &&
+                        sharesHeroRevealFootprint(clipFullscreen, incomingFullWindow, canvasAspect, pair.incomingAspect)
                     CanvasPresentationHost(heroClipMounted, standbyClip) { clip, standby ->
                         val stillStart = remember(clip.url) { if (standby) null else stillAtMount() }
                         var slotAspect by remember { mutableFloatStateOf(0f) }
                         val fullscreen = fullCanvasWindow && clip.source == CanvasSource.SPOTIFY
                         val portrait = !fullscreen && slotAspect > 0f && slotAspect < 1f
                         val bottom = if (portrait) canvasBottom(slotAspect) else 0.dp
+
                         CanvasArtworkPlayer(
                             canvas = clip,
                             isPlaying = isPlaying,
@@ -2713,8 +2716,14 @@ fun NowPlayingScreen(
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
                                 if (stillTakesOver()) 0f
-                                else if (standby) (pair?.standbyOpacity() ?: 0f) * clipTransitionAlpha()
+                                else if (standby) clipTransitionAlpha()
                                 else if (staticCanvasMix) 0f
+                                else if (matchedLiveHero && pair != null && !pair.sharesClip && !fullscreen) {
+                                    // A shared, translucent bottom edge would otherwise show
+                                    // the outgoing clip until the exact promotion frame.
+                                    val tail = ((pair.reveal() - 0.8f) / 0.2f).coerceIn(0f, 1f)
+                                    (1f - smootherStep(tail)) * clipTransitionAlpha()
+                                }
                                 else if (pair != null && !pair.sharesClip && (portrait || fullscreen) &&
                                     pair.incomingClip?.source != CanvasSource.SPOTIFY &&
                                     (pair.liveIncoming || autoMixFrames?.incoming != null)
@@ -2737,11 +2746,9 @@ fun NowPlayingScreen(
                                 }
                             },
                             nowPlaying = true,
-                            organicReveal = pair?.organicReveal.takeIf {
-                                standby && pair?.liveOutgoing == true &&
-                                    sharesHeroRevealFootprint(clipFullscreen, fullscreen, canvasAspect, slotAspect) &&
-                                    !collapseStarted && !dockMoving && !lyricsOpen && !queueOpen && !queueDragging
-                            },
+                            // The still hero is drawn above this host, not under it. Keep its
+                            // opacity handoff; only matching live geometry can reveal here.
+                            organicReveal = if (standby) pair?.standbyReveal(matchedLiveHero && !stillMoving) else null,
                             // Frames only for a mesh that will use them.
                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {
                                 CANVAS_FRAME_CAPTURE_PX
@@ -3737,7 +3744,7 @@ fun NowPlayingScreen(
                                                 (standby && pair?.started != true),
                                             presentationAlpha = {
                                                 if (stillTakesOver()) 0f
-                                                else if (standby) pair?.standbyOpacity() ?: 0f
+                                                else if (standby) 1f
                                                 else if (staticCanvasMix) 0f
                                                 else if (incomingFullWindow) 1f - pair.standbyOpacity()
                                                 else if (clip.source == CanvasSource.APPLE && coverLoaded()) clipTransitionAlpha()
@@ -3755,10 +3762,7 @@ fun NowPlayingScreen(
                                                 }
                                             },
                                             nowPlaying = true,
-                                            organicReveal = pair?.organicReveal.takeIf {
-                                                standby && !collapseStarted && !dockMoving &&
-                                                    !lyricsOpen && !queueOpen && !queueDragging
-                                            },
+                                            organicReveal = if (standby) pair?.standbyReveal(!stillMoving) else null,
                                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !tabletArtworkBackdrop) {
                                                 CANVAS_FRAME_CAPTURE_PX
                                             } else 0,

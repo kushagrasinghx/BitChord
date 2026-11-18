@@ -354,7 +354,7 @@ internal fun LandscapeArtwork(
                     isPlaying = isPlaying,
                     pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true),
                     presentationAlpha = {
-                        if (standby) canvasPair?.standbyOpacity() ?: 0f
+                        if (standby) 1f
                         else if (hideCanvas) 0f
                         else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
@@ -373,7 +373,7 @@ internal fun LandscapeArtwork(
                     },
                     revealInstantly = standby,
                     nowPlaying = true,
-                    organicReveal = canvasPair?.organicReveal.takeIf { standby && !pausedForTransition },
+                    organicReveal = if (standby) canvasPair?.standbyReveal(!pausedForTransition) else null,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

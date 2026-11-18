@@ -5,6 +5,7 @@ import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.playback.AutoMixVisualState
 import com.music.bitchord.playback.AutoMixVisualTrack
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -21,13 +22,31 @@ class AutoMixCanvasTest {
     )
 
     @Test
-    fun onlyMatchingCroppedHeroSlotsCanUseTheLiveReveal() {
+    fun onlyMatchingHeroSlotsCanUseTheLiveReveal() {
         assertTrue(sharesHeroRevealFootprint(true, true, 0f, 0f))
         assertTrue(sharesHeroRevealFootprint(false, false, 1f, 16f / 9f))
         assertFalse(sharesHeroRevealFootprint(true, false, 1f, 1f))
         assertFalse(sharesHeroRevealFootprint(false, false, 1f, 0.56f))
-        assertFalse(sharesHeroRevealFootprint(false, false, 0.56f, 0.56f))
+        assertTrue(sharesHeroRevealFootprint(false, false, 0.56f, 0.56f))
+        assertFalse(sharesHeroRevealFootprint(false, false, 0.56f, 0.63f))
         assertFalse(sharesHeroRevealFootprint(false, false, 1f, 0f))
+    }
+
+    @Test
+    fun spatialAndOpacityStandbyShareTheSameClockAndGeneration() {
+        val tracks = AutoMixCanvasTracks(42L, outgoing, incoming, null)
+        val spatial = tracks.standbyReveal(allowSpatialMask = true)
+        val fallback = tracks.standbyReveal(allowSpatialMask = false)
+        assertEquals(42L, spatial.generation)
+        assertEquals(spatial.generation, fallback.generation)
+        assertSame(spatial.progress, fallback.progress)
+        assertTrue(spatial.allowSpatialMask)
+        assertFalse(fallback.allowSpatialMask)
+        assertEquals(0f, spatial.progress())
+        tracks.incomingClip = clip
+        tracks.reportIncoming(true)
+        tracks.sealIncoming()
+        assertEquals(0f, fallback.progress(), message = "a ready frame is still hidden before the window")
     }
 
     @Test

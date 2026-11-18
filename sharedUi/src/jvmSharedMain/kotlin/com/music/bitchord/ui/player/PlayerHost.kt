@@ -423,8 +423,12 @@ class CanvasVideoSpec(
     val organicReveal: CanvasOrganicReveal? = null,
 )
 
-/** Identifies the incoming mask and supplies its audio-clock coverage, not its view opacity. */
-class CanvasOrganicReveal(val generation: Long, val progress: () -> Float)
+/** Audio-clock coverage for the incoming slot, independent of its presentation alpha. */
+class CanvasOrganicReveal(
+    val generation: Long,
+    val progress: () -> Float,
+    val allowSpatialMask: Boolean,
+)
 
 /**
  * The looping video that plays over a track's cover art — see

@@ -299,7 +299,7 @@ internal fun AutoMixCover(
 }
 
 @Composable
-private fun DecodedCover(result: DecodedAutoMixCover, modifier: Modifier) {
+internal fun DecodedCover(result: DecodedAutoMixCover, modifier: Modifier) {
     val context = LocalPlatformContext.current
     val painter = result.painter ?: remember(result.image, context) { result.image.asPainter(context) }
     Image(painter, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)

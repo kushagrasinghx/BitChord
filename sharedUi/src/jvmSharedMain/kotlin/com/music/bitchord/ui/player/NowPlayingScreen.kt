@@ -1038,8 +1038,9 @@ fun NowPlayingScreen(
     val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt)
     val pair = canvasPair.visual?.takeIf { it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
-    val canvas = if (pair == null) promotedCanvas?.incomingClip ?: sessionCanvas else pair.pinnedClip
-    val staticCanvasMix = pair != null && (pair.showStatic || coverEntry == pair.incoming)
+    val canvas = if (pair?.started == true) pair.pinnedClip else promotedCanvas?.incomingClip ?: sessionCanvas
+    val staticCanvasMix = pair?.started == true && !pair.liveOutgoing
+    val incomingFullWindow = !sideways && fullCanvasWindow && pair?.incomingClip?.source == CanvasSource.SPOTIFY
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
     // A tablet is the other way round: landscape is where it is usually held,
     // so the video stays in the player there as it does upright, and full
@@ -1083,7 +1084,8 @@ fun NowPlayingScreen(
     val canvasRendered = canvasSurfaceRendered && !staticCanvasMix
     RememberDisplayedAutoMixCanvas(canvasPair, coverEntry, canvas, canvasRendered)
     var canvasFrame by remember(coverEntry, remoteArt, canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
-    val ambientCanvasKey = canvas?.url?.takeUnless { staticCanvasMix }?.let { Triple(coverEntry, remoteArt, it) }
+    val canvasOwnsAmbient = pair?.started != true
+    val ambientCanvasKey = canvas?.url?.takeIf { canvasOwnsAmbient }?.let { Triple(coverEntry, remoteArt, it) }
     // Spotify's phone presentation starts with the full control deck over its
     // video. It leaves on a Canvas tap, or after the optional idle timeout.
     var spotifyCanvasControlsOpen by remember(canvas?.url) { mutableStateOf(true) }
@@ -2609,7 +2611,7 @@ fun NowPlayingScreen(
                             ambient = ambient,
                             entry = coverEntry,
                             imageUrl = remoteArt,
-                            canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
+                            canvasFrame = { canvasFrame.takeIf { canvasOwnsAmbient } },
                             canvasKey = ambientCanvasKey,
                             trackKey = song.videoId,
                             modifier = Modifier
@@ -2632,7 +2634,7 @@ fun NowPlayingScreen(
                             entry = coverEntry,
                             trackKey = song.videoId,
                             imageUrl = remoteArt,
-                            canvasFrame = { canvasFrame.takeUnless { staticCanvasMix } },
+                            canvasFrame = { canvasFrame.takeIf { canvasOwnsAmbient } },
                             canvasKey = ambientCanvasKey,
                             modifier = if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier,
                             seamTarget = {
@@ -2661,7 +2663,7 @@ fun NowPlayingScreen(
 
                 // Mount once, behind the controls. A known portrait aspect changes the
                 // invisible view to full-player bounds before its first frame is shown.
-                if (heroMode && heroHeight > 0.dp) {
+                if ((heroMode && heroHeight > 0.dp) || incomingFullWindow || clipFullscreen) {
                     val standbyClip = pair?.incomingClip?.takeIf { !(lyricsOpen || queueOpen) || !collapseDone }
                     CanvasPresentationHost(heroClipMounted, standbyClip) { clip, standby ->
                         val stillStart = remember(clip.url) { if (standby) null else stillAtMount() }
@@ -2685,7 +2687,8 @@ fun NowPlayingScreen(
                             // full-screen Spotify Canvas, though: that is the whole
                             // screen, and keeps playing under them, blurred live.
                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
-                                collapseStarted || dockMoving || (overlayOpen.value && !fullscreen),
+                                collapseStarted || dockMoving || (overlayOpen.value && !fullscreen) ||
+                                (standby && pair?.started != true),
                             // Spotify's 9:16 Canvas is the phone background, so it
                             // covers every edge. Other providers retain the contained
                             // portrait treatment introduced for motion cover art.
@@ -2710,7 +2713,13 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                if (standby || staticCanvasMix || stillTakesOver()) 0f
+                                if (stillTakesOver()) 0f
+                                else if (standby) (pair?.standbyOpacity() ?: 0f) * clipTransitionAlpha()
+                                else if (staticCanvasMix) 0f
+                                else if (pair != null && !pair.sharesClip && (portrait || fullscreen) &&
+                                    pair.incomingClip?.source != CanvasSource.SPOTIFY &&
+                                    (pair.liveIncoming || autoMixFrames?.incoming != null)
+                                ) (1f - pair.reveal()) * clipTransitionAlpha()
                                 else clipTransitionAlpha()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
@@ -2723,17 +2732,20 @@ fun NowPlayingScreen(
                             onStillCaptured = { image, position -> if (!standby) onStillCaptured(image, position) },
                             onResumed = { if (!standby) onClipResumed() },
                             onRenderedChanged = {
-                                if (standby) pair?.incomingReady = it else canvasSurfaceRendered = it
+                                if (standby) pair?.reportIncoming(it) else {
+                                    canvasSurfaceRendered = it
+                                    pair?.reportOutgoing(it)
+                                }
                             },
                             nowPlaying = true,
                             // Frames only for a mesh that will use them.
-                            frameCapturePx = if (!standby && !staticCanvasMix && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {
+                            frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {
                                 CANVAS_FRAME_CAPTURE_PX
                             } else {
                                 0
                             },
                             onFrameCaptured = {
-                                if (!standby && !staticCanvasMix && !fullscreen && !tabletArtworkBackdrop &&
+                                if (!standby && canvasOwnsAmbient && !fullscreen && !tabletArtworkBackdrop &&
                                     !lyricsOpen && !queueOpen && !queueDragging
                                 ) canvasFrame = it
                             },
@@ -2741,7 +2753,7 @@ fun NowPlayingScreen(
                             // Keeping this null also removes the old three-second GPU
                             // readback cadence from this provider alone.
                             refreshFrameEveryMs = if (
-                                standby || staticCanvasMix || fullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
+                                standby || !canvasOwnsAmbient || fullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
                                 queueDragging || dockMoving
                             ) {
                                 null
@@ -3494,7 +3506,10 @@ fun NowPlayingScreen(
                                     // again by the time it unmounts.
                                     // Whole while the clip's still is standing in for it.
                                     alpha = (
-                                        if (staticCanvasMix || stillTakesOver()) 1f
+                                        if (stillTakesOver()) 1f
+                                        else if (heroMode && pair?.liveOutgoing == true) 1f
+                                        else if ((heroMode || incomingFullWindow) && pair?.liveIncoming == true) 1f - pair.standbyOpacity()
+                                        else if (staticCanvasMix) 1f
                                         else if (heroClip != null) 1f - canvasCover.floatValue
                                         else 1f
                                         ) *
@@ -3626,7 +3641,12 @@ fun NowPlayingScreen(
                                     )
                                 }
                             }
-                            AutoMixPlayerCover(
+                            val heroIncomingStill = autoMixFrames?.incoming.takeIf {
+                                heroMode && pair?.liveOutgoing == true && !pair.liveIncoming
+                            }
+                            if (heroIncomingStill != null && pair != null) {
+                                DecodedCover(heroIncomingStill, Modifier.fillMaxSize().graphicsLayer { alpha = pair.reveal() })
+                            } else AutoMixPlayerCover(
                                 // Decode at the sleeve's *expanded* size, always.
                                 // Coil otherwise sizes the decode to however large
                                 // this is when the request goes out — and changing
@@ -3642,7 +3662,7 @@ fun NowPlayingScreen(
                                 // wide, and the one bitmap has to serve both shapes
                                 // with nothing to upscale between them.
                                 art = art,
-                                frames = autoMixFrames,
+                                frames = autoMixFrames.baseUnderCanvas(pair),
                                 // TextureView-backed canvas frames can arrive
                                 // before Coil has decoded the sleeve. Alpha alone
                                 // doesn't hide this layer for that window: a
@@ -3660,6 +3680,7 @@ fun NowPlayingScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .drawWithContent {
+                                        if (heroMode && pair?.liveOutgoing == true && !stillTakesOver()) return@drawWithContent
                                         if (staticCanvasMix) {
                                             drawContent()
                                             return@drawWithContent
@@ -3689,16 +3710,20 @@ fun NowPlayingScreen(
                             // sleeve's corners, shadow and paused shrink for free.
                             if (!heroMode) {
                                 WhileShown({ !collapsePastHalf }) {
-                                    CanvasPresentationHost(canvas, pair?.incomingClip) { clip, standby ->
+                                    CanvasPresentationHost(canvas, pair?.incomingClip.takeUnless { incomingFullWindow }) { clip, standby ->
                                         val stillStart = remember(clip.url) { if (standby) null else stillAtMount() }
                                         CanvasArtworkPlayer(
                                             canvas = clip,
                                             isPlaying = isPlaying,
                                             // Pause as soon as the panels ask for the collapse.
                                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
-                                                collapseStarted || dockMoving || overlayOpen.value,
+                                                collapseStarted || dockMoving || overlayOpen.value ||
+                                                (standby && pair?.started != true),
                                             presentationAlpha = {
-                                                if (standby || staticCanvasMix || stillTakesOver()) 0f
+                                                if (stillTakesOver()) 0f
+                                                else if (standby) pair?.standbyOpacity() ?: 0f
+                                                else if (staticCanvasMix) 0f
+                                                else if (incomingFullWindow) 1f - pair.standbyOpacity()
                                                 else if (clip.source == CanvasSource.APPLE && coverLoaded()) clipTransitionAlpha()
                                                 else 1f
                                             },
@@ -3708,22 +3733,29 @@ fun NowPlayingScreen(
                                             onStillCaptured = { image, position -> if (!standby) onStillCaptured(image, position) },
                                             onResumed = { if (!standby) onClipResumed() },
                                             onRenderedChanged = {
-                                                if (standby) pair?.incomingReady = it else canvasSurfaceRendered = it
+                                                if (standby) pair?.reportIncoming(it) else {
+                                                    canvasSurfaceRendered = it
+                                                    pair?.reportOutgoing(it)
+                                                }
                                             },
                                             nowPlaying = true,
-                                            frameCapturePx = if (!standby && !staticCanvasMix && tintsOffClip && !tabletArtworkBackdrop) {
+                                            frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !tabletArtworkBackdrop) {
                                                 CANVAS_FRAME_CAPTURE_PX
                                             } else 0,
                                             onFrameCaptured = {
-                                                if (!standby && !staticCanvasMix && !tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
+                                                if (!standby && canvasOwnsAmbient && !tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
                                                     canvasFrame = it
                                                 }
                                             },
                                             refreshFrameEveryMs = if (
-                                                standby || staticCanvasMix || tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
+                                                standby || !canvasOwnsAmbient || tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
                                             ) null else meshRefreshMs,
                                             modifier = Modifier.fillMaxSize(),
                                         )
+                                    }
+                                    val incoming = autoMixFrames?.incoming
+                                    if (incoming != null && pair?.liveOutgoing == true && !pair.liveIncoming) {
+                                        DecodedCover(incoming, Modifier.fillMaxSize().graphicsLayer { alpha = pair.reveal() })
                                     }
                                 }
                             }

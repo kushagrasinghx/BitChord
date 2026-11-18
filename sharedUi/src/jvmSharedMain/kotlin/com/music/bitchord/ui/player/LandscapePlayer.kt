@@ -336,7 +336,7 @@ internal fun LandscapeArtwork(
             }
             AutoMixPlayerCover(
                 art = art,
-                frames = autoMixFrames,
+                frames = autoMixFrames.baseUnderCanvas(canvasPair),
                 // Not drawn under a clip that got there first — see the
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
@@ -352,9 +352,10 @@ internal fun LandscapeArtwork(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
-                    pausedForTransition = pausedForTransition,
+                    pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true),
                     presentationAlpha = {
-                        if (standby || hideCanvas) 0f
+                        if (standby) canvasPair?.standbyOpacity() ?: 0f
+                        else if (hideCanvas) 0f
                         else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
                         else if (artLoaded) transitionAlpha() else 1f
@@ -365,12 +366,19 @@ internal fun LandscapeArtwork(
                     },
                     onResumed = { if (!standby && clip.source == CanvasSource.APPLE) onClipResumed() },
                     onRenderedChanged = {
-                        if (standby) canvasPair?.incomingReady = it else onCanvasRenderedChange(it)
+                        if (standby) canvasPair?.reportIncoming(it) else {
+                            onCanvasRenderedChange(it)
+                            canvasPair?.reportOutgoing(it)
+                        }
                     },
                     revealInstantly = standby,
                     nowPlaying = true,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+            val incoming = autoMixFrames?.incoming
+            if (incoming != null && canvasPair?.liveOutgoing == true && !canvasPair.liveIncoming) {
+                DecodedCover(incoming, Modifier.fillMaxSize().graphicsLayer { alpha = canvasPair.reveal() })
             }
         }
         overlay()

@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -65,6 +66,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -228,6 +230,9 @@ internal fun AndroidCanvasArtworkPlayer(
     var clipAspect by remember(canvas) { mutableFloatStateOf(0f) }
     var bounds by remember { mutableStateOf(IntSize.Zero) }
     var textureView by remember(canvas) { mutableStateOf<TextureView?>(null) }
+    // A redraw on the same TextureView can still refer to the failed rendition.
+    var lastMediaTimestamp by remember { mutableLongStateOf(0L) }
+    var pendingTextureFrame by remember { mutableStateOf<SurfaceTexture?>(null) }
     // Frames are counted rather than flagged, because [rendered] cannot answer
     // the question the repaint below has to ask: "did a frame land on *this*
     // surface", not "has one ever landed".
@@ -252,6 +257,40 @@ internal fun AndroidCanvasArtworkPlayer(
     val owned = if (nowPlaying) rememberNowPlayingDecoder(context, teardown) else null
     val player = if (nowPlaying) owned?.player ?: return else remember { newCanvasDecoder(context) }
 
+    fun confirmTextureFrame(surface: SurfaceTexture): Boolean {
+        if (owned?.closed == true) return false
+        val view = textureView ?: return false
+        if (nowPlaying && (surface !== view.surfaceTexture || surface.timestamp == lastMediaTimestamp ||
+                player.playerError != null || clipAspect <= 0f)
+        ) return false
+        if (gate.holdingStill && player.playWhenReady) {
+            gate.holdingStill = false
+            reportResumed()
+        }
+        if (rendered) return true
+        val transformed = view.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop)
+        val portrait = currentContentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect > 0f && clipAspect < 1f
+        val expected = currentPortraitRevealBounds
+        val layoutReady = !portrait ||
+            (expected != IntSize.Zero && view.width == expected.width && view.height == expected.height)
+        if (!layoutReady || (currentContentMode != CanvasContentMode.CROP && !transformed)) return false
+        rendered = true
+        frameTick++
+        return true
+    }
+
+    LaunchedEffect(pendingTextureFrame, url) {
+        val surface = pendingTextureFrame ?: return@LaunchedEffect
+        // The render thread may latch the buffer after TextureView notifies.
+        // Paused clips might not send a second notification.
+        withTimeoutOrNull(REPAINT_TIMEOUT_MS) {
+            do {
+                withFrameMillis { }
+            } while (textureView?.surfaceTexture === surface && !confirmTextureFrame(surface))
+        }
+        pendingTextureFrame = null
+    }
+
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -270,10 +309,13 @@ internal fun AndroidCanvasArtworkPlayer(
                 // just failed there is nowhere left to go: leave the still
                 // art up rather than looping through a broken URL.
                 val alternate = canvas.fallbackUrl
+                if (nowPlaying) {
+                    pendingTextureFrame = null
+                    lastMediaTimestamp = textureView?.surfaceTexture?.timestamp ?: 0L
+                }
+                rendered = false
                 if (alternate != null && alternate != url) {
                     url = alternate
-                } else {
-                    rendered = false
                 }
             }
         }
@@ -297,6 +339,7 @@ internal fun AndroidCanvasArtworkPlayer(
     }
 
     LaunchedEffect(url) {
+        if (nowPlaying) lastMediaTimestamp = textureView?.surfaceTexture?.timestamp ?: 0L
         rendered = false
         clipAspect = 0f
         reportAspect(0f)
@@ -370,7 +413,7 @@ internal fun AndroidCanvasArtworkPlayer(
     // clip when onSurfaceTextureUpdated confirms real pixels below.
     LaunchedEffect(surfaceGeneration) {
         if (surfaceGeneration == 0) return@LaunchedEffect
-        rendered = false
+        if (!nowPlaying) rendered = false
         val before = frameTick
         if (player.playbackState != Player.STATE_IDLE) {
             player.seekTo(player.currentPosition)
@@ -384,6 +427,9 @@ internal fun AndroidCanvasArtworkPlayer(
     val reportRendered by rememberUpdatedState(onRenderedChanged)
     LaunchedEffect(rendered) {
         reportRendered(rendered)
+    }
+    val reportFrame by rememberUpdatedState(onFrameCaptured)
+    LaunchedEffect(rendered, frameCapturePx) {
         if (!rendered) return@LaunchedEffect
         // Let the surface actually paint the frame that just triggered this
         // before reading it back — grabbing it the instant the callback fires
@@ -394,7 +440,7 @@ internal fun AndroidCanvasArtworkPlayer(
         val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
         if (bitmap != null) {
             Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
-            onFrameCaptured(bitmap.asImageBitmap())
+            reportFrame(bitmap.asImageBitmap())
         } else {
             Log.w(TAG, "frame capture returned null after rendered=true")
         }
@@ -420,7 +466,7 @@ internal fun AndroidCanvasArtworkPlayer(
             val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
             if (bitmap != null) {
                 Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
-                onFrameCaptured(bitmap.asImageBitmap())
+                reportFrame(bitmap.asImageBitmap())
             } else {
                 Log.w(TAG, "periodic frame capture returned null")
             }
@@ -484,6 +530,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         width: Int,
                         height: Int,
                     ) {
+                        if (nowPlaying) lastMediaTimestamp = 0L
                         delegate?.onSurfaceTextureAvailable(surface, width, height)
                         // The player has moved onto the new surface, so the
                         // one it was left holding can go.
@@ -514,6 +561,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         // artwork immediately so an empty replacement surface
                         // can never become the only visible artwork layer.
                         rendered = false
+                        pendingTextureFrame = null
                         if (owned?.closed == true) return true
                         // Going with the player — see [Teardown.orphan].
                         if (currentPausedForTransition || teardown.disposed) {
@@ -525,36 +573,8 @@ internal fun AndroidCanvasArtworkPlayer(
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
                         delegate?.onSurfaceTextureUpdated(surface)
-                        // An update can also be requested by layout. A new texture has
-                        // no producer timestamp until a buffer has reached its consumer.
-                        if (nowPlaying && surface !== textureView?.surfaceTexture) return
-                        if (nowPlaying && currentPresentationAlpha() == 0f && surface.timestamp == 0L) return
-                        // A frame while playing is the clip moving on from its still.
-                        if (gate.holdingStill && player.playWhenReady) {
-                            gate.holdingStill = false
-                            reportResumed()
-                        }
-                        // This callback is the proof that the current
-                        // TextureView, rather than some previously destroyed
-                        // surface, contains a drawable video buffer.
-                        // In portrait-fit mode the frame is not handed to the
-                        // still artwork until its aspect and transform are ready.
-                        if (!rendered) {
-                            val transformed = textureView?.applyContentTransform(
-                                clipAspect, currentContentMode, currentAlignPortraitTop,
-                            ) == true
-                            val portrait = currentContentMode == CanvasContentMode.FIT_PORTRAIT &&
-                                clipAspect > 0f && clipAspect < 1f
-                            val expected = currentPortraitRevealBounds
-                            val view = textureView
-                            val layoutReady = !portrait ||
-                                (expected != IntSize.Zero && view?.width == expected.width &&
-                                    view?.height == expected.height)
-                            if ((currentContentMode == CanvasContentMode.CROP || transformed) && layoutReady) {
-                                rendered = true
-                                frameTick++
-                                Log.d(TAG, "first frame on surface (tick $frameTick, gen $surfaceGeneration)")
-                            }
+                        if (!confirmTextureFrame(surface) && nowPlaying && !rendered && owned?.closed != true) {
+                            pendingTextureFrame = surface
                         }
                     }
                 }

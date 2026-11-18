@@ -5,10 +5,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
@@ -52,8 +54,18 @@ internal class AutoMixCanvasPair {
         visual = null
     }
 
+    fun beginMix(tracks: AutoMixCanvasTracks) {
+        tracks.pinnedClip = shownClip.takeIf { shownEntry == tracks.outgoing }
+        tracks.outgoingReady = tracks.pinnedClip != null
+        if (tracks.sharesClip) {
+            tracks.incomingClip = tracks.pinnedClip
+            tracks.incomingReady = true
+        }
+        tracks.started = true
+    }
+
     fun finish(tracks: AutoMixCanvasTracks) {
-        if (tracks.incomingReady) promoted = tracks
+        promoted = tracks.takeIf { it.liveIncoming }
         clear()
     }
 
@@ -64,12 +76,58 @@ internal class AutoMixCanvasTracks(
     val generation: Long,
     val outgoing: QueueEntryIdentity,
     val incoming: QueueEntryIdentity,
-    val pinnedClip: CanvasArtwork?,
+    pinnedClip: CanvasArtwork?,
 ) {
+    var pinnedClip by mutableStateOf(pinnedClip)
+    var started by mutableStateOf(false)
     var incomingClip by mutableStateOf<CanvasArtwork?>(null)
     var incomingReady by mutableStateOf(false)
     var incomingAspect by mutableStateOf(0f)
-    var showStatic by mutableStateOf(false)
+    private var incomingAccepted by mutableStateOf(false)
+    private var choiceSealed = false
+    var outgoingReady by mutableStateOf(pinnedClip != null)
+    var windowOpen by mutableStateOf(false)
+    var progress by mutableFloatStateOf(0f)
+    val liveIncoming get() = incomingAccepted && incomingReady
+    val liveOutgoing get() = started && outgoingReady && pinnedClip != null
+    val sharesClip get() = pinnedClip?.url?.let { it == incomingClip?.url } == true
+
+    fun reportIncoming(ready: Boolean) {
+        if (!ready && incomingAccepted && incomingReady) {
+            // A lost surface or failed decoder may not rejoin this dissolve.
+            incomingAccepted = false
+            incomingClip = null
+        }
+        incomingReady = ready
+    }
+
+    fun reportOutgoing(ready: Boolean) {
+        if (!ready) {
+            outgoingReady = false
+            if (sharesClip) reportIncoming(false)
+        }
+    }
+
+    fun reveal(): Float {
+        // Subscribe drawing and AndroidView updates even if the live feed has
+        // already crossed a boundary that its collector has not applied yet.
+        val observed = progress
+        val sample = PlayerPlatform.host.autoMixVisualState?.value
+        if (sample?.generation != generation || sample.artworkWindow == null) return 0f
+        return AutoMixArtworkTuning.revealProgress(observed)
+    }
+
+    fun standbyOpacity(): Float = if (windowOpen && liveIncoming) reveal() else 0f
+
+    /** Make the live/still choice once; a late frame cannot change it. */
+    fun sealIncoming(): Boolean {
+        if (!choiceSealed) {
+            choiceSealed = true
+            incomingAccepted = incomingReady && incomingClip != null
+        }
+        return incomingAccepted
+    }
+
     fun contains(entry: QueueEntryIdentity?) = entry == outgoing || entry == incoming
 }
 
@@ -118,18 +176,27 @@ internal fun rememberAutoMixCanvasPair(
             pair.clear()
         }
         fun beforeDeadline(state: AutoMixVisualState?): Boolean {
-            if (state == null || state.generation != active?.generation || !state.mixActive) return false
+            if (state == null || state.generation != active?.generation) return false
+            if (state.phase == AutoMixVisualPhase.ARMED) return true
+            if (!state.mixActive) return false
             val window = state.artworkWindow ?: return state.swapSeconds == null
             return state.audioSeconds < window.startSeconds - AutoMixArtworkTuning.CANVAS_READY_MARGIN_SECONDS
         }
         try {
+            launch {
+                snapshotFlow { currentEntry }.collect { selected ->
+                    if (active?.contains(selected) == false) clear()
+                }
+            }
             feed.collect { state ->
-                if (state == null || !state.mixActive || state.artworkProgress >= 1f ||
+                if (state == null || (!state.mixActive && state.phase != AutoMixVisualPhase.ARMED) ||
+                    state.artworkProgress >= 1f ||
                     (state.swapSeconds != null && state.artworkWindow == null)
                 ) {
                     val tracks = active
                     if (tracks != null && state?.generation == tracks.generation &&
-                        state.artworkProgress >= 1f && state.phase != AutoMixVisualPhase.CANCELLED &&
+                        state.artworkWindow != null &&
+                        (state.artworkProgress >= 1f || state.phase == AutoMixVisualPhase.COMPLETED) &&
                         currentEntry == tracks.incoming
                     ) {
                         resolve?.cancel()
@@ -148,10 +215,6 @@ internal fun rememberAutoMixCanvasPair(
                     val song = currentQueue.getOrNull(index)?.takeIf {
                         coverOccurrence(it, currentQueue, index) == tracks.incoming && !showsMusicVideo(it)
                     } ?: return@collect
-                    timeout = launch {
-                        delay(AutoMixArtworkTuning.CANVAS_PREPARE_TIMEOUT_MS)
-                        if (!tracks.incomingReady) stopPreparing()
-                    }
                     resolve = launch {
                         val clip = try {
                             host.cachedCanvas(song) ?: host.canvasFor(song)
@@ -164,16 +227,27 @@ internal fun rememberAutoMixCanvasPair(
                         if (sealed || !beforeDeadline(feed.value)) return@launch
                         val outgoingHero = fullBleed || tracks.pinnedClip?.source == CanvasSource.SPOTIFY
                         val incomingHero = fullBleed || clip.source == CanvasSource.SPOTIFY
-                        if (!landscape && fullWindow && outgoingHero != incomingHero) return@launch
-                        tracks.incomingClip = clip
+                        // The fullscreen slot can be prepared behind the square sleeve. The
+                        // reverse would require putting a square view into a banner's parent.
+                        if (!landscape && fullWindow && outgoingHero && !incomingHero) return@launch
+                        tracks.incomingClip = tracks.pinnedClip?.takeIf { it.url == clip.url } ?: clip
                         if (clip.url == tracks.pinnedClip?.url) tracks.incomingReady = true
                     }
                 }
                 val tracks = active ?: return@collect
-                if (state.swapSeconds != null) tracks.showStatic = true
-                if (!sealed && !beforeDeadline(state)) {
-                    if (!tracks.incomingReady) stopPreparing() else sealed = true
+                if (state.phase == AutoMixVisualPhase.ARMED) return@collect
+                if (!tracks.started) {
+                    pair.beginMix(tracks)
+                    timeout = launch {
+                        delay(AutoMixArtworkTuning.CANVAS_PREPARE_TIMEOUT_MS)
+                        if (active === tracks && !sealed && !tracks.incomingReady) stopPreparing()
+                    }
                 }
+                tracks.progress = state.artworkProgress
+                if (!sealed && !beforeDeadline(state)) {
+                    if (!tracks.sealIncoming()) stopPreparing() else sealed = true
+                }
+                tracks.windowOpen = state.artworkWindow != null
             }
         } finally {
             clear()
@@ -181,6 +255,11 @@ internal fun rememberAutoMixCanvasPair(
     }
     return pair
 }
+
+/** Keep the still/still shader out of any dissolve with a live layer. */
+internal fun AutoMixCoverFrames?.baseUnderCanvas(pair: AutoMixCanvasTracks?): AutoMixCoverFrames? =
+    if (this != null && pair != null && (pair.liveOutgoing || pair.liveIncoming)) AutoMixCoverFrames(base)
+    else this
 
 internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean): CanvasArtwork {
     val tall = portraitUrl

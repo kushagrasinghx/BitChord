@@ -71,8 +71,6 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     override val supportsAutoMixCanvas: Boolean get() = true
 
-    override fun prepareAutoMixCanvas(clip: CanvasArtwork, onFrame: (Boolean) -> Unit): (() -> Unit)? =
-        prepareAndroidAutoMixCanvas(app, clip, onFrame)
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas

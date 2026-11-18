@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -14,6 +15,7 @@ import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.AutoMixArtworkTuning
+import com.music.bitchord.playback.AutoMixVisualPhase
 import com.music.bitchord.playback.AutoMixVisualState
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.CancellationException
@@ -24,11 +26,14 @@ import kotlinx.coroutines.launch
 internal class AutoMixCanvasPair {
     var visual by mutableStateOf<AutoMixCanvasTracks?>(null)
         private set
+    var promoted by mutableStateOf<AutoMixCanvasTracks?>(null)
+        private set
     private var shownEntry: QueueEntryIdentity? = null
     private var shownClip: CanvasArtwork? = null
     private var seenGeneration: Long? = null
 
     fun displayed(entry: QueueEntryIdentity?, clip: CanvasArtwork?, rendered: Boolean) {
+        if (promoted?.incoming != entry) promoted = null
         shownEntry = entry
         shownClip = clip.takeIf { rendered }
     }
@@ -46,6 +51,13 @@ internal class AutoMixCanvasPair {
     fun clear() {
         visual = null
     }
+
+    fun finish(tracks: AutoMixCanvasTracks) {
+        if (tracks.incomingReady) promoted = tracks
+        clear()
+    }
+
+    fun invalidatePromotion() { promoted = null }
 }
 
 internal class AutoMixCanvasTracks(
@@ -54,7 +66,9 @@ internal class AutoMixCanvasTracks(
     val incoming: QueueEntryIdentity,
     val pinnedClip: CanvasArtwork?,
 ) {
+    var incomingClip by mutableStateOf<CanvasArtwork?>(null)
     var incomingReady by mutableStateOf(false)
+    var incomingAspect by mutableStateOf(0f)
     var showStatic by mutableStateOf(false)
     fun contains(entry: QueueEntryIdentity?) = entry == outgoing || entry == incoming
 }
@@ -66,6 +80,7 @@ internal fun rememberAutoMixCanvasPair(
     isPlaying: Boolean,
     landscape: Boolean,
     fullWindow: Boolean,
+    fullBleed: Boolean,
 ): AutoMixCanvasPair {
     val host = PlayerPlatform.host
     val feed = host.autoMixVisualState
@@ -79,21 +94,23 @@ internal fun rememberAutoMixCanvasPair(
     val currentEntry by rememberUpdatedState(entry)
     val currentQueue by rememberUpdatedState(queue)
     val pair = remember(feed) { AutoMixCanvasPair() }
+    val canvasAllowed = enabled && (metered != true || cellular)
+    LaunchedEffect(canvasAllowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed) {
+        pair.invalidatePromotion()
+    }
     // Rotation and layout changes cancel the effect, but cannot prepare the same generation again.
-    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow) {
+    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed) {
         if (feed == null || !host.supportsAutoMixCanvas || !allowed) return@LaunchedEffect
         var active: AutoMixCanvasTracks? = null
         var resolve: Job? = null
         var timeout: Job? = null
-        var close: (() -> Unit)? = null
         var sealed = false
         fun stopPreparing() {
             sealed = true
             active?.incomingReady = false
+            active?.incomingClip = null
             resolve?.cancel()
             timeout?.cancel()
-            close?.invoke()
-            close = null
         }
         fun clear() {
             stopPreparing()
@@ -110,7 +127,16 @@ internal fun rememberAutoMixCanvasPair(
                 if (state == null || !state.mixActive || state.artworkProgress >= 1f ||
                     (state.swapSeconds != null && state.artworkWindow == null)
                 ) {
-                    if (active != null) clear()
+                    val tracks = active
+                    if (tracks != null && state?.generation == tracks.generation &&
+                        state.artworkProgress >= 1f && state.phase != AutoMixVisualPhase.CANCELLED &&
+                        currentEntry == tracks.incoming
+                    ) {
+                        resolve?.cancel()
+                        timeout?.cancel()
+                        active = null
+                        pair.finish(tracks)
+                    } else if (tracks != null) clear()
                     return@collect
                 }
                 if (active?.generation != state.generation) {
@@ -136,11 +162,11 @@ internal fun rememberAutoMixCanvasPair(
                         }?.takeUnless { spotifyDisabled && it.source == CanvasSource.SPOTIFY }
                             ?.nowPlayingRendition(fullWindow) ?: return@launch
                         if (sealed || !beforeDeadline(feed.value)) return@launch
-                        close = host.prepareAutoMixCanvas(clip) { frame ->
-                            if (active !== tracks) return@prepareAutoMixCanvas
-                            if (!frame) tracks.incomingReady = false
-                            else if (!sealed && beforeDeadline(feed.value)) tracks.incomingReady = true
-                        }
+                        val outgoingHero = fullBleed || tracks.pinnedClip?.source == CanvasSource.SPOTIFY
+                        val incomingHero = fullBleed || clip.source == CanvasSource.SPOTIFY
+                        if (!landscape && fullWindow && outgoingHero != incomingHero) return@launch
+                        tracks.incomingClip = clip
+                        if (clip.url == tracks.pinnedClip?.url) tracks.incomingReady = true
                     }
                 }
                 val tracks = active ?: return@collect
@@ -159,6 +185,17 @@ internal fun rememberAutoMixCanvasPair(
 internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean): CanvasArtwork {
     val tall = portraitUrl
     return if (tall != null && fullWindow) copy(url = tall, fallbackUrl = url, portraitUrl = null) else this
+}
+
+/** Both videos use one keyed call site within the same artwork layout. */
+@Composable
+internal fun CanvasPresentationHost(
+    current: CanvasArtwork?,
+    standby: CanvasArtwork? = null,
+    render: @Composable (CanvasArtwork, Boolean) -> Unit,
+) {
+    val clips = listOfNotNull(current, standby?.takeUnless { it.url == current?.url })
+    for (clip in clips) key(clip.url) { render(clip, clip.url != current?.url) }
 }
 
 @Composable

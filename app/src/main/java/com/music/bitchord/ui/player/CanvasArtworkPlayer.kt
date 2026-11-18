@@ -461,7 +461,7 @@ internal fun AndroidCanvasArtworkPlayer(
                 // Blend rather than punch a hole: the still sleeve stays
                 // visible underneath for the length of the fade.
                 isOpaque = false
-                this.alpha = 0f
+                if (nowPlaying) setLayerPaint(Paint().apply { this.alpha = 0 }) else this.alpha = 0f
                 player.setVideoTextureView(this)
                 // setVideoTextureView installs ExoPlayer's own listener, and
                 // the player has to keep it — it is how the surface reaches
@@ -525,6 +525,10 @@ internal fun AndroidCanvasArtworkPlayer(
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
                         delegate?.onSurfaceTextureUpdated(surface)
+                        // An update can also be requested by layout. A new texture has
+                        // no producer timestamp until a buffer has reached its consumer.
+                        if (nowPlaying && surface !== textureView?.surfaceTexture) return
+                        if (nowPlaying && currentPresentationAlpha() == 0f && surface.timestamp == 0L) return
                         // A frame while playing is the clip moving on from its still.
                         if (gate.holdingStill && player.playWhenReady) {
                             gate.holdingStill = false
@@ -572,7 +576,7 @@ internal fun AndroidCanvasArtworkPlayer(
             val applied = frame.applied
             // Set on the view itself. A Compose alpha layer over a TextureView
             // is not reliably composited, and this is the same fade either way.
-            view.alpha = if ((nowPlaying && !rendered) ||
+            val opacity = if ((nowPlaying && !rendered) ||
                 (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f)
             ) {
                 0f
@@ -582,6 +586,9 @@ internal fun AndroidCanvasArtworkPlayer(
                 // recomposing the player around it.
                 alpha * presentationAlpha()
             }
+            // Unlike a zero-alpha View, a transparent texture-layer paint still
+            // allows traversal to latch buffers on the hidden standby slot.
+            if (nowPlaying) frame.setTextureOpacity(view, opacity) else view.alpha = opacity
             // Only when something they are made of has changed. The fade above
             // re-runs this block on every frame of a collapse or of the player
             // closing into the mini player, and each pass built a fresh matrix,
@@ -861,6 +868,14 @@ private class AppliedLook {
 private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
+    private var textureOpacity = 0
+
+    fun setTextureOpacity(view: TextureView, opacity: Float) {
+        val alpha = (opacity.coerceIn(0f, 1f) * 255).roundToInt()
+        if (alpha == textureOpacity) return
+        textureOpacity = alpha
+        view.setLayerPaint(if (alpha == 255) null else Paint().apply { this.alpha = alpha })
+    }
 
     /** Share of the height, from the bottom, over which the child dissolves. */
     var fadeFraction: Float = 0f

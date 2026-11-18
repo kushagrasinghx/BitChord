@@ -279,6 +279,7 @@ internal fun LandscapeArtwork(
     autoMixFrames: AutoMixCoverFrames?,
     artLoaded: Boolean,
     canvas: CanvasArtwork?,
+    canvasPair: AutoMixCanvasTracks?,
     canvasRendered: Boolean,
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
@@ -347,23 +348,26 @@ internal fun LandscapeArtwork(
                         }
                     },
             )
-            canvas?.let { clip ->
+            CanvasPresentationHost(canvas, canvasPair?.incomingClip) { clip, standby ->
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
                     pausedForTransition = pausedForTransition,
                     presentationAlpha = {
-                        if (hideCanvas) 0f
+                        if (standby || hideCanvas) 0f
                         else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
                         else if (artLoaded) transitionAlpha() else 1f
                     },
-                    captureStill = !hideCanvas && clip.source == CanvasSource.APPLE && captureStill,
+                    captureStill = !standby && !hideCanvas && clip.source == CanvasSource.APPLE && captureStill,
                     onStillCaptured = { image, position ->
-                        if (clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
+                        if (!standby && clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
                     },
-                    onResumed = { if (clip.source == CanvasSource.APPLE) onClipResumed() },
-                    onRenderedChanged = onCanvasRenderedChange,
+                    onResumed = { if (!standby && clip.source == CanvasSource.APPLE) onClipResumed() },
+                    onRenderedChanged = {
+                        if (standby) canvasPair?.incomingReady = it else onCanvasRenderedChange(it)
+                    },
+                    revealInstantly = standby,
                     nowPlaying = true,
                     modifier = Modifier.fillMaxSize(),
                 )

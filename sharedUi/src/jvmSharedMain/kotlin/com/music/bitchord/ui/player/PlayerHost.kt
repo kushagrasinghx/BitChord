@@ -51,8 +51,6 @@ interface PlayerHost {
 
     val supportsAutoMixCanvas: Boolean get() = false
 
-    /** Main-thread preparation; true means a buffer on this clip's own output, false a failure. */
-    fun prepareAutoMixCanvas(clip: CanvasArtwork, onFrame: (Boolean) -> Unit): (() -> Unit)? = null
 
     /** A Canvas already settled for [song], without a lookup. */
     fun cachedCanvas(song: Song): CanvasArtwork?

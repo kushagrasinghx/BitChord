@@ -46,7 +46,7 @@ interface PlayerHost {
 
     /** Incoming layer only. Non-Android hosts use the same eased alpha as the mini player. */
     @Composable
-    fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
+    fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean, generation: Long): Modifier =
         Modifier.graphicsLayer { alpha = eased() }
 
     val supportsAutoMixCanvas: Boolean get() = false

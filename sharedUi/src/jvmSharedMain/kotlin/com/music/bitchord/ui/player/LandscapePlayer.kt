@@ -379,7 +379,7 @@ internal fun LandscapeArtwork(
             }
             val incoming = autoMixFrames?.incoming
             if (incoming != null && canvasPair?.liveOutgoing == true && !canvasPair.liveIncoming) {
-                AutoMixIncomingStill(incoming, canvasPair::reveal)
+                AutoMixIncomingStill(incoming, canvasPair::reveal, canvasPair.generation)
             }
         }
         overlay()

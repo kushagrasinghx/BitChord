@@ -66,8 +66,8 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     override fun onAutoMixScrubIntent() = AutoMixVisualFeed.cancel()
 
     @Composable
-    override fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier =
-        androidAutoMixIncomingReveal(eased, reducedMotion)
+    override fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean, generation: Long): Modifier =
+        androidAutoMixIncomingReveal(eased, reducedMotion, generation)
 
     override val supportsAutoMixCanvas: Boolean get() = true
 

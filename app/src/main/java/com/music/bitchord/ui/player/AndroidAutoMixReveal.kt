@@ -19,12 +19,17 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import com.music.bitchord.playback.AutoMixArtworkTuning as Tuning
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 // UI thread only. A driver/shader failure must not be retried on every transition.
 private var revealFailed = false
 
 @Composable
-internal fun androidAutoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean): Modifier {
+internal fun androidAutoMixIncomingReveal(
+    eased: () -> Float,
+    reducedMotion: () -> Boolean,
+    generation: Long,
+): Modifier {
     val plain = Modifier.graphicsLayer { alpha = eased() }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || revealFailed || reducedMotion()) return plain
 
@@ -37,7 +42,7 @@ internal fun androidAutoMixIncomingReveal(eased: () -> Float, reducedMotion: () 
             renderEffect = if (reducedMotion() || revealFailed) null else blur.at(e)
         }
     }
-    val mask = remember { createMask() } ?: return plain
+    val mask = remember(generation) { createMask(generation) } ?: return plain
     return mask.modifier(eased, reducedMotion).graphicsLayer {
         renderEffect = if (reducedMotion() || revealFailed) null else blur.at(eased())
     }
@@ -61,12 +66,12 @@ private fun Array<RenderEffect?>.at(eased: Float): RenderEffect? {
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private fun createMask(): IncomingMask? = runCatching { IncomingMask() }
+private fun createMask(generation: Long): IncomingMask? = runCatching { IncomingMask(generation) }
     .onFailure { revealFailed = true }.getOrNull()
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private class IncomingMask {
-    private val mask = RuntimeShader(MOTTLED_MASK)
+private class IncomingMask(generation: Long) {
+    private val mask = RuntimeShader(MOTTLED_MASK).apply { setPattern(generation) }
     private val paint = Paint().apply {
         shader = mask
         blendMode = BlendMode.DST_IN
@@ -107,6 +112,7 @@ private class IncomingMask {
 private val ORGANIC_MASK_FIELD = """
     uniform float2 bounds;
     uniform float progress;
+    uniform float2 seedOffset;
 
     float hashCell(float2 cell) {
         return fract(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
@@ -121,21 +127,26 @@ private val ORGANIC_MASK_FIELD = """
     }
 
     float revealCoverage(float2 xy) {
-        float2 uv = xy / bounds;
-        // Keep the field stationary so every pixel reveals monotonically with the audio clock.
-        float2 point = uv * ${Tuning.NOISE_SCALE};
+        // Equal pixel scale on both axes; avoid stretching noise cells into rectangles.
+        float2 point = (xy - bounds * 0.5) * (${Tuning.NOISE_SCALE} / min(bounds.x, bounds.y));
+        // Bend the lattice before sampling and unalign the octave axes. The field stays
+        // stationary per generation, so increasing audio progress can only reveal pixels.
+        point += ${Tuning.NOISE_WARP} * sin(point.yx * 2.0 + seedOffset);
+        point += seedOffset;
         float noise = 0.0;
         float weight = 0.5;
         float total = 0.0;
         for (int i = 0; i < ${Tuning.NOISE_OCTAVES}; ++i) {
             noise += valueNoise(point) * weight;
             total += weight;
-            point = point * 2.0 + float2(3.9, 5.1);
+            point = float2(0.8 * point.x - 0.6 * point.y, 0.6 * point.x + 0.8 * point.y)
+                * 2.0 + float2(3.9, 5.1);
             weight *= 0.5;
         }
         float softness = ${Tuning.NOISE_SOFTNESS};
         float threshold = mix(1.0 + softness, -softness, progress);
-        float field = clamp((noise / total - ${Tuning.NOISE_LOW}) / (${Tuning.NOISE_HIGH} - ${Tuning.NOISE_LOW}), 0.0, 1.0);
+        // Restore contrast without creating flat, abruptly clamped islands in the field.
+        float field = smoothstep(0.0, 1.0, noise / total);
         return smoothstep(threshold - softness, threshold + softness, field);
     }
 """.trimIndent()
@@ -147,6 +158,12 @@ private val MOTTLED_MASK = """
     }
 """.trimIndent()
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun RuntimeShader.setPattern(generation: Long) {
+    val random = Random(generation)
+    setFloatUniform("seedOffset", random.nextFloat() * Tuning.NOISE_SEED_SPAN, random.nextFloat() * Tuning.NOISE_SEED_SPAN)
+}
+
 /** The native wrapper supplies the already drawn TextureView as a GPU input. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 internal class LiveAutoMixMask {
@@ -156,7 +173,7 @@ internal class LiveAutoMixMask {
         half4 main(float2 xy) {
             return content.eval(xy) * half(revealCoverage(xy));
         }
-    """.trimIndent())
+    """.trimIndent()).apply { setPattern(0L) }
 
     fun effect(width: Float, height: Float, progress: Float): PlatformRenderEffect {
         shader.setFloatUniform("bounds", width, height)

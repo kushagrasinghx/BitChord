@@ -3658,7 +3658,9 @@ fun NowPlayingScreen(
                             if (heroIncomingStill != null && pair != null) {
                                 // A tall clip extends beyond the still; retain its existing
                                 // coverage fade there instead of exposing the backdrop mid-mask.
-                                AutoMixIncomingStill(heroIncomingStill, pair::reveal, polish = !clipPortrait && !clipFullscreen)
+                                AutoMixIncomingStill(
+                                    heroIncomingStill, pair::reveal, pair.generation, polish = !clipPortrait && !clipFullscreen,
+                                )
                             } else AutoMixPlayerCover(
                                 // Decode at the sleeve's *expanded* size, always.
                                 // Coil otherwise sizes the decode to however large
@@ -3770,7 +3772,7 @@ fun NowPlayingScreen(
                                     }
                                     val incoming = autoMixFrames?.incoming
                                     if (incoming != null && pair?.liveOutgoing == true && !pair.liveIncoming) {
-                                        AutoMixIncomingStill(incoming, pair::reveal)
+                                        AutoMixIncomingStill(incoming, pair::reveal, pair.generation)
                                     }
                                 }
                             }

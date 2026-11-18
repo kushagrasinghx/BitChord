@@ -141,7 +141,7 @@ internal class AutoMixCoverState(
                     else AutoMixPreparedCover.miniForGeneration(visual.generation)
                     frozen = if (outgoing != null && incoming != null) PairFrames(
                         visual.generation, visual.outgoing.identity, visual.incoming.identity,
-                        AutoMixCoverFrames(outgoing, incoming) { progress },
+                        AutoMixCoverFrames(outgoing, incoming, visual.generation) { progress },
                     ) else null
                     armedArt = null
                 }
@@ -260,6 +260,7 @@ fun rememberMiniAutoMixArtwork(
 internal class AutoMixCoverFrames(
     val base: DecodedAutoMixCover,
     val incoming: DecodedAutoMixCover? = null,
+    val generation: Long = 0L,
     val progress: () -> Float = { 0f },
 )
 
@@ -283,18 +284,23 @@ internal fun AutoMixCover(
         } else {
             val eased = { AutoMixArtworkTuning.revealProgress(frames.progress()) }
             DecodedCover(base, Modifier.fillMaxSize())
-            AutoMixIncomingStill(incoming, eased, polish)
+            AutoMixIncomingStill(incoming, eased, frames.generation, polish)
         }
     }
 }
 
 /** Only the incoming still is isolated by the effect, never the outgoing Canvas. */
 @Composable
-internal fun AutoMixIncomingStill(result: DecodedAutoMixCover, eased: () -> Float, polish: Boolean = true) {
+internal fun AutoMixIncomingStill(
+    result: DecodedAutoMixCover,
+    eased: () -> Float,
+    generation: Long,
+    polish: Boolean = true,
+) {
     val appReduced = PlayerSettings.reduceAnimation.collectAsState()
     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
     val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
-    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion)
+    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion, generation)
     else Modifier.graphicsLayer { alpha = eased() }
     DecodedCover(result, Modifier.fillMaxSize().then(reveal))
 }

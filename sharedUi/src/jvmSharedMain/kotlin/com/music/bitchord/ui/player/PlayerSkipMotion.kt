@@ -22,11 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.PathNode
 import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.graphics.vector.toPath
@@ -154,9 +156,6 @@ internal fun playerSkipPose(progress: Float): SkipPose {
     return SkipPose(frontScale, frontAlpha, travel, growth, growth)
 }
 
-private fun skipMix(start: Float, end: Float, progress: Float): Float =
-    start + (end - start) * progress
-
 private fun skipSmoothStep(progress: Float): Float {
     val t = progress.coerceIn(0f, 1f)
     return t * t * (3f - 2f * t)
@@ -196,46 +195,38 @@ fun PlayerSkipGlyph(
         return
     }
     val nodes = (vector.root[0] as VectorPath).pathData
-    val split = remember(nodes) { nodes.indexOfLast { it is PathNode.MoveTo } }
-    val backNodes = remember(nodes) { nodes.subList(0, split) }
-    val frontNodes = remember(nodes) { nodes.subList(split, nodes.size) }
+    // Built once per drawable and kept across recompositions. A drawWithCache
+    // block would be rebuilt every time this recomposes (its lambda is new).
+    val arrows = remember(nodes) { SkipArrows(nodes) }
     Icon(
         painter = painterResource(resource),
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier.drawWithCache {
-            val back = backNodes.toPath()
-            val front = frontNodes.toPath()
-            val survivor = Path()
-            val survivorNodes = backNodes.toMutableList()
-            val backCenter = back.getBounds().center
-            val frontCenter = front.getBounds().center
-            onDrawWithContent {
-                val p = motion.cycles.value % 1f
-                if (!motion.active.value || motion.reduceMotion.value || p == 0f || p >= SkipMotion.Settled) {
-                    drawContent()
-                } else {
-                    val pose = playerSkipPose(p)
-                    // Both vectors use absolute M/L/A/Z nodes with matching arc
-                    // flags. Interpolating the source coordinates also preserves
-                    // their sub-pixel differences instead of assuming translation
-                    // alone can make the two existing arrowheads identical.
-                    // Reuse the node list and destination Path, not a new list
-                    // or native graphics object on every animation frame.
-                    for (index in survivorNodes.indices) {
-                        survivorNodes[index] = interpolateSkipNode(
-                            backNodes[index], frontNodes[index], pose.survivorTravel,
-                        )
-                    }
-                    survivorNodes.toPath(survivor)
-                    scale(size.width / vector.viewportWidth, size.height / vector.viewportHeight,
-                        pivot = androidx.compose.ui.geometry.Offset.Zero) {
-                        scale(pose.frontScale, pivot = frontCenter) {
-                            drawPath(front, tint, alpha = pose.frontAlpha)
+        modifier = modifier.drawWithContent {
+            val p = motion.cycles.value % 1f
+            if (!motion.active.value || motion.reduceMotion.value || p == 0f || p >= SkipMotion.Settled) {
+                drawContent()
+            } else {
+                val pose = playerSkipPose(p)
+                // Nothing here allocates or rebuilds a Path: every frame is three
+                // draws of two cached paths under canvas transforms.
+                scale(size.width / vector.viewportWidth, size.height / vector.viewportHeight,
+                    pivot = Offset.Zero) {
+                    if (pose.frontAlpha > 0f && pose.frontScale > 0f) {
+                        scale(pose.frontScale, pivot = arrows.frontCenter) {
+                            drawPath(arrows.front, tint, alpha = pose.frontAlpha)
                         }
-                        drawPath(survivor, tint)
-                        scale(pose.newScale, pivot = backCenter) {
-                            drawPath(back, tint, alpha = pose.newAlpha)
+                    }
+                    // The two arrowheads are the same contour 419.25 (next) /
+                    // -415.95 (previous) viewport units apart, within 0.1 of
+                    // 960 units: far below a pixel, so the trailing one is
+                    // translated rather than re-interpolated node by node.
+                    translate(arrows.shiftX * pose.survivorTravel, arrows.shiftY * pose.survivorTravel) {
+                        drawPath(arrows.back, tint)
+                    }
+                    if (pose.newAlpha > 0f && pose.newScale > 0f) {
+                        scale(pose.newScale, pivot = arrows.backCenter) {
+                            drawPath(arrows.back, tint, alpha = pose.newAlpha)
                         }
                     }
                 }
@@ -244,30 +235,25 @@ fun PlayerSkipGlyph(
     )
 }
 
-private fun interpolateSkipNode(from: PathNode, to: PathNode, progress: Float): PathNode =
-    when (from) {
-        is PathNode.MoveTo -> {
-            to as PathNode.MoveTo
-            PathNode.MoveTo(skipMix(from.x, to.x, progress), skipMix(from.y, to.y, progress))
-        }
-        is PathNode.LineTo -> {
-            to as PathNode.LineTo
-            PathNode.LineTo(skipMix(from.x, to.x, progress), skipMix(from.y, to.y, progress))
-        }
-        is PathNode.ArcTo -> {
-            to as PathNode.ArcTo
-            PathNode.ArcTo(
-                horizontalEllipseRadius = skipMix(from.horizontalEllipseRadius, to.horizontalEllipseRadius, progress),
-                verticalEllipseRadius = skipMix(from.verticalEllipseRadius, to.verticalEllipseRadius, progress),
-                theta = skipMix(from.theta, to.theta, progress),
-                isMoreThanHalf = from.isMoreThanHalf,
-                isPositiveArc = from.isPositiveArc,
-                arcStartX = skipMix(from.arcStartX, to.arcStartX, progress),
-                arcStartY = skipMix(from.arcStartY, to.arcStartY, progress),
-            )
-        }
-        else -> from // Close; verified against both current drawable paths.
+/** The drawable's two arrowhead contours, split once at its last MoveTo. */
+private class SkipArrows(nodes: List<PathNode>) {
+    val back: Path
+    val front: Path
+    val backCenter: Offset
+    val frontCenter: Offset
+    val shiftX: Float
+    val shiftY: Float
+
+    init {
+        val split = nodes.indexOfLast { it is PathNode.MoveTo }
+        back = nodes.subList(0, split).toPath()
+        front = nodes.subList(split, nodes.size).toPath()
+        backCenter = back.getBounds().center
+        frontCenter = front.getBounds().center
+        shiftX = frontCenter.x - backCenter.x
+        shiftY = frontCenter.y - backCenter.y
     }
+}
 
 /** Expanded player only. No pointer handler, touch target, or semantics changes. */
 @Composable

@@ -37,7 +37,10 @@ import kotlin.math.sqrt
 
 /** Geometry precision, not Apple animation parameters. No optical recentering. */
 private object MorphGeometry {
-    const val OutlineSamples = 4096
+    // Dense enough to resolve the ~1-unit rounded corners at ~0.03 viewport
+    // units per sample (well under 0.2px at mini-player size) before each
+    // outer chain is resampled to OuterChainSamples. 4096 was 4x the work.
+    const val OutlineSamples = 1024
     const val OuterChainSamples = 256
     const val SplitFraction = 0.5f
     // Facing straight edges, verified in custom pause.xml and Material 1.7.3
@@ -163,7 +166,7 @@ fun PlayerPlayPauseGlyph(
     // Resource vectors may be empty until loaded. Do not cache that placeholder
     // as geometry, or replace today's loading/empty-vector behavior with a crash.
     val geometry = remember(play, pause) {
-        if (play.root.size == 0 || pause.root.size == 0) null else buildMorphContours(play, pause)
+        if (play.root.size == 0 || pause.root.size == 0) null else morphContours(play, pause)
     }
     Icon(
         painter = if (motion.playing.value) pausePainter else playPainter,
@@ -238,6 +241,18 @@ internal fun Modifier.playerPlayPausePressCircle(
 )
 
 /**
+ * The contours depend only on the two vectors, which every caller passes as the
+ * same Material singletons. Sampling them is thousands of PathMeasure calls, so
+ * build them once per process instead of once per MiniPlayer/glass-bar instance
+ * (each of which re-enters composition as the bar density changes).
+ */
+private val morphContourCache =
+    java.util.concurrent.ConcurrentHashMap<Pair<ImageVector, ImageVector>, List<Pair<FloatArray, FloatArray>>>()
+
+private fun morphContours(play: ImageVector, pause: ImageVector): List<Pair<FloatArray, FloatArray>> =
+    morphContourCache.getOrPut(Pair(play, pause)) { buildMorphContours(play, pause) }
+
+/**
  * Anchor the cut's endpoints, not an arbitrary full-perimeter starting vertex.
  * Left outer chain is bottom -> top; right is top -> bottom. Closing each chain
  * makes the inner edge open linearly into the original Pause gap, without a twist.
@@ -278,8 +293,9 @@ private fun buildMorphContours(play: ImageVector, pause: ImageVector): List<Pair
 private fun sampleOutline(path: Path): List<Offset> {
     val measure = PathMeasure()
     measure.setPath(path, forceClosed = true)
+    val length = measure.length
     val points = List(MorphGeometry.OutlineSamples) {
-        measure.getPosition(measure.length * it / MorphGeometry.OutlineSamples)
+        measure.getPosition(length * it / MorphGeometry.OutlineSamples)
     }
     var area = 0f
     for (i in points.indices) {

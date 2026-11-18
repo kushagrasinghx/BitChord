@@ -38,19 +38,16 @@ object AutomixModels {
     class Model(val fileName: String, val bytes: Long, val sha256: String)
 
     /**
-     * Where the weights are fetched from, in order. The latest app release
-     * carries them first; every release from now on must attach both files
-     * (the update checker only picks up `.apk` assets, so they never confuse
-     * it). The pinned `automix-models-1` pre-release is the fallback for a
-     * release published without them — never edited in place, because an
-     * installed app only knows the URLs it was built with. Either way a copy
-     * is only kept if it matches the size and SHA-256 below, so new weights
-     * need a new app version, not just new assets.
+     * The weights come from the latest app release, attached as
+     * `model_<file>` so they list below the APKs. Every release must attach
+     * both files under those names, or Automix cannot download them until one
+     * does (the update checker only picks up `.apk` assets, so they never
+     * confuse it). A copy is only kept if it matches the size and SHA-256
+     * below, so new weights need a new app version, not just new assets. On
+     * disk they keep the plain names.
      */
-    private val SOURCES = listOf(
-        "https://github.com/kushagrasinghx/BitChord/releases/latest/download/",
-        "https://github.com/kushagrasinghx/BitChord/releases/download/automix-models-1/",
-    )
+    private const val RELEASE_URL =
+        "https://github.com/kushagrasinghx/BitChord/releases/latest/download/model_"
 
     val BEAT = Model(
         BeatTracker.MODEL_ASSET,
@@ -192,25 +189,11 @@ object AutomixModels {
     }
 
     private fun fetch(model: Model, progress: (Long) -> Unit) {
-        var error: Exception? = null
-        for (source in SOURCES) {
-            try {
-                fetch(model, source, progress)
-                return
-            } catch (e: Exception) {
-                Log.w(TAG, "${model.fileName} from $source failed: ${e.message}")
-                progress(0)
-                error = e
-            }
-        }
-        throw error ?: IOException("No source for ${model.fileName}")
-    }
-
-    private fun fetch(model: Model, source: String, progress: (Long) -> Unit) {
         val target = fileFor(model) ?: return
         val part = File(target.parentFile, "${model.fileName}.part")
-        val request = Request.Builder().url(source + model.fileName).build()
-        Log.i(TAG, "Fetching ${model.fileName} from $source")
+        val url = RELEASE_URL + model.fileName
+        val request = Request.Builder().url(url).build()
+        Log.i(TAG, "Fetching $url")
         Http.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code} for ${model.fileName}")
             val body = response.body ?: throw IOException("Empty body for ${model.fileName}")

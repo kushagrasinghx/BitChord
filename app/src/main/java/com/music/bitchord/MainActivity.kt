@@ -359,6 +359,7 @@ import com.music.bitchord.data.toGroup
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.LocalMusicSort
 import com.music.bitchord.ui.screens.HomeScreen
+import com.music.bitchord.ui.screens.MixesScreen
 import com.music.bitchord.ui.screens.LibraryGridPage
 import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
@@ -913,6 +914,7 @@ private fun BitChordApp(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
+    val mixesState by viewModel.mixes.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
     val libraryState by viewModel.library.collectAsStateWithLifecycle()
@@ -1253,9 +1255,11 @@ private fun BitChordApp(
     val libraryShowAllGridState = rememberLazyGridState()
     val moodsGridState = rememberLazyGridState()
     val searchListState = rememberLazyListState()
+    val mixesListState = rememberLazyListState()
     val currentListState = when (selectedTab) {
         TAB_HOME -> homeListState
         TAB_EXPLORE -> if (selectedMoodGenre == null) exploreListState else moodGenreListState
+        TAB_RADIO -> mixesListState
         TAB_LIBRARY -> libraryListState
         else -> searchListState
     }
@@ -1265,12 +1269,14 @@ private fun BitChordApp(
     val homePull = rememberPullToRefreshState()
     val explorePull = rememberPullToRefreshState()
     val libraryPull = rememberPullToRefreshState()
+    val mixesPull = rememberPullToRefreshState()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val currentFeed = when {
         route != null || detail != null -> null
         selectedTab == TAB_HOME -> MainViewModel.Feed.HOME
         selectedTab == TAB_EXPLORE -> MainViewModel.Feed.EXPLORE
         selectedTab == TAB_LIBRARY -> MainViewModel.Feed.LIBRARY
+        selectedTab == TAB_RADIO -> MainViewModel.Feed.MIXES
         else -> null
     }
     // The lead shelf is listening history, so opening Home after playing
@@ -1281,11 +1287,17 @@ private fun BitChordApp(
         // was last fetched is a change to exactly this page.
         if (currentFeed == MainViewModel.Feed.LIBRARY) viewModel.onLibraryShown()
     }
+    // Keyed on the account too: the mixes are one listener's, and a sign-in
+    // or switch while the page is open is a different set of them.
+    LaunchedEffect(currentFeed, signedIn, account) {
+        if (currentFeed == MainViewModel.Feed.MIXES) viewModel.onMixesShown()
+    }
 
     val currentPull = when (currentFeed) {
         MainViewModel.Feed.HOME -> homePull
         MainViewModel.Feed.EXPLORE -> explorePull
         MainViewModel.Feed.LIBRARY -> libraryPull
+        MainViewModel.Feed.MIXES -> mixesPull
         null -> null
     }
     val scrolled by remember(currentListState) {
@@ -1365,16 +1377,18 @@ private fun BitChordApp(
     val playLabel = stringResource(R.string.play)
     val exploreLabel = stringResource(R.string.explore)
     val libraryLabel = stringResource(R.string.library)
+    val radioLabel = stringResource(R.string.radio)
     val searchLabel = stringResource(R.string.search)
     val historyLabel = stringResource(R.string.history)
     val replayLabel = stringResource(R.string.replay)
     val queueLabel = stringResource(R.string.queue)
     val sharedLinkLabel = stringResource(R.string.shared_link)
     val openedFileLabel = stringResource(R.string.opened_file)
-    val tabs = remember(homeLabel, exploreLabel, libraryLabel, searchLabel) {
+    val tabs = remember(homeLabel, exploreLabel, radioLabel, libraryLabel, searchLabel) {
         listOf(
             BottomTab(homeLabel, BitChordIcons.Home),
             BottomTab(exploreLabel, BitChordIcons.TabExplore),
+            BottomTab(radioLabel, BitChordIcons.TabRadio),
             BottomTab(libraryLabel, BitChordIcons.TabLibrary),
             BottomTab(searchLabel, BitChordIcons.TabSearch),
         )
@@ -3766,6 +3780,31 @@ private fun BitChordApp(
                                         },
                                     )
                                 },
+                            )
+                            TAB_RADIO -> MixesScreen(
+                                title = radioLabel,
+                                state = mixesState,
+                                signedIn = signedIn,
+                                listState = mixesListState,
+                                // A mix opens as the playlist it is, as its card
+                                // does on Home and in the web player.
+                                onItemClick = { item ->
+                                    item.browseId?.let { browseId ->
+                                        viewModel.openDetail(
+                                            browseId = browseId,
+                                            title = item.title,
+                                            subtitle = item.subtitle,
+                                            thumbnailUrl = item.thumbnailUrl,
+                                        )
+                                    }
+                                },
+                                onItemLongPress = onShelfLongPress,
+                                onRetry = viewModel::loadMixes,
+                                onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                                refreshing = MainViewModel.Feed.MIXES in refreshing,
+                                onRefresh = { viewModel.refresh(MainViewModel.Feed.MIXES) },
+                                pullState = mixesPull,
+                                contentPadding = listPadding,
                             )
                             else -> LibraryScreen(
                                 signedIn = signedIn,
@@ -6494,8 +6533,9 @@ private object PlayerSheetShape : Shape {
 
 private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
-private const val TAB_LIBRARY = 2
-private const val TAB_SEARCH = 3
+private const val TAB_RADIO = 2
+private const val TAB_LIBRARY = 3
+private const val TAB_SEARCH = 4
 
 /**
  * Smoothly scroll a LazyList back to the top with eased deceleration.

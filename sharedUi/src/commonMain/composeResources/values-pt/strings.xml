@@ -207,4 +207,6 @@
     <string name="queue_download">Baixar</string>
     <string name="queue_selection_remove">Remover</string>
     <string name="queue_add_all_to_playlist">Adicionar todas à playlist</string>
+    <string name="mixes_yours">Seus mixes</string>
+    <string name="mixes_none">Ainda não há mixes. Continue ouvindo e o YouTube Music criará alguns para você.</string>
 </resources>

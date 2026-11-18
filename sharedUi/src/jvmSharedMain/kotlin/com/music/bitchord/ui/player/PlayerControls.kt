@@ -478,10 +478,21 @@ internal fun TransportRow(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     compact: Boolean = false,
+    animationsActive: Boolean = true,
 ) {
     val playSize = if (compact) 58.dp else 74.dp
     val playTouch = if (compact) 76.dp else 92.dp
     val skipSize = if (compact) 44.dp else PLAYER_SKIP_ICON_SIZE
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val previousMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val nextMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val playVector = vectorResource(Res.drawable.ic_player_play)
+    val pauseVector = vectorResource(Res.drawable.ic_player_pause)
+    val playPauseMotion = rememberExpandedPlayPauseMotion(
+        isPlaying = isPlaying,
+        active = animationsActive && !isLoading && playVector.root.size > 0 && pauseVector.root.size > 0,
+        reduceMotion = reduceAnimation,
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         // SpaceAround, not SpaceEvenly: the outer margins take half a gap, so
@@ -498,6 +509,8 @@ internal fun TransportRow(
             onClick = onPrevious,
             enabled = previousEnabled,
             haptic = Haptic.SkipPrevious,
+            skipMotion = previousMotion,
+            skipPrevious = true,
         )
         if (isLoading) {
             // Same footprint as the play/pause target — a smaller box here
@@ -517,6 +530,7 @@ internal fun TransportRow(
                 touchSize = playTouch,
                 onClick = onPlayPause,
                 haptic = if (isPlaying) Haptic.Pause else Haptic.Resume,
+                playPauseMotion = playPauseMotion,
             )
         }
         TransportGlyph(
@@ -528,6 +542,7 @@ internal fun TransportRow(
             onClick = onNext,
             enabled = nextEnabled,
             haptic = Haptic.SkipNext,
+            skipMotion = nextMotion,
         )
     }
 }
@@ -810,8 +825,12 @@ private fun TransportGlyph(
     haptic: Haptic = Haptic.Tap,
     /** Vertical squash of the glyph alone; its width and touch box are untouched. */
     heightScale: Float = 1f,
+    skipMotion: PlayerSkipMotion? = null,
+    skipPrevious: Boolean = false,
+    playPauseMotion: ExpandedPlayPauseMotion? = null,
 ) {
     val haptics = rememberHaptics()
+    val interactionSource = remember { MutableInteractionSource() }
     // Faded rather than hidden: the row keeps its shape at the ends of a queue.
     val alpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.3f,
@@ -820,30 +839,73 @@ private fun TransportGlyph(
     Box(
         modifier = Modifier
             .size(touchSize)
+            .then(
+                if (skipMotion != null) Modifier.playerSkipPressCircle(
+                    motion = skipMotion,
+                    interactionSource = interactionSource,
+                    enabled = enabled,
+                    tint = Color.White.copy(alpha = alpha),
+                    glyphSize = size,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
+                ) else if (playPauseMotion != null) Modifier.expandedPlayPausePressCircle(
+                    motion = playPauseMotion,
+                    interactionSource = interactionSource,
+                    tint = Color.White.copy(alpha = alpha),
+                    glyphSize = size,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
+                ) else Modifier,
+            )
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
             ) {
                 haptics.play(haptic)
+                skipMotion?.onTap()
+                playPauseMotion?.onTap()
                 onClick()
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = contentDescription,
-            tint = Color.White.copy(alpha = alpha),
-            modifier = Modifier
-                .size(size)
-                .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
-        )
+        if (skipMotion != null) {
+            PlayerSkipGlyph(
+                motion = skipMotion,
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+                previous = skipPrevious,
+            )
+        } else if (playPauseMotion != null) {
+            ExpandedPlayPauseGlyph(
+                motion = playPauseMotion,
+                interactionSource = interactionSource,
+                playPainter = painterResource(Res.drawable.ic_player_play),
+                pausePainter = painterResource(Res.drawable.ic_player_pause),
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier.size(size),
+            )
+        } else {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+            )
+        }
     }
 }
 
 /** The skip glyphs' width, and their touch box, beside the larger play button. */
 private val PLAYER_SKIP_ICON_SIZE = 53.dp
 private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
+
+/** Draw-only diameter shared by expanded playback controls; hit targets stay unchanged. */
+private val PLAYER_PRESS_CIRCLE_DIAMETER = 60.dp
 
 /**
  * The skip glyphs are drawn a little flatter than they are wide, so the pair

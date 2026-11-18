@@ -2388,6 +2388,7 @@ fun NowPlayingScreen(
                                     onPlayPause = onPlayPause,
                                     onNext = onNext,
                                     compact = compact,
+                                    animationsActive = !panelOpen,
                                 )
                             },
                             volume = if (hideVolumeBar) {
@@ -4340,6 +4341,10 @@ fun NowPlayingScreen(
                             onPrevious = onPrevious,
                             onPlayPause = onPlayPause,
                             onNext = onNext,
+                            animationsActive = !lyricPicker.picking &&
+                                (!lyricsOpen || lyricsControlsOpen) &&
+                                (!queueOpen || queueControlsOpen) &&
+                                (!spotifyCanvasPresentation || spotifyCanvasControlsOpen || mixing),
                         )
                     }
                     if (!hideVolumeBar) {

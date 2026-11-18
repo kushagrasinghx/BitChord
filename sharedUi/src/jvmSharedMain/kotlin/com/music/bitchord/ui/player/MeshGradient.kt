@@ -346,16 +346,16 @@ internal fun rememberArtworkColors(
     imageUrl: String?, canvasFrame: ImageBitmap?, seed: MeshPalette?, clipKey: Any? = imageUrl,
 ): MeshPalette {
     val context = LocalPlatformContext.current
-    var still by remember(imageUrl, seed) { mutableStateOf(seed ?: cachedArtworkPalette(imageUrl)) }
-    var clip by remember(imageUrl, clipKey) { mutableStateOf<MeshPalette?>(null) }
-    val fallback = remember { MeshPalette(FallbackColors) }
+    var palette by remember(imageUrl, clipKey) { mutableStateOf(seed ?: MeshPalette(FallbackColors)) }
 
-    LaunchedEffect(imageUrl, seed) {
-        if (imageUrl == null || still != null) return@LaunchedEffect
-        val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return@LaunchedEffect
-        val next = withContext(Dispatchers.Default) { MeshPalette(paletteOf(bitmap)) }
+    LaunchedEffect(imageUrl, clipKey) {
+        if (imageUrl == null || seed != null) return@LaunchedEffect
+        val next = cachedArtworkPalette(imageUrl) ?: run {
+            val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return@LaunchedEffect
+            withContext(Dispatchers.Default) { MeshPalette(paletteOf(bitmap)) }
+        }
         artworkPaletteCache[imageUrl] = next
-        still = next
+        palette = next
     }
 
     LaunchedEffect(imageUrl, clipKey, canvasFrame) {
@@ -365,9 +365,9 @@ internal fun rememberArtworkColors(
         // threshold because compression noise pushes mean luminance above ~12.
         if (isLikelyBlackFrame(frame)) return@LaunchedEffect
         val colors = withContext(Dispatchers.Default) { paletteOf(frame) }
-        clip = MeshPalette(colors)
+        palette = MeshPalette(colors)
     }
-    return clip ?: still ?: fallback
+    return palette
 }
 
 // Keep quantized still palettes ready for ambient handoff, not just their 128px decodes.

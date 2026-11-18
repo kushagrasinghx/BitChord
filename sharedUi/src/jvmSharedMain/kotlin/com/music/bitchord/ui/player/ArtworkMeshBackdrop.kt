@@ -100,9 +100,8 @@ class ArtworkMesh internal constructor(internal val image: ImageBitmap)
  * The small decode and CPU pass are staggered by the caller after a song change,
  * so they never land on the track hand-off itself.
  *
- * The last cover is held only while the selected cover is being decoded.
- * On failure the renderer fades to the selected cover's cached mesh or its
- * opaque fallback, rather than treating the held cover as a decode result.
+ * Hold the last blur until the selected cover is ready. Clear it on failure
+ * or when there is no selected cover, rather than retaining a stale bitmap.
  */
 @Composable
 fun rememberFullArtworkBlurImage(
@@ -113,21 +112,15 @@ fun rememberFullArtworkBlurImage(
 
 @Composable
 internal fun rememberFullArtworkBlurImage(
-    imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?, selection: Any? = null,
+    imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var held by remember { mutableStateOf<ImageBitmap?>(null) }
-    val cached = cachedFullArtworkBlur(imageUrl)
-    var image by remember(selection, imageUrl, artPx, prepare, seed) {
-        mutableStateOf(seed ?: cached ?: imageUrl?.let(meshCache::get)?.image ?: held.takeIf { prepare && imageUrl != null })
-    }
+    var image by remember { mutableStateOf(seed ?: imageUrl?.let(fullBlurCache::get)) }
 
-    LaunchedEffect(selection, imageUrl, artPx, prepare, seed) {
-        val ready = seed ?: cached ?: if (prepare && imageUrl != null) {
-            loadFullArtworkBlur(context, imageUrl, artPx) ?: meshCache[imageUrl]?.image
-        } else imageUrl?.let(meshCache::get)?.image
-        image = ready
-        held = ready
+    LaunchedEffect(imageUrl, artPx, prepare, seed) {
+        image = seed ?: imageUrl?.let(fullBlurCache::get) ?: if (prepare && imageUrl != null) {
+            loadFullArtworkBlur(context, imageUrl, artPx)
+        } else null
     }
     return image
 }
@@ -322,13 +315,14 @@ internal fun rememberArtworkMesh(
     clipKey: Any? = imageUrl,
 ): ArtworkMesh? {
     val context = LocalPlatformContext.current
-    var still by remember(imageUrl, artPx, seed) {
-        mutableStateOf(seed ?: imageUrl?.let(meshCache::get))
+    // Keep the old single displayed mesh, but scope clip-derived pixels to the
+    // clip owner and let the backdrop fade to fallback when a still is missing.
+    var mesh by remember(imageUrl, clipKey) {
+        mutableStateOf(seed ?: clipMeshFor(clipKey) ?: imageUrl?.let(meshCache::get))
     }
-    var clip by remember(imageUrl, clipKey) { mutableStateOf(clipMeshFor(clipKey)) }
 
-    LaunchedEffect(imageUrl, artPx, seed) {
-        if (imageUrl == null || still != null) return@LaunchedEffect
+    LaunchedEffect(imageUrl, artPx, clipKey) {
+        if (imageUrl == null || mesh != null) return@LaunchedEffect
         val request = artworkPixelsRequest(context, imageUrl, artPx, MESH_PX)
         // Tried more than once, because this effect is keyed on the artwork and
         // nothing else: a read that fails is not retried by Coil and cannot be
@@ -341,7 +335,8 @@ internal fun rememberArtworkMesh(
             val result = SingletonImageLoader.get(context).execute(request)
             val bitmap = (result as? SuccessResult)?.image?.toImageBitmap()
             if (bitmap != null) {
-                still = cacheStillMesh(imageUrl, bitmap)
+                val found = cacheStillMesh(imageUrl, bitmap)
+                if (found != null) mesh = found
                 // A cover that decoded but had no mesh in it — see [meshOf] —
                 // is an answer, not a failure. Asking again gets the same one.
                 return@LaunchedEffect
@@ -358,10 +353,10 @@ internal fun rememberArtworkMesh(
         val found = withContext(Dispatchers.Default) {
             if (isLikelyBlackFrame(frame)) null else meshOf(frame, imageUrl?.hashCode() ?: 0)
         } ?: return@LaunchedEffect
-        clip = found
+        mesh = found
         if (clipKey != null) lastClipMesh = ClipMesh(clipKey, found)
     }
-    return clip ?: still
+    return mesh
 }
 
 /**

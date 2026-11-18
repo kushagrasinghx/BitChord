@@ -381,11 +381,11 @@ private fun LegacyMeshBackdrop(
     val requestedSnap = ambient.snapKey(settled != null)
     val snapKey = rememberAmbientSnapKey(requestedSnap)
     val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled }
-    val palette = key(entry ?: trackKey, snapKey) { rememberArtworkColors(url, canvasFrame(), seed, canvasKey) }
+    val palette = key(snapKey) { rememberArtworkColors(url, canvasFrame(), seed, canvasKey) }
     val mix = ambient.mixFor(settled != null)
     MeshGradientBackground(
         palette = palette,
-        trackKey = entry ?: trackKey,
+        trackKey = trackKey,
         modifier = modifier,
         mix = mix,
         snapKey = snapKey,
@@ -1922,7 +1922,6 @@ fun NowPlayingScreen(
         imageUrl = ambientBlurUrl,
         artPx = ART_PX,
         seed = blurSeed,
-        selection = coverEntry ?: song.videoId,
         // Straight away when it is the main player's backdrop too: the decode
         // and blur run off the main thread, and the last cover's blur is held
         // on screen until this one is ready.

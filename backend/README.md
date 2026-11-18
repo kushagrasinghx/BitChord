@@ -4,8 +4,10 @@ The party server behind **Listen together**: create a six-character code, share
 it, and up to five signed-in devices listen to the same thing at the same time.
 Anyone in the party can control the music.
 
-Go + a WebSocket per device, no database, deployed as a single Render web
-service.
+Go service with two HTTP listeners. Listen Together keeps party state in memory;
+the account-sync API stores opaque, client-encrypted snapshots in an atomically
+replaced JSON file. The sync file must live on durable storage, and this initial
+store supports one process/instance only.
 
 ```bash
 go run .
@@ -244,6 +246,79 @@ To keep memory, bandwidth, and latency strictly bounded:
   entirely such tracks succeeds without changing the queue. Hand-queued tracks
   are never filtered.
 
+## Account Sync API (v1)
+
+The account-sync API is a separate listener (default `SYNC_PORT=8081`) in this
+same Go process. It is intended to sit behind HTTPS; the listener itself speaks
+plain HTTP and must not be exposed directly to the public internet. The bundled
+Caddy config proxies `https://<domain>/sync/*` to `127.0.0.1:8081`, stripping the
+`/sync` prefix. Set the clients' sync base URL to `https://<domain>/sync`.
+
+### Privacy and identity
+
+- The API does not authenticate with Google/YouTube and must never receive a
+  Google password, cookie, OAuth token, or profile-encryption key.
+- Clients are responsible for encrypting the profile snapshot before upload.
+  The server checks that the payload is valid Base64 but **cannot prove that it
+  is encrypted**; do not enable client sync until client-side encryption ships.
+- Device bearer tokens and pairing tokens are 256-bit random values. The API
+  returns device tokens only once and stores only SHA-256 hashes. Send tokens
+  only in `Authorization: Bearer …`; never put them in URLs or logs.
+- Pairing tokens expire after five minutes and can be claimed once. At most five
+  live pairing tokens and ten devices are allowed per profile. A device can
+  revoke another device but not itself; any active device can delete the profile.
+- Profile creation is disabled by default; the operator must explicitly set
+  `SYNC_ALLOW_PROFILE_CREATION=true` after deciding how the community instance
+  will handle public registrations. Profile creation is limited to five
+  requests/minute/IP and ten thousand profiles per instance; pairing claims are
+  limited to fifteen/minute/IP and token issuance to ten/minute/IP. These per-IP
+  limits do not stop a distributed signup attack from consuming the quota: keep
+  open registration disabled on a public instance until an operator has an
+  invite/verification and retention policy. `SYNC_TRUST_PROXY=true` trusts the first
+  `X-Forwarded-For` address and is safe
+  only behind a proxy that overwrites that header (as the bundled Caddyfile
+  does).
+
+### REST endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/healthz` | Health check (`{"status":"ok"}`). |
+| `POST` | `/v1/profiles` | Create a profile and first device. Body `{}`. Returns `profileId`, `deviceId`, one-time `deviceToken`, and revision `0`. |
+| `POST` | `/v1/profiles/{profileId}/pairings` | Authenticated device creates one-time pairing token and expiry. |
+| `POST` | `/v1/pairings/claim` | Claim with `{ "profileId": "…", "pairingToken": "…" }`; returns the new device's one-time token. |
+| `GET` | `/v1/profiles/{profileId}/devices` | List device IDs, creation times, and mark the caller as `current`. |
+| `DELETE` | `/v1/profiles/{profileId}/devices/{deviceId}` | Revoke another device. |
+| `DELETE` | `/v1/profiles/{profileId}` | Delete the profile and all of its server-side data. |
+| `GET` | `/v1/profiles/{profileId}/snapshot` | Fetch current revision and encrypted snapshot (or `null` on a new profile). |
+| `PUT` | `/v1/profiles/{profileId}/snapshot` | Compare-and-swap snapshot upload. |
+
+Snapshot upload body:
+
+```json
+{"expectedRevision":0,"schemaVersion":1,"ciphertext":"<base64 ciphertext>"}
+```
+
+A successful upload increments the revision. A stale `expectedRevision` returns
+`409` with the current revision; clients must fetch, merge locally, and retry.
+The request limit is 8 MiB. The single-file store is capped at 64 MiB and is
+atomically replaced with mode `0600`; keep it on a persistent disk and back it
+up according to the operator's retention policy. This implementation is
+single-process only—do not run multiple instances against the same file.
+
+### Deployment caveats
+
+- On the Oracle/Caddy setup below, Caddy exposes the sync API at `/sync/` while
+  the Go listener remains private on port 8081. The firewall still exposes only
+  ports 80/443.
+- The current Render blueprint exposes only its normal `PORT` and uses an
+  ephemeral filesystem on the free plan. It is **not a durable/public sync
+  deployment** as-is; use a host with persistent storage and a TLS reverse proxy
+  that routes `/sync/*` to the second listener.
+- The API is only the server half. It must not be advertised as working sync
+  until clients implement end-to-end encryption, pairing/key exchange, merge
+  behavior, revocation UI, and offline handling.
+
 ## Deploying to Oracle Cloud (Always Free)
 
 This is what runs `https://api.bitchord.kushagrasingh.in`: one Always Free
@@ -265,10 +340,12 @@ Caddy in front for HTTPS and WebSockets. Files are in `deploy/`.
    ```
 
    It installs Go, builds the server into `/opt/bitchord-jam`, runs it as the
-   `bitchord-jam` systemd service on `:8000`, installs Caddy for the domain, and
-   opens 80/443 in the VM's own iptables. Oracle's Ubuntu images carry a REJECT
-   rule besides the security list, so both have to be opened. Re-run the same
-   command to deploy a new build.
+   `bitchord-jam` systemd service with Listen Together on `:8000` and account sync
+   on `:8081`, and configures Caddy HTTPS with `/sync/*` routed to the private sync
+   listener. The sync state file lives under the persistent
+   `/var/lib/bitchord-sync/` directory. It also opens ports 80/443 in the VM's own
+   iptables; Oracle's Ubuntu images carry a REJECT rule besides the security list,
+   so both have to be opened. Re-run the same command to deploy a new build.
 
 Check it with `curl https://<domain>/healthz`. Logs are in
 `journalctl -u bitchord-jam` and `journalctl -u caddy`.
@@ -338,7 +415,12 @@ Every one of these is optional — `config/config.go` carries the same defaults.
 | `JAM_ALLOWED_ORIGINS` | *(none)* | Comma-separated browser Origin allowlist. Native clients send no Origin and remain supported. |
 | `JAM_TRUST_PROXY` | `false` | Read `X-Forwarded-For` for rate limiting only when a trusted proxy terminates requests. |
 | `JAM_PUBLIC_ORIGIN` | *(none)* | Public origin emitted verbatim in invite deep links, e.g. `https://party.example.com`. Set it when TLS terminates upstream and `X-Forwarded-Proto` may be rewritten or dropped along the way. |
-| `PORT` | `8000` | Port the server listens on. |
+| `PORT` | `8000` | Listen Together port. |
+| `SYNC_PORT` | `8081` | Private account-sync API listener; route through HTTPS proxy. |
+| `SYNC_BIND_ADDR` | `127.0.0.1` | Bind address for the sync listener. Keep loopback unless a trusted private network requires otherwise. |
+| `SYNC_STATE_PATH` | `./data/sync-state.json` | Durable sync state file. Configure a persistent path for hosted deployments. |
+| `SYNC_TRUST_PROXY` | `false` | Trust `X-Forwarded-For` for sync rate limits only behind a trusted proxy. |
+| `SYNC_ALLOW_PROFILE_CREATION` | `false` | Explicitly opt into anonymous sync-profile registrations after reviewing abuse/retention policy. |
 
 ## Layout
 
@@ -349,7 +431,8 @@ config/config.go      Environment knobs
 hub/hub.go            Who holds a socket, and how a frame reaches everyone
 party/party.go        Party, Member, PlaybackState — the sync rule, in-memory state
 protocol/protocol.go  Action and frame-type names
-main.go               REST routes, the socket loop, the heartbeat ticker
+syncapi/              Account sync profiles, encrypted snapshots, pairing, and device tokens
+main.go               REST routes, listeners, the socket loop, the heartbeat ticker
 main_test.go          REST endpoints and WebSocket integration tests
 party/party_test.go   Capacity limits, queue limits, delta moves, step
 ```

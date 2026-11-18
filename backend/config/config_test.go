@@ -50,6 +50,17 @@ func TestGetInt(t *testing.T) {
 	}
 }
 
+func TestGetString(t *testing.T) {
+	t.Setenv("BITCHORD_TEST_STRING", "")
+	if got := getString("BITCHORD_TEST_STRING", "fallback"); got != "fallback" {
+		t.Fatalf("unset string=%q, want fallback", got)
+	}
+	t.Setenv("BITCHORD_TEST_STRING", "  /var/lib/bitchord/sync.json  ")
+	if got := getString("BITCHORD_TEST_STRING", "fallback"); got != "/var/lib/bitchord/sync.json" {
+		t.Fatalf("trimmed string=%q, want path", got)
+	}
+}
+
 func TestGetCSV(t *testing.T) {
 	t.Setenv("BITCHORD_TEST_CSV", "")
 	if got := getCSV("BITCHORD_TEST_CSV", ""); got != nil {

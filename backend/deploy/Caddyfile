@@ -21,6 +21,13 @@
 		header Cache-Control no-store
 		respond `{"ok":true}` 200
 	}
+	handle_path /sync/* {
+		reverse_proxy 127.0.0.1:8081 {
+			# Main service has a separate sync listener; forward the resolved client
+			# IP only. SYNC_TRUST_PROXY must remain enabled only behind this proxy.
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
 	handle {
 		reverse_proxy 127.0.0.1:8000 {
 			# The Go server rate-limits by the first X-Forwarded-For entry

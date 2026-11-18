@@ -168,4 +168,5 @@ netfilter-persistent save
 echo "== check"
 sleep 2
 curl -fsS http://127.0.0.1:8000/healthz && echo
-echo "Done. Once DNS resolves, https://$DOMAIN/healthz should answer."
+curl -fsS http://127.0.0.1:8081/healthz && echo
+echo "Done. Once DNS resolves, https://$DOMAIN/healthz and https://$DOMAIN/sync/healthz should answer."

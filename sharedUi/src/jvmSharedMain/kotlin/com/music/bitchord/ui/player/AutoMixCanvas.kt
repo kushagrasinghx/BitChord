@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
@@ -276,20 +275,6 @@ internal fun AutoMixCoverFrames?.baseUnderCanvas(pair: AutoMixCanvasTracks?): Au
 internal fun outgoingArtworkTailAlpha(progress: Float): Float {
     val start = 0.8f
     return 1f - smootherStep(((progress - start) / (1f - start)).coerceIn(0f, 1f))
-}
-
-/** Local picture bounds after the same centered/top-aligned fit used by the live texture. */
-fun canvasRevealFrame(width: Int, height: Int, aspect: Float, fitPortrait: Boolean, alignTop: Boolean): Rect {
-    val w = width.toFloat()
-    val h = height.toFloat()
-    if (w <= 0f || h <= 0f || !fitPortrait || !aspect.isFinite() || aspect <= 0f || aspect >= 1f) {
-        return Rect(0f, 0f, w, h)
-    }
-    val pictureWidth = minOf(w, h * aspect)
-    val pictureHeight = minOf(h, w / aspect)
-    val left = (w - pictureWidth) * 0.5f
-    val top = if (alignTop) 0f else (h - pictureHeight) * 0.5f
-    return Rect(left, top, left + pictureWidth, top + pictureHeight)
 }
 
 /** Full-window crops, fixed-height cropped banners, and identical contained fits match. */

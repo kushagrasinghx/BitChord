@@ -45,15 +45,6 @@ class AutoMixCanvasTest {
     }
 
     @Test
-    fun containedRevealCoordinatesFollowThePictureNotTheTextureView() {
-        assertEquals(Rect(0f, 0f, 360f, 640f), canvasRevealFrame(360, 800, 9f / 16f, true, true))
-        assertEquals(Rect(0f, 80f, 360f, 720f), canvasRevealFrame(360, 800, 9f / 16f, true, false))
-        assertEquals(Rect(25f, 0f, 475f, 800f), canvasRevealFrame(500, 800, 9f / 16f, true, true))
-        assertEquals(Rect(0f, 0f, 500f, 800f), canvasRevealFrame(500, 800, 9f / 16f, false, true))
-        assertEquals(Rect(0f, 0f, 500f, 800f), canvasRevealFrame(500, 800, 0f, true, true))
-    }
-
-    @Test
     fun spatialAndOpacityStandbyShareTheSameClockAndGeneration() {
         val tracks = AutoMixCanvasTracks(42L, outgoing, incoming, null)
         val spatial = tracks.standbyReveal(allowSpatialMask = true)

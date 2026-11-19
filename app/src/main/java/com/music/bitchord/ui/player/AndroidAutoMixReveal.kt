@@ -13,14 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.playback.AutoMixArtworkTuning as Tuning
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -179,30 +177,18 @@ internal class LiveAutoMixMask {
     private val shader = RuntimeShader("""
         uniform shader content;
         uniform shader bottomFade;
-        uniform float2 pictureOrigin;
-        uniform float4 internalEdges;
         $ORGANIC_MASK_FIELD
         half4 main(float2 xy) {
-            float2 p = xy - pictureOrigin;
-            // Only letterbox edges inside this node are feathered. Outer clipping
-            // and the normal bottom gradient belong to the artwork presentation.
-            float width = max(1.0, min(bounds.x, bounds.y) * 0.065);
-            float4 distance = float4(p, bounds - p);
-            float4 feather = mix(float4(1.0), smoothstep(0.0, width, distance), internalEdges);
-            float edge = feather.x * feather.y * feather.z * feather.w;
-            // Restore the ordinary clip continuously before removing this effect.
-            float strength = 1.0 - smoothstep(0.65, 1.0, progress);
-            half coverage = half(revealCoverage(p) * mix(1.0, edge, strength));
-            return content.eval(xy) * (bottomFade.eval(xy).a * coverage);
+            return content.eval(xy) * (bottomFade.eval(xy).a * half(revealCoverage(xy)));
         }
     """.trimIndent())
     private var patternGeneration: Long? = null
     private val opaque = LinearGradient(0f, 0f, 0f, 1f, Color.BLACK, Color.BLACK, Shader.TileMode.CLAMP)
     private var appliedBottomFade: Shader? = null
-    private var appliedViewport = IntSize.Zero
-    private var appliedPicture = Rect.Zero
+    private var appliedWidth = 0f
+    private var appliedHeight = 0f
 
-    fun effect(viewport: IntSize, picture: Rect, progress: Float, generation: Long, bottomFade: Shader?): PlatformRenderEffect {
+    fun effect(width: Float, height: Float, progress: Float, generation: Long, bottomFade: Shader?): PlatformRenderEffect {
         if (patternGeneration != generation) {
             shader.setPattern(generation)
             patternGeneration = generation
@@ -212,20 +198,10 @@ internal class LiveAutoMixMask {
             shader.setInputShader("bottomFade", gradient)
             appliedBottomFade = gradient
         }
-        if (appliedViewport != viewport || appliedPicture != picture) {
-            shader.setFloatUniform("bounds", picture.width, picture.height)
-            shader.setFloatUniform("pictureOrigin", picture.left, picture.top)
-            shader.setFloatUniform(
-                "internalEdges",
-                if (picture.left >= 1f) 1f else 0f,
-                if (picture.top >= 1f) 1f else 0f,
-                if (viewport.width - picture.right >= 1f) 1f else 0f,
-                // For a top-aligned hero keep its explicit bottom gradient; its
-                // translucent ramp already ends at the contained picture edge.
-                if (viewport.height - picture.bottom >= 1f && picture.top >= 1f) 1f else 0f,
-            )
-            appliedViewport = viewport
-            appliedPicture = picture
+        if (appliedWidth != width || appliedHeight != height) {
+            shader.setFloatUniform("bounds", width, height)
+            appliedWidth = width
+            appliedHeight = height
         }
         shader.setFloatUniform("progress", progress)
         return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")

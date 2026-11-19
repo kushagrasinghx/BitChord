@@ -24,6 +24,7 @@
     <string name="search">חיפוש</string>
     <string name="clear_search">ניקוי חיפוש</string>
     <string name="library">ספרייה</string>
+    <string name="radio">רדיו</string>
     <string name="home">בית</string>
     <string name="play">הפעלה</string>
     <string name="explore">גלה</string>
@@ -91,6 +92,8 @@
     <string name="testing">בודק…</string>
     <string name="connected">מחובר</string>
     <string name="account_integrations">חשבון &amp; אינטגרציות</string>
+    <string name="youtube_premium_audio">אודיו של YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">יש לי Premium: הזרמת Opus באיכות גבוהה יותר של ~256 kbps במקום 160 kbps הרגילים</string>
     <string name="account_scrobbling">חשבון &amp; סקרובלינג</string>
     <string name="rich_presence">נוכחות עשירה</string>
     <string name="scrobbling">סקרובלינג</string>
@@ -601,6 +604,14 @@
     <string name="version_cut_aligned">מיושר</string>
     <string name="automix_enabled_subtitle">מתזמן ומשלב כל מעבר מהרצועות עצמן. כבה זאת אם הטלפון מתחמם או ההפעלה מגמגמת.</string>
     <string name="automix_disabled_subtitle">מתזמן ומשלב מעברים באופן אוטומטי, ללא מחוון. הביצועים עשויים להשתנות במכשירים איטיים.</string>
+    <string name="automix_models_downloading">מוריד את Automix (%1$d MB)… %2$d%%. עד הסיום השירים יתחלפו במעבר רגיל.</string>
+    <string name="automix_model">מודל Automix</string>
+    <string name="automix_model_missing">לא הורד. Automix יוריד אותו כשתפעיל אותו, או הורד אותו עכשיו.</string>
+    <string name="automix_model_download">הורדה (%1$d MB)</string>
+    <string name="automix_model_ready">הורד, תופס %1$d MB במכשיר הזה.</string>
+    <string name="automix_models_failed">לא ניתן היה להוריד את המודל. בדוק את החיבור ונסה שוב.</string>
+    <string name="automix_model_delete_title">למחוק את מודל Automix?</string>
+    <string name="automix_model_delete_warning">פעולה זו תפנה %1$d MB ותכבה את Automix. הפעלה מחדש של Automix תוריד את המודל שוב.</string>
     <string name="advanced_automix">Automix מתקדם</string>
     <string name="advanced_automix_subtitle">מערבב כמו די-ג׳יי: שומר על הקצב מסונכרן, מבצע כל מעבר על הפעמה וחותך בין שירים שלא מתמזגים. ללא עיבוד נוסף.</string>
     <string name="no_lyrics_sources_enabled">אין. מילים לא יורדו.</string>
@@ -1016,6 +1027,7 @@
     <string name="sort_date_added_toggle">תאריך הוספה</string>
 
     <string name="sort_default">סדר ברירת מחדל</string>
+    <string name="sort_track_number">מספר רצועה</string>
 
     <string name="sort_library">מיין</string>
 
@@ -1473,9 +1485,6 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
-    <string name="diwali_title">BitChord מאחלת לך דיוואלי שמח</string>
-    <string name="diwali_subtitle">שחג האורות הזה ימלא את ביתך בשמחה ואת ימיך במוזיקה.</string>
-    <string name="diwali_cta">בואו נחגוג</string>
     <string name="find_a_playlist">חיפוש פלייליסט</string>
     <string name="no_playlists_match">אין פלייליסטים שתואמים ל־“%1$s”</string>
     <string name="hide_lyrics_preview">הסתרת מילות השיר</string>

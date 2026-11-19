@@ -21,6 +21,7 @@
     <string name="search">ค้นหา</string>
     <string name="clear_search">ล้างการค้นหา</string>
     <string name="library">คลังเพลง</string>
+    <string name="radio">วิทยุ</string>
     <string name="home">หน้าแรก</string>
     <string name="play">เล่น</string>
     <string name="explore">สำรวจ</string>
@@ -87,6 +88,8 @@
     <string name="testing">กำลังทดสอบ…</string>
     <string name="connected">เชื่อมต่อแล้ว</string>
     <string name="account_integrations">บัญชีและการเชื่อมต่อ</string>
+    <string name="youtube_premium_audio">เสียง YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">ฉันมี Premium: สตรีม Opus คุณภาพสูงกว่า ~256 kbps แทน 160 kbps มาตรฐาน</string>
     <string name="account_scrobbling">บัญชีและการสโครบเบิล</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">การสโครบเบิล</string>
@@ -659,6 +662,14 @@
     <string name="version_cut_aligned">จัดตำแหน่งแล้ว</string>
     <string name="automix_enabled_subtitle">กำหนดจังหวะและผสานทุกช่วงเปลี่ยนเพลงจากตัวแทร็กเอง ปิดหากเครื่องร้อนหรือการเล่นกระตุก</string>
     <string name="automix_disabled_subtitle">กำหนดจังหวะและผสานช่วงเปลี่ยนเพลงโดยอัตโนมัติ โดยไม่มีแถบเลื่อน ประสิทธิภาพอาจแตกต่างกันในอุปกรณ์ที่ช้ากว่า</string>
+    <string name="automix_models_downloading">กำลังดาวน์โหลด Automix (%1$d MB)… %2$d%% ระหว่างนี้เพลงจะเฟดข้ามแบบปกติ</string>
+    <string name="automix_model">โมเดล Automix</string>
+    <string name="automix_model_missing">ยังไม่ได้ดาวน์โหลด Automix จะดาวน์โหลดเมื่อเปิดใช้ หรือดาวน์โหลดตอนนี้</string>
+    <string name="automix_model_download">ดาวน์โหลด (%1$d MB)</string>
+    <string name="automix_model_ready">ดาวน์โหลดแล้ว ใช้พื้นที่ %1$d MB บนอุปกรณ์นี้</string>
+    <string name="automix_models_failed">ดาวน์โหลดโมเดลไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
+    <string name="automix_model_delete_title">ลบโมเดล Automix ไหม</string>
+    <string name="automix_model_delete_warning">จะคืนพื้นที่ %1$d MB และปิด Automix เมื่อเปิด Automix อีกครั้งจะดาวน์โหลดโมเดลใหม่</string>
     <string name="advanced_automix">Automix ขั้นสูง</string>
     <string name="advanced_automix_subtitle">มิกซ์แบบดีเจ: รักษาจังหวะให้ตรงกัน เปลี่ยนเพลงตรงจังหวะ และตัดข้ามเพลงที่เข้ากันไม่ได้ ไม่มีการประมวลผลเพิ่ม</string>
     <string name="no_lyrics_sources_enabled">ไม่มี จะไม่มีการดึงเนื้อเพลง</string>
@@ -1074,6 +1085,7 @@
     <string name="sort_date_added_toggle">Date added</string>
 
     <string name="sort_default">Default order</string>
+    <string name="sort_track_number">Track number</string>
 
     <string name="sort_library">Sort</string>
 
@@ -1447,9 +1459,6 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
-    <string name="diwali_title">BitChord ขออวยพรให้คุณมีความสุขในเทศกาลดิวาลี</string>
-    <string name="diwali_subtitle">ขอให้เทศกาลแห่งแสงสว่างนี้เติมบ้านของคุณด้วยความสุข และเติมทุกวันของคุณด้วยเสียงเพลง</string>
-    <string name="diwali_cta">มาฉลองกัน</string>
     <string name="find_a_playlist">ค้นหาเพลย์ลิสต์</string>
     <string name="no_playlists_match">ไม่มีเพลย์ลิสต์ที่ตรงกับ “%1$s”</string>
     <string name="hide_lyrics_preview">ซ่อนเนื้อเพลง</string>

@@ -208,6 +208,8 @@
     <string name="sign_in_with_google">Sign in with Google</string>
     <string name="top_picks_for_you">Top Picks for You</string>
     <string name="top_pick_made_for_you">Made for You</string>
+    <string name="mixes_yours">Your Mixes</string>
+    <string name="mixes_none">No mixes yet. Keep listening and YouTube Music will make some for you.</string>
     <string name="top_pick_mood_for_you">Mood for You</string>
     <string name="top_pick_featuring">Featuring %1$s</string>
     <string name="top_pick_and_similar">%1$s &amp; Similar Artists</string>

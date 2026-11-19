@@ -24,6 +24,7 @@
     <string name="search">Поиск</string>
     <string name="clear_search">Очистить поиск</string>
     <string name="library">Библиотека</string>
+    <string name="radio">Радио</string>
     <string name="home">Главная</string>
     <string name="play">Играть</string>
     <string name="explore">Обзор</string>
@@ -99,6 +100,8 @@
     <string name="testing">Проверка…</string>
     <string name="connected">Подключено</string>
     <string name="account_integrations">Аккаунт и интеграции</string>
+    <string name="youtube_premium_audio">Звук YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">У меня есть Premium: воспроизводить Opus повышенного качества ~256 кбит/с вместо стандартных 160 кбит/с</string>
     <string name="account_scrobbling">Аккаунт и скробблинг</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Скробблинг</string>
@@ -674,6 +677,14 @@
     <string name="version_cut_aligned">выровнено</string>
     <string name="automix_enabled_subtitle">Рассчитывает время и смешивает каждый переход на основе самих треков. Отключите, если телефон нагревается или воспроизведение прерывается.</string>
     <string name="automix_disabled_subtitle">Автоматически рассчитывает время и смешивает переходы без ползунка. Производительность может отличаться на медленных устройствах.</string>
+    <string name="automix_models_downloading">Загрузка Automix (%1$d МБ)… %2$d%%. До завершения треки сменяются обычным кроссфейдом.</string>
+    <string name="automix_model">Модель Automix</string>
+    <string name="automix_model_missing">Не загружена. Automix скачает её при включении, или загрузите сейчас.</string>
+    <string name="automix_model_download">Скачать (%1$d МБ)</string>
+    <string name="automix_model_ready">Загружена, занимает %1$d МБ на этом устройстве.</string>
+    <string name="automix_models_failed">Не удалось скачать модель. Проверьте подключение и повторите попытку.</string>
+    <string name="automix_model_delete_title">Удалить модель Automix?</string>
+    <string name="automix_model_delete_warning">Будет освобождено %1$d МБ, а Automix выключится. При повторном включении модель скачается снова.</string>
     <string name="advanced_automix">Расширенный автомикс</string>
     <string name="advanced_automix_subtitle">Сводит как диджей: держит биты синхронно, делает каждый переход в долю и режет между треками, которые не сочетаются. Без дополнительной обработки.</string>
     <string name="no_lyrics_sources_enabled">Ничего. Текст песен не будет загружаться.</string>
@@ -1035,6 +1046,7 @@
     <string name="sort_date_added_toggle">Дата добавления</string>
 
     <string name="sort_default">По умолчанию</string>
+    <string name="sort_track_number">Номер трека</string>
 
     <string name="sort_library">Сортировка</string>
 
@@ -1496,9 +1508,6 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
-    <string name="diwali_title">BitChord поздравляет вас с Дивали</string>
-    <string name="diwali_subtitle">Пусть этот праздник огней наполнит ваш дом радостью, а ваши дни — музыкой.</string>
-    <string name="diwali_cta">Отпразднуем</string>
     <string name="find_a_playlist">Найти плейлист</string>
     <string name="no_playlists_match">Нет плейлистов по запросу «%1$s»</string>
     <string name="hide_lyrics_preview">Скрыть текст</string>

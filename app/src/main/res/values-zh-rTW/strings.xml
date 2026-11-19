@@ -21,6 +21,7 @@
     <string name="search">搜尋</string>
     <string name="clear_search">清除搜尋</string>
     <string name="library">資料庫</string>
+    <string name="radio">電台</string>
     <string name="home">首頁</string>
     <string name="play">播放</string>
     <string name="explore">探索</string>
@@ -84,6 +85,8 @@
     <string name="testing">測試中…</string>
     <string name="connected">已連線</string>
     <string name="account_integrations">賬號與整合</string>
+    <string name="youtube_premium_audio">YouTube Premium 音訊</string>
+    <string name="youtube_premium_audio_subtitle">我有 Premium：串流更高音質的約 256 kbps Opus，而非標準的 160 kbps</string>
     <string name="account_scrobbling">賬號與Scrobbling</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>
@@ -630,6 +633,14 @@
     <string name="version_cut_aligned">已對齊</string>
     <string name="automix_enabled_subtitle">根據曲目本身自動把控每次過渡的時機與混合效果。如果手機發熱或播放卡頓，請將其關閉。</string>
     <string name="automix_disabled_subtitle">自動把控過渡的時機與混合效果，無需手動調節。在效能較弱的裝置上效果可能有所不同。</string>
+    <string name="automix_models_downloading">正在下載 Automix（%1$d MB）… %2$d%%。完成前歌曲會使用一般淡入淡出。</string>
+    <string name="automix_model">Automix 模型</string>
+    <string name="automix_model_missing">尚未下載。開啟 Automix 時會自動下載，也可以現在下載。</string>
+    <string name="automix_model_download">下載 (%1$d MB)</string>
+    <string name="automix_model_ready">已下載，在此裝置上佔用 %1$d MB。</string>
+    <string name="automix_models_failed">無法下載模型。請檢查網路連線後重試。</string>
+    <string name="automix_model_delete_title">刪除 Automix 模型？</string>
+    <string name="automix_model_delete_warning">這將釋放 %1$d MB 並關閉 Automix。再次開啟 Automix 時會重新下載模型。</string>
     <string name="advanced_automix">高階自動混音</string>
     <string name="advanced_automix_subtitle">像 DJ 一樣混音：保持節拍同步，每次切換都踩在拍子上，並在不搭的歌曲之間直接切換。無需額外處理。</string>
     <string name="no_lyrics_sources_enabled">無。將不會獲取歌詞。</string>
@@ -986,6 +997,7 @@
     <string name="sort_date_added_toggle">新增日期</string>
 
     <string name="sort_default">預設排序</string>
+    <string name="sort_track_number">曲目編號</string>
 
     <string name="sort_library">排序</string>
 
@@ -1441,9 +1453,6 @@
     <string name="bit_perfect_status_inexact">%1$s · 不精確：此音源不是無損 PCM</string>
     <string name="bit_perfect_status_waiting">正在等待受支援輸出上的無損曲目</string>
     <string name="bit_perfect_status_unavailable">此曲目無法使用（%1$s）</string>
-    <string name="diwali_title">BitChord 祝你排燈節快樂</string>
-    <string name="diwali_subtitle">願這個光明節日讓你的家充滿歡樂，讓你的每一天充滿音樂。</string>
-    <string name="diwali_cta">一起慶祝</string>
     <string name="find_a_playlist">尋找播放列表</string>
     <string name="no_playlists_match">沒有符合「%1$s」的播放列表</string>
     <string name="hide_lyrics_preview">隱藏歌詞</string>

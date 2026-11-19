@@ -121,15 +121,11 @@ private const val FROST_RELEASE_DELAY_MS = 400L
  * still where this is one of the player's overlays; otherwise the same frost
  * blurred live off [hazeState] — which is what a bar inside the player gets,
  * since a still would freeze the list scrolling under it.
- *
- * [everySource] for a surface nested in the player's own sources (the queue's
- * bars); see [liveMenuFrost].
  */
 @Composable
 fun Modifier.playerMenuSurface(
     shape: Shape,
     hazeState: HazeState?,
-    everySource: Boolean = false,
     /** How much of the charcoal slab covers the frost. */
     slabAlpha: Float = MENU_FROST_ALPHA,
 ): Modifier {
@@ -139,7 +135,7 @@ fun Modifier.playerMenuSurface(
         when {
             reduceDynamicBlur || (frost == null && hazeState == null) -> Modifier.background(MenuFrostDark)
             frost != null -> with(frost) { Modifier.frostPanel(shape, MenuFrostDark.copy(alpha = slabAlpha)) }
-            else -> Modifier.liveMenuFrost(hazeState!!, MenuFrostDark, everySource, slabAlpha)
+            else -> Modifier.liveMenuFrost(hazeState!!, MenuFrostDark, slabAlpha)
         },
     )
 }
@@ -155,6 +151,6 @@ fun Modifier.playerBarSurface(shape: Shape, hazeState: HazeState?): Modifier {
     val plain by PlayerSettings.disableBlendEffects.collectAsStateWithLifecycle()
     // Thinner than the menu's 60%: the menu's frost also draws the colour up 1.8×,
     // which haze can't, so the same slab here reads as near-solid charcoal.
-    return playerMenuSurface(shape, hazeState, everySource = true, slabAlpha = if (plain) 0.70f else 0.45f)
+    return playerMenuSurface(shape, hazeState, slabAlpha = if (plain) 0.70f else 0.45f)
         .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
 }

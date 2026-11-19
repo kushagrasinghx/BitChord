@@ -22,6 +22,7 @@
     <string name="search">Ara</string>
     <string name="clear_search">Aramayı temizle</string>
     <string name="library">Kitaplık</string>
+    <string name="radio">Radyo</string>
     <string name="home">Ana sayfa</string>
     <string name="play">Çal</string>
     <string name="explore">Keşfet</string>
@@ -93,6 +94,8 @@
     <string name="testing">Test ediliyor…</string>
     <string name="connected">Bağlandı</string>
     <string name="account_integrations">Hesap ve entegrasyonlar</string>
+    <string name="youtube_premium_audio">YouTube Premium sesi</string>
+    <string name="youtube_premium_audio_subtitle">Premium\'um var: standart 160 kbps yerine daha yüksek kaliteli ~256 kbps Opus akışı</string>
     <string name="account_scrobbling">Hesap ve scrobbling</string>
     <string name="rich_presence">Zengin varlık</string>
     <string name="scrobbling">Scrobbling</string>
@@ -679,6 +682,14 @@
     <string name="version_cut_aligned">hizalandı</string>
     <string name="automix_enabled_subtitle">Her geçişin zamanlamasını ve karışımını parçaların kendisinden yapar. Telefon ısınırsa veya çalma takılırsa kapat.</string>
     <string name="automix_disabled_subtitle">Geçişlerin zamanlamasını ve karışımını kaydırıcı olmadan otomatik olarak yapar. Performans daha yavaş cihazlarda değişebilir.</string>
+    <string name="automix_models_downloading">Automix indiriliyor (%1$d MB)… %2$d%%. Bitene kadar şarkılar normal geçişle değişir.</string>
+    <string name="automix_model">Automix modeli</string>
+    <string name="automix_model_missing">İndirilmedi. Automix açıldığında indirir ya da şimdi indirin.</string>
+    <string name="automix_model_download">İndir (%1$d MB)</string>
+    <string name="automix_model_ready">İndirildi, bu cihazda %1$d MB kullanıyor.</string>
+    <string name="automix_models_failed">Model indirilemedi. Bağlantınızı kontrol edip tekrar deneyin.</string>
+    <string name="automix_model_delete_title">Automix modeli silinsin mi?</string>
+    <string name="automix_model_delete_warning">Bu işlem %1$d MB yer açar ve Automix\'i kapatır. Automix yeniden açıldığında model tekrar indirilir.</string>
     <string name="advanced_automix">Gelişmiş Automix</string>
     <string name="advanced_automix_subtitle">Bir DJ gibi miksler: ritimleri senkron tutar, her geçişi vuruşta yapar ve uyuşmayan şarkılar arasında keser. Ek işlem yok.</string>
     <string name="no_lyrics_sources_enabled">Yok. Sözler alınmayacak.</string>
@@ -986,6 +997,7 @@
     <string name="sort_songs">Şarkıları sırala</string>
 
     <string name="sort_default">Varsayılan sıra</string>
+    <string name="sort_track_number">Parça numarası</string>
 
     <string name="unsubscribe">Abonelikten çık</string>
 
@@ -1421,9 +1433,6 @@
     <string name="bit_perfect_status_inexact">%1$s · tam değil: bu kaynak kayıpsız PCM değil</string>
     <string name="bit_perfect_status_waiting">Desteklenen bir çıkışta kayıpsız parça bekleniyor</string>
     <string name="bit_perfect_status_unavailable">Bu parça için kullanılamıyor (%1$s)</string>
-    <string name="diwali_title">BitChord Diwali bayramınızı kutlar</string>
-    <string name="diwali_subtitle">Bu ışık bayramı evinizi neşeyle, günlerinizi müzikle doldursun.</string>
-    <string name="diwali_cta">Hadi kutlayalım</string>
     <string name="find_a_playlist">Çalma listesi bul</string>
     <string name="no_playlists_match">“%1$s” ile eşleşen çalma listesi yok</string>
     <string name="hide_lyrics_preview">Şarkı sözlerini gizle</string>

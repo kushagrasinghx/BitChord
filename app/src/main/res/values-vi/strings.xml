@@ -22,6 +22,7 @@
     <string name="search">Tìm kiếm</string>
     <string name="clear_search">Xóa tìm kiếm</string>
     <string name="library">Thư viện</string>
+    <string name="radio">Radio</string>
     <string name="home">Trang chủ</string>
     <string name="play">Phát</string>
     <string name="explore">Khám phá</string>
@@ -90,6 +91,8 @@
     <string name="testing">Đang kiểm tra…</string>
     <string name="connected">Đã kết nối</string>
     <string name="account_integrations">Tài khoản &amp; tích hợp</string>
+    <string name="youtube_premium_audio">Âm thanh YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Tôi có Premium: phát Opus chất lượng cao hơn ~256 kbps thay vì 160 kbps tiêu chuẩn</string>
     <string name="account_scrobbling">Tài khoản &amp; scrobbling</string>
     <string name="rich_presence">Trạng thái hoạt động (Rich presence)</string>
     <string name="scrobbling">Scrobbling</string>
@@ -625,6 +628,7 @@
     <string name="sort_date_added_toggle">Ngày thêm vào</string>
     <string name="sort_date_modified">Ngày sửa đổi (mới nhất trước)</string>
     <string name="sort_default">Thứ tự mặc định</string>
+    <string name="sort_track_number">Số thứ tự bài hát</string>
     <string name="sort_library">Sắp xếp</string>
     <string name="sort_songs">Sắp xếp bài hát</string>
     <string name="use_all_audio_folders">Dùng tất cả thư mục âm thanh</string>
@@ -678,6 +682,14 @@
     <string name="version_cut_aligned">đã khớp</string>
     <string name="automix_enabled_subtitle">Tự động căn thời gian và hòa âm từng đoạn chuyển bài dựa trên bản nhạc. Tắt đi nếu điện thoại nóng lên hoặc nhạc bị giật lag.</string>
     <string name="automix_disabled_subtitle">Tự động căn thời gian và hòa âm đoạn chuyển bài mà không cần thanh trượt. Hiệu năng có thể khác nhau trên các thiết bị yếu hơn.</string>
+    <string name="automix_models_downloading">Đang tải Automix (%1$d MB)… %2$d%%. Cho đến khi xong, bài hát chuyển bằng crossfade thông thường.</string>
+    <string name="automix_model">Mô hình Automix</string>
+    <string name="automix_model_missing">Chưa tải xuống. Automix sẽ tải khi bạn bật, hoặc tải ngay bây giờ.</string>
+    <string name="automix_model_download">Tải xuống (%1$d MB)</string>
+    <string name="automix_model_ready">Đã tải xuống, dùng %1$d MB trên thiết bị này.</string>
+    <string name="automix_models_failed">Không thể tải mô hình. Hãy kiểm tra kết nối và thử lại.</string>
+    <string name="automix_model_delete_title">Xóa mô hình Automix?</string>
+    <string name="automix_model_delete_warning">Thao tác này giải phóng %1$d MB và tắt Automix. Bật lại Automix sẽ tải lại mô hình.</string>
     <string name="advanced_automix">Automix nâng cao</string>
     <string name="advanced_automix_subtitle">Trộn nhạc như DJ: giữ nhịp khớp nhau, chuyển bài đúng phách và cắt giữa những bài không hòa hợp. Không xử lý thêm.</string>
     <string name="no_lyrics_sources_enabled">Không có. Sẽ không tải lời bài hát.</string>
@@ -1381,9 +1393,6 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
-    <string name="diwali_title">BitChord chúc bạn một mùa Diwali hạnh phúc</string>
-    <string name="diwali_subtitle">Chúc lễ hội ánh sáng này mang niềm vui đến ngôi nhà bạn và âm nhạc đến mỗi ngày của bạn.</string>
-    <string name="diwali_cta">Cùng ăn mừng nào</string>
     <string name="find_a_playlist">Tìm danh sách phát</string>
     <string name="no_playlists_match">Không có danh sách phát nào khớp với “%1$s”</string>
     <string name="hide_lyrics_preview">Ẩn lời bài hát</string>

@@ -207,4 +207,6 @@
     <string name="queue_download">Загрузить</string>
     <string name="queue_selection_remove">Удалить</string>
     <string name="queue_add_all_to_playlist">Добавить все в плейлист</string>
+    <string name="mixes_yours">Ваши миксы</string>
+    <string name="mixes_none">Миксов пока нет. Продолжайте слушать, и YouTube Music создаст их для вас.</string>
 </resources>

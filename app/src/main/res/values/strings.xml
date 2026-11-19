@@ -22,6 +22,7 @@
     <string name="search">Search</string>
     <string name="clear_search">Clear search</string>
     <string name="library">Library</string>
+    <string name="radio">Radio</string>
     <string name="home">Home</string>
     <string name="play">Play</string>
     <string name="explore">Explore</string>
@@ -127,6 +128,8 @@
     <string name="testing">Testing…</string>
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
+    <string name="youtube_premium_audio">YouTube Premium audio</string>
+    <string name="youtube_premium_audio_subtitle">I have Premium: stream the higher-quality ~256 kbps Opus instead of the standard 160 kbps</string>
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
@@ -787,8 +790,8 @@
     <string name="lyrics_share_image">Image</string>
     <string name="lyrics_share_saving">Saving…</string>
     <string name="lyrics_share_gradient">Gradient</string>
-    <string name="lyrics_share_apple_canvas">Apple</string>
-    <string name="lyrics_share_spotify_canvas">Spotify</string>
+    <string name="lyrics_share_apple_canvas" translatable="false">Apple</string>
+    <string name="lyrics_share_spotify_canvas" translatable="false">Spotify</string>
     <string name="lyrics_share_show_logo">Show BitChord logo</string>
     <string name="listening_shape">Your listening pattern</string>
     <string name="member_since">Member since</string>
@@ -873,6 +876,7 @@
     <string name="sort_date_added_toggle">Date added</string>
     <string name="sort_date_modified">Date modified (newest first)</string>
     <string name="sort_default">Default order</string>
+    <string name="sort_track_number">Track number</string>
     <string name="sort_library">Sort</string>
     <string name="sort_songs">Sort songs</string>
     <string name="use_all_audio_folders">Use all audio folders</string>
@@ -926,6 +930,14 @@
     <string name="version_cut_aligned">aligned</string>
     <string name="automix_enabled_subtitle">Times and blends every transition from the tracks themselves. Turn it off if the phone gets hot or playback stutters.</string>
     <string name="automix_disabled_subtitle">Times and blends transitions automatically, without a slider. Performance may vary on slower devices.</string>
+    <string name="automix_models_downloading">Downloading Automix (%1$d MB)… %2$d%%. Songs crossfade normally until it finishes.</string>
+    <string name="automix_model">Automix model</string>
+    <string name="automix_model_missing">Not downloaded. Automix fetches it when you turn it on, or download it now.</string>
+    <string name="automix_model_download">Download (%1$d MB)</string>
+    <string name="automix_model_ready">Downloaded, using %1$d MB on this device.</string>
+    <string name="automix_models_failed">Couldn\'t download the model. Check your connection and retry.</string>
+    <string name="automix_model_delete_title">Delete Automix model?</string>
+    <string name="automix_model_delete_warning">This frees %1$d MB and turns Automix off. Turning Automix on again downloads the model again.</string>
     <string name="advanced_automix">Advanced Automix</string>
     <string name="advanced_automix_subtitle">Mixes like a DJ: keeps the beats locked, makes each move on the beat, and cuts between songs that won\'t blend. No extra processing.</string>
     <string name="no_lyrics_sources_enabled">None. Lyrics will not be fetched.</string>
@@ -1358,7 +1370,4 @@
     <string name="queue_selected_count">%1$d selected</string>
     <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
-    <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
-    <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
-    <string name="diwali_cta">Let\'s Celebrate</string>
 </resources>

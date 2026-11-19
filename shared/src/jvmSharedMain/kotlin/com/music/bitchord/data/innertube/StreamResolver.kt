@@ -62,6 +62,20 @@ object StreamResolver {
     @Volatile
     var maxKbps: () -> Int = { Int.MAX_VALUE }
 
+    /**
+     * Whether the listener says their account has YouTube Premium and wants
+     * its higher Opus rung — see [InnerTubeXResolver.extract]'s `premium`.
+     */
+    @Volatile
+    var premiumAudio: () -> Boolean = { false }
+
+    /**
+     * Drops the remembered stream URLs, so the next play of a track resolves
+     * afresh — for a setting that changes which stream a resolve picks.
+     */
+    fun forgetResolved() {
+        recent.clear()
+    }
 
     private const val TAG = "BitChord"
 
@@ -505,7 +519,7 @@ object StreamResolver {
         val skip = mutableSetOf<String>()
         repeat(INNERTUBEX_ATTEMPTS) { attempt ->
             val found = try {
-                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a, uploaded)
+                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a, uploaded, premiumAudio())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -538,7 +552,7 @@ object StreamResolver {
     private suspend fun askAsUpload(videoId: String, maxKbps: Int, requireM4a: Boolean): Stream? {
         TrackLog.d(TAG, "first stream for $videoId was refused; asking as an upload")
         val found = try {
-            InnerTubeXResolver.extract(videoId, maxKbps, emptySet(), requireM4a, uploaded = true)
+            InnerTubeXResolver.extract(videoId, maxKbps, emptySet(), requireM4a, uploaded = true, premium = premiumAudio())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -792,6 +806,14 @@ object StreamResolver {
      */
     suspend fun signatureTimestamp(videoId: String): Int? {
         cachedSignatureTimestamp?.let { return it }
+        // NewPipe fetches the player script through the downloader [init]
+        // installs. Every other caller has already been through [resolve] or
+        // [downloadStream] by the time it gets here, which hid that this one
+        // never touched it. With Direct Source Stream a track plays from an
+        // addon and YouTube is never resolved at all, so the parse failed
+        // with no downloader, the tracker never got a timestamp, and no play
+        // reached the account's history.
+        init
         return runCatching {
             jsPlayerManager { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) }
         }

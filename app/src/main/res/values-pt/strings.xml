@@ -24,6 +24,7 @@
     <string name="search">Pesquisar</string>
     <string name="clear_search">Limpar pesquisa</string>
     <string name="library">Biblioteca</string>
+    <string name="radio">Rádio</string>
     <string name="home">Início</string>
     <string name="play">Tocar</string>
     <string name="explore">Explorar</string>
@@ -91,6 +92,8 @@
     <string name="testing">Testando…</string>
     <string name="connected">Conectado</string>
     <string name="account_integrations">Conta e integrações</string>
+    <string name="youtube_premium_audio">Áudio do YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Tenho Premium: transmitir o Opus de maior qualidade a ~256 kbps em vez dos 160 kbps padrão</string>
     <string name="account_scrobbling">Conta e scrobbling</string>
     <string name="rich_presence">Presença avançada</string>
     <string name="scrobbling">Scrobbling</string>
@@ -602,6 +605,14 @@
     <string name="version_cut_aligned">alinhado</string>
     <string name="automix_enabled_subtitle">Cronometra e mistura cada transição. Desligue se o telefone aquecer ou engasgar.</string>
     <string name="automix_disabled_subtitle">Mistura transições automaticamente, sem slider. O desempenho pode variar.</string>
+    <string name="automix_models_downloading">Baixando o Automix (%1$d MB)… %2$d%%. As músicas fazem crossfade normal até terminar.</string>
+    <string name="automix_model">Modelo do Automix</string>
+    <string name="automix_model_missing">Não baixado. O Automix baixa ao ser ativado, ou baixe agora.</string>
+    <string name="automix_model_download">Baixar (%1$d MB)</string>
+    <string name="automix_model_ready">Baixado, ocupando %1$d MB neste dispositivo.</string>
+    <string name="automix_models_failed">Não foi possível baixar o modelo. Verifique sua conexão e tente novamente.</string>
+    <string name="automix_model_delete_title">Excluir o modelo do Automix?</string>
+    <string name="automix_model_delete_warning">Isso libera %1$d MB e desativa o Automix. Ativar o Automix de novo baixará o modelo novamente.</string>
     <string name="advanced_automix">Automix avançado</string>
     <string name="advanced_automix_subtitle">Mixa como um DJ: mantém as batidas alinhadas, faz cada mudança no tempo e corta entre músicas que não combinam. Sem processamento extra.</string>
     <string name="no_lyrics_sources_enabled">Nenhuma. As letras não serão baixadas.</string>
@@ -1012,6 +1023,7 @@
     <string name="sort_date_added_toggle">Data de adição</string>
 
     <string name="sort_default">Ordem padrão</string>
+    <string name="sort_track_number">Número da faixa</string>
 
     <string name="sort_library">Ordenar</string>
 
@@ -1469,9 +1481,6 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
-    <string name="diwali_title">O BitChord deseja a você um feliz Diwali</string>
-    <string name="diwali_subtitle">Que este festival das luzes encha sua casa de alegria e seus dias de música.</string>
-    <string name="diwali_cta">Vamos celebrar</string>
     <string name="find_a_playlist">Buscar playlist</string>
     <string name="no_playlists_match">Nenhuma playlist corresponde a “%1$s”</string>
     <string name="hide_lyrics_preview">Ocultar letra</string>

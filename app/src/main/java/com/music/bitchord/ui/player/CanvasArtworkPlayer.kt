@@ -42,6 +42,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onSizeChanged
@@ -623,6 +624,9 @@ internal fun AndroidCanvasArtworkPlayer(
             // moved — and re-setting the effect makes the node rebuild it.
             if (applied.transformDiffers(clipAspect, contentMode, alignPortraitTop, view.width, view.height)) {
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
+                frame.revealFrame = canvasRevealFrame(
+                    view.width, view.height, clipAspect, contentMode == CanvasContentMode.FIT_PORTRAIT, alignPortraitTop,
+                )
             }
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)
@@ -904,6 +908,8 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var revealFailed = false
     private var revealProgress = 0f
     private var revealBounds = IntSize.Zero
+    var revealFrame = Rect.Zero
+    private var appliedRevealFrame = Rect.Zero
     private var revealGeneration: Long? = null
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -922,19 +928,22 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     fun applyOrganicReveal(view: TextureView, generation: Long?, progress: Float, fadeChanged: Boolean): Boolean {
         val bounds = IntSize(view.width, view.height)
         if (generation == null || revealFailed || !view.isHardwareAccelerated || !(progress > 0f && progress < 1f) ||
-            bounds.width <= 0 || bounds.height <= 0
+            bounds.width <= 0 || bounds.height <= 0 || revealFrame.isEmpty
         ) {
             restoreBottomEffect(view, fadeChanged)
             return false
         }
-        if (!fadeChanged && progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
+        if (!fadeChanged && progress == revealProgress && bounds == revealBounds &&
+            generation == revealGeneration && revealFrame == appliedRevealFrame
+        ) return true
         return runCatching {
             val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
             // Bind to the RenderNode that records drawTextureLayer, preserving its
             // existing bottom gradient without an intermediate image filter.
-            view.setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation, bottomShader))
+            view.setRenderEffect(mask.effect(bounds, revealFrame, progress, generation, bottomShader))
             revealProgress = progress
             revealBounds = bounds
+            appliedRevealFrame = revealFrame
             revealGeneration = generation
             true
         }.getOrElse {

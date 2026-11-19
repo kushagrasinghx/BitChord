@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.ui.geometry.Rect
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.playback.AutoMixVisualState
@@ -41,6 +42,15 @@ class AutoMixCanvasTest {
         assertTrue(sharesHeroRevealFootprint(false, false, 0.56f, 0.56f))
         assertFalse(sharesHeroRevealFootprint(false, false, 0.56f, 0.63f))
         assertFalse(sharesHeroRevealFootprint(false, false, 1f, 0f))
+    }
+
+    @Test
+    fun containedRevealCoordinatesFollowThePictureNotTheTextureView() {
+        assertEquals(Rect(0f, 0f, 360f, 640f), canvasRevealFrame(360, 800, 9f / 16f, true, true))
+        assertEquals(Rect(0f, 80f, 360f, 720f), canvasRevealFrame(360, 800, 9f / 16f, true, false))
+        assertEquals(Rect(25f, 0f, 475f, 800f), canvasRevealFrame(500, 800, 9f / 16f, true, true))
+        assertEquals(Rect(0f, 0f, 500f, 800f), canvasRevealFrame(500, 800, 9f / 16f, false, true))
+        assertEquals(Rect(0f, 0f, 500f, 800f), canvasRevealFrame(500, 800, 0f, true, true))
     }
 
     @Test

@@ -437,6 +437,7 @@ internal fun LandscapeMainPane(
 @Composable
 internal fun LandscapeCredits(
     song: Song,
+    infoTransition: SongInfoTransition,
     signedIn: Boolean,
     likeStatus: LikeStatus,
     /** The menu glyph is briefly the undo arrow after a quality upgrade. */
@@ -449,12 +450,12 @@ internal fun LandscapeCredits(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Crossfade(
-            targetState = song.title to song.artist,
-            animationSpec = tween(durationMillis = 300),
+        SlidingSongInfo(
+            song = song,
+            transition = infoTransition,
             modifier = Modifier.weight(1f).additiveChrome(LocalPlayerChrome.current),
-            label = "landscapeCredits",
-        ) {
+        ) { infoSong ->
+            val song = infoSong
             Column {
                 var titleOverflowing by remember { mutableStateOf(false) }
                 val artistColor = chromeWhite(0.55f)

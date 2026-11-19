@@ -790,8 +790,8 @@
     <string name="lyrics_share_image">Image</string>
     <string name="lyrics_share_saving">Saving…</string>
     <string name="lyrics_share_gradient">Gradient</string>
-    <string name="lyrics_share_apple_canvas">Apple</string>
-    <string name="lyrics_share_spotify_canvas">Spotify</string>
+    <string name="lyrics_share_apple_canvas" translatable="false">Apple</string>
+    <string name="lyrics_share_spotify_canvas" translatable="false">Spotify</string>
     <string name="lyrics_share_show_logo">Show BitChord logo</string>
     <string name="listening_shape">Your listening pattern</string>
     <string name="member_since">Member since</string>

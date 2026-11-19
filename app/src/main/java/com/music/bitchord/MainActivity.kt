@@ -71,6 +71,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -960,6 +961,7 @@ private fun BitChordApp(
     val activeAccountId by viewModel.activeAccountId.collectAsStateWithLifecycle()
     val activeProfileId by viewModel.activeProfileId.collectAsStateWithLifecycle()
     val historyState by viewModel.history.collectAsStateWithLifecycle()
+    val historyOnDevice by viewModel.historyOnDevice.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsSource by viewModel.lyricsSource.collectAsStateWithLifecycle()
     val lyricsChecked by viewModel.lyricsChecked.collectAsStateWithLifecycle()
@@ -4017,6 +4019,18 @@ private fun BitChordApp(
                         }
                     } else null,
                     actions = {
+                        // Only on the History page, and only when the rows are this
+                        // device's: clearing must not look like it clears YouTube's
+                        // account history, which this app cannot delete.
+                        if (route == AppRoute.History && historyOnDevice && historyState is UiState.Success) {
+                            IconButton(onClick = viewModel::clearLocalHistory) {
+                                Icon(
+                                    Icons.Rounded.DeleteSweep,
+                                    contentDescription = stringResource(R.string.clear_listening_history),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
                         // This is intentionally scoped to Listen together: the
                         // round-trip time is meaningful while coordinating a
                         // party, but would be noise in the rest of the app.

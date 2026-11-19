@@ -337,6 +337,7 @@
     <string name="library_empty">ライブラリにはまだ何もありません</string>
     <string name="history_sign_in_required">これまでの再生履歴を見るにはログインしてください</string>
     <string name="history_empty">まだ何も再生されていません</string>
+    <string name="clear_listening_history">デバイス上の履歴を消去</string>
     <string name="no_results">結果がありません</string>
     <string name="downloaded_playlist_empty">このプレイリストの曲はこのデバイスに残っていません</string>
     <string name="no_local_audio_found">このデバイスにオーディオファイルが見つかりません</string>

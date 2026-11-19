@@ -387,6 +387,7 @@
     <string name="library_empty">Ancora niente nella tua libreria</string>
     <string name="history_sign_in_required">Accedi per vedere cosa hai ascoltato</string>
     <string name="history_empty">Ancora niente riprodotto</string>
+    <string name="clear_listening_history">Cancella cronologia sul dispositivo</string>
     <string name="no_results">Nessun risultato</string>
     <string name="downloaded_playlist_empty">Nulla di questa playlist rimane su questo dispositivo</string>
     <string name="no_local_audio_found">Nessun file audio trovato su questo dispositivo</string>

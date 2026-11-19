@@ -342,6 +342,7 @@
     <string name="library_empty">Noch nichts in deiner Bibliothek</string>
     <string name="history_sign_in_required">Melde dich an, um zu sehen, was du gehört hast</string>
     <string name="history_empty">Noch nichts gespielt</string>
+    <string name="clear_listening_history">Geräteverlauf löschen</string>
     <string name="no_results">Keine Ergebnisse</string>
     <string name="downloaded_playlist_empty">Von dieser Playlist ist nichts mehr auf diesem Gerät vorhanden</string>
     <string name="no_local_audio_found">Keine Audiodateien auf diesem Gerät gefunden</string>

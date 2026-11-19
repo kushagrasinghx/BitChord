@@ -98,6 +98,23 @@ class AuthStore(context: Context) {
     val isSignedIn: Boolean
         get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
+    /**
+     * Who device-local data belongs to: the active account and profile, or
+     * null when there is no session to scope it to.
+     *
+     * The profile is part of the key because two brand profiles under one
+     * Google account have separate histories in YouTube Music, and the app
+     * deliberately keeps them separate everywhere else too. A missing profile
+     * falls back to the session's, rather than putting a signed-in listener in
+     * the guest bucket.
+     */
+    fun listenerKey(): String? {
+        val session = activeSession ?: return null
+        val accountId = activeAccountId ?: session.accountId
+        val profileId = activeProfileId ?: session.activeProfileId ?: return null
+        return "$accountId:$profileId"
+    }
+
     /** The Discord account's bearer token. See DiscordRPC for why a user token. */
     var discordToken: String?
         get() = prefs.getString(KEY_DISCORD_TOKEN, null)

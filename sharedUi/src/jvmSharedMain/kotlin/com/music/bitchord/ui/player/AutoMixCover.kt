@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import coil3.BitmapImage
+import coil3.Image as CoilImage
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.compose.LocalPlatformContext
@@ -33,7 +34,7 @@ import com.music.bitchord.playback.AutoMixVisualState
 
 /** Hold pixels and hold-over key without retaining a request's platform context. */
 internal class DecodedAutoMixCover(
-    val image: BitmapImage,
+    val image: CoilImage,
     val cacheKey: MemoryCache.Key?,
     val painter: Painter? = null,
 )
@@ -74,6 +75,9 @@ internal fun coverOccurrence(song: Song, queue: List<Song>, index: Int): QueueEn
 
 internal class AutoMixCoverState(
     private val miniOutgoing: ((AutoMixVisualState) -> DecodedAutoMixCover?)? = null,
+    private val preparedIncoming: (Long) -> DecodedAutoMixCover? = if (miniOutgoing == null) {
+        AutoMixPreparedCover::forGeneration
+    } else AutoMixPreparedCover::miniForGeneration,
 ) {
     private class PairFrames(
         val generation: Long,
@@ -85,6 +89,7 @@ internal class AutoMixCoverState(
     private var current: QueueEntryIdentity? = null
     private var currentArt: PlayerArtwork? = null
     private var armedArt: PlayerArtwork? = null
+    private var armedCover: DecodedAutoMixCover? = null
     private var armedGeneration: Long? = null
     private var seenMix: Long? = null
     private var frozen: PairFrames? = null
@@ -93,17 +98,30 @@ internal class AutoMixCoverState(
     private var progress by mutableFloatStateOf(0f)
 
     fun bind(occurrence: QueueEntryIdentity?, art: PlayerArtwork?, visual: AutoMixVisualState?) {
-        if (current != occurrence && promoted?.first == current) promoted = null
+        if (current != occurrence) {
+            // Session metadata can move before the collector consumes the mix.
+            // Retain this exact outgoing occurrence, not a general previous track.
+            if (visual?.mixActive == true && visual.outgoing.identity == current && visual.incoming.identity == occurrence &&
+                seenMix != visual.generation
+            ) {
+                armedGeneration = visual.generation
+                armedArt = currentArt
+                armedCover = promoted?.takeIf { it.first == current }?.second?.base
+            }
+            if (promoted?.first == current) promoted = null
+        }
         current = occurrence
         currentArt = art
         if (visual?.phase == AutoMixVisualPhase.ARMED && visual.outgoing.identity == current) {
             armedGeneration = visual.generation
             armedArt = art
+            armedCover = promoted?.takeIf { it.first == current }?.second?.base
         }
     }
 
     fun update(visual: AutoMixVisualState?) {
         if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED) {
+            if (visual != null) seenMix = visual.generation
             val pair = active
             // If the session already owns a decoded member of the pair, snap to it
             // without a Coil arrival fade. A new occurrence ignores this single frame.
@@ -117,6 +135,7 @@ internal class AutoMixCoverState(
             active = null
             frozen = null
             armedArt = null
+            armedCover = null
             armedGeneration = null
             return
         }
@@ -126,24 +145,42 @@ internal class AutoMixCoverState(
                 frozen = null
                 armedGeneration = visual.generation
                 armedArt = currentArt.takeIf { visual.outgoing.identity == current }
+                armedCover = promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
             }
             AutoMixVisualPhase.MIXING -> {
                 if (seenMix != visual.generation) {
-                    seenMix = visual.generation
-                    // The two assets must have succeeded before overlap began. Neither
-                    // a late Coil callback nor opening this surface mid-mix can retry the pair.
-                    val outgoing = promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
+                    val outgoing = frozen?.takeIf { it.generation == visual.generation }?.frames?.base
+                        ?: promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
+                        ?: armedCover.takeIf { armedGeneration == visual.generation }
                         ?: miniOutgoing?.invoke(visual)
                         ?: (armedArt.takeIf { armedGeneration == visual.generation }
                             ?: currentArt.takeIf { visual.outgoing.identity == current })
                             ?.decodedCoverBefore(visual.generation)
-                    val incoming = if (miniOutgoing == null) AutoMixPreparedCover.forGeneration(visual.generation)
-                    else AutoMixPreparedCover.miniForGeneration(visual.generation)
-                    frozen = if (outgoing != null && incoming != null) PairFrames(
-                        visual.generation, visual.outgoing.identity, visual.incoming.identity,
-                        AutoMixCoverFrames(outgoing, incoming, visual.generation) { progress },
-                    ) else null
-                    armedArt = null
+                    val incoming = preparedIncoming(visual.generation)
+                    // The producer only publishes prepared pixels before the deadline. A
+                    // conflated first progress tick can consume those pixels, but a later
+                    // result cannot restart this generation once its choice has been made.
+                    if (outgoing != null && incoming != null && visual.artworkProgress < 1f) {
+                        frozen = PairFrames(
+                            visual.generation, visual.outgoing.identity, visual.incoming.identity,
+                            AutoMixCoverFrames(outgoing, incoming, visual.generation) { progress },
+                        )
+                        seenMix = visual.generation
+                    } else if (!visual.canPrepareArtwork) {
+                        frozen = null
+                        seenMix = visual.generation
+                    } else if (outgoing != null && frozen?.generation != visual.generation) {
+                        // Metadata may arrive during the lag; hold the old pixels until the
+                        // prepared result arrives or the audio window says to fall back.
+                        frozen = PairFrames(
+                            visual.generation, visual.outgoing.identity, visual.incoming.identity,
+                            AutoMixCoverFrames(outgoing, generation = visual.generation),
+                        )
+                    }
+                    if (seenMix == visual.generation) {
+                        armedArt = null
+                        armedCover = null
+                    }
                 }
                 if (visual.swapSeconds != null && visual.artworkWindow == null) frozen = null
                 val pair = frozen
@@ -157,11 +194,14 @@ internal class AutoMixCoverState(
                 }
             }
             AutoMixVisualPhase.COMPLETED -> {
+                seenMix = visual.generation
                 // Completion may be conflated with the final progress tick.
                 frozen?.takeIf { it.generation == visual.generation && visual.artworkWindow != null }
                     ?.let(::promote)
                 active = null
                 frozen = null
+                armedArt = null
+                armedCover = null
             }
             AutoMixVisualPhase.CANCELLED -> Unit // handled above
         }

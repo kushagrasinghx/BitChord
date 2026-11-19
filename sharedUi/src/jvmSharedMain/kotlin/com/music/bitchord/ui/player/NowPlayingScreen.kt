@@ -107,6 +107,7 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -593,21 +594,19 @@ private class LandscapeDockPose(val left: Float, val top: Float, val scale: Floa
 private val TileShape = RoundedCornerShape(8.dp)
 
 /** The same bottom feather for the sleeve and a still drawn below the hero host. */
-private fun Modifier.artworkBottomFade(shown: () -> Float, fraction: () -> Float): Modifier = drawWithContent {
-    drawContent()
+private fun Modifier.artworkBottomFade(shown: () -> Float, fraction: () -> Float): Modifier = drawWithCache {
     val share = shown()
-    if (share > 0f) {
-        drawRect(
-            brush = Brush.verticalGradient(
-                colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
-                    val t = i / FADE_CURVE_STOPS.toFloat()
-                    t to Color.Black.copy(alpha = 1f - share * smootherStep(t))
-                },
-                startY = size.height * (1f - fraction()),
-                endY = size.height,
-            ),
-            blendMode = BlendMode.DstIn,
-        )
+    val gradient = if (share > 0f && size.height > 0f) Brush.verticalGradient(
+        colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+            val t = i / FADE_CURVE_STOPS.toFloat()
+            t to Color.Black.copy(alpha = 1f - share * smootherStep(t))
+        },
+        startY = size.height * (1f - fraction()),
+        endY = size.height,
+    ) else null
+    onDrawWithContent {
+        drawContent()
+        if (gradient != null) drawRect(brush = gradient, blendMode = BlendMode.DstIn)
     }
 }
 
@@ -2774,7 +2773,7 @@ fun NowPlayingScreen(
                                 if (stillTakesOver()) 0f
                                 else if (standby) clipTransitionAlpha()
                                 else if (staticCanvasMix) 0f
-                                else if (matchedLiveHero && pair != null && !pair.sharesClip && !fullscreen) {
+                                else if (matchedLiveHero && !pair.sharesClip && !fullscreen) {
                                     // A shared, translucent bottom edge would otherwise show
                                     // the outgoing clip until the exact promotion frame.
                                     outgoingArtworkTailAlpha(pair.reveal()) * clipTransitionAlpha()

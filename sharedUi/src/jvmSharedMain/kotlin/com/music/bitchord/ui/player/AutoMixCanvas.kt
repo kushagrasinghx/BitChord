@@ -43,9 +43,9 @@ internal class AutoMixCanvasPair {
     }
 
     fun start(state: AutoMixVisualState, entry: QueueEntryIdentity?): AutoMixCanvasTracks? {
-        if (seenGeneration == state.generation) return null
+        if (seenGeneration == state.generation || entry != state.outgoing.identity) return null
+        // A not-yet-bound UI selection must not consume the generation.
         seenGeneration = state.generation
-        if (entry != state.outgoing.identity) return null
         return AutoMixCanvasTracks(
             state.generation, state.outgoing.identity, state.incoming.identity,
             shownClip.takeIf { shownEntry == entry },

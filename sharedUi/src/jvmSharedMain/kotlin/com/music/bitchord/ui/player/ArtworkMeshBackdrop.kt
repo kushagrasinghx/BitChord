@@ -152,6 +152,7 @@ suspend fun prefetchAutoMixArtwork(
     imageUrl: String,
     coverGeneration: Long?,
     isStillArmed: (Long) -> Boolean,
+    canPrepareCover: (Long) -> Boolean,
 ) {
     val loader = SingletonImageLoader.get(context)
     val ambient = coverGeneration?.takeIf(isStillArmed)?.let { PreparedAutoMixAmbient(it, imageUrl) }
@@ -177,7 +178,7 @@ suspend fun prefetchAutoMixArtwork(
             .precision(Precision.INEXACT)
             .build(),
     )
-    if (mini is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
+    if (mini is SuccessResult && coverGeneration != null && canPrepareCover(coverGeneration)) {
         AutoMixPreparedCover.retainMini(coverGeneration, mini)
     }
     // Coil can give different decode sizes the same key. Leave the full-player
@@ -188,7 +189,7 @@ suspend fun prefetchAutoMixArtwork(
             .precision(Precision.INEXACT)
             .build(),
     )
-    if (cover is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
+    if (cover is SuccessResult && coverGeneration != null && canPrepareCover(coverGeneration)) {
         AutoMixPreparedCover.retain(coverGeneration, cover)
     }
 }

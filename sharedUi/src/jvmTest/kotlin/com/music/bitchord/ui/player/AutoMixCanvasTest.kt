@@ -106,6 +106,16 @@ class AutoMixCanvasTest {
     }
 
     @Test
+    fun missingSelectionDoesNotConsumeTheGeneration() {
+        val owner = AutoMixCanvasPair()
+        assertNull(owner.start(visual, null))
+        assertNull(owner.start(visual, incoming))
+        val started = requireNotNull(owner.start(visual, outgoing))
+        assertSame(started, owner.visual)
+        assertNull(owner.start(visual, outgoing))
+    }
+
+    @Test
     fun leavingPromotedOccurrenceAndReturningDoesNotRestoreOldOwnership() {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))

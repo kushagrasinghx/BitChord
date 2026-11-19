@@ -2106,9 +2106,11 @@ class PlaybackService : MediaLibraryService() {
                     null
                 }
                 if (artUrl != null) {
-                    prefetchAutoMixArtwork(this@PlaybackService, artUrl, coverGeneration) { generation ->
-                        AutoMixVisualFeed.pending(generation)?.phase == AutoMixVisualPhase.ARMED
-                    }
+                    prefetchAutoMixArtwork(
+                        this@PlaybackService, artUrl, coverGeneration,
+                        isStillArmed = { AutoMixVisualFeed.pending(it)?.phase == AutoMixVisualPhase.ARMED },
+                        canPrepareCover = { AutoMixVisualFeed.pending(it)?.canPrepareArtwork == true },
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e

@@ -490,10 +490,11 @@ internal fun AndroidCanvasArtworkPlayer(
     // it is. Zeroed on the way out, or a caller would be left holding something
     // hidden behind a clip that is no longer mounted.
     val reportCover by rememberUpdatedState(onCoverChanged)
-    val currentOrganicReveal by rememberUpdatedState(organicReveal)
-    LaunchedEffect(Unit) {
-        snapshotFlow { alpha * currentPresentationAlpha() * (currentOrganicReveal?.progress?.invoke() ?: 1f) }
-            .collect { reportCover(it) }
+    // Standby reports readiness, not coverage. Its callers ignore coverage until
+    // promotion; do not create a second observer of every reveal sample.
+    val reportsCover = organicReveal == null
+    LaunchedEffect(reportsCover) {
+        if (reportsCover) snapshotFlow { alpha * currentPresentationAlpha() }.collect { reportCover(it) }
     }
     DisposableEffect(Unit) {
         onDispose {

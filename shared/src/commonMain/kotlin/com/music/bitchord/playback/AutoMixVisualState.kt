@@ -76,4 +76,12 @@ data class AutoMixVisualState(
     val artworkProgress: Float = 0f,
 ) {
     val mixActive: Boolean get() = phase == AutoMixVisualPhase.MIXING
+
+    /** A prepared still may join the pair only before the reveal starts, not mid-dissolve. */
+    val canPrepareArtwork: Boolean get() = when (phase) {
+        AutoMixVisualPhase.ARMED -> true
+        AutoMixVisualPhase.MIXING -> artworkWindow?.let { audioSeconds < it.startSeconds && artworkProgress == 0f }
+            ?: (swapSeconds == null)
+        AutoMixVisualPhase.COMPLETED, AutoMixVisualPhase.CANCELLED -> false
+    }
 }

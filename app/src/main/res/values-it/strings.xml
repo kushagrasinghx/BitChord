@@ -887,6 +887,8 @@
     <string name="export_compatible_downloads">Esporta download compatibili</string>
     <string name="sync_downloaded_playlists">Mantieni aggiornate le playlist</string>
     <string name="sync_downloaded_playlists_subtitle">Controlla due volte al giorno e scarica i brani aggiunti alle playlist scaricate</string>
+    <string name="download_liked_songs">Scarica i brani che ti piacciono</string>
+    <string name="download_liked_songs_subtitle">Scarica i brani che ti piacciono e ogni brano a cui metti mi piace da ora in poi</string>
     <string name="playlist_sync_ask_title">Nuovi brani in %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Tocca per scaricare</string>
     <string name="playlist_sync_done_title">Aggiunti a %1$s: %2$d</string>

@@ -869,6 +869,8 @@
     <string name="export_compatible_downloads">Uyumlu indirmeleri dışa aktar</string>
     <string name="sync_downloaded_playlists">Çalma listelerini güncel tut</string>
     <string name="sync_downloaded_playlists_subtitle">Günde iki kez kontrol eder ve indirilen çalma listelerine eklenen yeni şarkıları indirir</string>
+    <string name="download_liked_songs">Beğenilen şarkıları indir</string>
+    <string name="download_liked_songs_subtitle">Beğendiğin müzikleri ve bundan sonra beğendiğin her şarkıyı indirir</string>
     <string name="playlist_sync_ask_title">%1$s içinde yeni şarkılar: %2$d</string>
     <string name="playlist_sync_ask_text">İndirmek için dokunun</string>
     <string name="playlist_sync_done_title">%1$s listesine eklendi: %2$d</string>

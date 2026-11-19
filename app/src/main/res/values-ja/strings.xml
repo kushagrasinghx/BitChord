@@ -813,6 +813,8 @@
     <string name="export_compatible_downloads">互換性のあるダウンロードをエクスポート</string>
     <string name="sync_downloaded_playlists">プレイリストを最新に保つ</string>
     <string name="sync_downloaded_playlists_subtitle">1日2回確認し、ダウンロード済みプレイリストに追加された曲をダウンロードします</string>
+    <string name="download_liked_songs">高く評価した曲をダウンロード</string>
+    <string name="download_liked_songs_subtitle">高く評価した曲と、今後高く評価するすべての曲をダウンロードします</string>
     <string name="playlist_sync_ask_title">%1$s の新しい曲：%2$d</string>
     <string name="playlist_sync_ask_text">タップしてダウンロード</string>
     <string name="playlist_sync_done_title">%1$s に追加：%2$d</string>

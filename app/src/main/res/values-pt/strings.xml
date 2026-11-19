@@ -878,6 +878,8 @@
     <string name="export_compatible_downloads">Exportar downloads compatíveis</string>
     <string name="sync_downloaded_playlists">Manter playlists atualizadas</string>
     <string name="sync_downloaded_playlists_subtitle">Verifica duas vezes por dia e baixa as músicas novas das suas playlists baixadas</string>
+    <string name="download_liked_songs">Baixar músicas curtidas</string>
+    <string name="download_liked_songs_subtitle">Baixa suas músicas curtidas e cada música que você curtir a partir de agora</string>
     <string name="playlist_sync_ask_title">Músicas novas em %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Toque para baixar</string>
     <string name="playlist_sync_done_title">Adicionadas a %1$s: %2$d</string>

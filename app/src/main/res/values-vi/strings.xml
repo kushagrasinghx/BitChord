@@ -628,6 +628,7 @@
     <string name="sort_date_added_toggle">Ngày thêm vào</string>
     <string name="sort_date_modified">Ngày sửa đổi (mới nhất trước)</string>
     <string name="sort_default">Thứ tự mặc định</string>
+    <string name="sort_track_number">Số thứ tự bài hát</string>
     <string name="sort_library">Sắp xếp</string>
     <string name="sort_songs">Sắp xếp bài hát</string>
     <string name="use_all_audio_folders">Dùng tất cả thư mục âm thanh</string>

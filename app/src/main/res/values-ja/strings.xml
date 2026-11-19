@@ -1006,6 +1006,7 @@
     <string name="sort_date_added_toggle">追加日</string>
 
     <string name="sort_default">デフォルトの順序</string>
+    <string name="sort_track_number">トラック番号</string>
 
     <string name="sort_library">並べ替え</string>
 

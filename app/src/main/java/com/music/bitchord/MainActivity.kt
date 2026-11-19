@@ -5736,6 +5736,11 @@ private fun BitChordApp(
             FrostedSortMenu(
                 hazeState = hazeState,
                 selected = songSort,
+                // Only a page whose files carry track tags — a local album —
+                // has anything to sort by track number.
+                offerTrackNumber = (detail?.songs as? UiState.Success)?.data
+                    .orEmpty()
+                    .any { it.trackNumber != null },
                 onSelect = { option ->
                     detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
                     songSortMenuOpen = false
@@ -6256,6 +6261,7 @@ private fun LibrarySort.localizedLabel(): String = when (this) {
 private fun FrostedSortMenu(
     hazeState: HazeState,
     selected: SongSort,
+    offerTrackNumber: Boolean,
     onSelect: (SongSort) -> Unit,
     onFlipDateDirection: () -> Unit,
     onDismiss: () -> Unit,
@@ -6297,6 +6303,7 @@ private fun FrostedSortMenu(
         }
         SongSort.entries
             .filter { it != SongSort.DATE_ADDED_ASC && it != SongSort.DATE_ADDED_DESC }
+            .filter { offerTrackNumber || it != SongSort.TRACK_NUMBER }
             .forEach { option ->
                 FrostedMenuRow(
                     label = option.localizedLabel(),
@@ -6427,6 +6434,7 @@ private fun FrostedMenuRow(
 @Composable
 private fun SongSort.localizedLabel(): String = when (this) {
     SongSort.DEFAULT -> stringResource(R.string.sort_default)
+    SongSort.TRACK_NUMBER -> stringResource(R.string.sort_track_number)
     SongSort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
     SongSort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
     SongSort.DATE_ADDED_ASC -> stringResource(R.string.sort_date_added_oldest)

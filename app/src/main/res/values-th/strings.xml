@@ -1085,6 +1085,7 @@
     <string name="sort_date_added_toggle">Date added</string>
 
     <string name="sort_default">Default order</string>
+    <string name="sort_track_number">Track number</string>
 
     <string name="sort_library">Sort</string>
 

@@ -1019,6 +1019,7 @@
     <string name="sort_date_added_toggle">Date d\'ajout</string>
 
     <string name="sort_default">Ordre par défaut</string>
+    <string name="sort_track_number">Numéro de piste</string>
 
     <string name="sort_library">Trier</string>
 

@@ -821,6 +821,7 @@
     <string name="sort_date_added_toggle">추가한 날짜</string>
     <string name="sort_date_modified">변경한 날짜 (최신순)</string>
     <string name="sort_default">기본 순서</string>
+    <string name="sort_track_number">트랙 번호</string>
     <string name="sort_library">정렬</string>
     <string name="sort_songs">음악 정렬</string>
     <string name="use_all_audio_folders">모든 오디오 폴더 사용</string>

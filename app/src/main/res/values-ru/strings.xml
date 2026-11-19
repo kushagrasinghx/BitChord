@@ -1046,6 +1046,7 @@
     <string name="sort_date_added_toggle">Дата добавления</string>
 
     <string name="sort_default">По умолчанию</string>
+    <string name="sort_track_number">Номер трека</string>
 
     <string name="sort_library">Сортировка</string>
 

@@ -1014,6 +1014,7 @@
     <string name="sort_songs">Ordenar canciones</string>
 
     <string name="sort_default">Orden predeterminado</string>
+    <string name="sort_track_number">Número de pista</string>
 
     <string name="unsubscribe">Cancelar suscripción</string>
 

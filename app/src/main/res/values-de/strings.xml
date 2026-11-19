@@ -1018,6 +1018,7 @@
     <string name="sort_date_added_toggle">Hinzugefügt am</string>
 
     <string name="sort_default">Standardreihenfolge</string>
+    <string name="sort_track_number">Titelnummer</string>
 
     <string name="sort_library">Sortieren</string>
 

@@ -1056,6 +1056,7 @@
     <string name="sort_date_added_toggle">Data dodania</string>
 
     <string name="sort_default">Kolejność domyślna</string>
+    <string name="sort_track_number">Numer utworu</string>
 
     <string name="sort_library">Sortuj</string>
 

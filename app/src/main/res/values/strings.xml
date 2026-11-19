@@ -876,6 +876,7 @@
     <string name="sort_date_added_toggle">Date added</string>
     <string name="sort_date_modified">Date modified (newest first)</string>
     <string name="sort_default">Default order</string>
+    <string name="sort_track_number">Track number</string>
     <string name="sort_library">Sort</string>
     <string name="sort_songs">Sort songs</string>
     <string name="use_all_audio_folders">Use all audio folders</string>

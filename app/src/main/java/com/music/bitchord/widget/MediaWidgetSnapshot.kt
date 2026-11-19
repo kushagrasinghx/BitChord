@@ -44,6 +44,8 @@ internal data class MediaWidgetSnapshot(
     val canLike: Boolean = false,
     /** Whether shuffle is on. Drawn by the 4×1 widget's Shuffle. */
     val shuffleEnabled: Boolean = false,
+    /** The active synced lyric line of the current song, if any. */
+    val currentLyric: String? = null,
 ) {
     /** Whether there is a track to draw at all. */
     val hasTrack: Boolean get() = mediaId != null
@@ -72,7 +74,12 @@ internal data class MediaWidgetSnapshot(
                 .putBoolean(KEY_LIKED, snapshot.isLiked)
                 .putBoolean(KEY_CAN_LIKE, snapshot.canLike)
                 .putBoolean(KEY_SHUFFLE, snapshot.shuffleEnabled)
+                .putString(KEY_CURRENT_LYRIC, snapshot.currentLyric)
                 .apply()
+        }
+
+        fun saveLyric(context: Context, lyric: String?) {
+            prefs(context).edit().putString(KEY_CURRENT_LYRIC, lyric).apply()
         }
 
         /** The last state published by the live playback service. */
@@ -91,6 +98,7 @@ internal data class MediaWidgetSnapshot(
                     isLiked = prefs.getBoolean(KEY_LIKED, false),
                     canLike = prefs.getBoolean(KEY_CAN_LIKE, false),
                     shuffleEnabled = prefs.getBoolean(KEY_SHUFFLE, false),
+                    currentLyric = prefs.getString(KEY_CURRENT_LYRIC, null),
                 )
             }
             return EMPTY
@@ -110,5 +118,6 @@ internal data class MediaWidgetSnapshot(
         private const val KEY_LIKED = "liked"
         private const val KEY_CAN_LIKE = "can_like"
         private const val KEY_SHUFFLE = "shuffle"
+        private const val KEY_CURRENT_LYRIC = "current_lyric"
     }
 }

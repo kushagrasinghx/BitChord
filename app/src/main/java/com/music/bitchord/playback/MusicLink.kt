@@ -24,7 +24,29 @@ sealed interface LinkRequest {
      * is in their pocket — while a search *link* is a page somebody meant to
      * show you.
      */
-    data class Search(val query: String, val play: Boolean) : LinkRequest
+    data class Search(
+        val query: String,
+        val play: Boolean,
+        /**
+         * The song's own title and artist, when the sender said them apart from [query]
+         * (`EXTRA_MEDIA_TITLE` / `EXTRA_MEDIA_ARTIST`). With a title, "play" means *this*
+         * recording: the best match is played, or none — see [findAskedSong].
+         */
+        val title: String? = null,
+        val artist: String? = null,
+    ) : LinkRequest
+
+    /**
+     * Several songs by name, to be played in this order: `bitchord://queue?q=…&q=…`, sent by
+     * another app that knows titles and artists but no video ids (a "play all" for the songs of a
+     * TV episode, say). Each query is looked up as a song search; [title] names the queue.
+     */
+    data class Queue(val songs: List<QueueSong>, val title: String?) : LinkRequest {
+        val queries: List<String> get() = songs.map { it.query }
+    }
+
+    /** One song of a [Queue]: what to search for, and its title and artist when the link gave them. */
+    data class QueueSong(val query: String, val title: String? = null, val artist: String? = null)
 
     /** "Play music", with nothing said about what. */
     data object Resume : LinkRequest
@@ -75,7 +97,11 @@ object MusicLink {
             // Only the audio filter in the manifest takes these two schemes, so
             // either one is a file to play rather than a link to look up.
             Intent.ACTION_VIEW -> intent.data?.let { uri ->
-                if (uri.scheme == "content" || uri.scheme == "file") LinkRequest.LocalFile(uri) else parse(uri)
+                when {
+                    uri.scheme == "content" || uri.scheme == "file" -> LinkRequest.LocalFile(uri)
+                    uri.scheme == QUEUE_SCHEME && uri.host == QUEUE_HOST -> queue(uri.encodedQuery)
+                    else -> parse(uri)
+                }
             }
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.let(::firstUrl)
@@ -85,7 +111,16 @@ object MusicLink {
             // useful answer is to carry on with what was already on.
             MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH -> {
                 val query = intent.getStringExtra(SearchManager.QUERY).orEmpty().trim()
-                if (query.isEmpty()) LinkRequest.Resume else LinkRequest.Search(query, play = true)
+                if (query.isEmpty()) {
+                    LinkRequest.Resume
+                } else {
+                    LinkRequest.Search(
+                        query,
+                        play = true,
+                        title = intent.getStringExtra(MediaStore.EXTRA_MEDIA_TITLE)?.trim()?.takeIf { it.isNotEmpty() },
+                        artist = intent.getStringExtra(MediaStore.EXTRA_MEDIA_ARTIST)?.trim()?.takeIf { it.isNotEmpty() },
+                    )
+                }
             }
             else -> null
         } ?: return false
@@ -146,6 +181,50 @@ object MusicLink {
             // and that has already happened by the time this is read.
             else -> list.takeIf { it.isNotEmpty() }?.let { playlist(it) }
         }
+    }
+
+    const val QUEUE_SCHEME = "bitchord"
+    const val QUEUE_HOST = "queue"
+
+    /** A queue link with more songs than this keeps the first ones. */
+    const val MAX_QUEUE = 50
+
+    /**
+     * The songs of a queue link, from its raw (still encoded) query, in order: each `q` starts
+     * a song, and a `t` (title) or `a` (artist) after it belongs to that song. Blank queries
+     * are dropped, at most [MAX_QUEUE] are kept; `title` (before the first `q`) names the queue.
+     * Null when there is no song at all. A link of bare `q`s, from an older sender, still works.
+     *
+     * Plain JVM on purpose (no [Uri]), so it is covered by unit tests.
+     */
+    fun queue(encodedQuery: String?): LinkRequest.Queue? {
+        val params = encodedQuery.orEmpty().split('&').mapNotNull { pair ->
+            val name = pair.substringBefore('=')
+            if (name.isEmpty() || !pair.contains('=')) return@mapNotNull null
+            val value = runCatching { java.net.URLDecoder.decode(pair.substringAfter('='), "UTF-8") }.getOrNull()
+            value?.let { name to it.trim() }
+        }
+        val songs = mutableListOf<LinkRequest.QueueSong>()
+        var queueTitle: String? = null
+        var current: LinkRequest.QueueSong? = null
+        fun close() {
+            current?.takeIf { it.query.isNotEmpty() }?.let(songs::add)
+            current = null
+        }
+        for ((name, value) in params) {
+            when (name) {
+                "q" -> {
+                    close()
+                    current = LinkRequest.QueueSong(value)
+                }
+                "t" -> current = current?.copy(title = value.ifEmpty { null })
+                "a" -> current = current?.copy(artist = value.ifEmpty { null })
+                "title" -> if (queueTitle == null && value.isNotEmpty()) queueTitle = value
+            }
+        }
+        close()
+        if (songs.isEmpty()) return null
+        return LinkRequest.Queue(songs.take(MAX_QUEUE), queueTitle)
     }
 
     private fun track(videoId: String): LinkRequest.Track? =

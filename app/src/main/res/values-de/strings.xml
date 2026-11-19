@@ -288,6 +288,11 @@
     <string name="copy_log">Protokoll kopieren</string>
     <string name="couldnt_find">%1$s konnte nicht gefunden werden</string>
     <string name="couldnt_open_link">Dieser Link konnte nicht geöffnet werden</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Suche %d Song…</item>
+        <item quantity="other">Suche %d Songs…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d von %2$d Songs eingereiht</string>
     <string name="create_playlist">Playlist erstellen</string>
     <string name="customize_card">Karte anpassen</string>
     <string name="customize_card_subtitle">Status, Text und beide Schaltflächen</string>
@@ -1496,4 +1501,17 @@
     <string name="queue_selected_count">%1$d ausgewählt</string>
     <string name="queue_playlist_added">%1$d von %2$d Songs hinzugefügt</string>
     <string name="queue_playlist_partial">%1$s (%2$d nicht kompatibel, %3$d bereits vorhanden, %4$d fehlgeschlagen)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Eine Vorschau der Rotation, die BitChord für dich bereithalten würde</string>
+    <string name="smart_offline_notice">Dies ist eine Vorschau. Es wird noch nichts automatisch heruntergeladen – diese Seite zeigt nur, was ausgewählt würde und warum.</string>
+    <string name="smart_offline_strategy">Auswahlkriterien</string>
+    <string name="smart_offline_window">Zeitraum</string>
+    <string name="smart_offline_window_days">%1$d Tage</string>
+    <string name="smart_offline_recently_played">Zuletzt gespielt</string>
+    <string name="smart_offline_frequently_played">Häufig gespielt</string>
+    <string name="smart_offline_smart">Smart</string>
+    <string name="smart_offline_core">Dein Kern</string>
+    <string name="smart_offline_variety">Abwechslung</string>
+    <string name="smart_offline_empty_title">Noch nichts anzuzeigen</string>
+    <string name="smart_offline_empty_body">Spiele ein paar Titel und die Rotation erscheint hier. Sie entsteht aus deinem Musikverlauf auf diesem Gerät und verlässt ihn nie.</string>
 </resources>

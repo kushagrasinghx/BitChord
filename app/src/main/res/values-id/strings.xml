@@ -283,6 +283,10 @@
     <string name="copy_log">Salin log</string>
     <string name="couldnt_find">Tidak dapat menemukan %1$s</string>
     <string name="couldnt_open_link">Tidak dapat membuka tautan itu</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">Mencari %d lagu…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d dari %2$d lagu masuk antrean</string>
     <string name="create_playlist">Buat playlist</string>
     <string name="customize_card">Sesuaikan kartu</string>
     <string name="customize_card_subtitle">Status, teks, dan kedua tombol</string>
@@ -1472,4 +1476,17 @@
     <string name="queue_selected_count">%1$d dipilih</string>
     <string name="queue_playlist_added">%1$d dari %2$d lagu ditambahkan</string>
     <string name="queue_playlist_partial">%1$s (%2$d tidak kompatibel, %3$d sudah ada, %4$d gagal)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Pratinjau rotasi yang akan disiapkan BitChord untuk Anda</string>
+    <string name="smart_offline_notice">Ini hanya pratinjau. Belum ada yang diunduh otomatis — halaman ini hanya menampilkan apa yang akan dipilih, dan mengapa.</string>
+    <string name="smart_offline_strategy">Cara memilih</string>
+    <string name="smart_offline_window">Seberapa jauh melihat</string>
+    <string name="smart_offline_window_days">%1$d hari</string>
+    <string name="smart_offline_recently_played">Baru didengarkan</string>
+    <string name="smart_offline_frequently_played">Sering didengarkan</string>
+    <string name="smart_offline_smart">Cerdas</string>
+    <string name="smart_offline_core">Inti Anda</string>
+    <string name="smart_offline_variety">Keragaman rotasi</string>
+    <string name="smart_offline_empty_title">Belum ada yang bisa ditampilkan</string>
+    <string name="smart_offline_empty_body">Putar beberapa lagu dan rotasinya akan muncul di sini. Rotasi ini dibangun dari apa yang Anda dengarkan, di perangkat ini, dan tidak pernah meninggalkannya.</string>
 </resources>

@@ -283,6 +283,10 @@
     <string name="copy_log">ログをコピー</string>
     <string name="couldnt_find">%1$sが見つかりませんでした</string>
     <string name="couldnt_open_link">リンクを開けませんでした</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">%d 曲を検索中…</item>
+    </plurals>
+    <string name="queue_link_partial">%2$d 曲中 %1$d 曲をキューに追加しました</string>
     <string name="create_playlist">プレイリストを作成</string>
     <string name="customize_card">カードをカスタマイズ</string>
     <string name="customize_card_subtitle">ステータス、文言、両方のボタン</string>
@@ -1473,4 +1477,17 @@
     <string name="queue_selected_count">%1$d件選択</string>
     <string name="queue_playlist_added">%2$d曲中%1$d曲を追加しました</string>
     <string name="queue_playlist_partial">%1$s（非対応 %2$d、追加済み %3$d、失敗 %4$d）</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">BitChord がオフライン用に用意するローテーションのプレビュー</string>
+    <string name="smart_offline_notice">これはプレビューです。まだ自動ダウンロードは行われません。この画面は、何が選ばれるかとその理由を示すだけです。</string>
+    <string name="smart_offline_strategy">選び方</string>
+    <string name="smart_offline_window">振り返る期間</string>
+    <string name="smart_offline_window_days">%1$d 日間</string>
+    <string name="smart_offline_recently_played">最近再生</string>
+    <string name="smart_offline_frequently_played">よく再生</string>
+    <string name="smart_offline_smart">スマート</string>
+    <string name="smart_offline_core">あなたのコア</string>
+    <string name="smart_offline_variety">ローテーションのバリエーション</string>
+    <string name="smart_offline_empty_title">まだ表示するものがありません</string>
+    <string name="smart_offline_empty_body">少し再生するとローテーションが表示されます。この端末での再生履歴から作られ、端末の外には出ません。</string>
 </resources>

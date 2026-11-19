@@ -229,6 +229,16 @@
                     android:pathPattern="/invite/......" />
             </intent-filter>
 
+            <!-- Another app's "play these songs": bitchord://queue?q=title artist&q=… (see
+                 MusicLink.queue). Not BROWSABLE: apps send it, web pages cannot. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:scheme="bitchord"
+                    android:host="queue" />
+            </intent-filter>
+
             <!-- Custom scheme for Listen Together invites on custom server deployments. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

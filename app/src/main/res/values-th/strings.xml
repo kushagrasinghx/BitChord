@@ -307,6 +307,10 @@
     <string name="copy_log">คัดลอกล็อก</string>
     <string name="couldnt_find">หา %1$s ไม่พบ</string>
     <string name="couldnt_open_link">เปิดลิงก์นั้นไม่ได้</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">กำลังค้นหา %d เพลง…</item>
+    </plurals>
+    <string name="queue_link_partial">เพิ่มลงคิว %1$d จาก %2$d เพลง</string>
     <string name="create_playlist">สร้างเพลย์ลิสต์</string>
     <string name="customize_card">ปรับแต่งการ์ด</string>
     <string name="customize_card_subtitle">สถานะ ข้อความ และปุ่มทั้งสอง</string>
@@ -1478,4 +1482,17 @@
     <string name="queue_selected_count">เลือก %1$d รายการ</string>
     <string name="queue_playlist_added">เพิ่มแล้ว %1$d จาก %2$d เพลง</string>
     <string name="queue_playlist_partial">%1$s (ใช้ไม่ได้ %2$d, มีอยู่แล้ว %3$d, ล้มเหลว %4$d)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">ตัวอย่างของรอบเพลงที่ BitChord จะเตรียมไว้ให้คุณ</string>
+    <string name="smart_offline_notice">นี่คือตัวอย่าง ยังไม่มีการดาวน์โหลดอัตโนมัติ — หน้านี้แสดงเพียงว่าจะเลือกอะไรและเพราะอะไร</string>
+    <string name="smart_offline_strategy">วิธีเลือก</string>
+    <string name="smart_offline_window">ย้อนกลับไปไกลแค่ไหน</string>
+    <string name="smart_offline_window_days">%1$d วัน</string>
+    <string name="smart_offline_recently_played">ฟังล่าสุด</string>
+    <string name="smart_offline_frequently_played">ฟังบ่อย</string>
+    <string name="smart_offline_smart">ฉลาด</string>
+    <string name="smart_offline_core">แกนกลางของคุณ</string>
+    <string name="smart_offline_variety">ความหลากหลายของรอบเพลง</string>
+    <string name="smart_offline_empty_title">ยังไม่มีอะไรให้แสดง</string>
+    <string name="smart_offline_empty_body">เล่นเพลงสักไม่กี่เพลง แล้วรอบเพลงจะปรากฏที่นี่ มันสร้างจากสิ่งที่คุณฟัง บนเครื่องนี้ และไม่เคยออกจากเครื่อง</string>
 </resources>

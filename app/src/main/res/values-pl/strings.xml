@@ -286,6 +286,13 @@
     <string name="copy_log">Kopiuj log</string>
     <string name="couldnt_find">Nie znaleziono %1$s</string>
     <string name="couldnt_open_link">Nie udało się otworzyć tego linku</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Szukam %d utworu…</item>
+        <item quantity="few">Szukam %d utworów…</item>
+        <item quantity="many">Szukam %d utworów…</item>
+        <item quantity="other">Szukam %d utworu…</item>
+    </plurals>
+    <string name="queue_link_partial">Dodano do kolejki %1$d z %2$d utworów</string>
     <string name="create_playlist">Utwórz playlistę</string>
     <string name="customize_card">Dostosuj kartę</string>
     <string name="customize_card_subtitle">Status, treść i oba przyciski</string>
@@ -1538,4 +1545,17 @@
     <string name="queue_selected_count">Wybrano: %1$d</string>
     <string name="queue_playlist_added">Dodano %1$d z %2$d utworów</string>
     <string name="queue_playlist_partial">%1$s (niezgodne: %2$d, już dodane: %3$d, błędy: %4$d)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Podgląd rotacji, którą BitChord przygotowałby dla Ciebie</string>
+    <string name="smart_offline_notice">To jest podgląd. Nic nie jest jeszcze pobierane automatycznie — ta strona pokazuje tylko, co zostałoby wybrane i dlaczego.</string>
+    <string name="smart_offline_strategy">Jak wybierać</string>
+    <string name="smart_offline_window">Jak daleko wstecz</string>
+    <string name="smart_offline_window_days">%1$d dni</string>
+    <string name="smart_offline_recently_played">Ostatnio odtwarzane</string>
+    <string name="smart_offline_frequently_played">Często odtwarzane</string>
+    <string name="smart_offline_smart">Inteligentna</string>
+    <string name="smart_offline_core">Twój rdzeń</string>
+    <string name="smart_offline_variety">Różnorodność rotacji</string>
+    <string name="smart_offline_empty_title">Nie ma jeszcze nic do pokazania</string>
+    <string name="smart_offline_empty_body">Odtwórz kilka utworów, a rotacja pojawi się tutaj. Powstaje z tego, co słuchasz, na tym urządzeniu, i nigdy go nie opuszcza.</string>
 </resources>

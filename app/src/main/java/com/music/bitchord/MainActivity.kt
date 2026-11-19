@@ -192,6 +192,7 @@ import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SignatureApiEditor
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.SmartOfflineScreen
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -203,6 +204,8 @@ import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.OriginalVersion
 import com.music.bitchord.playback.PlayerDeepLink
+import com.music.bitchord.playback.findAskedSong
+import com.music.bitchord.playback.resolveQueueLink
 import com.music.bitchord.playback.QueueBuilder
 import com.music.bitchord.playback.QueueCoordinator
 import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
@@ -2068,11 +2071,11 @@ private fun BitChordApp(
                 viewModel.openDetail(request.browseId, title = "")
             }
             is LinkRequest.Search -> {
-                val songs = if (!request.play) null else {
-                    YtMusicRepository.search(request.query, SearchFilter.SONGS).getOrNull()
-                        ?.filterIsInstance<SearchResult.Track>()
+                // With a title and artist (another app naming a song), only that recording
+                // plays; see findAskedSong. Without, the top song, as before.
+                val top = if (!request.play) null else {
+                    findAskedSong(request.query, request.title, request.artist, ::searchTrackRows)
                 }
-                val top = songs?.firstOrNull()?.song
                 if (top != null) {
                     playRadio(top, QueueSource(searchLabel, PlaybackSourceType.SEARCH))
                 } else {
@@ -2083,6 +2086,32 @@ private fun BitChordApp(
                     navigator.clear()
                     selectedTab = TAB_SEARCH
                     viewModel.searchFor(request.query)
+                }
+            }
+            // Another app's list of songs by name. Each is searched like "play X" and the
+            // matches play in the link's order; what finds nothing is skipped, and a
+            // link where nothing matched says so rather than playing something else.
+            is LinkRequest.Queue -> {
+                Toast.makeText(
+                    context,
+                    context.resources.getQuantityString(R.plurals.queue_link_finding, request.queries.size, request.queries.size),
+                    Toast.LENGTH_SHORT,
+                ).show()
+                val songs = resolveQueueLink(request.songs) { song ->
+                    findAskedSong(song.query, song.title, song.artist, ::searchTrackRows)
+                }
+                if (songs.isEmpty()) {
+                    Toast.makeText(context, context.getString(R.string.couldnt_open_link), Toast.LENGTH_SHORT).show()
+                } else {
+                    playFrom(songs, 0, QueueSource(request.title ?: sharedLinkLabel, PlaybackSourceType.SHARED_LINK))
+                    showNowPlaying = true
+                    if (songs.size < request.queries.size) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.queue_link_partial, songs.size, request.queries.size),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 }
             }
             // "Play music", nothing named. The playback service restores its
@@ -3188,6 +3217,8 @@ private fun BitChordApp(
                                 onCleared = { navigator.pop() },
                                 contentPadding = listPadding,
                             )
+                        } else if (pageRoute == AppRoute.SmartOffline) {
+                            SmartOfflineScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.ListenTogether) {
@@ -3230,6 +3261,7 @@ private fun BitChordApp(
                                 section = (pageRoute as? AppRoute.SettingsSection)?.category,
                                 onOpenSection = { navigator.push(AppRoute.SettingsSection(it)) },
                                 onOpenChoice = { navigator.push(AppRoute.SettingsChoice(it)) },
+                                onOpenSmartOffline = { navigator.push(AppRoute.SmartOffline) },
                                 windowWidth = windowWidth,
                                 signedIn = signedIn,
                                 account = account,
@@ -3936,6 +3968,7 @@ private fun BitChordApp(
                     title = when (route) {
                         AppRoute.Spotify -> stringResource(R.string.spotify)
                         AppRoute.Downloads -> stringResource(R.string.downloads)
+                        AppRoute.SmartOffline -> stringResource(R.string.smart_offline)
                         AppRoute.Discord -> "Discord"
                         AppRoute.History -> stringResource(R.string.history)
                         is AppRoute.LibraryShowAll -> route.shelf.title
@@ -6601,3 +6634,9 @@ private suspend fun LazyListState.scrollToTopEased() {
 
 /** Safely converts a nullable Float to non-null, defaulting to 0f for null. */
 private fun Float?.orZero(): Float = this ?: 0f
+
+/** The track rows of one YouTube Music search, songs or videos; a failed search is no rows. */
+private suspend fun searchTrackRows(query: String, filter: SearchFilter): List<Song> =
+    YtMusicRepository.search(query, filter).getOrNull().orEmpty()
+        .filterIsInstance<SearchResult.Track>()
+        .map { it.song }

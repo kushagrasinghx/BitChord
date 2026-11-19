@@ -298,6 +298,13 @@
     <string name="copy_log">Скопировать журнал</string>
     <string name="couldnt_find">Не удалось найти %1$s</string>
     <string name="couldnt_open_link">Не удалось открыть эту ссылку</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Ищу %d трек…</item>
+        <item quantity="few">Ищу %d трека…</item>
+        <item quantity="many">Ищу %d треков…</item>
+        <item quantity="other">Ищу %d трека…</item>
+    </plurals>
+    <string name="queue_link_partial">В очередь добавлено %1$d из %2$d треков</string>
     <string name="create_playlist">Создать плейлист</string>
     <string name="customize_card">Настроить карточку</string>
     <string name="customize_card_subtitle">Статус, текст и обе кнопки</string>
@@ -1530,4 +1537,17 @@
     <string name="queue_selected_count">Выбрано: %1$d</string>
     <string name="queue_playlist_added">Добавлено %1$d из %2$d треков</string>
     <string name="queue_playlist_partial">%1$s (несовместимых: %2$d, уже есть: %3$d, ошибок: %4$d)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Предпросмотр ротации, которую BitChord держал бы готовой для вас</string>
+    <string name="smart_offline_notice">Это предпросмотр. Пока ничего не скачивается автоматически — эта страница показывает только, что было бы выбрано и почему.</string>
+    <string name="smart_offline_strategy">Как выбирать</string>
+    <string name="smart_offline_window">Как далеко смотреть</string>
+    <string name="smart_offline_window_days">%1$d дн.</string>
+    <string name="smart_offline_recently_played">Недавно слушали</string>
+    <string name="smart_offline_frequently_played">Слушают часто</string>
+    <string name="smart_offline_smart">Умный</string>
+    <string name="smart_offline_core">Ваше ядро</string>
+    <string name="smart_offline_variety">Разнообразие ротации</string>
+    <string name="smart_offline_empty_title">Пока нечего показать</string>
+    <string name="smart_offline_empty_body">Послушайте несколько треков, и ротация появится здесь. Она строится из того, что вы слушаете, на этом устройстве, и никогда его не покидает.</string>
 </resources>

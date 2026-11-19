@@ -331,6 +331,12 @@
     <string name="copy_log">Copia log</string>
     <string name="couldnt_find">Impossibile trovare %1$s</string>
     <string name="couldnt_open_link">Impossibile aprire quel link</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Ricerca di %d brano…</item>
+        <item quantity="many">Ricerca di %d brani…</item>
+        <item quantity="other">Ricerca di %d brani…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d brani su %2$d in coda</string>
     <string name="create_playlist">Crea playlist</string>
     <string name="customize_card">Personalizza la scheda</string>
     <string name="customize_card_subtitle">Stato, testo ed entrambi i pulsanti</string>
@@ -1435,4 +1441,17 @@
     <string name="queue_selected_count">Selezionati: %1$d</string>
     <string name="queue_playlist_added">Aggiunti %1$d brani su %2$d</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatibili, %3$d già presenti, %4$d non riusciti)</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">Un\'anteprima della rotazione che BitChord manterrebbe pronta per te</string>
+    <string name="smart_offline_notice">Questa è un\'anteprima. Non viene ancora scaricato nulla automaticamente: questa pagina mostra solo cosa verrebbe scelto e perché.</string>
+    <string name="smart_offline_strategy">Come scegliere</string>
+    <string name="smart_offline_window">Fin dove guardare</string>
+    <string name="smart_offline_window_days">%1$d giorni</string>
+    <string name="smart_offline_recently_played">Ascoltati di recente</string>
+    <string name="smart_offline_frequently_played">Ascoltati spesso</string>
+    <string name="smart_offline_smart">Intelligente</string>
+    <string name="smart_offline_core">Il tuo nucleo</string>
+    <string name="smart_offline_variety">Varietà della rotazione</string>
+    <string name="smart_offline_empty_title">Non c\'è ancora nulla da mostrare</string>
+    <string name="smart_offline_empty_body">Riproduci qualche brano e la rotazione comparirà qui. È costruita da ciò che ascolti, su questo dispositivo, e non lo lascia mai.</string>
 </resources>

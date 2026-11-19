@@ -224,6 +224,8 @@ fun SettingsScreen(
     onOpenSection: (SettingsCategory) -> Unit = {},
     /** Opens a choice with more options than its row can show, as a page. */
     onOpenChoice: (SettingsChoiceKind) -> Unit = {},
+    /** Opens the Smart Offline rotation preview. */
+    onOpenSmartOffline: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -651,6 +653,18 @@ fun SettingsScreen(
                     checked = syncDownloadedPlaylists,
                     onCheckedChange = AppSettings::setSyncDownloadedPlaylists,
                     subtitle = stringResource(R.string.sync_downloaded_playlists_subtitle),
+                )
+            }
+            // A row that opens a page rather than a switch, because there is
+            // nothing to turn on yet: the rotation is a preview, and the
+            // preview is the thing to look at.
+            val smartOfflineTitle = stringResource(R.string.smart_offline)
+            row(smartOfflineTitle, "rotation", "offline", "preview") {
+                SettingsRow(
+                    icon = SfIcons.Download,
+                    title = smartOfflineTitle,
+                    subtitle = stringResource(R.string.smart_offline_subtitle),
+                    onClick = onOpenSmartOffline,
                 )
             }
         }

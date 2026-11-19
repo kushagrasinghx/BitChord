@@ -283,6 +283,10 @@
     <string name="copy_log">复制日志</string>
     <string name="couldnt_find">找不到%1$s</string>
     <string name="couldnt_open_link">无法打开该链接</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">正在查找 %d 首歌曲…</item>
+    </plurals>
+    <string name="queue_link_partial">已将 %2$d 首中的 %1$d 首加入队列</string>
     <string name="create_playlist">创建播放列表</string>
     <string name="customize_card">自定义卡片</string>
     <string name="customize_card_subtitle">状态、文字和两个按钮</string>
@@ -1472,4 +1476,17 @@
     <string name="queue_selected_count">已选择 %1$d 项</string>
     <string name="queue_playlist_added">已添加 %1$d/%2$d 首歌曲</string>
     <string name="queue_playlist_partial">%1$s（%2$d 首不兼容，%3$d 首已存在，%4$d 首失败）</string>
+    <string name="smart_offline">Smart Offline</string>
+    <string name="smart_offline_subtitle">预览 BitChord 会为你准备的轮播</string>
+    <string name="smart_offline_notice">这是预览。目前还不会自动下载任何内容——本页只展示会挑选什么，以及为什么。</string>
+    <string name="smart_offline_strategy">选择方式</string>
+    <string name="smart_offline_window">回溯范围</string>
+    <string name="smart_offline_window_days">%1$d 天</string>
+    <string name="smart_offline_recently_played">最近播放</string>
+    <string name="smart_offline_frequently_played">常播放</string>
+    <string name="smart_offline_smart">智能</string>
+    <string name="smart_offline_core">你的核心</string>
+    <string name="smart_offline_variety">轮播变化</string>
+    <string name="smart_offline_empty_title">暂无内容</string>
+    <string name="smart_offline_empty_body">播放几首歌后，轮播就会出现在这里。它根据本机上你的收听记录生成，绝不离开本机。</string>
 </resources>

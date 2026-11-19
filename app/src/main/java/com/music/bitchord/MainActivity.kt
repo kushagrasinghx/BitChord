@@ -204,6 +204,7 @@ import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
 import com.music.bitchord.playback.OriginalVersion
 import com.music.bitchord.playback.PlayerDeepLink
+import com.music.bitchord.playback.resolveQueueLink
 import com.music.bitchord.playback.QueueBuilder
 import com.music.bitchord.playback.QueueCoordinator
 import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
@@ -2089,6 +2090,35 @@ private fun BitChordApp(
                     navigator.clear()
                     selectedTab = TAB_SEARCH
                     viewModel.searchFor(request.query)
+                }
+            }
+            // Another app's list of songs by name. Each is searched like "play X" and the
+            // matches play in the link's order; what finds nothing is skipped, and a
+            // link where nothing matched says so rather than playing something else.
+            is LinkRequest.Queue -> {
+                Toast.makeText(
+                    context,
+                    context.resources.getQuantityString(R.plurals.queue_link_finding, request.queries.size, request.queries.size),
+                    Toast.LENGTH_SHORT,
+                ).show()
+                val songs = resolveQueueLink(request.queries) { query ->
+                    YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
+                        ?.filterIsInstance<SearchResult.Track>()
+                        ?.firstOrNull()
+                        ?.song
+                }
+                if (songs.isEmpty()) {
+                    Toast.makeText(context, context.getString(R.string.couldnt_open_link), Toast.LENGTH_SHORT).show()
+                } else {
+                    playFrom(songs, 0, QueueSource(request.title ?: sharedLinkLabel, PlaybackSourceType.SHARED_LINK))
+                    showNowPlaying = true
+                    if (songs.size < request.queries.size) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.queue_link_partial, songs.size, request.queries.size),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 }
             }
             // "Play music", nothing named. The playback service restores its

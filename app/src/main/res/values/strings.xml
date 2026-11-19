@@ -482,6 +482,11 @@
     <string name="copy_log">Copy log</string>
     <string name="couldnt_find">Couldn\'t find %1$s</string>
     <string name="couldnt_open_link">Couldn\'t open that link</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Finding %d song…</item>
+        <item quantity="other">Finding %d songs…</item>
+    </plurals>
+    <string name="queue_link_partial">Queued %1$d of %2$d songs</string>
     <string name="create_playlist">Create playlist</string>
     <string name="customize_card">Customize the card</string>
     <string name="customize_card_subtitle">Status, wording and both buttons</string>

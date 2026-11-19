@@ -26,6 +26,13 @@ sealed interface LinkRequest {
      */
     data class Search(val query: String, val play: Boolean) : LinkRequest
 
+    /**
+     * Several songs by name, to be played in this order: `bitchord://queue?q=…&q=…`, sent by
+     * another app that knows titles and artists but no video ids (a "play all" for the songs of a
+     * TV episode, say). Each query is looked up as a song search; [title] names the queue.
+     */
+    data class Queue(val queries: List<String>, val title: String?) : LinkRequest
+
     /** "Play music", with nothing said about what. */
     data object Resume : LinkRequest
 
@@ -75,7 +82,11 @@ object MusicLink {
             // Only the audio filter in the manifest takes these two schemes, so
             // either one is a file to play rather than a link to look up.
             Intent.ACTION_VIEW -> intent.data?.let { uri ->
-                if (uri.scheme == "content" || uri.scheme == "file") LinkRequest.LocalFile(uri) else parse(uri)
+                when {
+                    uri.scheme == "content" || uri.scheme == "file" -> LinkRequest.LocalFile(uri)
+                    uri.scheme == QUEUE_SCHEME && uri.host == QUEUE_HOST -> queue(uri.encodedQuery)
+                    else -> parse(uri)
+                }
             }
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.let(::firstUrl)
@@ -146,6 +157,31 @@ object MusicLink {
             // and that has already happened by the time this is read.
             else -> list.takeIf { it.isNotEmpty() }?.let { playlist(it) }
         }
+    }
+
+    const val QUEUE_SCHEME = "bitchord"
+    const val QUEUE_HOST = "queue"
+
+    /** A queue link with more songs than this keeps the first ones. */
+    const val MAX_QUEUE = 50
+
+    /**
+     * The songs of a queue link, from its raw (still encoded) query: every `q`, in order, blank
+     * ones dropped, at most [MAX_QUEUE]; `title` names it. Null when there is no song at all.
+     *
+     * Plain JVM on purpose (no [Uri]), so it is covered by unit tests.
+     */
+    fun queue(encodedQuery: String?): LinkRequest.Queue? {
+        val params = encodedQuery.orEmpty().split('&').mapNotNull { pair ->
+            val name = pair.substringBefore('=')
+            if (name.isEmpty() || !pair.contains('=')) return@mapNotNull null
+            val value = runCatching { java.net.URLDecoder.decode(pair.substringAfter('='), "UTF-8") }.getOrNull()
+            value?.let { name to it.trim() }
+        }
+        val queries = params.filter { it.first == "q" && it.second.isNotEmpty() }.map { it.second }.take(MAX_QUEUE)
+        if (queries.isEmpty()) return null
+        val title = params.firstOrNull { it.first == "title" }?.second?.takeIf { it.isNotEmpty() }
+        return LinkRequest.Queue(queries, title)
     }
 
     private fun track(videoId: String): LinkRequest.Track? =

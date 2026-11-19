@@ -10622,15 +10622,16 @@ class PlaybackService : MediaLibraryService() {
 /**
  * The stock renderers, plus FFmpeg after the MediaCodec one.
  *
- * FFmpeg comes last so it only gets a track no platform decoder takes: AC-4
- * and Dolby Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
+ * FFmpeg comes last so it only gets a track no platform decoder takes: Dolby
+ * Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
  * then plays as its 5.1 bed, folded down to stereo — the object layer needs
  * Dolby's decoder, which is the only thing that can read it. Same sink as the
  * MediaCodec renderer, so the DSP chain and the precision path see no
  * difference between the two.
  *
- * ALAC goes to FFmpeg on every device, because MediaCodec is never offered it
- * ([withoutPlatformAlac]). Samsung ships no ALAC codec, which is where FFmpeg
+ * ALAC and AC-4 go to FFmpeg on every device, because MediaCodec is never
+ * offered them ([withoutUnreliablePlatformDecoders]); the platform AC-4 decoders proved
+ * unreliable, much as the ALAC ones below did. Samsung ships no ALAC codec, which is where FFmpeg
  * was proved; Qualcomm vendor images ship `c2.qti.alac.sw.decoder`, which
  * released itself on its first input buffer (realme RMX3842, Android 16) and
  * misreports position on the tracks it does play. A codec that fails mid-
@@ -10656,7 +10657,7 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         super.buildAudioRenderers(
             context,
             extensionRendererMode,
-            withoutPlatformAlac(mediaCodecSelector),
+            withoutUnreliablePlatformDecoders(mediaCodecSelector),
             enableDecoderFallback,
             audioSink,
             eventHandler,
@@ -10668,15 +10669,24 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
 }
 
 /**
- * [selector] with no decoders for ALAC, so `MediaCodecAudioRenderer` reports
- * it unsupported and the track selector hands it to FFmpeg — unless this
- * build's FFmpeg cannot decode it (an ABI it was not built for), where a
- * vendor codec is still better than none. Wraps rather than replaces, so a
- * subclass's own selector (the FLAC one) keeps working underneath.
+ * [selector] with no decoders for ALAC or AC-4, so `MediaCodecAudioRenderer`
+ * reports them unsupported and the track selector hands them to FFmpeg —
+ * unless this build's FFmpeg cannot decode one (an ABI it was not built for),
+ * where a vendor codec is still better than none. Wraps rather than replaces,
+ * so a subclass's own selector (the FLAC one) keeps working underneath.
+ *
+ * AC-4 joins ALAC for the same reason: the platform decoders that claim it
+ * misbehave mid-track, and a codec that fails mid-playback is never retried
+ * on the next renderer.
  */
-private fun withoutPlatformAlac(selector: MediaCodecSelector) =
+private fun withoutUnreliablePlatformDecoders(selector: MediaCodecSelector) =
     MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-        if (mimeType == MimeTypes.AUDIO_ALAC && ffmpegDecodesAlac) {
+        val ffmpegFirst = when (mimeType) {
+            MimeTypes.AUDIO_ALAC -> ffmpegDecodesAlac
+            MimeTypes.AUDIO_AC4 -> ffmpegDecodesAc4
+            else -> false
+        }
+        if (ffmpegFirst) {
             emptyList()
         } else {
             selector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
@@ -10684,11 +10694,12 @@ private fun withoutPlatformAlac(selector: MediaCodecSelector) =
     }
 
 /**
- * Asked once per process, and only when an ALAC track is first looked at: the
+ * Asked once per process, and only when such a track is first looked at: the
  * native library then loads on the playback thread, as it did before, rather
  * than on the main thread while a player is built.
  */
 private val ffmpegDecodesAlac by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_ALAC) }
+private val ffmpegDecodesAc4 by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_AC4) }
 
 /**
  * Every lyric setting the service's lyrics depend on, emitting once per real

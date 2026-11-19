@@ -22,6 +22,17 @@ class AutoMixCanvasTest {
     )
 
     @Test
+    fun outgoingArtworkStaysOpaqueUntilOnlyTheUncoveredTailNeedsRetiring() {
+        assertEquals(1f, outgoingArtworkTailAlpha(0f))
+        assertEquals(1f, outgoingArtworkTailAlpha(0.5f))
+        assertEquals(1f, outgoingArtworkTailAlpha(0.8f))
+        val tail = (80..100).map { outgoingArtworkTailAlpha(it / 100f) }
+        assertTrue(tail.zipWithNext().all { (a, b) -> a >= b })
+        assertTrue(tail[10] in 0.4f..0.6f)
+        assertEquals(0f, tail.last())
+    }
+
+    @Test
     fun onlyMatchingHeroSlotsCanUseTheLiveReveal() {
         assertTrue(sharesHeroRevealFootprint(true, true, 0f, 0f))
         assertTrue(sharesHeroRevealFootprint(false, false, 1f, 16f / 9f))

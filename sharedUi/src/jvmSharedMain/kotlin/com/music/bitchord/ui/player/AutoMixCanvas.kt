@@ -19,6 +19,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.AutoMixArtworkTuning
 import com.music.bitchord.playback.AutoMixVisualPhase
 import com.music.bitchord.playback.AutoMixVisualState
+import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -84,11 +85,12 @@ internal class AutoMixCanvasTracks(
     var incomingReady by mutableStateOf(false)
     var incomingAspect by mutableStateOf(0f)
     private var incomingAccepted by mutableStateOf(false)
-    private var choiceSealed = false
+    private var choiceSealed by mutableStateOf(false)
     var outgoingReady by mutableStateOf(pinnedClip != null)
     var windowOpen by mutableStateOf(false)
     var progress by mutableFloatStateOf(0f)
     val liveIncoming get() = incomingAccepted && incomingReady
+    val selectedStill get() = choiceSealed && !liveIncoming
     val liveOutgoing get() = started && outgoingReady && pinnedClip != null
     val sharesClip get() = pinnedClip?.url?.let { it == incomingClip?.url } == true
 
@@ -174,6 +176,7 @@ internal fun rememberAutoMixCanvasPair(
             sealed = true
             active?.incomingReady = false
             active?.incomingClip = null
+            active?.sealIncoming()
             resolve?.cancel()
             timeout?.cancel()
         }
@@ -267,6 +270,12 @@ internal fun rememberAutoMixCanvasPair(
 internal fun AutoMixCoverFrames?.baseUnderCanvas(pair: AutoMixCanvasTracks?): AutoMixCoverFrames? =
     if (this != null && pair != null && (pair.liveOutgoing || pair.liveIncoming)) AutoMixCoverFrames(base)
     else this
+
+/** Retire the part of the outgoing picture not covered by the destination (bounds or bottom fade). */
+internal fun outgoingArtworkTailAlpha(progress: Float): Float {
+    val start = 0.8f
+    return 1f - smootherStep(((progress - start) / (1f - start)).coerceIn(0f, 1f))
+}
 
 /** Full-window crops, fixed-height cropped banners, and identical contained fits match. */
 internal fun sharesHeroRevealFootprint(

@@ -592,6 +592,25 @@ private class LandscapeDockPose(val left: Float, val top: Float, val scale: Floa
 /** The placeholder tile's corners — one shape, not a new one every frame it moves. */
 private val TileShape = RoundedCornerShape(8.dp)
 
+/** The same bottom feather for the sleeve and a still drawn below the hero host. */
+private fun Modifier.artworkBottomFade(shown: () -> Float, fraction: () -> Float): Modifier = drawWithContent {
+    drawContent()
+    val share = shown()
+    if (share > 0f) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+                    val t = i / FADE_CURVE_STOPS.toFloat()
+                    t to Color.Black.copy(alpha = 1f - share * smootherStep(t))
+                },
+                startY = size.height * (1f - fraction()),
+                endY = size.height,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+}
+
 /**
  * [content], for as long as [shown] says so.
  *
@@ -1655,7 +1674,10 @@ fun NowPlayingScreen(
         targetValue = if (
             // Latched first, so a clip coming and going isn't listened for
             // once the banner has settled — see [heroSettled].
-            heroMode && (heroSettled || coverLoaded() || canvasRendered)
+            heroMode && (heroSettled || coverLoaded() || canvasRendered) &&
+                // A Spotify-only hero is going back to the square sleeve. Let the
+                // incoming still settle into that frame before the handoff, not after it.
+                !(!fullBleedArt && pair?.liveOutgoing == true && pair.selectedStill && autoMixFrames?.incoming != null)
         ) 1f else 0f,
         animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
         label = "heroCanvas",
@@ -1670,6 +1692,7 @@ fun NowPlayingScreen(
     // is nothing to show that early either.
     var heroHeight by remember { mutableStateOf(0.dp) }
     var playerBounds by remember { mutableStateOf(IntSize.Zero) }
+    var expandedSquare by remember { mutableStateOf(Rect.Zero) }
     // The bottom of a top-aligned, contained clip in the full-player view.
     // Use measured pixels and the decoded display aspect, never screen constants.
     fun canvasBottom(aspect: Float): Dp =
@@ -2025,6 +2048,13 @@ fun NowPlayingScreen(
     // The moves the still is for. Not the drawers and popups, under which the
     // clip pauses but nothing moves.
     val stillMoving = collapseStarted || dockMoving || lyricsOpen || queueOpen || queueDragging
+    // The hero TextureView sits behind the control/sleeve subtree. Move only the
+    // frozen still pixels below that host; the live slot stays where it will be promoted.
+    val staticHeroUnderlay = autoMixFrames?.takeIf { frames ->
+        pair?.liveIncoming == true && pair.pinnedClip == null && frames.generation == pair.generation &&
+            !stillMoving && !overlayOpen.value &&
+            (if (heroMode) heroHeight > 0.dp else incomingFullWindow && !expandedSquare.isEmpty)
+    }?.base
     // Whether the still is on screen in the clip's place: while it moves, and
     // until the clip has painted the same frame again.
     fun stillTakesOver(): Boolean = still() != null && CanvasStills.fresh &&
@@ -2666,6 +2696,32 @@ fun NowPlayingScreen(
                     val standbyClip = pair?.incomingClip?.takeIf { !(lyricsOpen || queueOpen) || !collapseDone }
                     val matchedLiveHero = pair?.liveOutgoing == true && pair.liveIncoming &&
                         sharesHeroRevealFootprint(clipFullscreen, incomingFullWindow, canvasAspect, pair.incomingAspect)
+                    if (staticHeroUnderlay != null && pair != null) {
+                        val frame = if (heroMode) Modifier.fillMaxWidth().height(heroHeight) else Modifier.layout { measurable, constraints ->
+                            val rect = expandedSquare
+                            val placeable = measurable.measure(Constraints.fixed(rect.width.roundToInt(), rect.height.roundToInt()))
+                            layout(constraints.maxWidth, 0) { placeable.place(rect.left.roundToInt(), rect.top.roundToInt()) }
+                        }
+                        DecodedCover(
+                            staticHeroUnderlay,
+                            frame
+                                .graphicsLayer {
+                                    alpha = outgoingArtworkTailAlpha(pair.standbyOpacity())
+                                    if (heroMode) {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                    } else {
+                                        scaleX = artScale
+                                        scaleY = artScale
+                                        translationX = swipeSettle.value
+                                        shadowElevation = 10.dp.toPx()
+                                        shape = TileShape
+                                        clip = true
+                                    }
+                                }
+                                .then(if (heroMode) Modifier.artworkBottomFade({ 1f }, { HERO_FADE_FRACTION }) else Modifier)
+                                .hazeSource(playerHaze),
+                        )
+                    }
                     CanvasPresentationHost(heroClipMounted, standbyClip) { clip, standby ->
                         val stillStart = remember(clip.url) { if (standby) null else stillAtMount() }
                         var slotAspect by remember { mutableFloatStateOf(0f) }
@@ -2721,8 +2777,10 @@ fun NowPlayingScreen(
                                 else if (matchedLiveHero && pair != null && !pair.sharesClip && !fullscreen) {
                                     // A shared, translucent bottom edge would otherwise show
                                     // the outgoing clip until the exact promotion frame.
-                                    val tail = ((pair.reveal() - 0.8f) / 0.2f).coerceIn(0f, 1f)
-                                    (1f - smootherStep(tail)) * clipTransitionAlpha()
+                                    outgoingArtworkTailAlpha(pair.reveal()) * clipTransitionAlpha()
+                                }
+                                else if (pair?.liveOutgoing == true && !pair.liveIncoming && autoMixFrames?.incoming != null && !stillMoving) {
+                                    outgoingArtworkTailAlpha(pair.reveal()) * clipTransitionAlpha()
                                 }
                                 else if (pair != null && !pair.sharesClip && (portrait || fullscreen) &&
                                     pair.incomingClip?.source != CanvasSource.SPOTIFY &&
@@ -2746,9 +2804,9 @@ fun NowPlayingScreen(
                                 }
                             },
                             nowPlaying = true,
-                            // The still hero is drawn above this host, not under it. Keep its
-                            // opacity handoff; only matching live geometry can reveal here.
-                            organicReveal = if (standby) pair?.standbyReveal(matchedLiveHero && !stillMoving) else null,
+                            organicReveal = if (standby) {
+                                pair?.standbyReveal(staticHeroUnderlay != null || (matchedLiveHero && !stillMoving))
+                            } else null,
                             // Frames only for a mesh that will use them.
                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {
                                 CANVAS_FRAME_CAPTURE_PX
@@ -3323,11 +3381,20 @@ fun NowPlayingScreen(
                             -(statusBarTop.roundToPx() + topStrip.roundToPx() + ART_BOX_TOP_PAD.roundToPx())
                         }
                         val boxWidthPx = constraints.maxWidth
+                        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                        val square = with(density) {
+                            val side = fullArt.roundToPx()
+                            val start = ((maxWidth - fullArt) / 2).roundToPx()
+                            val left = if (rtl) boxWidthPx - start - side else start
+                            val x = ((playerBounds.width - boxWidthPx) / 2f).roundToInt() + left
+                            val y = groupTop.roundToPx() - bannerTopPx
+                            Rect(Offset(x.toFloat(), y.toFloat()), Size(side.toFloat(), side.toFloat()))
+                        }
+                        if (square != expandedSquare) SideEffect { expandedSquare = square }
                         // The sleeve's rects are in left-to-right pixels, but
                         // [artStart] is an inset from the start edge, as the card's
                         // slot and the title row take it. Right to left, the card and
                         // the header thumbnail are measured in from the right.
-                        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
                         fun fromStart(start: Float, width: Float): Float =
                             if (rtl) boxWidthPx - start - width else start
                         // How far the expanded sleeve is the banner rather than the
@@ -3518,6 +3585,7 @@ fun NowPlayingScreen(
                                     // Whole while the clip's still is standing in for it.
                                     alpha = (
                                         if (stillTakesOver()) 1f
+                                        else if (staticHeroUnderlay != null) 0f
                                         else if (heroMode && pair?.liveOutgoing == true) 1f
                                         else if ((heroMode || incomingFullWindow) && pair?.liveIncoming == true) 1f - pair.standbyOpacity()
                                         else if (staticCanvasMix) 1f
@@ -3567,25 +3635,7 @@ fun NowPlayingScreen(
                                 // The banner dissolves into the backdrop where the
                                 // card's bottom edge would have been, and firms back
                                 // up into that edge as it collapses.
-                                .drawWithContent {
-                                    drawContent()
-                                    val shown = sleeveShown()
-                                    if (shown > 0f) {
-                                        drawRect(
-                                            // Along smootherstep, not a straight ramp,
-                                            // so neither end of the dissolve shows as a line.
-                                            brush = Brush.verticalGradient(
-                                                colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
-                                                    val t = i / FADE_CURVE_STOPS.toFloat()
-                                                    t to Color.Black.copy(alpha = 1f - shown * smootherStep(t))
-                                                },
-                                                startY = size.height * (1f - stillFadeFraction()),
-                                                endY = size.height,
-                                            ),
-                                            blendMode = BlendMode.DstIn,
-                                        )
-                                    }
-                                },
+                                .artworkBottomFade(::sleeveShown, ::stillFadeFraction),
                         ) {
                             // Empty state lives on this tile, not the AsyncImage: a
                             // background *and* a painter both trying to fill the same
@@ -3664,10 +3714,8 @@ fun NowPlayingScreen(
                                 heroMode && pair?.liveOutgoing == true && !pair.liveIncoming
                             }
                             if (heroIncomingStill != null && pair != null) {
-                                // A tall clip extends beyond the still; retain its existing
-                                // coverage fade there instead of exposing the backdrop mid-mask.
                                 AutoMixIncomingStill(
-                                    heroIncomingStill, pair::reveal, pair.generation, polish = !clipPortrait && !clipFullscreen,
+                                    heroIncomingStill, pair::reveal, pair.generation, polish = !stillMoving,
                                 )
                             } else AutoMixPlayerCover(
                                 // Decode at the sleeve's *expanded* size, always.

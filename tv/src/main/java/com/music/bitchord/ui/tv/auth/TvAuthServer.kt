@@ -117,6 +117,33 @@ object TvAuthServer {
         serverSocket = null
     }
 
+    internal fun isAllowedOrigin(origin: String?, hostHeader: String?): Boolean {
+        if (origin.isNullOrBlank()) return true
+        val originUri = try {
+            java.net.URI(origin)
+        } catch (_: Exception) {
+            return false
+        }
+        val originHost = originUri.host?.lowercase() ?: return false
+        val originPort = if (originUri.port != -1) originUri.port else (if (originUri.scheme?.equals("https", ignoreCase = true) == true) 443 else 80)
+
+        // 1. Verify against Host header if supplied
+        if (!hostHeader.isNullOrBlank()) {
+            val expectedHost = hostHeader.substringBefore(":").trim().lowercase()
+            val expectedPort = hostHeader.substringAfter(":", "").trim().toIntOrNull()
+                ?: (serverSocket?.localPort ?: DEFAULT_PORT)
+            if (originHost == expectedHost && originPort == expectedPort) {
+                return true
+            }
+        }
+
+        // 2. Verify against local network interface IP and loopback
+        val currentIp = getLocalIpAddress()?.lowercase()
+        val boundPort = serverSocket?.localPort ?: DEFAULT_PORT
+        val allowedHosts = listOfNotNull("localhost", "127.0.0.1", currentIp)
+        return allowedHosts.contains(originHost) && originPort == boundPort
+    }
+
     private fun handleClient(client: Socket, onCookieReceived: ((String) -> Unit)?) {
         Thread {
             try {
@@ -130,15 +157,49 @@ object TvAuthServer {
                 val path = rawPath.substringBefore("?")
                 val query = if (rawPath.contains("?")) rawPath.substringAfter("?") else ""
 
-                var contentLength = 0
+                val headers = mutableMapOf<String, String>()
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
                     if (line.isNullOrBlank()) break
-                    if (line!!.startsWith("Content-Length:", ignoreCase = true)) {
-                        contentLength = line!!.substringAfter(":").trim().toIntOrNull() ?: 0
+                    val colonIdx = line!!.indexOf(":")
+                    if (colonIdx > 0) {
+                        val headerName = line!!.substring(0, colonIdx).trim().lowercase()
+                        val headerValue = line!!.substring(colonIdx + 1).trim()
+                        headers[headerName] = headerValue
                     }
                 }
 
+                val reqOrigin = headers["origin"]
+                val reqHost = headers["host"]
+                val secFetchSite = headers["sec-fetch-site"]?.lowercase()
+
+                if (method.equals("OPTIONS", ignoreCase = true)) {
+                    if (!reqOrigin.isNullOrBlank() && isAllowedOrigin(reqOrigin, reqHost)) {
+                        writer.print("HTTP/1.1 204 No Content\r\n")
+                        writer.print("Access-Control-Allow-Origin: $reqOrigin\r\n")
+                        writer.print("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n")
+                        writer.print("Access-Control-Allow-Headers: Content-Type\r\n")
+                        writer.print("Vary: Origin\r\n\r\n")
+                    } else {
+                        writer.print("HTTP/1.1 403 Forbidden\r\n\r\n")
+                    }
+                    writer.flush()
+                    return@Thread
+                }
+
+                // Reject cross-site requests to API or cookie submission endpoints
+                val isCrossSite = (!reqOrigin.isNullOrBlank() && !isAllowedOrigin(reqOrigin, reqHost)) ||
+                    secFetchSite == "cross-site"
+                if (isCrossSite && (path.startsWith("/api/") || path == "/submit")) {
+                    writer.print("HTTP/1.1 403 Forbidden\r\n")
+                    writer.print("Content-Type: text/plain; charset=utf-8\r\n")
+                    writer.print("Connection: close\r\n\r\n")
+                    writer.print("Cross-origin request rejected")
+                    writer.flush()
+                    return@Thread
+                }
+
+                var contentLength = headers["content-length"]?.toIntOrNull() ?: 0
                 var requestBody = ""
                 if (contentLength > 0) {
                     val bodyChars = CharArray(contentLength)
@@ -163,7 +224,7 @@ object TvAuthServer {
                             put("currentPositionMs", status.currentPositionMs)
                             put("durationMs", status.durationMs)
                         }
-                        sendJsonResponse(writer, json.toString())
+                        sendJsonResponse(writer, json.toString(), reqOrigin, reqHost)
                     }
 
                     // 2. API: Control Playback Actions
@@ -186,14 +247,14 @@ object TvAuthServer {
                                 onKeyAction?.invoke(action)
                             }
                         }
-                        sendJsonResponse(writer, """{"success":true}""")
+                        sendJsonResponse(writer, """{"success":true}""", reqOrigin, reqHost)
                     }
 
                     // 3. API: Search Music from Phone
                     path == "/api/search" -> {
                         val q = parseQueryParam(query, "q") ?: ""
                         if (q.isBlank()) {
-                            sendJsonResponse(writer, "[]")
+                            sendJsonResponse(writer, "[]", reqOrigin, reqHost)
                         } else {
                             scope.launch {
                                 val results = YtMusicRepository.search(q, SearchFilter.SONGS).getOrDefault(emptyList())
@@ -210,7 +271,7 @@ object TvAuthServer {
                                         arr.put(itemObj)
                                     }
                                 }
-                                sendJsonResponse(writer, arr.toString())
+                                sendJsonResponse(writer, arr.toString(), reqOrigin, reqHost)
                             }
                         }
                     }
@@ -226,7 +287,7 @@ object TvAuthServer {
                             val song = Song(videoId = videoId, title = title, artist = artist, thumbnailUrl = thumb)
                             onPlaySongAction?.invoke(song)
                         }
-                        sendJsonResponse(writer, """{"success":true}""")
+                        sendJsonResponse(writer, """{"success":true}""", reqOrigin, reqHost)
                     }
 
                     // 5. Auth Cookie Submission
@@ -258,11 +319,20 @@ object TvAuthServer {
         }.start()
     }
 
-    private fun sendJsonResponse(writer: PrintWriter, json: String) {
+    private fun sendJsonResponse(
+        writer: PrintWriter,
+        json: String,
+        requestOrigin: String? = null,
+        hostHeader: String? = null,
+    ) {
+        val bytes = json.toByteArray(Charsets.UTF_8)
         writer.print("HTTP/1.1 200 OK\r\n")
         writer.print("Content-Type: application/json; charset=utf-8\r\n")
-        writer.print("Access-Control-Allow-Origin: *\r\n")
-        writer.print("Content-Length: ${json.toByteArray().size}\r\n")
+        if (!requestOrigin.isNullOrBlank() && isAllowedOrigin(requestOrigin, hostHeader)) {
+            writer.print("Access-Control-Allow-Origin: $requestOrigin\r\n")
+            writer.print("Vary: Origin\r\n")
+        }
+        writer.print("Content-Length: ${bytes.size}\r\n")
         writer.print("\r\n")
         writer.print(json)
         writer.flush()

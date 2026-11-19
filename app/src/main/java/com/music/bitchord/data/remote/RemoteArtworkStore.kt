@@ -103,7 +103,7 @@ object RemoteArtworkStore {
     }
 
     private fun cacheKey(videoId: String): String {
-        val digest = MessageDigest.getInstance("SHA-1")
+        val digest = MessageDigest.getInstance("SHA-256")
         return digest.digest(videoId.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
     }

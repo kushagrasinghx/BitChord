@@ -1679,11 +1679,27 @@ object ListenTogether {
         else -> UNREACHABLE
     }
 
+    private fun isLocalDevelopmentHost(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.startsWith("http://localhost") ||
+            lower.startsWith("http://127.0.0.1") ||
+            lower.startsWith("http://10.0.2.2")
+    }
+
     private fun wsBase(): String {
         val base = activePartyServerBase ?: effectiveIdleServerBase()
-        return resolveHttpBase(base)
-            .replaceFirst("https://", "wss://")
-            .replaceFirst("http://", "ws://")
+        val resolved = resolveHttpBase(base)
+        return when {
+            resolved.startsWith("https://", ignoreCase = true) ->
+                resolved.replaceFirst(Regex("^https://", RegexOption.IGNORE_CASE), "wss://")
+            isLocalDevelopmentHost(resolved) ->
+                resolved.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "ws://")
+            resolved.startsWith("http://", ignoreCase = true) -> {
+                TrackLog.w(TAG, "Upgrading cleartext party server to wss://: $resolved")
+                resolved.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "wss://")
+            }
+            else -> resolved
+        }
     }
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")

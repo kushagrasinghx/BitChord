@@ -223,6 +223,7 @@ internal fun Modifier.miniPlayerGestures(
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
     canStartSwipe: () -> Boolean = { true },
+    canExpand: () -> Boolean = { true },
     swipeEpoch: () -> Int = { 0 },
     onSwipeStart: (() -> Boolean)? = null,
     onSwipeDrag: (Float) -> Unit = {},
@@ -237,6 +238,7 @@ internal fun Modifier.miniPlayerGestures(
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
     val currentCanStartSwipe by rememberUpdatedState(canStartSwipe)
+    val currentCanExpand by rememberUpdatedState(canExpand)
     val currentSwipeEpoch by rememberUpdatedState(swipeEpoch)
     val currentSwipeStart by rememberUpdatedState(onSwipeStart)
     val currentSwipeDrag by rememberUpdatedState(onSwipeDrag)
@@ -270,7 +272,7 @@ internal fun Modifier.miniPlayerGestures(
                 // with no player to pull: left as they always were, a drag that
                 // ends inside the bar still counts as its tap.
                 if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
-                if (vertical && currentPull == null) return@awaitEachGesture
+                if (vertical && (currentPull == null || !currentCanExpand())) return@awaitEachGesture
                 if (!vertical) {
                     if (!currentCanStartSwipe()) return@awaitEachGesture
                     gestureEpoch = currentSwipeEpoch()
@@ -455,6 +457,7 @@ fun MiniPlayer(
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
                 canStartSwipe = { !transition.isPendingSwipe },
+                canExpand = { !transition.isSlideActive },
                 // Without an origin occurrence ID, use the original instant swipe.
                 onSwipeStart = if (queue.isEmpty() || song.queueEntryId == null) null else {
                     { transition.beginDrag(
@@ -493,7 +496,7 @@ fun MiniPlayer(
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
-            .clickable(onClick = onExpand),
+            .clickable(onClick = { if (!transition.isSlideActive) onExpand() }),
     ) {
         Row(
             modifier = Modifier
@@ -511,35 +514,35 @@ fun MiniPlayer(
                 targetValue = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp,
                 label = "miniArtWidth",
             )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = 40.dp)
-                    .playerDockArt(dock, ART_CORNER)
-                    .clip(RoundedCornerShape(ART_CORNER))
-                    .thumbnailBorder(RoundedCornerShape(ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                // A music video keeps playing in the cover's place, cropped to
-                // it, as the web player's mini player does — the full player,
-                // when it is up, takes the picture over.
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
+            val art: @Composable (Song, Boolean) -> Unit = { displayedSong, stationary ->
+                Box(
+                    modifier = Modifier
+                        .size(width = artWidth, height = 40.dp)
+                        .then(if (stationary) Modifier.playerDockArt(dock, ART_CORNER) else Modifier.graphicsLayer {
+                            alpha = if (dock?.coversMiniArt == true) 0f else 1f
+                        })
+                        .clip(RoundedCornerShape(ART_CORNER))
+                        .thumbnailBorder(RoundedCornerShape(ART_CORNER))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    AsyncImage(
+                        model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
-                        priority = 0,
                     )
+                    if (stationary && showsPicture) {
+                        AndroidMusicVideo(
+                            videoId = song.videoId,
+                            fit = false,
+                            onRenderedChanged = {},
+                            modifier = Modifier.fillMaxSize(),
+                            priority = 0,
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.width(10.dp))
-            SlidingSongInfo(song, transition, Modifier.weight(1f)) { displayedSong ->
+            val info: @Composable (Song) -> Unit = { displayedSong ->
                 Column {
                     // The badge in the artist line's colour and a long line faded
                     // out at its end, as on the glass bar's mini player.
@@ -555,6 +558,24 @@ fun MiniPlayer(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+            if (showsPicture) {
+                // Keep the native video surface stationary; only its text slides.
+                art(song, true)
+                Spacer(Modifier.width(10.dp))
+                SlidingSongInfo(song, transition, Modifier.weight(1f), info)
+            } else {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    // The dock reports this untransformed resting slot, not a slide layer.
+                    Box(Modifier.size(width = artWidth, height = 40.dp).playerDockArt(dock, ART_CORNER))
+                    SlidingSongInfo(song, transition) { displayedSong ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            art(displayedSong, false)
+                            Spacer(Modifier.width(10.dp))
+                            Box(Modifier.weight(1f)) { info(displayedSong) }
+                        }
+                    }
                 }
             }
             if (isLoading) {

@@ -437,6 +437,7 @@ private fun GlassNowPlaying(
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
                 canStartSwipe = canStartSwipe,
+                canExpand = { infoTransition?.isSlideActive != true },
                 swipeEpoch = swipeEpoch,
                 onSwipeStart = if (foldRunning || !foldTarget || infoTransition == null ||
                     song.queueEntryId == null || queue.isEmpty()) null else {
@@ -466,7 +467,7 @@ private fun GlassNowPlaying(
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
-                onClick = onExpand,
+                onClick = { if (infoTransition?.isSlideActive != true) onExpand() },
             ),
     ) {
         Row(
@@ -491,32 +492,33 @@ private fun GlassNowPlaying(
                 targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
                 label = "glassMiniArtWidth",
             )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                    // Whichever of the two densities is on screen is the one
-                    // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, ACCESSORY_ART_CORNER)
-                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
+            val art: @Composable (Song, Boolean) -> Unit = { displayedSong, stationary ->
+                Box(
+                    modifier = Modifier
+                        .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                        .then(if (stationary && foldTarget) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier.graphicsLayer {
+                            alpha = if (dock?.coversMiniArt == true) 0f else 1f
+                        })
+                        .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    AsyncImage(
+                        model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
-                        priority = 0,
                     )
+                    if (stationary && showsPicture) {
+                        AndroidMusicVideo(
+                            videoId = song.videoId,
+                            fit = false,
+                            onRenderedChanged = {},
+                            modifier = Modifier.fillMaxSize(),
+                            priority = 0,
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
             // Title and artist at both densities, as Apple Music has them, in its
             // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
             // row shares its width with the tab pill and the Search circle, so
@@ -538,10 +540,26 @@ private fun GlassNowPlaying(
                     )
                 }
             }
-            if (foldTarget && infoTransition != null) {
-                SlidingSongInfo(song, infoTransition, Modifier.weight(1f), infoContent)
+            if (showsPicture || !foldTarget || infoTransition == null) {
+                art(song, true)
+                Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+                if (foldTarget && infoTransition != null) {
+                    SlidingSongInfo(song, infoTransition, Modifier.weight(1f), infoContent)
+                } else {
+                    Box(Modifier.weight(1f)) { infoContent(song) }
+                }
             } else {
-                Box(Modifier.weight(1f)) { infoContent(song) }
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    // This slot remains at rest while the content layers slide.
+                    Box(Modifier.size(width = artWidth, height = ACCESSORY_ART_SIZE).playerDockArt(dock, ACCESSORY_ART_CORNER))
+                    SlidingSongInfo(song, infoTransition) { displayedSong ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            art(displayedSong, false)
+                            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+                            Box(Modifier.weight(1f)) { infoContent(displayedSong) }
+                        }
+                    }
+                }
             }
             if (isLoading) {
                 Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {

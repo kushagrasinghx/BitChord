@@ -52,6 +52,7 @@ class SongInfoTransition(private val scope: CoroutineScope) {
     private var actionDispatched = false
     private var pendingSwipe = false
     val isPendingSwipe: Boolean get() = pendingSwipe
+    val isSlideActive: Boolean get() = source != null && !settled
     private var next: Song? = null
     private var previous: Song? = null
     private var dragStarts = emptyList<Pair<SongInfoLayer, Float>>()

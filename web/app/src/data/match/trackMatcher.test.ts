@@ -4,6 +4,7 @@ import {
   foldLatin,
   hasConflictingAlbums,
   matches,
+  parseTitle,
   queries,
   romajiOf,
   uniquelyMostCreditedCloseMatch,
@@ -147,6 +148,40 @@ describe('TrackMatcher', () => {
     expect(matches(song('Film Name', 'Some Artist', '4:07'), 'Song Name (From "Film Name")', 'Singer', 247)).toBe(false);
     // One word of a longer aside is not the whole title.
     expect(matches(song('Night', 'Singer', '4:20'), '夜に駆ける (Racing Into The Night)', 'Singer', 260)).toBe(false);
+  });
+});
+
+describe('Fully bracketed titles (BitChord#1854)', () => {
+  // A track whose title sits entirely inside brackets — Radiohead's
+  // "(Nice Dream)", Slipknot's "(sic)" — was never looked up in any source,
+  // because parseTitle() filed the whole title as packaging context and
+  // queries() then returned an empty list.
+  it('asks for a fully bracketed title', () => {
+    expect(queries({ title: '(Nice Dream)', artist: 'Radiohead' })).toEqual(['nice dream radiohead', 'nice dream']);
+    expect(queries({ title: '(sic)', artist: 'Slipknot' })).toEqual(['sic slipknot', 'sic']);
+  });
+
+  it('matches a fully bracketed title against its unbracketed listing', () => {
+    expect(matches(song('Nice Dream', 'Radiohead'), '(Nice Dream)', 'Radiohead')).toBe(true);
+    expect(matches(song('(Nice Dream)', 'Radiohead'), 'Nice Dream', 'Radiohead')).toBe(true);
+    expect(matches(song('(Nice Dream)', 'Radiohead'), '(Nice Dream)', 'Radiohead')).toBe(true);
+  });
+
+  it('keeps the version marker of a fully bracketed title', () => {
+    const parsed = parseTitle('(Nice Dream) (Live)');
+    expect(parsed.words).toEqual(['nice', 'dream']);
+    expect(parsed.versions).toEqual(new Set(['live']));
+    expect(matches(song('Nice Dream (Live)', 'Radiohead'), '(Nice Dream) (Live)', 'Radiohead')).toBe(true);
+    expect(matches(song('Nice Dream', 'Radiohead'), '(Nice Dream) (Live)', 'Radiohead')).toBe(false);
+  });
+
+  it('still strips packaging brackets', () => {
+    expect(queries({ title: 'Song (Official Video)', artist: 'Radiohead' })).toEqual(['song radiohead', 'song']);
+    expect(matches(song('Song', 'Radiohead'), 'Song (Official Video)', 'Radiohead')).toBe(true);
+  });
+
+  it('still asks for nothing for a noise-only bracketed title', () => {
+    expect(queries({ title: '(Official Video)', artist: 'Radiohead' })).toEqual([]);
   });
 });
 

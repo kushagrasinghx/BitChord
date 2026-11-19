@@ -6,6 +6,9 @@ import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -108,6 +111,8 @@ object ListeningStats {
 
     fun init(context: Context) {
         directory = File(context.filesDir, DIRECTORY)
+        // Other devices' months, added in by [summary]; see PeerListening.
+        PeerListening.init(context)
         // Opening a month means reading and parsing it, and the first thing to
         // ask for one is the playback sampler — on the main thread, a few
         // seconds into the first track. Done here instead, it has happened long
@@ -331,19 +336,26 @@ object ListeningStats {
         }?.let { return@withContext it.summary }
 
         val merged = MergedBucket()
+        // This device's month first, then every other device's copy of it —
+        // see [PeerListening]. Each is a separate sum of separate plays, so
+        // adding them is the whole of the merge. Own first so that where two
+        // entries fold into one row (a local file, say), the id that survives
+        // is one this phone can open.
+        fun monthBuckets(month: YearMonth): List<StoredBucket> =
+            listOfNotNull(read(month.toString())) + PeerListening.buckets(month.toString())
         when {
             period.needsDayFilter() -> {
                 // Week may span two months: read both, filter by day.
                 val range = period.range(today)!!
-                months().filter { month ->
+                allMonths().filter { month ->
                     val start = month.atDay(1)
                     val end = month.atEndOfMonth()
                     !(end < range.first || start > range.second)
-                }.forEach { month -> read(month.toString())?.let { bucket -> merged.add(bucket, range) } }
+                }.forEach { month -> monthBuckets(month).forEach { bucket -> merged.add(bucket, range) } }
             }
             else -> {
-                months().filter { period.covers(it, today) }
-                    .forEach { month -> read(month.toString())?.let(merged::add) }
+                allMonths().filter { period.covers(it, today) }
+                    .forEach { month -> monthBuckets(month).forEach(merged::add) }
             }
         }
         merged.toSummary(period, today).also {
@@ -360,6 +372,28 @@ object ListeningStats {
                 ?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
         }.sorted()
     }
+
+    /**
+     * Every month with listening on this device or any other synced to it,
+     * oldest first: what the Replay reads, where [months] is what this device
+     * owns and uploads.
+     */
+    fun allMonths(): List<YearMonth> = (months() + PeerListening.months()).distinct().sorted()
+
+    /**
+     * Another device's months have been downloaded or dropped: the summary
+     * held is no longer the answer. See [PeerListening].
+     */
+    fun peersChanged() {
+        version++
+        cached = null
+        _peerRevision.value++
+    }
+
+    private val _peerRevision = MutableStateFlow(0)
+
+    /** Bumped by [peersChanged], for a page that should redraw when it does. */
+    val peerRevision: StateFlow<Int> = _peerRevision.asStateFlow()
 
     private fun read(key: String): StoredBucket? {
         val file = File(directory, "$key.json")
@@ -532,7 +566,7 @@ object ListeningStats {
 
         fun add(bucket: StoredBucket) {
             bucket.tracks.forEach { entry ->
-                tracks.merge(entry.id, entry.copy()) { a, b -> a.also { it.absorb(b) } }
+                tracks.merge(mergeKey(entry), entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.artists.forEach { entry ->
                 val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
@@ -567,7 +601,7 @@ object ListeningStats {
         fun add(bucket: StoredBucket, range: Pair<LocalDate, LocalDate>) {
             // Merge entity-level data (tracks/artists/albums) so weekRange() can read them.
             bucket.tracks.forEach { entry ->
-                tracks.merge(entry.id, entry.copy()) { a, b -> a.also { it.absorb(b) } }
+                tracks.merge(mergeKey(entry), entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.artists.forEach { entry ->
                 val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
@@ -772,6 +806,21 @@ object ListeningStats {
     /** @see albumKey(albumId, name, artist) — overload for keyed lookups. */
     private fun albumKey(albumId: String?, name: String, artist: String): String =
         albumId?.let { it } ?: albumKey(name, artist)
+
+    /**
+     * Which row of the song chart [entry] is added into.
+     *
+     * A track's id, except for a file on the device: its id is a `content://`
+     * or `file://` address that only means something on the phone that played
+     * it, so the same song played from two phones' storage would otherwise be
+     * two rows. Those fold by title and artist instead.
+     */
+    internal fun mergeKey(entry: TrackEntry): String =
+        if (entry.id.startsWith("content://") || entry.id.startsWith("file://")) {
+            "local" + ALBUM_KEY_SEPARATOR + albumKey(entry.title, entry.artist)
+        } else {
+            entry.id
+        }
 
     /**
      * [albums] with every entry that would be drawn as the same row folded into one.

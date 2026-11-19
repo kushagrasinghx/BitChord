@@ -310,6 +310,23 @@ private fun LazyListScope.queueHeadingItem(
     }
 }
 
+/**
+ * Lazy-list index of the first upcoming section's heading, mirroring the slots
+ * [InlineQueue] emits. Without history, absent leading headings emit no slot, so
+ * the first upcoming heading is index zero. After history, every later heading
+ * keeps a slot (zero-height while hidden); a lazy list skips zero-height leading
+ * items, so this targets the first heading that is actually shown.
+ */
+private fun upcomingStartIndex(tracks: QueueTracks): Int {
+    if (tracks.history.isEmpty()) return 0
+    val userHeading = 1 + tracks.history.size
+    if (tracks.user.isNotEmpty()) return userHeading
+    val contextHeading = userHeading + 1
+    if (tracks.context.isNotEmpty()) return contextHeading
+    // Autoplay heading; with nothing upcoming the list clamps to its end.
+    return contextHeading + 1
+}
+
 /** The live queue, in the player itself. */
 @Composable
 internal fun InlineQueue(
@@ -426,18 +443,18 @@ internal fun InlineQueue(
         ?: nowPlaying?.song?.playbackSource?.takeIf { it.isNotBlank() }
         ?: nowPlaying?.song?.albumName?.takeIf { it.isNotBlank() }
 
-    // Start at the first visible section, including history when enabled.
+    // Start at what plays next; history stays above, reachable by scrolling up.
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
-        // Index zero is the first real heading; absent leading sections emit no slots.
-        val scrolledAway = listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0
+        val target = upcomingStartIndex(latestTracks)
+        val scrolledAway = listState.firstVisibleItemIndex != target || listState.firstVisibleItemScrollOffset != 0
         if (!selectionState.active && drag.held == null && nowPlaying != null) {
             if (scrolledAway) {
                 if (hasScrolledOnce) {
-                    listState.animateScrollToItem(0)
+                    listState.animateScrollToItem(target)
                 } else {
-                    listState.scrollToItem(0)
+                    listState.scrollToItem(target)
                 }
             }
             hasScrolledOnce = true

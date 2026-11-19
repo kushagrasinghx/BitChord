@@ -53,6 +53,51 @@ export async function getMusicClient(): Promise<Innertube> {
   return auth?.signedIn ? getSignedInnertube() : getInnertube();
 }
 
+/** The Android Music version YouTube currently serves timed lyrics to. */
+const ANDROID_MUSIC_VERSION = '7.21.50';
+
+/**
+ * YouTube Music only serves its timed lyrics to the phone app: the web client
+ * is answered with the plain description shelf. youtubei.js's own
+ * `YTMUSIC_ANDROID` client is pinned to 5.34.51, which YouTube now rejects, so
+ * this asks with a current Android Music context instead.
+ *
+ * Everything but the client context is the library's own simple request (see
+ * [simpleRequestFetch]); the body carries the client name and version because
+ * the extension strips the headers that would otherwise say the same thing.
+ */
+export async function browseAsAndroidMusic(yt: Innertube, browseId: string): Promise<unknown> {
+  const session = yt.session;
+  const context = {
+    ...session.context,
+    client: {
+      ...session.context.client,
+      clientName: 'ANDROID_MUSIC',
+      clientVersion: ANDROID_MUSIC_VERSION,
+      clientFormFactor: 'SMALL_FORM_FACTOR',
+      androidSdkVersion: 33,
+      osName: 'Android',
+      osVersion: '13',
+      platform: 'MOBILE',
+      userAgent: `com.google.android.apps.youtube.music/${ANDROID_MUSIC_VERSION} (Linux; U; Android 13) gzip`,
+    },
+  };
+  delete context.client.configInfo;
+  delete context.client.browserName;
+  delete context.client.browserVersion;
+
+  const response = await simpleRequestFetch(
+    `https://music.youtube.com/youtubei/v1/browse?alt=json&prettyPrint=false&key=${encodeURIComponent(session.api_key)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context, browseId }),
+    },
+  );
+  if (!response.ok) throw new Error(`YouTube Music browse failed: ${response.status}`);
+  return response.json();
+}
+
 const YOUTUBE_HOSTS = new Set(['music.youtube.com', 'www.youtube.com', 'youtube.com']);
 
 /** Headers a page may send without triggering a CORS preflight. */

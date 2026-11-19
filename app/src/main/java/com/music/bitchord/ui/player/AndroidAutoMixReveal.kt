@@ -88,6 +88,9 @@ private class IncomingMask(generation: Long) {
         shader = mask
         blendMode = BlendMode.DST_IN
     }
+    private var appliedWidth = 0f
+    private var appliedHeight = 0f
+    private var appliedProgress = -1f
 
     fun modifier(eased: () -> Float, reducedMotion: () -> Boolean): Modifier = Modifier.drawWithContent {
         val e = eased()
@@ -102,8 +105,17 @@ private class IncomingMask(generation: Long) {
             val height = size.height
             if (width <= 0f || height <= 0f) return@drawIntoCanvas
             val useMask = !revealFailed && !reducedMotion() && canvas.isHardwareAccelerated && runCatching {
-                mask.setFloatUniform("bounds", width, height)
-                mask.setFloatUniform("progress", e)
+                // Each uniform write discards Android's native shader instance.
+                // This mask belongs to one layer and can reuse unchanged inputs.
+                if (width != appliedWidth || height != appliedHeight) {
+                    mask.setFloatUniform("bounds", width, height)
+                    appliedWidth = width
+                    appliedHeight = height
+                }
+                if (e != appliedProgress) {
+                    mask.setFloatUniform("progress", e)
+                    appliedProgress = e
+                }
                 true
             }.getOrElse {
                 revealFailed = true

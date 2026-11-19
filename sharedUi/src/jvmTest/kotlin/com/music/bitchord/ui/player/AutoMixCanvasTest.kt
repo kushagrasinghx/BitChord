@@ -64,6 +64,25 @@ class AutoMixCanvasTest {
     }
 
     @Test
+    fun revealDrawUsesTheCurrentAudioSampleEvenWhenTheCollectorIsBehind() {
+        val window = AutoMixArtworkWindow(1.0, 3.0)
+        var sample = visual.copy(phase = AutoMixVisualPhase.MIXING, artworkWindow = window)
+        val tracks = AutoMixCanvasTracks(visual.generation, outgoing, incoming, null) { sample }
+        tracks.windowOpen = true
+        tracks.incomingClip = clip
+        tracks.reportIncoming(true)
+        assertTrue(tracks.sealIncoming())
+        tracks.progress = 0.25f
+        sample = sample.copy(audioSeconds = 2.0, artworkProgress = 0.5f)
+        assertEquals(AutoMixArtworkTuning.revealProgress(0.5f), tracks.standbyOpacity())
+
+        sample = sample.copy(phase = AutoMixVisualPhase.CANCELLED, artworkWindow = null, artworkProgress = 0f)
+        assertEquals(0f, tracks.standbyOpacity())
+        sample = visual.copy(generation = visual.generation + 1, artworkWindow = window, artworkProgress = 0.75f)
+        assertEquals(0f, tracks.standbyOpacity())
+    }
+
+    @Test
     fun readyIncomingTransfersWithoutReplacingItsClip() {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))

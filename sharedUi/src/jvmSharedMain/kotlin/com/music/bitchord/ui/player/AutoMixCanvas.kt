@@ -123,12 +123,12 @@ internal class AutoMixCanvasTracks(
     }
 
     fun reveal(): Float {
-        // Subscribe drawing and AndroidView updates even if the live feed has
-        // already crossed a boundary that its collector has not applied yet.
+        // Keep the snapshot read for draw/AndroidView invalidation. When drawing
+        // is already scheduled, don't paint the collector's older audio sample.
         val observed = progress
         val sample = visualSample()
         if (sample?.generation != generation || sample.artworkWindow == null) return 0f
-        return AutoMixArtworkTuning.revealProgress(observed)
+        return AutoMixArtworkTuning.revealProgress(maxOf(observed, sample.artworkProgress))
     }
 
     fun standbyOpacity(): Float = if (windowOpen && liveIncoming) reveal() else 0f

@@ -149,38 +149,24 @@ internal class AutoMixCoverState(
             }
             AutoMixVisualPhase.MIXING -> {
                 if (seenMix != visual.generation) {
-                    val outgoing = frozen?.takeIf { it.generation == visual.generation }?.frames?.base
-                        ?: promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
+                    // Choose once from pixels prepared before the overlap. Do not change
+                    // the layer stack if a decode finishes after this generation starts.
+                    seenMix = visual.generation
+                    val outgoing = promoted?.takeIf { it.first == visual.outgoing.identity }?.second?.base
                         ?: armedCover.takeIf { armedGeneration == visual.generation }
                         ?: miniOutgoing?.invoke(visual)
                         ?: (armedArt.takeIf { armedGeneration == visual.generation }
                             ?: currentArt.takeIf { visual.outgoing.identity == current })
                             ?.decodedCoverBefore(visual.generation)
                     val incoming = preparedIncoming(visual.generation)
-                    // The producer only publishes prepared pixels before the deadline. A
-                    // conflated first progress tick can consume those pixels, but a later
-                    // result cannot restart this generation once its choice has been made.
-                    if (outgoing != null && incoming != null && visual.artworkProgress < 1f) {
-                        frozen = PairFrames(
+                    frozen = if (outgoing != null && incoming != null && visual.artworkProgress < 1f) {
+                        PairFrames(
                             visual.generation, visual.outgoing.identity, visual.incoming.identity,
                             AutoMixCoverFrames(outgoing, incoming, visual.generation) { progress },
                         )
-                        seenMix = visual.generation
-                    } else if (!visual.canPrepareArtwork) {
-                        frozen = null
-                        seenMix = visual.generation
-                    } else if (outgoing != null && frozen?.generation != visual.generation) {
-                        // Metadata may arrive during the lag; hold the old pixels until the
-                        // prepared result arrives or the audio window says to fall back.
-                        frozen = PairFrames(
-                            visual.generation, visual.outgoing.identity, visual.incoming.identity,
-                            AutoMixCoverFrames(outgoing, generation = visual.generation),
-                        )
-                    }
-                    if (seenMix == visual.generation) {
-                        armedArt = null
-                        armedCover = null
-                    }
+                    } else null
+                    armedArt = null
+                    armedCover = null
                 }
                 if (visual.swapSeconds != null && visual.artworkWindow == null) frozen = null
                 val pair = frozen

@@ -9,11 +9,9 @@ import com.music.bitchord.playback.AutoMixVisualTrack
 import org.jetbrains.skia.Canvas
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 class AutoMixCoverTest {
     private val outgoing = QueueEntryIdentity("a", null, 0)
@@ -25,27 +23,29 @@ class AutoMixCoverTest {
     )
 
     @Test
-    fun decodeAdmissionIsBoundedByTheActualAudioWindow() {
-        assertTrue(visual.copy(phase = AutoMixVisualPhase.ARMED).canPrepareArtwork)
-        assertTrue(visual.canPrepareArtwork)
-        assertTrue(visual.copy(artworkWindow = null, swapSeconds = null).canPrepareArtwork)
-        assertFalse(visual.copy(artworkWindow = null).canPrepareArtwork)
-        assertFalse(visual.copy(audioSeconds = 1.0).canPrepareArtwork)
-        assertFalse(visual.copy(phase = AutoMixVisualPhase.CANCELLED).canPrepareArtwork)
-        assertFalse(visual.copy(phase = AutoMixVisualPhase.COMPLETED).canPrepareArtwork)
-    }
-
-    @Test
-    fun aPreparedThumbnailCanJoinAtTheCurrentClockWithoutReplaying() {
+    fun missingThumbnailAtOverlapUsesFallbackAndCannotJoinLater() {
         val base = cover()
-        val next = cover()
         var prepared: DecodedAutoMixCover? = null
         val state = AutoMixCoverState({ base }, { prepared })
         state.bind(incoming, null, visual)
         state.update(visual)
+        assertNull(state.framesFor(incoming))
+        prepared = cover()
+        state.update(visual.copy(audioSeconds = 0.75))
+        state.update(visual.copy(audioSeconds = 1.5, artworkProgress = 0.25f))
+        assertNull(state.framesFor(incoming))
+    }
+
+    @Test
+    fun preparedThumbnailFollowsTheClockAndPromotesOnCompletion() {
+        val base = cover()
+        val next = cover()
+        val state = AutoMixCoverState({ base }, { next })
+        state.bind(incoming, null, visual)
+        state.update(visual)
         assertSame(base, state.framesFor(incoming)?.base)
-        assertNull(state.framesFor(incoming)?.incoming)
-        prepared = next
+        assertSame(next, state.framesFor(incoming)?.incoming)
+        assertEquals(0f, state.framesFor(incoming)?.progress())
         state.update(visual.copy(audioSeconds = 1.5, artworkProgress = 0.25f))
         val frames = assertNotNull(state.framesFor(incoming))
         assertSame(next, frames.incoming)

@@ -54,6 +54,25 @@ data class RawMoreInfo(
 data class SaavnStream(val url: String, val kbps: Int?)
 
 /**
+ * Strict destination host and scheme verification for decrypted JioSaavn CDN media URLs.
+ * Prevents SSRF or malicious redirection via untrusted media endpoints.
+ */
+internal fun isValidSaavnCdnUrl(url: String): Boolean {
+    if (url.isBlank()) return false
+    return try {
+        val uri = java.net.URI(url)
+        val scheme = uri.scheme?.lowercase()
+        val host = uri.host?.lowercase()
+        if (scheme != "http" && scheme != "https") return false
+        if (host == null) return false
+        host == "saavncdn.com" || host.endsWith(".saavncdn.com") ||
+            host == "jiosaavn.com" || host.endsWith(".jiosaavn.com")
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/**
  * Select the highest JioSaavn CDN rendition without losing URL parameters.
  *
  * The encrypted URL normally names the 96 kbps file and the catalogue states
@@ -146,21 +165,6 @@ object JioSaavnService {
                 headers.append(HttpHeaders.Cookie, "explicit_content=1")
             }
             expectSuccess = false
-        }
-    }
-
-    internal fun isValidSaavnCdnUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-        return try {
-            val uri = java.net.URI(url)
-            val scheme = uri.scheme?.lowercase()
-            val host = uri.host?.lowercase()
-            if (scheme != "http" && scheme != "https") return false
-            if (host == null) return false
-            host == "saavncdn.com" || host.endsWith(".saavncdn.com") ||
-                host == "jiosaavn.com" || host.endsWith(".jiosaavn.com")
-        } catch (_: Exception) {
-            false
         }
     }
 

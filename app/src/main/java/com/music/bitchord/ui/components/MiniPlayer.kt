@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -60,6 +61,9 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
+import com.music.bitchord.ui.player.SongInfoTransition
+import com.music.bitchord.ui.player.SlidingSongInfo
+import com.music.bitchord.ui.player.songInfoNeighbour
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.PlayerSkipGlyph
 import com.music.bitchord.ui.player.PlayerSkipMotion
@@ -218,6 +222,10 @@ internal fun Modifier.miniPlayerGestures(
     /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
+    canStartSwipe: () -> Boolean = { true },
+    onSwipeStart: (() -> Boolean)? = null,
+    onSwipeDrag: (Float) -> Unit = {},
+    onSwipeEnd: (Int) -> Unit = {},
 ): Modifier {
     // Playback state updates can recompose the bar while a finger is down.
     // Keep the gesture coroutine alive through those updates while still
@@ -227,6 +235,10 @@ internal fun Modifier.miniPlayerGestures(
     val currentOnPrevious by rememberUpdatedState(onPrevious)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
+    val currentCanStartSwipe by rememberUpdatedState(canStartSwipe)
+    val currentSwipeStart by rememberUpdatedState(onSwipeStart)
+    val currentSwipeDrag by rememberUpdatedState(onSwipeDrag)
+    val currentSwipeEnd by rememberUpdatedState(onSwipeEnd)
     val scope = rememberCoroutineScope()
     // Read at draw only, in the layer below: a pull moves the bar without
     // recomposing it.
@@ -242,6 +254,7 @@ internal fun Modifier.miniPlayerGestures(
             // Up to the slop: which way this is heading, or nothing at all.
             var start: PointerInputChange? = null
             var vertical = false
+            var sliding = false
             while (start == null) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
                     ?: return@awaitEachGesture
@@ -255,6 +268,16 @@ internal fun Modifier.miniPlayerGestures(
                 // ends inside the bar still counts as its tap.
                 if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
                 if (vertical && currentPull == null) return@awaitEachGesture
+                if (!vertical) {
+                    if (!currentCanStartSwipe()) return@awaitEachGesture
+                    if (!currentLocked) {
+                        val begin = currentSwipeStart
+                        if (begin != null) {
+                            if (!begin()) return@awaitEachGesture
+                            sliding = true
+                        }
+                    }
+                }
                 change.consume()
                 start = change
             }
@@ -262,15 +285,24 @@ internal fun Modifier.miniPlayerGestures(
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
+                if (sliding) currentSwipeDrag(dragged)
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
+                    if (sliding) currentSwipeDrag(dragged)
                     change.consume()
                 }
-                if (!finished) return@awaitEachGesture
+                if (!finished) {
+                    if (sliding) currentSwipeEnd(0)
+                    return@awaitEachGesture
+                }
                 val crossed = dragged <= -trackThreshold || dragged >= trackThreshold
                 when {
-                    currentLocked -> if (crossed) currentOnBlocked()
+                    currentLocked -> {
+                        if (sliding) currentSwipeEnd(0)
+                        if (crossed) currentOnBlocked()
+                    }
+                    sliding -> currentSwipeEnd(if (dragged <= -trackThreshold) 1 else if (dragged >= trackThreshold) -1 else 0)
                     dragged <= -trackThreshold -> currentOnNext()
                     dragged >= trackThreshold -> currentOnPrevious()
                 }
@@ -369,7 +401,23 @@ fun MiniPlayer(
     /** False while the expanded player covers this bar. */
     animationsActive: Boolean = true,
     modifier: Modifier = Modifier,
+    queue: List<Song> = emptyList(),
+    queueIndex: Int = 0,
+    hasNext: Boolean = false,
+    currentPlaybackSong: () -> Song? = { null },
+    previousRestarts: () -> Boolean = { true },
+    liveNeighbour: (Boolean) -> Song? = { null },
+    infoTransition: SongInfoTransition? = null,
 ) {
+    val infoScope = rememberCoroutineScope()
+    val localInfoTransition = remember(infoScope) { SongInfoTransition(infoScope) }
+    val transition = infoTransition ?: localInfoTransition
+    SideEffect { transition.observe(song) }
+    DisposableEffect(transition, infoTransition) {
+        onDispose {
+            if (infoTransition == null) transition.clear() else transition.cancelUncommittedDrag()
+        }
+    }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
@@ -400,6 +448,29 @@ fun MiniPlayer(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                canStartSwipe = { !transition.isPendingSwipe },
+                // Without an origin occurrence ID, use the original instant swipe.
+                onSwipeStart = if (queue.isEmpty() || song.queueEntryId == null) null else {
+                    { transition.beginDrag(
+                        song,
+                        songInfoNeighbour(queue, queueIndex, next = true, available = hasNext),
+                        songInfoNeighbour(queue, queueIndex, next = false, available = !previousRestarts()),
+                    ) }
+                },
+                onSwipeDrag = transition::dragBy,
+                onSwipeEnd = { direction ->
+                    when (direction) {
+                        1 -> {
+                            haptics.play(Haptic.SkipNext)
+                            transition.finishDrag(true, currentPlaybackSong, { true }, { liveNeighbour(true) }, onNext)
+                        }
+                        -1 -> {
+                            haptics.play(Haptic.SkipPrevious)
+                            transition.finishDrag(false, currentPlaybackSong, { !previousRestarts() }, { liveNeighbour(false) }, onPrevious)
+                        }
+                        else -> transition.cancelDrag()
+                    }
+                },
             )
             .clip(shape)
             .then(
@@ -462,21 +533,23 @@ fun MiniPlayer(
                 }
             }
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                // The badge in the artist line's colour and a long line faded
-                // out at its end, as on the glass bar's mini player.
-                ExplicitSongTitle(
-                    song = song,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            SlidingSongInfo(song, transition, Modifier.weight(1f)) { displayedSong ->
+                Column {
+                    // The badge in the artist line's colour and a long line faded
+                    // out at its end, as on the glass bar's mini player.
+                    ExplicitSongTitle(
+                        song = displayedSong,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fadeOverflow = true,
+                    )
+                    FadingLine(
+                        text = displayedSong.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             if (isLoading) {
                 Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
@@ -512,6 +585,7 @@ fun MiniPlayer(
             // controls, so the bar keeps its shape — see [controlsLocked].
             IconButton(
                 onClick = {
+                    if (transition.isPendingSwipe) return@IconButton
                     haptics.play(Haptic.SkipNext)
                     nextMotion.onTap()
                     onNext()

@@ -119,6 +119,7 @@ fun GlassNavBar(
     modifier: Modifier = Modifier,
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
+    canStartSwipe: () -> Boolean = { true },
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -170,6 +171,7 @@ fun GlassNavBar(
                     onExpand = onExpand,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
+                    canStartSwipe = canStartSwipe,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.then(glassSurface()),
@@ -191,6 +193,7 @@ fun GlassNavBar(
                     onExpand = onExpand,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
+                    canStartSwipe = canStartSwipe,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
@@ -312,6 +315,7 @@ private fun GlassNowPlaying(
     onExpand: () -> Unit,
     controlsLocked: Boolean,
     onBlockedControl: () -> Unit,
+    canStartSwipe: () -> Boolean,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
     modifier: Modifier = Modifier,
@@ -371,6 +375,7 @@ private fun GlassNowPlaying(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                canStartSwipe = canStartSwipe,
             )
             .graphicsLayer {
                 scaleX = pressScale
@@ -487,6 +492,7 @@ private fun GlassNowPlaying(
                 Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = {
+                        if (!canStartSwipe()) return@IconButton
                         haptics.play(Haptic.SkipNext)
                         nextMotion.onTap()
                         onNext()

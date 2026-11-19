@@ -315,6 +315,7 @@ import com.music.bitchord.data.model.TopPick
 import com.music.bitchord.data.model.TopPickKind
 import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.ui.screens.MoodGridPage
+import com.music.bitchord.ui.player.SongInfoTransition
 import com.music.bitchord.ui.player.NowPlayingScreen
 import com.music.bitchord.ui.player.QueueBulkAction
 import kotlinx.coroutines.CompletableDeferred
@@ -1117,6 +1118,11 @@ private fun BitChordApp(
     }
     val controller = rememberMediaController()
     val player = rememberPlayerState(controller)
+    // The normal mini-player can leave composition when the glass bar replaces it.
+    val miniInfoScope = rememberCoroutineScope()
+    val miniInfoTransition = remember(miniInfoScope) { SongInfoTransition(miniInfoScope) }
+    androidx.compose.runtime.SideEffect { player.song?.let(miniInfoTransition::observe) }
+    DisposableEffect(miniInfoTransition) { onDispose { miniInfoTransition.clear() } }
     val queueUndo by QueueScreenUndo.notice.collectAsStateWithLifecycle()
     // A music video's picture follows this controller's clock — see [MusicVideoEngine].
     DisposableEffect(controller) {
@@ -4351,8 +4357,8 @@ private fun BitChordApp(
                         onPlayPause = {
                             togglePlayPause()
                         },
-                        onNext = { controller?.seekToNextMediaItem() },
-                        onPrevious = { controller?.seekToPrevious() },
+                        onNext = { if (!miniInfoTransition.isPendingSwipe) controller?.seekToNextMediaItem() },
+                        onPrevious = { if (!miniInfoTransition.isPendingSwipe) controller?.seekToPrevious() },
                         onExpand = if (reducePlayerMotion) {
                             { showNowPlaying = true }
                         } else {
@@ -4364,6 +4370,7 @@ private fun BitChordApp(
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
                         onActiveTabTap = onActiveTabTap,
+                        canStartSwipe = { !miniInfoTransition.isPendingSwipe },
                     )
                 } else Column(
                     modifier = Modifier
@@ -4383,6 +4390,22 @@ private fun BitChordApp(
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
+                            infoTransition = miniInfoTransition,
+                            queue = player.queue,
+                            queueIndex = player.queueIndex,
+                            hasNext = player.hasNext,
+                            currentPlaybackSong = { controller?.currentMediaItem?.toSong() },
+                            liveNeighbour = { next ->
+                                controller?.let { player ->
+                                    val index = if (next) player.nextMediaItemIndex else player.previousMediaItemIndex
+                                    if (index in 0 until player.mediaItemCount) player.getMediaItemAt(index).toSong() else null
+                                }
+                            },
+                            previousRestarts = {
+                                controller?.let {
+                                    it.currentPosition > it.maxSeekToPreviousPosition || !it.hasPreviousMediaItem()
+                                } ?: true
+                            },
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             animationsActive = !showNowPlaying,

@@ -1,8 +1,10 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.ui.geometry.Rect
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.QueueEntryIdentity
+import com.music.bitchord.playback.AutoMixArtworkTuning
+import com.music.bitchord.playback.AutoMixArtworkWindow
+import com.music.bitchord.playback.AutoMixVisualPhase
 import com.music.bitchord.playback.AutoMixVisualState
 import com.music.bitchord.playback.AutoMixVisualTrack
 import kotlin.test.Test
@@ -46,7 +48,7 @@ class AutoMixCanvasTest {
 
     @Test
     fun spatialAndOpacityStandbyShareTheSameClockAndGeneration() {
-        val tracks = AutoMixCanvasTracks(42L, outgoing, incoming, null)
+        val tracks = AutoMixCanvasTracks(42L, outgoing, incoming, null) { visual.copy(generation = 42L) }
         val spatial = tracks.standbyReveal(allowSpatialMask = true)
         val fallback = tracks.standbyReveal(allowSpatialMask = false)
         assertEquals(42L, spatial.generation)
@@ -66,7 +68,7 @@ class AutoMixCanvasTest {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))
         tracks.incomingClip = clip
-        tracks.reportIncoming(true)
+        tracks.incomingReady = true
         assertTrue(tracks.sealIncoming())
         owner.finish(tracks)
         assertNull(owner.visual)
@@ -76,7 +78,7 @@ class AutoMixCanvasTest {
 
     @Test
     fun frameAfterDeadlineCannotRejoinTheDissolve() {
-        val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, null)
+        val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, null) { visual }
         tracks.incomingClip = clip
         assertFalse(tracks.sealIncoming())
         tracks.reportIncoming(true)
@@ -85,8 +87,34 @@ class AutoMixCanvasTest {
     }
 
     @Test
+    fun frameAfterAudioDeadlineCannotWinBeforeTheCollectorSealsTheChoice() {
+        val window = AutoMixArtworkWindow(1.0, 3.0)
+        val missed = visual.copy(
+            phase = AutoMixVisualPhase.MIXING,
+            swapSeconds = 0.5,
+            artworkWindow = window,
+            audioSeconds = window.startSeconds - AutoMixArtworkTuning.CANVAS_READY_MARGIN_SECONDS,
+        )
+        val tracks = AutoMixCanvasTracks(visual.generation, outgoing, incoming, null) { missed }
+        tracks.incomingClip = clip
+        tracks.reportIncoming(true)
+        assertFalse(tracks.sealIncoming())
+        assertFalse(tracks.liveIncoming)
+
+        var sample = missed.copy(generation = visual.generation + 1L, audioSeconds = 0.5)
+        val onTime = AutoMixCanvasTracks(visual.generation, outgoing, incoming, null) { sample }
+        onTime.incomingClip = clip
+        onTime.reportIncoming(true)
+        assertFalse(onTime.incomingReady)
+        sample = missed.copy(audioSeconds = missed.audioSeconds - 0.001)
+        onTime.reportIncoming(true)
+        assertTrue(onTime.sealIncoming())
+        assertTrue(onTime.liveIncoming)
+    }
+
+    @Test
     fun acceptedClipThatLosesItsSurfaceFallsBackForTheRestOfTheMix() {
-        val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, null)
+        val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, null) { visual }
         tracks.incomingClip = clip
         tracks.reportIncoming(true)
         assertTrue(tracks.sealIncoming())
@@ -111,7 +139,7 @@ class AutoMixCanvasTest {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))
         tracks.incomingClip = clip
-        tracks.reportIncoming(true)
+        tracks.incomingReady = true
         assertTrue(tracks.sealIncoming())
         owner.finish(tracks)
         owner.displayed(outgoing, null, false)

@@ -241,7 +241,7 @@ fun rememberMiniAutoMixArtwork(
     LaunchedEffect(feed, cover) { feed?.collect { cover.update(it) } }
 
     return { model, modifier ->
-        AutoMixCover(cover.framesFor(occurrence), modifier) { artworkModifier ->
+        AutoMixCover(cover.framesFor(occurrence), modifier, blur = false) { artworkModifier ->
             AsyncImage(
                 model = model,
                 contentDescription = null,
@@ -269,7 +269,7 @@ internal class AutoMixCoverFrames(
 internal fun AutoMixCover(
     frames: AutoMixCoverFrames?,
     modifier: Modifier,
-    polish: Boolean = false,
+    blur: Boolean,
     fallback: @Composable (Modifier) -> Unit,
 ) {
     if (frames == null) {
@@ -284,7 +284,7 @@ internal fun AutoMixCover(
         } else {
             val eased = { AutoMixArtworkTuning.revealProgress(frames.progress()) }
             DecodedCover(base, Modifier.fillMaxSize())
-            AutoMixIncomingStill(incoming, eased, frames.generation, polish)
+            AutoMixIncomingStill(incoming, eased, frames.generation, blur = blur)
         }
     }
 }
@@ -296,11 +296,12 @@ internal fun AutoMixIncomingStill(
     eased: () -> Float,
     generation: Long,
     polish: Boolean = true,
+    blur: Boolean = true,
 ) {
     val appReduced = PlayerSettings.reduceAnimation.collectAsState()
     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
     val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
-    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion, generation)
+    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion, generation, blur)
     else Modifier.graphicsLayer { alpha = eased() }
     DecodedCover(result, Modifier.fillMaxSize().then(reveal))
 }
@@ -314,7 +315,7 @@ internal fun DecodedCover(result: DecodedAutoMixCover, modifier: Modifier) {
 
 @Composable
 internal fun AutoMixPlayerCover(art: PlayerArtwork, frames: AutoMixCoverFrames?, modifier: Modifier) {
-    AutoMixCover(frames, modifier, polish = true) { artworkModifier ->
+    AutoMixCover(frames, modifier, blur = true) { artworkModifier ->
         AsyncImage(
             model = art.request,
             contentDescription = null,

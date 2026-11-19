@@ -44,10 +44,14 @@ interface PlayerHost {
     /** Visual-only seek intent, before the scrubber dispatches its transport command. */
     fun onAutoMixScrubIntent() = Unit
 
-    /** Incoming layer only. Non-Android hosts use the same eased alpha as the mini player. */
+    /** Incoming layer only. [blur] is off for thumbnails, independently of the reveal. */
     @Composable
-    fun autoMixIncomingReveal(eased: () -> Float, reducedMotion: () -> Boolean, generation: Long): Modifier =
-        Modifier.graphicsLayer { alpha = eased() }
+    fun autoMixIncomingReveal(
+        eased: () -> Float,
+        reducedMotion: () -> Boolean,
+        generation: Long,
+        blur: Boolean,
+    ): Modifier = Modifier.graphicsLayer { alpha = eased() }
 
     val supportsAutoMixCanvas: Boolean get() = false
 

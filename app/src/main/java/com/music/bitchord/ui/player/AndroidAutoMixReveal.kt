@@ -32,15 +32,19 @@ internal fun androidAutoMixIncomingReveal(
     eased: () -> Float,
     reducedMotion: () -> Boolean,
     generation: Long,
+    blurEnabled: Boolean,
 ): Modifier {
     val plain = Modifier.graphicsLayer { alpha = eased() }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || revealFailed || reducedMotion()) return plain
 
-    val density = LocalDensity.current.density
-    val blur = remember(density) {
-        cachedBlur?.takeIf { it.density == density } ?: BlurSteps(density).also { cachedBlur = it }
-    }
+    val blur = if (blurEnabled) {
+        val density = LocalDensity.current.density
+        remember(density) {
+            cachedBlur?.takeIf { it.density == density } ?: BlurSteps(density).also { cachedBlur = it }
+        }
+    } else null
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        if (blur == null) return plain
         return Modifier.graphicsLayer {
             val e = eased()
             alpha = e
@@ -48,7 +52,9 @@ internal fun androidAutoMixIncomingReveal(
         }
     }
     val mask = remember(generation) { createMask(generation) } ?: return plain
-    return mask.modifier(eased, reducedMotion).graphicsLayer {
+    val reveal = mask.modifier(eased, reducedMotion)
+    if (blur == null) return reveal
+    return reveal.graphicsLayer {
         renderEffect = if (reducedMotion() || revealFailed) null else blur.at(eased())
     }
 }

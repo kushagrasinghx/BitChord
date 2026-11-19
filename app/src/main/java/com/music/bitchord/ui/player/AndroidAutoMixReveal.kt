@@ -127,7 +127,13 @@ private val ORGANIC_MASK_FIELD = """
     uniform float2 seedOffset;
 
     float hashCell(float2 cell) {
-        return fract(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
+        // Adjacent cells must agree on their shared corners. On Adreno the
+        // amplified sine hash produced discontinuities at those lattice lines.
+        // Mix the small integer-valued cell coordinates in a bounded range.
+        float n = mod(cell.x * 127.0 + cell.y * 197.0, 251.0);
+        n = mod(n * (n + 73.0) + cell.x * 97.0 + cell.y * 53.0, 251.0);
+        n = mod(n * (n + 37.0) + cell.x * 31.0 + cell.y * 109.0, 251.0);
+        return n / 251.0;
     }
 
     float valueNoise(float2 point) {

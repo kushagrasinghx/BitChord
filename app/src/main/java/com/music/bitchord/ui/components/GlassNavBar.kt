@@ -15,6 +15,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,6 +40,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -66,6 +69,9 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConne
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
+import com.music.bitchord.ui.player.SongInfoTransition
+import com.music.bitchord.ui.player.SlidingSongInfo
+import com.music.bitchord.ui.player.songInfoNeighbour
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.rememberPlayerSkipMotion
 import com.music.bitchord.ui.player.PlayerPlayPauseGlyph
@@ -120,6 +126,13 @@ fun GlassNavBar(
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
     canStartSwipe: () -> Boolean = { true },
+    infoTransition: SongInfoTransition? = null,
+    queue: List<Song> = emptyList(),
+    queueIndex: Int = 0,
+    hasNext: Boolean = false,
+    currentPlaybackSong: () -> Song? = { null },
+    previousRestarts: () -> Boolean = { true },
+    liveNeighbour: (Boolean) -> Song? = { null },
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -129,6 +142,23 @@ fun GlassNavBar(
     val selectedColor = contentColor
     val unselectedColor = contentColor.copy(alpha = 0.65f)
     val haptics = rememberHaptics()
+    DisposableEffect(infoTransition) {
+        onDispose { infoTransition?.cancelUncommittedDrag() }
+    }
+    val fold = updateTransition(scrollConnection.isInline, label = "barFold")
+    val foldRunning = fold.isRunning || fold.currentState != fold.targetState ||
+        fold.currentState != scrollConnection.isInline
+    val foldEpoch = remember { intArrayOf(0) }
+    val foldWasRunning = remember { booleanArrayOf(false) }
+    val lastFoldTarget = remember { booleanArrayOf(scrollConnection.isInline) }
+    SideEffect {
+        if (foldRunning && (!foldWasRunning[0] || lastFoldTarget[0] != scrollConnection.isInline)) {
+            foldEpoch[0]++
+            infoTransition?.cancelUncommittedDrag()
+        }
+        foldWasRunning[0] = foldRunning
+        lastFoldTarget[0] = scrollConnection.isInline
+    }
 
     // The tab content lambdas below are captured once per contentKey and held
     // until it changes, so a click handler that reached back to this call's
@@ -150,6 +180,7 @@ fun GlassNavBar(
     FloatingTabBar(
         selectedTabKey = selectedIndex,
         scrollConnection = scrollConnection,
+        foldTransition = fold,
         modifier = modifier
             .windowInsetsPadding(floatingBarInsets)
             .padding(horizontal = NAV_BAR_GUTTER)
@@ -172,6 +203,16 @@ fun GlassNavBar(
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
                     canStartSwipe = canStartSwipe,
+                    foldRunning = foldRunning,
+                    foldTarget = scrollConnection.isInline == true,
+                    swipeEpoch = { foldEpoch[0] * 2 + if (scrollConnection.isInline) 1 else 0 },
+                    infoTransition = infoTransition,
+                    queue = queue,
+                    queueIndex = queueIndex,
+                    hasNext = hasNext,
+                    currentPlaybackSong = currentPlaybackSong,
+                    previousRestarts = previousRestarts,
+                    liveNeighbour = liveNeighbour,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.then(glassSurface()),
@@ -194,6 +235,16 @@ fun GlassNavBar(
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
                     canStartSwipe = canStartSwipe,
+                    foldRunning = foldRunning,
+                    foldTarget = scrollConnection.isInline == false,
+                    swipeEpoch = { foldEpoch[0] * 2 + if (scrollConnection.isInline) 1 else 0 },
+                    infoTransition = infoTransition,
+                    queue = queue,
+                    queueIndex = queueIndex,
+                    hasNext = hasNext,
+                    currentPlaybackSong = currentPlaybackSong,
+                    previousRestarts = previousRestarts,
+                    liveNeighbour = liveNeighbour,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
@@ -316,6 +367,16 @@ private fun GlassNowPlaying(
     controlsLocked: Boolean,
     onBlockedControl: () -> Unit,
     canStartSwipe: () -> Boolean,
+    foldRunning: Boolean,
+    foldTarget: Boolean,
+    swipeEpoch: () -> Int,
+    infoTransition: SongInfoTransition?,
+    queue: List<Song>,
+    queueIndex: Int,
+    hasNext: Boolean,
+    currentPlaybackSong: () -> Song?,
+    previousRestarts: () -> Boolean,
+    liveNeighbour: (Boolean) -> Song?,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
     modifier: Modifier = Modifier,
@@ -376,6 +437,26 @@ private fun GlassNowPlaying(
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
                 canStartSwipe = canStartSwipe,
+                swipeEpoch = swipeEpoch,
+                onSwipeStart = if (foldRunning || !foldTarget || infoTransition == null ||
+                    song.queueEntryId == null || queue.isEmpty()) null else {
+                    { infoTransition.beginDrag(
+                        song,
+                        songInfoNeighbour(queue, queueIndex, true, hasNext),
+                        songInfoNeighbour(queue, queueIndex, false, !previousRestarts()),
+                    ) }
+                },
+                onSwipeDrag = { infoTransition?.dragBy(it) },
+                onSwipeEnd = { direction ->
+                    if (direction == 0) infoTransition?.cancelDrag()
+                    else if (direction > 0) {
+                        haptics.play(Haptic.SkipNext)
+                        infoTransition?.finishDrag(true, currentPlaybackSong, { true }, { liveNeighbour(true) }, onNext)
+                    } else {
+                        haptics.play(Haptic.SkipPrevious)
+                        infoTransition?.finishDrag(false, currentPlaybackSong, { !previousRestarts() }, { liveNeighbour(false) }, onPrevious)
+                    }
+                },
             )
             .graphicsLayer {
                 scaleX = pressScale
@@ -440,20 +521,27 @@ private fun GlassNowPlaying(
             // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
             // row shares its width with the tab pill and the Search circle, so
             // a long line fades out at its end, as Apple's does.
-            Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
-                )
+            val infoContent: @Composable (Song) -> Unit = { displayedSong ->
+                Column {
+                    val secondary = contentColor.copy(alpha = 0.7f)
+                    ExplicitSongTitle(
+                        song = displayedSong,
+                        style = titleStyle,
+                        color = contentColor,
+                        badgeColor = secondary,
+                        fadeOverflow = true,
+                    )
+                    FadingLine(
+                        text = displayedSong.artist,
+                        style = artistStyle,
+                        color = secondary,
+                    )
+                }
+            }
+            if (foldTarget && infoTransition != null) {
+                SlidingSongInfo(song, infoTransition, Modifier.weight(1f), infoContent)
+            } else {
+                Box(Modifier.weight(1f)) { infoContent(song) }
             }
             if (isLoading) {
                 Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {

@@ -223,6 +223,7 @@ internal fun Modifier.miniPlayerGestures(
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
     canStartSwipe: () -> Boolean = { true },
+    swipeEpoch: () -> Int = { 0 },
     onSwipeStart: (() -> Boolean)? = null,
     onSwipeDrag: (Float) -> Unit = {},
     onSwipeEnd: (Int) -> Unit = {},
@@ -236,6 +237,7 @@ internal fun Modifier.miniPlayerGestures(
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
     val currentCanStartSwipe by rememberUpdatedState(canStartSwipe)
+    val currentSwipeEpoch by rememberUpdatedState(swipeEpoch)
     val currentSwipeStart by rememberUpdatedState(onSwipeStart)
     val currentSwipeDrag by rememberUpdatedState(onSwipeDrag)
     val currentSwipeEnd by rememberUpdatedState(onSwipeEnd)
@@ -255,6 +257,7 @@ internal fun Modifier.miniPlayerGestures(
             var start: PointerInputChange? = null
             var vertical = false
             var sliding = false
+            var gestureEpoch = 0
             while (start == null) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
                     ?: return@awaitEachGesture
@@ -270,6 +273,7 @@ internal fun Modifier.miniPlayerGestures(
                 if (vertical && currentPull == null) return@awaitEachGesture
                 if (!vertical) {
                     if (!currentCanStartSwipe()) return@awaitEachGesture
+                    gestureEpoch = currentSwipeEpoch()
                     if (!currentLocked) {
                         val begin = currentSwipeStart
                         if (begin != null) {
@@ -285,24 +289,26 @@ internal fun Modifier.miniPlayerGestures(
 
             if (!vertical) {
                 var dragged = slopped.position.x - down.position.x
-                if (sliding) currentSwipeDrag(dragged)
+                if (sliding && gestureEpoch == currentSwipeEpoch()) currentSwipeDrag(dragged)
                 // Read before consuming: a consumed change reports no movement.
                 val finished = drag(pointer) { change ->
                     dragged += change.positionChange().x
-                    if (sliding) currentSwipeDrag(dragged)
+                    if (sliding && gestureEpoch == currentSwipeEpoch()) currentSwipeDrag(dragged)
                     change.consume()
                 }
                 if (!finished) {
-                    if (sliding) currentSwipeEnd(0)
+                    if (sliding && gestureEpoch == currentSwipeEpoch()) currentSwipeEnd(0)
                     return@awaitEachGesture
                 }
+                if (gestureEpoch != currentSwipeEpoch()) return@awaitEachGesture
                 val crossed = dragged <= -trackThreshold || dragged >= trackThreshold
                 when {
                     currentLocked -> {
-                        if (sliding) currentSwipeEnd(0)
+                        if (sliding && gestureEpoch == currentSwipeEpoch()) currentSwipeEnd(0)
                         if (crossed) currentOnBlocked()
                     }
-                    sliding -> currentSwipeEnd(if (dragged <= -trackThreshold) 1 else if (dragged >= trackThreshold) -1 else 0)
+                    sliding && gestureEpoch == currentSwipeEpoch() -> currentSwipeEnd(if (dragged <= -trackThreshold) 1 else if (dragged >= trackThreshold) -1 else 0)
+                    sliding -> Unit // The fold invalidated this drag.
                     dragged <= -trackThreshold -> currentOnNext()
                     dragged >= trackThreshold -> currentOnPrevious()
                 }

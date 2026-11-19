@@ -4371,6 +4371,22 @@ private fun BitChordApp(
                         modifier = Modifier.fillMaxWidth(),
                         onActiveTabTap = onActiveTabTap,
                         canStartSwipe = { !miniInfoTransition.isPendingSwipe },
+                        infoTransition = miniInfoTransition,
+                        queue = player.queue,
+                        queueIndex = player.queueIndex,
+                        hasNext = player.hasNext,
+                        currentPlaybackSong = { controller?.currentMediaItem?.toSong() },
+                        previousRestarts = {
+                            controller?.let {
+                                it.currentPosition > it.maxSeekToPreviousPosition || !it.hasPreviousMediaItem()
+                            } ?: true
+                        },
+                        liveNeighbour = { next ->
+                            controller?.let { player ->
+                                val index = if (next) player.nextMediaItemIndex else player.previousMediaItemIndex
+                                if (index in 0 until player.mediaItemCount) player.getMediaItemAt(index).toSong() else null
+                            }
+                        },
                     )
                 } else Column(
                     modifier = Modifier

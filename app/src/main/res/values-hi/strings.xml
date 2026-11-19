@@ -285,6 +285,11 @@
     <string name="copy_log">लॉग कॉपी करें</string>
     <string name="couldnt_find">%1$s नहीं मिला</string>
     <string name="couldnt_open_link">वह लिंक नहीं खोला जा सका</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">%d गाना खोजा जा रहा है…</item>
+        <item quantity="other">%d गाने खोजे जा रहे हैं…</item>
+    </plurals>
+    <string name="queue_link_partial">%2$d में से %1$d गाने कतार में जोड़े गए</string>
     <string name="create_playlist">प्लेलिस्ट बनाएं</string>
     <string name="customize_card">कार्ड कस्टमाइज़ करें</string>
     <string name="customize_card_subtitle">स्टेटस, शब्द और दोनों बटन</string>

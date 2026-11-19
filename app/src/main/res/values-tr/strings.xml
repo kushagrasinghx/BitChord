@@ -310,6 +310,11 @@
     <string name="copy_log">Günlüğü kopyala</string>
     <string name="couldnt_find">%1$s bulunamadı</string>
     <string name="couldnt_open_link">Bu bağlantı açılamadı</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">%d şarkı aranıyor…</item>
+        <item quantity="other">%d şarkı aranıyor…</item>
+    </plurals>
+    <string name="queue_link_partial">%2$d şarkıdan %1$d tanesi kuyruğa eklendi</string>
     <string name="create_playlist">Çalma listesi oluştur</string>
     <string name="customize_card">Kartı özelleştir</string>
     <string name="customize_card_subtitle">Durum, metin ve her iki düğme</string>

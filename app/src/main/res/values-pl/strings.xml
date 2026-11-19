@@ -283,6 +283,13 @@
     <string name="copy_log">Kopiuj log</string>
     <string name="couldnt_find">Nie znaleziono %1$s</string>
     <string name="couldnt_open_link">Nie udało się otworzyć tego linku</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Szukam %d utworu…</item>
+        <item quantity="few">Szukam %d utworów…</item>
+        <item quantity="many">Szukam %d utworów…</item>
+        <item quantity="other">Szukam %d utworu…</item>
+    </plurals>
+    <string name="queue_link_partial">Dodano do kolejki %1$d z %2$d utworów</string>
     <string name="create_playlist">Utwórz playlistę</string>
     <string name="customize_card">Dostosuj kartę</string>
     <string name="customize_card_subtitle">Status, treść i oba przyciski</string>

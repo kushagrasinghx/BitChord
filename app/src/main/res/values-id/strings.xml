@@ -280,6 +280,10 @@
     <string name="copy_log">Salin log</string>
     <string name="couldnt_find">Tidak dapat menemukan %1$s</string>
     <string name="couldnt_open_link">Tidak dapat membuka tautan itu</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">Mencari %d lagu…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d dari %2$d lagu masuk antrean</string>
     <string name="create_playlist">Buat playlist</string>
     <string name="customize_card">Sesuaikan kartu</string>
     <string name="customize_card_subtitle">Status, teks, dan kedua tombol</string>

@@ -298,6 +298,12 @@
     <string name="copy_log">Copiar registro</string>
     <string name="couldnt_find">No se encontró %1$s</string>
     <string name="couldnt_open_link">No se pudo abrir ese enlace</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Buscando %d canción…</item>
+        <item quantity="many">Buscando %d canciones…</item>
+        <item quantity="other">Buscando %d canciones…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d de %2$d canciones en cola</string>
     <string name="create_playlist">Crear playlist</string>
     <string name="customize_card">Personalizar la tarjeta</string>
     <string name="customize_card_subtitle">Estado, textos y ambos botones</string>

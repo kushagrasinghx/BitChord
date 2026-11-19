@@ -286,6 +286,12 @@
     <string name="copy_log">Copier le journal</string>
     <string name="couldnt_find">Impossible de trouver %1$s</string>
     <string name="couldnt_open_link">Impossible d\'ouvrir ce lien</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Recherche de %d titre…</item>
+        <item quantity="many">Recherche de %d titres…</item>
+        <item quantity="other">Recherche de %d titres…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d titres sur %2$d ajoutés à la file</string>
     <string name="create_playlist">Créer une playlist</string>
     <string name="customize_card">Personnaliser la carte</string>
     <string name="customize_card_subtitle">Statut, texte et les deux boutons</string>

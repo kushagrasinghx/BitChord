@@ -286,6 +286,12 @@
     <string name="copy_log">העתק יומן</string>
     <string name="couldnt_find">לא מצאנו את %1$s</string>
     <string name="couldnt_open_link">לא ניתן לפתוח קישור זה</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">מחפש שיר %d…</item>
+        <item quantity="two">מחפש %d שירים…</item>
+        <item quantity="other">מחפש %d שירים…</item>
+    </plurals>
+    <string name="queue_link_partial">נוספו לתור %1$d מתוך %2$d שירים</string>
     <string name="create_playlist">צור רשימת השמעה</string>
     <string name="customize_card">התאם אישית כרטיס</string>
     <string name="customize_card_subtitle">סטטוס, ניסוח ושני הכפתורים</string>

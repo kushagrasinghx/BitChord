@@ -328,6 +328,12 @@
     <string name="copy_log">Copia log</string>
     <string name="couldnt_find">Impossibile trovare %1$s</string>
     <string name="couldnt_open_link">Impossibile aprire quel link</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Ricerca di %d brano…</item>
+        <item quantity="many">Ricerca di %d brani…</item>
+        <item quantity="other">Ricerca di %d brani…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d brani su %2$d in coda</string>
     <string name="create_playlist">Crea playlist</string>
     <string name="customize_card">Personalizza la scheda</string>
     <string name="customize_card_subtitle">Stato, testo ed entrambi i pulsanti</string>

@@ -285,6 +285,11 @@
     <string name="copy_log">Protokoll kopieren</string>
     <string name="couldnt_find">%1$s konnte nicht gefunden werden</string>
     <string name="couldnt_open_link">Dieser Link konnte nicht geöffnet werden</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Suche %d Song…</item>
+        <item quantity="other">Suche %d Songs…</item>
+    </plurals>
+    <string name="queue_link_partial">%1$d von %2$d Songs eingereiht</string>
     <string name="create_playlist">Playlist erstellen</string>
     <string name="customize_card">Karte anpassen</string>
     <string name="customize_card_subtitle">Status, Text und beide Schaltflächen</string>

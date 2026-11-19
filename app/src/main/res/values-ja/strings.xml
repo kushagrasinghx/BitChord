@@ -280,6 +280,10 @@
     <string name="copy_log">ログをコピー</string>
     <string name="couldnt_find">%1$sが見つかりませんでした</string>
     <string name="couldnt_open_link">リンクを開けませんでした</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">%d 曲を検索中…</item>
+    </plurals>
+    <string name="queue_link_partial">%2$d 曲中 %1$d 曲をキューに追加しました</string>
     <string name="create_playlist">プレイリストを作成</string>
     <string name="customize_card">カードをカスタマイズ</string>
     <string name="customize_card_subtitle">ステータス、文言、両方のボタン</string>

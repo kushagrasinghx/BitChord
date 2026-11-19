@@ -295,6 +295,13 @@
     <string name="copy_log">Скопировать журнал</string>
     <string name="couldnt_find">Не удалось найти %1$s</string>
     <string name="couldnt_open_link">Не удалось открыть эту ссылку</string>
+    <plurals name="queue_link_finding">
+        <item quantity="one">Ищу %d трек…</item>
+        <item quantity="few">Ищу %d трека…</item>
+        <item quantity="many">Ищу %d треков…</item>
+        <item quantity="other">Ищу %d трека…</item>
+    </plurals>
+    <string name="queue_link_partial">В очередь добавлено %1$d из %2$d треков</string>
     <string name="create_playlist">Создать плейлист</string>
     <string name="customize_card">Настроить карточку</string>
     <string name="customize_card_subtitle">Статус, текст и обе кнопки</string>

@@ -324,6 +324,10 @@
     <string name="copy_log">Sao chép nhật ký</string>
     <string name="couldnt_find">Không thể tìm thấy %1$s</string>
     <string name="couldnt_open_link">Không thể mở liên kết đó</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">Đang tìm %d bài hát…</item>
+    </plurals>
+    <string name="queue_link_partial">Đã thêm %1$d trên %2$d bài hát vào hàng chờ</string>
     <string name="create_playlist">Tạo danh sách phát</string>
     <string name="customize_card">Tùy chỉnh thẻ</string>
     <string name="customize_card_subtitle">Trạng thái, câu từ và cả hai nút</string>

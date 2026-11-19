@@ -440,6 +440,10 @@
     <string name="copy_log">로그 복사</string>
     <string name="couldnt_find">%1$s 찾을 수 없음</string>
     <string name="couldnt_open_link">링크를 열 수 없음</string>
+    <plurals name="queue_link_finding">
+        <item quantity="other">%d곡 찾는 중…</item>
+    </plurals>
+    <string name="queue_link_partial">%2$d곡 중 %1$d곡을 대기열에 추가했습니다</string>
     <string name="create_playlist">재생목록 생성</string>
     <string name="customize_card">카드 맞춤 설정</string>
     <string name="customize_card_subtitle">상태, 단어, 버튼 2개 설정</string>

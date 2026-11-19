@@ -1039,6 +1039,8 @@
     <string name="export_compatible_downloads">호환되는 다운로드 내보내기</string>
     <string name="sync_downloaded_playlists">재생목록 최신 상태로 유지</string>
     <string name="sync_downloaded_playlists_subtitle">하루 두 번 확인하여 다운로드한 재생목록에 새로 추가된 노래를 다운로드합니다</string>
+    <string name="download_liked_songs">좋아요 표시한 곡 다운로드</string>
+    <string name="download_liked_songs_subtitle">좋아요 표시한 음악과 앞으로 좋아요 표시하는 모든 곡을 다운로드합니다</string>
     <string name="playlist_sync_ask_title">%1$s의 새 노래: %2$d</string>
     <string name="playlist_sync_ask_text">탭하여 다운로드</string>
     <string name="playlist_sync_done_title">%1$s에 추가됨: %2$d</string>

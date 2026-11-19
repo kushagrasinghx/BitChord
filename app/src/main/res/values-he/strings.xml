@@ -882,6 +882,8 @@
     <string name="export_compatible_downloads">ייצא הורדות תואמות</string>
     <string name="sync_downloaded_playlists">שמירה על רשימות השמעה מעודכנות</string>
     <string name="sync_downloaded_playlists_subtitle">בדיקה פעמיים ביום והורדה של שירים חדשים ברשימות ההשמעה שהורדת</string>
+    <string name="download_liked_songs">הורדת שירים שאהבת</string>
+    <string name="download_liked_songs_subtitle">מוריד את המוזיקה שאהבת וכל שיר שתאהב מעכשיו</string>
     <string name="playlist_sync_ask_title">שירים חדשים ב-%1$s: %2$d</string>
     <string name="playlist_sync_ask_text">יש להקיש כדי להוריד</string>
     <string name="playlist_sync_done_title">נוספו אל %1$s: %2$d</string>

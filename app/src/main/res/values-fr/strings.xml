@@ -874,6 +874,8 @@
     <string name="export_compatible_downloads">Exporter les téléchargements compatibles</string>
     <string name="sync_downloaded_playlists">Garder les playlists à jour</string>
     <string name="sync_downloaded_playlists_subtitle">Vérifie deux fois par jour et télécharge les titres ajoutés à vos playlists téléchargées</string>
+    <string name="download_liked_songs">Télécharger les titres likés</string>
+    <string name="download_liked_songs_subtitle">Télécharge tes titres likés et chaque titre que tu likeras désormais</string>
     <string name="playlist_sync_ask_title">Nouveaux titres dans %1$s : %2$d</string>
     <string name="playlist_sync_ask_text">Appuyez pour télécharger</string>
     <string name="playlist_sync_done_title">Ajoutés à %1$s : %2$d</string>

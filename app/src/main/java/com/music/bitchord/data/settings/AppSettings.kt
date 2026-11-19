@@ -258,6 +258,14 @@ object AppSettings {
      */
     val syncDownloadedPlaylists = MutableStateFlow(false)
 
+    /**
+     * Keep every liked song downloaded: the account's Liked Music is fetched
+     * whole once, then each new like follows it. Off by default for the same
+     * reason as [syncDownloadedPlaylists], which does the work for it — see
+     * [com.music.bitchord.download.PlaylistSync].
+     */
+    val downloadLikedSongs = MutableStateFlow(false)
+
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
@@ -1035,6 +1043,7 @@ object AppSettings {
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
+        downloadLikedSongs.value = prefs.getBoolean(KEY_DOWNLOAD_LIKED_SONGS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         sleepTimerFadeOut.value = prefs.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, true)
@@ -1936,6 +1945,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, value).apply()
     }
 
+    fun setDownloadLikedSongs(value: Boolean) {
+        downloadLikedSongs.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_LIKED_SONGS, value).apply()
+    }
+
     fun setLastfmPrimaryArtistOnly(value: Boolean) {
         lastfmPrimaryArtistOnly.value = value
         prefs.edit().putBoolean(KEY_LASTFM_PRIMARY_ARTIST_ONLY, value).apply()
@@ -2354,6 +2368,7 @@ object AppSettings {
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
+    private const val KEY_DOWNLOAD_LIKED_SONGS = "download_liked_songs"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"

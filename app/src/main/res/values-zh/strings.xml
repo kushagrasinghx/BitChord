@@ -852,6 +852,8 @@
     <string name="export_compatible_downloads">导出兼容的下载</string>
     <string name="sync_downloaded_playlists">保持播放列表更新</string>
     <string name="sync_downloaded_playlists_subtitle">每天检查两次，并下载已下载播放列表中新添加的歌曲</string>
+    <string name="download_liked_songs">下载喜欢的歌曲</string>
+    <string name="download_liked_songs_subtitle">下载你喜欢的音乐，以及今后你喜欢的每首歌曲</string>
     <string name="playlist_sync_ask_title">%1$s 有新歌曲：%2$d</string>
     <string name="playlist_sync_ask_text">点按即可下载</string>
     <string name="playlist_sync_done_title">已添加到 %1$s：%2$d</string>

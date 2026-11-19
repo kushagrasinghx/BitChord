@@ -873,6 +873,8 @@
     <string name="export_compatible_downloads">संगत डाउनलोड निर्यात करें</string>
     <string name="sync_downloaded_playlists">प्लेलिस्ट अपडेट रखें</string>
     <string name="sync_downloaded_playlists_subtitle">दिन में दो बार जाँचता है और डाउनलोड की गई प्लेलिस्ट में जोड़े गए नए गाने डाउनलोड करता है</string>
+    <string name="download_liked_songs">पसंद किए गए गाने डाउनलोड करें</string>
+    <string name="download_liked_songs_subtitle">आपके पसंद किए गए गाने और अब से पसंद किया गया हर गाना डाउनलोड करता है</string>
     <string name="playlist_sync_ask_title">%1$s में नए गाने: %2$d</string>
     <string name="playlist_sync_ask_text">डाउनलोड करने के लिए टैप करें</string>
     <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>

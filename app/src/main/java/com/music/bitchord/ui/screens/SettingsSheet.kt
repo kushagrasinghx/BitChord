@@ -96,7 +96,9 @@ import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -289,6 +291,7 @@ fun SettingsScreen(
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
+    val downloadLikedSongs by AppSettings.downloadLikedSongs.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
@@ -653,6 +656,15 @@ fun SettingsScreen(
                     checked = syncDownloadedPlaylists,
                     onCheckedChange = AppSettings::setSyncDownloadedPlaylists,
                     subtitle = stringResource(R.string.sync_downloaded_playlists_subtitle),
+                )
+            }
+            val downloadLikedTitle = stringResource(R.string.download_liked_songs)
+            row(downloadLikedTitle, "liked", "favorites", "offline", "automatic") {
+                SettingsSubRow(
+                    title = downloadLikedTitle,
+                    checked = downloadLikedSongs,
+                    onCheckedChange = AppSettings::setDownloadLikedSongs,
+                    subtitle = stringResource(R.string.download_liked_songs_subtitle),
                 )
             }
         }
@@ -2590,7 +2602,9 @@ private inline fun SearchableSettingsGroup(
                 // has nothing to sit under, so it is given that room back.
                 index == 0 && !entry.divided -> Spacer(Modifier.height(10.dp))
             }
-            entry.content()
+            CompositionLocalProvider(LocalSubRowStandalone provides entry.divided) {
+                entry.content()
+            }
         }
     }
 }
@@ -2790,9 +2804,19 @@ internal fun SettingsRow(
 }
 
 /**
+ * Whether the [SettingsSubRow] being drawn is a row of its own, under a
+ * divider or at the top of its card, rather than hanging off the row above.
+ * Set per row by [SearchableSettingsGroup], which knows which rows are divided.
+ */
+private val LocalSubRowStandalone = staticCompositionLocalOf { false }
+
+/**
  * A toggle that reads as part of the option above it rather than a setting
  * of its own: no icon, no divider, and pulled up close against its parent
  * instead of getting the same breathing room a full [SettingsRow] gets.
+ *
+ * Also drawn as a plain toggle row of its own, under a divider. There it gets
+ * the same gap above its title as below it, or the title sits on the line.
  */
 @Composable
 internal fun SettingsSubRow(
@@ -2808,7 +2832,12 @@ internal fun SettingsSubRow(
             .fillMaxWidth()
             .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .alpha(if (enabled) 1f else 0.45f)
-            .padding(start = ROW_INSET, end = ROW_INSET, top = 0.dp, bottom = 10.dp),
+            .padding(
+                start = ROW_INSET,
+                end = ROW_INSET,
+                top = if (LocalSubRowStandalone.current) 10.dp else 0.dp,
+                bottom = 10.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {

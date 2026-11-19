@@ -873,6 +873,8 @@
     <string name="export_compatible_downloads">Kompatible Downloads exportieren</string>
     <string name="sync_downloaded_playlists">Playlists aktuell halten</string>
     <string name="sync_downloaded_playlists_subtitle">Prüft zweimal täglich und lädt neu hinzugefügte Songs deiner heruntergeladenen Playlists herunter</string>
+    <string name="download_liked_songs">Lieblingssongs herunterladen</string>
+    <string name="download_liked_songs_subtitle">Lädt deine „Mag ich“-Musik und jeden Song herunter, den du ab jetzt likest</string>
     <string name="playlist_sync_ask_title">Neue Songs in %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Zum Herunterladen tippen</string>
     <string name="playlist_sync_done_title">Zu %1$s hinzugefügt: %2$d</string>

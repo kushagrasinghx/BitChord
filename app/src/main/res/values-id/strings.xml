@@ -852,6 +852,8 @@
     <string name="export_compatible_downloads">Ekspor unduhan yang kompatibel</string>
     <string name="sync_downloaded_playlists">Selalu perbarui playlist</string>
     <string name="sync_downloaded_playlists_subtitle">Memeriksa dua kali sehari dan mengunduh lagu baru di playlist yang telah diunduh</string>
+    <string name="download_liked_songs">Unduh lagu yang disukai</string>
+    <string name="download_liked_songs_subtitle">Mengunduh Musik yang Disukai dan setiap lagu yang kamu sukai mulai sekarang</string>
     <string name="playlist_sync_ask_title">Lagu baru di %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Ketuk untuk mengunduh</string>
     <string name="playlist_sync_done_title">Ditambahkan ke %1$s: %2$d</string>

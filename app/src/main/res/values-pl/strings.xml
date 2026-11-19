@@ -911,6 +911,8 @@
     <string name="export_compatible_downloads">Eksportuj zgodne pobrane pliki</string>
     <string name="sync_downloaded_playlists">Aktualizuj playlisty</string>
     <string name="sync_downloaded_playlists_subtitle">Sprawdza dwa razy dziennie i pobiera utwory dodane do pobranych playlist</string>
+    <string name="download_liked_songs">Pobieraj polubione utwory</string>
+    <string name="download_liked_songs_subtitle">Pobiera Twoje polubione utwory i każdy utwór, który polubisz od teraz</string>
     <string name="playlist_sync_ask_title">Nowe utwory w %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Dotknij, aby pobrać</string>
     <string name="playlist_sync_done_title">Dodano do %1$s: %2$d</string>

@@ -11,6 +11,7 @@ import {
   BACK_RESTARTS_AFTER_SEC,
   buildContextQueue,
   buildOneOffQueue,
+  crossfadeIsStillNext,
   playedUserQueueIndices,
   sectionedOrder,
   shuffledStartingOrder,
@@ -902,6 +903,7 @@ function maybeCrossfade() {
   const front = decks[active]!;
   const remaining = front.audio.duration - front.audio.currentTime;
   if (!Number.isFinite(remaining) || remaining > state.crossfadeSec || remaining < 1) return;
+  const plannedFrom = usePlayer.getState().queue;
   const plan = planNext(true);
   if (!plan || plan.kind !== 'index') return;
 
@@ -917,12 +919,38 @@ function maybeCrossfade() {
     .load(entry.track.videoId, { autoplay: true })
     .then((track) => {
       if (!fade || fade.token !== token || !decks) return;
-      fade.pending = false;
       const from = front;
       const to = back;
+      // The load ran from a snapshot of the queue. A shuffle, a hand-queued
+      // row or a party edit since then may have moved the row it loaded out of
+      // the next slot, and handing off would write that old order back over
+      // the live one. Drop the blend and let the queue play out its new order
+      // when this track ends.
+      const liveQueue = usePlayer.getState().queue;
+      const unchanged = liveQueue === plannedFrom;
+      // A repeat wrap planned a shorter queue from the snapshot; only replay it
+      // when nothing has moved since.
+      const straight = plan.queue === plannedFrom;
+      if (!unchanged && !(straight && crossfadeIsStillNext(liveQueue, plan.index, entry.entryId))) {
+        trackLog.w('crossfade found the queue moved; playing on', entry.track.videoId);
+        fade = null;
+        to.gain = 1;
+        void to.engine.stop().catch(() => {});
+        applyVolumes();
+        if (front.audio.ended) void advance(true);
+        return;
+      }
+      fade.pending = false;
       // The new track is the one playing now, as far as everything else knows.
       active = 1 - active;
-      usePlayer.setState((s) => ({ queue: plan.queue, index: plan.index, deck: s.deck + 1, status: 'playing' }));
+      usePlayer.setState((s) => ({
+        // Keep whatever the playhead was planned against when nothing moved;
+        // a moved queue is never overwritten with the snapshot.
+        ...(unchanged ? { queue: plan.queue } : {}),
+        index: plan.index,
+        deck: s.deck + 1,
+        status: 'playing',
+      }));
       applyTrack(track, entry.track);
       afterTrackStarted();
 

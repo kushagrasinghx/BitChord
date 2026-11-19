@@ -1695,7 +1695,7 @@ object ListenTogether {
             isLocalDevelopmentHost(resolved) ->
                 resolved.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "ws://")
             resolved.startsWith("http://", ignoreCase = true) -> {
-                TrackLog.w(TAG, "Upgrading cleartext party server to wss://: $resolved")
+                Log.w(TAG, "Upgrading cleartext party server to wss://: $resolved")
                 resolved.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "wss://")
             }
             else -> resolved

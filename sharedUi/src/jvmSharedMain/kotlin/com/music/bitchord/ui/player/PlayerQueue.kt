@@ -198,7 +198,7 @@ private fun QueueTrack.sameEntryAs(other: QueueTrack): Boolean =
     }
 
 /** A queue row the user tapped to play, and where it sat in the viewport. */
-private class QueueTap(val track: QueueTrack, val viewportOffset: Int) {
+private class QueueTap(val track: QueueTrack, val viewportOffset: Int, val fromHistory: Boolean) {
     /** Whether [playing] is the tapped entry, possibly after a jump re-created it. */
     fun matches(playing: QueueTrack): Boolean = track.sameEntryAs(playing) ||
         (track.song.videoId == playing.song.videoId && track.song.queueEntryId == playing.song.queueEntryId)
@@ -462,7 +462,9 @@ internal fun InlineQueue(
     val jumpTo: (Int) -> Unit = { index ->
         val row = latestTracks.rows.firstOrNull { it.timelineIndex == index }
         val offset = row?.let { r -> listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == r.key }?.offset }
-        pendingTap[0] = if (row != null && offset != null) QueueTap(row, offset) else null
+        pendingTap[0] = if (row != null && offset != null) {
+            QueueTap(row, offset, fromHistory = latestTracks.history.any { it.key == row.key })
+        } else null
         onJumpTo(index)
     }
     // During apply, so the list lays the new rows out at the anchor in the
@@ -474,6 +476,9 @@ internal fun InlineQueue(
         pendingTap[0] = null
         if (selectionState.active || drag.held != null) return@SideEffect
         anchoredTapKey[0] = playing.key
+        // A replayed history row only trades places with the old current track
+        // at the end of history; the rows on screen keep their keys and stay put.
+        if (tap.fromHistory) return@SideEffect
         // Hidden history leaves nothing above, so this clamps to the top.
         listState.requestScrollToItem(upcomingStartIndex(tracks), -tap.viewportOffset)
     }

@@ -219,6 +219,7 @@ import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
 import com.music.bitchord.playback.moveQueueEntryToUser
+import com.music.bitchord.playback.replayFromHistory
 import com.music.bitchord.playback.QueueScreenUndo
 import com.music.bitchord.playback.removeQueueItemWithUndo
 import com.music.bitchord.playback.removeQueueEntriesWithUndo
@@ -2727,8 +2728,20 @@ private fun BitChordApp(
                     // its seekTo override); editing the queue from here would
                     // round-trip every item through the controller and lose
                     // their bounded-window metadata.
-                    c.seekTo(index, 0L)
-                    c.play()
+                    val historySong = player.queue.getOrNull(index)
+                        ?.takeIf { index < c.currentMediaItemIndex }
+                    if (historySong == null) {
+                        c.seekTo(index, 0L)
+                        c.play()
+                    } else {
+                        // A history row plays again at the playhead, so what was
+                        // played after it stays history rather than coming back
+                        // as upcoming. The seek is the service's fallback.
+                        scope.launch {
+                            if (!c.replayFromHistory(index, historySong)) c.seekTo(index, 0L)
+                            c.play()
+                        }
+                    }
                 }
             },
             onRemoveFromQueue = { index ->

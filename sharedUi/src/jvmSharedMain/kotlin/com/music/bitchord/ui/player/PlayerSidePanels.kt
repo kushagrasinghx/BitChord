@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
@@ -48,8 +47,8 @@ fun LyricsSidePanel(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
-    val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
-    val lyricsPlayhead = rememberLyricPlayhead(position)
+    val lyricsOffsetMs by rememberLyricsOffsetMs(song.videoId)
+    val lyricsPlayhead = rememberLyricPlayhead(position, song.videoId)
     val seekToLyric: (Long) -> Unit = { lineTimeMs ->
         onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
     }

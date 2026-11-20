@@ -414,7 +414,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         lyricsFor = key
         lyricsGeneration += 1
         val generation = lyricsGeneration
-        currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
+        val request = LyricsRequest(videoId, title, artist, durationMs, album)
+        currentLyricsRequest = request
         selectedLyricsSource = null
         manualLyricsJobs.values.forEach(Job::cancel)
         manualLyricsJobs.clear()
@@ -432,6 +433,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         _lyricsChecked.value = false
+        // A provider picked by hand for this song last time is picked again,
+        // on its own request: the automatic lookup may never reach it.
+        val remembered = AppSettings.songLyricsProviders.value[videoId]
+        if (remembered != null && durationMs > 0L) {
+            selectedLyricsSource = remembered
+            fetchLyricsProvider(request, generation, remembered)
+        }
         lyricsJob = viewModelScope.launch {
             // The file first, and without the duration gate below: a length is
             // only needed to *match* a track against a stranger's database, and
@@ -503,8 +511,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 selectedLyricsSource = source
                 fetchLyricsProvider(request, lyricsGeneration, source)
             }
-            LyricsProviderState.NOT_FOUND -> Unit
+            LyricsProviderState.NOT_FOUND -> return
         }
+        AppSettings.setSongLyricsProvider(request.videoId, source)
     }
 
     private fun fetchLyricsProvider(

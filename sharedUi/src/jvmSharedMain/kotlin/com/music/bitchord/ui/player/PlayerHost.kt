@@ -252,6 +252,8 @@ interface PlayerSettingsSource {
     val playerTheme: StateFlow<PlayerTheme>
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
+    /** Each song's own offset, by video id, added to [lyricsOffsetMs]; see [rememberLyricsOffsetMs]. */
+    val songLyricsOffsets: StateFlow<Map<String, Int>>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
     val meteredConnection: StateFlow<Boolean?>
     /** A temporary cap over both ceilings, null when none applies — the watch's, on the phone. */
@@ -292,6 +294,7 @@ interface PlayerSettingsSource {
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
+    fun setSongLyricsOffsetMs(videoId: String, value: Int)
     /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
     fun setMixViewOpen(open: Boolean)
 }

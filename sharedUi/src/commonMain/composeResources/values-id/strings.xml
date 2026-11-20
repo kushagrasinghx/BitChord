@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">Lagu ini</string>
+    <string name="lyrics_offset_all_songs">Semua lagu</string>
     <string name="lyrics_provider_current">Penyedia saat ini</string>
     <string name="lyrics_provider_fetching">Mengambil lirik…</string>
     <string name="lyrics_provider_found">Lirik ditemukan · Ketuk untuk memakai</string>

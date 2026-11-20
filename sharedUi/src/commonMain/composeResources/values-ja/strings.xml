@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">この曲</string>
+    <string name="lyrics_offset_all_songs">すべての曲</string>
     <string name="lyrics_provider_current">現在の提供元</string>
     <string name="lyrics_provider_fetching">歌詞を取得中…</string>
     <string name="lyrics_provider_found">歌詞が見つかりました · タップして使用</string>

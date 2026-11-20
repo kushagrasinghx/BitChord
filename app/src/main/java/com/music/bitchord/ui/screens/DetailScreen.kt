@@ -128,6 +128,8 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import com.music.bitchord.data.LocalGroups
 import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.data.matchesSearch
 import com.music.bitchord.data.sortedForLibrary
 import com.music.bitchord.data.useTrackTags
@@ -375,8 +377,8 @@ fun DetailScreen(
     // A folder keeps its own sort — the one its top bar menu sets — rather
     // than the per-page one a release takes.
     val folderSort = folder?.sort
-    val songs = remember(rawSongs, songSort, folderSort) {
-        if (folderSort != null) rawSongs.sortedForLibrary(folderSort) else rawSongs.sortedForDetail(songSort)
+    val songs = remember(rawSongs, songSort, folderSort, page.browseId, page.type) {
+        if (folderSort != null) rawSongs.sortedForLibrary(folderSort) else rawSongs.sortedForDetail(songSort, addedOrderOf(page.browseId, page.type))
     }
     // What a numbered row shows regardless of [songSort] — an album's track
     // numbers are the sleeve's own and must not relabel themselves to match
@@ -1286,7 +1288,10 @@ private fun DetailSearchField(
     }
 }
 
-internal fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort) {
+internal fun List<Song>.sortedForDetail(
+    sort: SongSort,
+    addedOrder: AddedOrder = AddedOrder.FILE_DATES,
+): List<Song> = when (sort) {
     SongSort.DEFAULT -> this
     // Untagged rows go after the tagged ones, in the order they already had,
     // rather than interleaving at the head; a page with no tags at all is
@@ -1307,21 +1312,66 @@ internal fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort
     // order stands in for one: a playlist is appended to as songs are added,
     // and reversed that puts the most recent addition on top. Rows that do
     // carry a MediaStore timestamp — device tracks, downloads — are dated
-    // properly, with the position order left to break the ties.
-    SongSort.DATE_ADDED_ASC -> withIndex()
-        .sortedWith(
-            compareBy<IndexedValue<Song>> { (_, song) ->
-                song.localDateAddedSeconds ?: Long.MAX_VALUE
-            }.thenBy { (position, _) -> position },
-        )
-        .map { it.value }
-    SongSort.DATE_ADDED_DESC -> withIndex()
-        .sortedWith(
-            compareByDescending<IndexedValue<Song>> { (_, song) ->
-                song.localDateAddedSeconds ?: Long.MIN_VALUE
-            }.thenByDescending { (position, _) -> position },
-        )
-        .map { it.value }
+    // properly, with the position order left to break the ties, except on a
+    // playlist, where see [AddedOrder].
+    SongSort.DATE_ADDED_ASC -> when (addedOrder) {
+        AddedOrder.APPENDED -> this
+        AddedOrder.NEWEST_FIRST -> asReversed().toList()
+        AddedOrder.FILE_DATES -> withIndex()
+            .sortedWith(
+                compareBy<IndexedValue<Song>> { (_, song) ->
+                    song.localDateAddedSeconds ?: Long.MAX_VALUE
+                }.thenBy { (position, _) -> position },
+            )
+            .map { it.value }
+    }
+    SongSort.DATE_ADDED_DESC -> when (addedOrder) {
+        AddedOrder.APPENDED -> asReversed().toList()
+        AddedOrder.NEWEST_FIRST -> this
+        AddedOrder.FILE_DATES -> withIndex()
+            .sortedWith(
+                compareByDescending<IndexedValue<Song>> { (_, song) ->
+                    song.localDateAddedSeconds ?: Long.MIN_VALUE
+                }.thenByDescending { (position, _) -> position },
+            )
+            .map { it.value }
+    }
+}
+
+/**
+ * What "Date added" means on a page, and so what its two directions sort by.
+ *
+ * On a playlist it is when the song went *into the playlist*, and the only
+ * record of that is where the song sits. A row's
+ * [Song.localDateAddedSeconds] is something else: when the file landed on
+ * the device. Sorting a playlist by that put a song downloaded last year,
+ * and added to the playlist today, underneath everything — and, on a page
+ * mixing dated device rows with undated catalogue rows, put every
+ * catalogue row below every file however recently it was added (#1593).
+ */
+internal enum class AddedOrder {
+    /** The running order is the order songs were added in, oldest first. */
+    APPENDED,
+
+    /** The running order is the order songs were added in, newest first — a Liked list. */
+    NEWEST_FIRST,
+
+    /** An album or a grouping of device files: the files' own dates say. */
+    FILE_DATES,
+}
+
+/** The [AddedOrder] of the page [browseId] opens, which is a [type]. */
+internal fun addedOrderOf(browseId: String?, type: BrowseType?): AddedOrder {
+    // A downloaded copy of a playlist is addressed by the id it came from.
+    val source = browseId?.let { Downloads.recordIdOf(it) } ?: browseId
+    return when {
+        // Liked lists are kept newest first: YouTube's, its downloaded
+        // copy, and the offline player's own.
+        source == YtMusicRepository.LIKED_MUSIC || source == "LM" ||
+            OfflinePlaylists.isLikedPage(browseId) -> AddedOrder.NEWEST_FIRST
+        type == BrowseType.PLAYLIST -> AddedOrder.APPENDED
+        else -> AddedOrder.FILE_DATES
+    }
 }
 
 /**

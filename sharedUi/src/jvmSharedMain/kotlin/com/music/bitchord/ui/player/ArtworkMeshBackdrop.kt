@@ -113,16 +113,18 @@ fun rememberFullArtworkBlurImage(
 @Composable
 internal fun rememberFullArtworkBlurImage(
     imageUrl: String?, artPx: Int, prepare: Boolean, seed: ImageBitmap?,
+    currentSelectionOnly: Boolean = false,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var image by remember { mutableStateOf(seed ?: imageUrl?.let(fullBlurCache::get)) }
+    var loaded by remember { mutableStateOf(imageUrl to (seed ?: cachedFullArtworkBlur(imageUrl))) }
 
     LaunchedEffect(imageUrl, artPx, prepare, seed) {
-        image = seed ?: imageUrl?.let(fullBlurCache::get) ?: if (prepare && imageUrl != null) {
+        val image = seed ?: cachedFullArtworkBlur(imageUrl) ?: if (prepare && imageUrl != null) {
             loadFullArtworkBlur(context, imageUrl, artPx)
         } else null
+        loaded = imageUrl to image
     }
-    return image
+    return if (currentSelectionOnly && loaded.first != imageUrl) cachedFullArtworkBlur(imageUrl) else loaded.second
 }
 
 private suspend fun loadFullArtworkBlur(context: PlatformContext, imageUrl: String, artPx: Int): ImageBitmap? {
@@ -150,29 +152,29 @@ private fun artworkPixelsRequest(
 suspend fun prefetchAutoMixArtwork(
     context: PlatformContext,
     imageUrl: String,
-    coverGeneration: Long?,
+    generation: Long,
     prepareCover: (Long) -> Boolean,
     prepareMiniCover: (Long) -> Boolean,
     isStillArmed: (Long) -> Boolean,
 ) {
+    if (!prepareCover(generation)) return
     val loader = SingletonImageLoader.get(context)
-    val ambient = coverGeneration?.takeIf(isStillArmed)?.let { PreparedAutoMixAmbient(it, imageUrl) }
+    fun wantsCover() = isStillArmed(generation) && prepareCover(generation)
+    fun wantsMiniCover() = wantsCover() && prepareMiniCover(generation)
+    val ambient = if (wantsCover()) PreparedAutoMixAmbient(generation, imageUrl) else null
     if (ambient != null) preparedAutoMixAmbient = ambient
     if (meshCache[imageUrl] == null) {
         val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
         val result = loader.execute(request)
         (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
     }
-    if (ambient != null && isStillArmed(ambient.generation)) ambient.mesh = meshCache[imageUrl]
+    if (!prepareCover(generation)) return
+    if (ambient != null && wantsCover()) ambient.mesh = meshCache[imageUrl]
     if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
-    if (ambient != null && isStillArmed(ambient.generation)) ambient.blur = fullBlurCache[imageUrl]
+    if (!prepareCover(generation)) return
+    if (ambient != null && wantsCover()) ambient.blur = fullBlurCache[imageUrl]
     val palette = prefetchArtworkPalette(context, imageUrl)
-    if (ambient != null && isStillArmed(ambient.generation)) ambient.palette = palette
-
-    // The ambient cache is useful even when neither artwork reveal is enabled.
-    val generation = coverGeneration ?: return
-    fun wantsCover() = isStillArmed(generation) && prepareCover(generation)
-    fun wantsMiniCover() = wantsCover() && prepareMiniCover(generation)
+    if (ambient != null && wantsCover()) ambient.palette = palette
 
     // The mini surfaces derive their target from layout constraints. Warm their URL
     // with an inexact row-sized decode, using the same crop scale as AsyncImage.

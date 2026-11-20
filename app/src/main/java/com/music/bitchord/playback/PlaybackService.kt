@@ -155,6 +155,7 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.ui.player.discardBlockedAutoMixAmbient
 import com.music.bitchord.ui.player.prefetchAutoMixArtwork
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
@@ -2081,18 +2082,23 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private var autoMixArtworkJob: Job? = null
+    private var autoMixArtworkGeneration: Long? = null
 
     private fun allowsAutoMixArtwork(generation: Long, mini: Boolean = false): Boolean =
         AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
 
     private fun prefetchAutoMixIncoming(item: MediaItem) {
         autoMixArtworkJob?.cancel()
-        val coverGeneration = AutoMixVisualFeed.state.value?.takeIf { it.phase == AutoMixVisualPhase.ARMED }?.generation
+        val coverGeneration = AutoMixVisualFeed.state.value?.takeIf {
+            it.phase == AutoMixVisualPhase.ARMED && allowsAutoMixArtwork(it.generation)
+        }?.generation
+        autoMixArtworkGeneration = coverGeneration
+        if (coverGeneration == null) return
         autoMixArtworkJob = scope.launch {
             val song = item.toSong()
             // Canvas resolution is independent of still-art extraction and decoding.
             launch {
-                if (coverGeneration != null && allowsAutoMixArtwork(coverGeneration) &&
+                if (allowsAutoMixArtwork(coverGeneration) &&
                     AppSettings.animatedCanvas.value &&
                     (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
                 ) {
@@ -7944,6 +7950,15 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun observeSettings() {
+        scope.launch {
+            AppSettings.autoMixArtwork.collect {
+                if (autoMixArtworkGeneration?.let { !allowsAutoMixArtwork(it) } == true) {
+                    autoMixArtworkJob?.cancel()
+                    autoMixArtworkGeneration = null
+                }
+                discardBlockedAutoMixAmbient { allowsAutoMixArtwork(it) }
+            }
+        }
         scope.launch {
             AppSettings.smartFadeEnabled.collect { enabled ->
                 if (!enabled) crossfade?.cancelAutoMixVisual()

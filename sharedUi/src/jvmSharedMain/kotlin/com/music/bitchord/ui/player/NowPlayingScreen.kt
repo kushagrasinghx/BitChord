@@ -382,16 +382,19 @@ private fun LegacyMeshBackdrop(
     val settled = ambient.incoming?.palette
     val requestedSnap = ambient.snapKey(settled != null)
     val snapKey = rememberAmbientSnapKey(requestedSnap)
-    val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled }
+    val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled || ambient.direct != null }
     val palette = key(snapKey) { rememberArtworkColors(url, canvasFrame(), seed, canvasKey) }
+    // Still palettes populate the URL cache; Canvas frames do not. Snap when
+    // the selected still arrives, but keep the regular Canvas color animation.
+    val directPaletteKey = rememberAmbientSnapKey(ambient.direct?.let { url to (cachedArtworkPalette(url) != null) })
     val mix = ambient.mixFor(settled != null)
     MeshGradientBackground(
         palette = palette,
         trackKey = trackKey,
         modifier = modifier,
         mix = mix,
-        snapKey = snapKey,
-        settled = requestedSnap != null,
+        snapKey = snapKey to directPaletteKey,
+        settled = requestedSnap != null && ambient.direct == null,
         currentIsOutgoing = entry == mix?.outgoing,
     )
 }
@@ -1947,7 +1950,7 @@ fun NowPlayingScreen(
     // Opening lyrics/queue, and rotating into or out of landscape, therefore
     // reuse the same tiny pre-blurred bitmap instead of running a screen-sized
     // effect.
-    val ambient = rememberAutoMixAmbient(coverEntry, remoteArt)
+    val ambient = rememberAutoMixAmbient(coverEntry, remoteArt, artworkGate)
     val ambientBlurUrl = remoteArt ?: ambient.incoming?.resolvedUrl
     val blurSeed = ambient.incoming?.blur
     val blurSnapKey = rememberAmbientSnapKey(ambient.snapKey(blurSeed != null))
@@ -1955,9 +1958,7 @@ fun NowPlayingScreen(
         imageUrl = ambientBlurUrl,
         artPx = ART_PX,
         seed = blurSeed,
-        // Straight away when it is the main player's backdrop too: the decode
-        // and blur run off the main thread, and the last cover's blur is held
-        // on screen until this one is ready.
+        currentSelectionOnly = ambient.direct != null,
         prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
             lyricsOpen || queueOpen || playerPrewarmStage >= 1,
     )
@@ -1966,7 +1967,8 @@ fun NowPlayingScreen(
         blurMix != null && (cachedFullArtworkBlur(blurMix.outgoingUrl) != null ||
             (coverEntry == blurMix.outgoing && fullArtworkBlurImage != null))
     }
-    val blurAvailable = if (blurMix != null) heldBlurAvailable else blurSeed != null || fullArtworkBlurImage != null
+    val blurAvailable = if (blurMix != null) heldBlurAvailable else
+        ambient.direct != null || blurSeed != null || fullArtworkBlurImage != null
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
     // changes when the artwork preparation above completes for another song.
@@ -1976,9 +1978,14 @@ fun NowPlayingScreen(
     val currentBlurMix = rememberUpdatedState(blurMix)
     val currentBlurSnapKey = rememberUpdatedState(blurSnapKey)
     val currentBlurIsOutgoing = rememberUpdatedState(coverEntry == blurMix?.outgoing)
+    // Reset immediately for the selected track, then again if its blur arrives late.
+    // Keep the last reset key so the next ordinary change can crossfade from it.
+    val directBackdropEpoch = rememberAmbientSnapKey(ambient.direct)
+    val directBlurKey = rememberAmbientSnapKey(ambient.direct?.let { Triple(it, ambientBlurUrl, fullArtworkBlurImage != null) })
+    val currentDirectBlurKey = rememberUpdatedState(directBlurKey)
     val fullArtworkBlurContent = remember {
         movableContentOf<Modifier> { backdropModifier ->
-            key(currentBlurSnapKey.value) {
+            key(currentBlurSnapKey.value, currentDirectBlurKey.value) {
                 FullArtworkBlurBackdrop(
                     currentFullArtworkBlurImage.value, backdropModifier,
                     currentBlurMix.value, currentBlurIsOutgoing.value,
@@ -2661,16 +2668,18 @@ fun NowPlayingScreen(
                 val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
                     playerTheme == PlayerTheme.LEGACY
                 val artworkMeshBackdrop = !tabletArtworkBackdrop && playerTheme == PlayerTheme.DEFAULT
-                val fullArtworkBackdropAlpha by animateFloatAsState(
-                    targetValue = if (
-                        !legacyMeshBackdrop &&
-                        (tabletArtworkBackdrop || blurAvailable) &&
-                        (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
-                        (!artworkMeshBackdrop || lyricsOpen || queueOpen)
-                    ) 1f else 0f,
-                    animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-                    label = "fullArtworkBackdropCrossfade",
-                )
+                val fullArtworkBackdropAlpha by key(directBackdropEpoch) {
+                    animateFloatAsState(
+                        targetValue = if (
+                            !legacyMeshBackdrop &&
+                            (tabletArtworkBackdrop || blurAvailable) &&
+                            (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
+                            (!artworkMeshBackdrop || lyricsOpen || queueOpen)
+                        ) 1f else 0f,
+                        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+                        label = "fullArtworkBackdropCrossfade",
+                    )
+                }
                 // One layer for all three, recorded for a shared lyrics card.
                 Box(Modifier.fillMaxSize().recordBackdrop(backdropLayer)) {
                     if (legacyMeshBackdrop) {

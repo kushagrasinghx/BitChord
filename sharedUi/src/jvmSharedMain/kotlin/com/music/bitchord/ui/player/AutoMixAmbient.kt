@@ -21,6 +21,11 @@ internal class PreparedAutoMixAmbient(val generation: Long, val resolvedUrl: Str
 
 internal var preparedAutoMixAmbient: PreparedAutoMixAmbient? = null
 
+/** Drop transition-only assets without evicting ordinary URL caches. */
+fun discardBlockedAutoMixAmbient(allows: (Long) -> Boolean) {
+    if (preparedAutoMixAmbient?.let { !allows(it.generation) } == true) preparedAutoMixAmbient = null
+}
+
 internal class AutoMixAmbientMix(
     val generation: Long,
     val outgoing: QueueEntryIdentity,
@@ -34,12 +39,13 @@ internal class AutoMixAmbient(
     val settled: Pair<Long, QueueEntryIdentity>? = null,
     val incoming: PreparedAutoMixAmbient? = null,
     val cancelled: Boolean = false,
+    val direct: Pair<Long, QueueEntryIdentity>? = null,
 ) {
     fun mixFor(targetReady: Boolean): AutoMixAmbientMix? = mix?.takeUnless {
         targetReady && settled?.first == it.generation
     }
 
-    fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = settled.takeIf { cancelled || targetReady }
+    fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = direct ?: settled.takeIf { cancelled || targetReady }
 }
 
 /** Keep the reset epoch after leaving a promoted track, so the next ordinary skip still tweens. */
@@ -54,6 +60,8 @@ private class AmbientArtworkHistory {
     var shown: Pair<QueueEntryIdentity, String>? = null
     var previous: Pair<QueueEntryIdentity, String>? = null
     var settled: Pair<QueueEntryIdentity, AutoMixAmbient>? = null
+    var direct: Pair<Long, QueueEntryIdentity>? = null
+    var lastEntry: QueueEntryIdentity? = null
     var mixingGeneration: Long? = null
     var closedGeneration: Long? = null
 
@@ -80,17 +88,35 @@ private fun AutoMixVisualState.boundary() = AmbientBoundary(
     generation, phase, artworkProgress >= 1f, swapSeconds != null && artworkWindow == null,
 )
 
+/** Keep a direct handoff tied to its selection, so late pixels cannot restart a fade. */
+internal fun directAutoMixAmbientSelection(
+    visual: AutoMixVisualState?, entry: QueueEntryIdentity?, gate: AutoMixArtworkGate,
+    previous: Pair<Long, QueueEntryIdentity>?,
+    lastEntry: QueueEntryIdentity? = null,
+): Pair<Long, QueueEntryIdentity>? {
+    if (entry == null) return null
+    if (visual != null && (entry == visual.outgoing.identity || entry == visual.incoming.identity)) {
+        if (visual.mixActive) return if (gate.allows(visual.generation)) null else visual.generation to entry
+        // A terminal sample can overtake the selection update. Don't treat a
+        // terminal feed left behind during later navigation as a new handoff.
+        if (visual.swapSeconds != null && !gate.allows(visual.generation) && entry == visual.incoming.identity &&
+            (previous?.first == visual.generation || lastEntry == visual.outgoing.identity)
+        ) return visual.generation to entry
+    }
+    return previous?.takeIf { it.second == entry }
+}
+
 /** Only lifecycle boundaries invalidate composition; the audio sample itself is read in drawing. */
 @Composable
-internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: String?): AutoMixAmbient {
+internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: String?, gate: AutoMixArtworkGate): AutoMixAmbient {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return AutoMixAmbient()
     val history = remember(feed) { AmbientArtworkHistory() }
     val currentEntry = rememberUpdatedState(entry)
     val sample = remember(feed) { mutableStateOf(feed.value) }
     val boundary = remember(feed) { mutableStateOf(feed.value?.boundary()) }
-    LaunchedEffect(feed) {
+    LaunchedEffect(feed, gate) {
         feed.collect {
-            sample.value = it
+            sample.value = it?.takeIf { state -> gate.allows(state.generation) }
             boundary.value = it?.boundary()
         }
     }
@@ -99,7 +125,12 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     // is only an invalidation signal; it does not own the ordering of the two feeds.
     val observedBoundary = boundary.value
     val visual = feed.value
-    val stage = visual?.boundary().let { if (it == observedBoundary) observedBoundary else it }
+    val direct = directAutoMixAmbientSelection(
+        visual, entry, gate, history.direct ?: history.settled?.second?.settled?.takeUnless { gate.allows(it.first) },
+        history.lastEntry.takeUnless { visual?.generation == history.closedGeneration },
+    )
+    val stage = visual?.takeIf { gate.allows(it.generation) }?.boundary()
+        .let { if (it == observedBoundary) observedBoundary else it }
     val prepared = preparedAutoMixAmbient?.takeIf { it.generation == stage?.generation }
     val holdsPair = stage?.phase == AutoMixVisualPhase.MIXING && stage.generation != history.closedGeneration
     val pair = remember(stage?.generation, holdsPair) {
@@ -135,12 +166,15 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
         (stage.windowEnded || stage.phase == AutoMixVisualPhase.COMPLETED)
     val retained = history.settled?.takeIf { (owner, ambient) ->
         val preparedUrl = ambient.incoming?.resolvedUrl
-        owner == entry && (preparedUrl == null || resolvedUrl == null || preparedUrl == resolvedUrl)
+        direct == null && ambient.settled?.let { gate.allows(it.first) } == true &&
+            owner == entry && (preparedUrl == null || resolvedUrl == null || preparedUrl == resolvedUrl)
     }?.second
     val settled = if (stage != null && entry != null && (cancelled || promoted)) {
         AutoMixAmbient(settled = stage.generation to entry, incoming = target, cancelled = cancelled)
     } else retained
     SideEffect {
+        history.direct = direct
+        history.lastEntry = entry
         if (holdsPair && (outgoing || incoming)) history.mixingGeneration = stage.generation
         // The feed can retain a terminal sample across ordinary queue navigation. Consume it
         // once, rather than treating a later visit to either occurrence as part of that mix.
@@ -148,9 +182,12 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
             stage?.phase == AutoMixVisualPhase.CANCELLED ||
             (holdsPair && entry != null && !outgoing && !incoming)
         ) history.closedGeneration = stage.generation
+        if (visual != null && stage == null && !visual.mixActive && visual.phase != AutoMixVisualPhase.ARMED &&
+            (visual.swapSeconds == null || (entry != null && !outgoing))
+        ) history.closedGeneration = visual.generation
         history.settled = if (entry != null && settled != null) entry to settled else null
         if (entry != null && resolvedUrl != null) history.note(entry, resolvedUrl)
     }
     val hold = (outgoing || incoming) && holdsPair && !promoted && !stage.noDissolve
-    return AutoMixAmbient(pair.takeIf { hold }, settled?.settled, settled?.incoming, settled?.cancelled == true)
+    return AutoMixAmbient(pair.takeIf { hold }, settled?.settled, settled?.incoming, settled?.cancelled == true, direct)
 }

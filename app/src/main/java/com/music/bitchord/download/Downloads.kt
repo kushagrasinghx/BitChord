@@ -115,6 +115,7 @@ object Downloads {
     val saved: StateFlow<Map<String, String>> = _saved.asStateFlow()
 
     private val _savedMetadata = MutableStateFlow<Map<String, SavedSongMetadata>>(emptyMap())
+    internal val savedMetadata: StateFlow<Map<String, SavedSongMetadata>> = _savedMetadata.asStateFlow()
 
     private val _collections = MutableStateFlow<Map<String, SavedCollection>>(emptyMap())
 
@@ -252,6 +253,7 @@ object Downloads {
      * told to run is no longer wanted, and stops it on arrival.
      */
     fun cancel(videoId: String) {
+        YtDlpDownloader.cancel(videoId)
         val job = synchronized(lock) {
             pending.remove(videoId)
             if (videoId !in running) return@synchronized null
@@ -898,7 +900,10 @@ object Downloads {
             running[videoId] = job
             false
         }
-        if (cancelled) job.cancel()
+        if (cancelled) {
+            job.cancel()
+            YtDlpDownloader.cancel(videoId)
+        }
     }
 
     /** [videoId] is finished, one way or another, and no longer holds a worker. */
@@ -966,6 +971,7 @@ object Downloads {
             clear(id)
             throw e
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "download failed for $id: ${e.message}", e)
             Log.w(TAG, "download failed for $id: ${e.message}", e)
             fail(id, e.friendly())
         }
@@ -1257,18 +1263,27 @@ object Downloads {
             val name = SourceRegistry.config(row.first)?.displayName ?: "its source"
             error("Couldn't download this song from $name — check that it's still connected")
         }
-        // MediaStore.Audio refuses audio/webm on affected Android versions.
-        // Keep Opus for app-private downloads, but pin exported downloads to
-        // AAC-in-MP4 for both the initial resolve and any mid-transfer retry.
-        val requireM4a = AppSettings.exportDownloads.value
-        val stream = StreamResolver.resolveForDownload(track.videoId, quality.maxKbps, requireM4a)
+        // Use yt-dlp to download and convert YouTube/YouTube Music audio into high-quality MP3 (320kbps)
         return Route(
-            extension = stream.downloadExtension,
-            mimeType = stream.downloadMimeType,
-            describe = "${stream.kbps}kbps ${stream.mimeType}",
-            downloadFormat = youtubeDownloadBadge(stream.downloadExtension, stream.kbps),
+            extension = "mp3",
+            mimeType = "audio/mpeg",
+            describe = "yt-dlp MP3 320k",
+            downloadFormat = "MP3",
             write = { sink, onProgress ->
-                Downloader.fetch(track.videoId, stream, quality.maxKbps, requireM4a, sink, onProgress)
+                val mp3File = YtDlpDownloader.downloadMp3(
+                    context = context,
+                    videoId = track.videoId,
+                    onProgress = { fraction ->
+                        onProgress((fraction * 100).toLong(), 100L)
+                    },
+                )
+                try {
+                    mp3File.inputStream().buffered().use { input ->
+                        input.copyTo(sink)
+                    }
+                } finally {
+                    mp3File.delete()
+                }
             },
         )
     }
@@ -1534,6 +1549,10 @@ object Downloads {
     private fun Exception.friendly(): String = when {
         (this is IllegalStateException || this is IllegalArgumentException) &&
             !message.isNullOrBlank() -> message!!
+        this is com.yausername.youtubedl_android.YoutubeDLException -> {
+            val lines = message?.lines()?.map { it.trim() }?.filter { it.isNotBlank() && !it.startsWith("WARNING") }
+            lines?.lastOrNull() ?: "Download failed: yt-dlp error"
+        }
         else -> "Download failed — check your connection"
     }
 

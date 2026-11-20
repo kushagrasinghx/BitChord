@@ -86,5 +86,11 @@
 -keep class org.conscrypt.** { *; }
 -keep class com.android.org.conscrypt.** { *; }
 -dontwarn org.conscrypt.**
--dontwarn com.android.org.conscrypt.**
 -dontwarn io.github.muntashirakon.adb.**
+
+# ---- youtubedl-android / yt-dlp & FFmpeg ----
+-keep class com.yausername.youtubedl_android.** { *; }
+-keep class com.yausername.ffmpeg.** { *; }
+-keep class io.github.junkfood02.youtubedl_android.** { *; }
+-keepclassmembers class * implements com.yausername.youtubedl_android.interfaces.* { *; }
+

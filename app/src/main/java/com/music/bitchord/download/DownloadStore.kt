@@ -78,20 +78,12 @@ object DownloadStore {
     // ---- Naming -------------------------------------------------------------
 
     /**
-     * What the file is called: `Artist - Title.ext`.
-     *
-     * Artist first because a Music folder is sorted by name and nothing
-     * else — no tags to group by — so leading with the artist is the only thing
-     * that puts an album back together in the listing.
+     * What the file is called: `Title.ext`.
      */
     fun fileNameFor(song: Song, extension: String): String {
-        val artist = sanitise(song.artist)
         val title = sanitise(song.title)
-        val stem = when {
-            artist.isEmpty() -> title
-            title.isEmpty() -> artist
-            else -> "$artist - $title"
-        }.ifEmpty { song.videoId }
+        val artist = sanitise(song.artist)
+        val stem = title.ifEmpty { artist }.ifEmpty { song.videoId }
         return "${stem.take(MAX_STEM_CHARS).trimEnd()}.$extension"
     }
 

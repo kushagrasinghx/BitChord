@@ -119,6 +119,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             // all — it is the fix for canvas clips re-fetching the same few
             // seconds of video from the network on every loop.
             CanvasCache.init(this)
+            com.music.bitchord.download.YtDlpDownloader.init(this)
         }
         // Migration-safe: an old single cookie becomes the first encrypted
         // session, while newer installs restore the profile the listener chose.

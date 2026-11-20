@@ -149,8 +149,7 @@ class ReplayYear(val data: ReplayYearData) {
          * up: only December, 1st to 31st, for the year that is ending.
          */
         fun yearShown(today: LocalDate): Int? =
-            // TEMP-TEST: up every day while the story is being tried out. Remove before release.
-            if (today.month == Month.DECEMBER || com.music.bitchord.BuildConfig.DEBUG) today.year else null
+            if (today.month == Month.DECEMBER) today.year else null
 
         /**
          * The song most played by [artist], other than any in [avoid].

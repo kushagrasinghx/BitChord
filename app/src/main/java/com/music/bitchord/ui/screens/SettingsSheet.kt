@@ -837,6 +837,7 @@ fun SettingsScreen(
                             checked = artwork.artTransition,
                             onCheckedChange = AppSettings::setAutoMixArtTransition,
                             enabled = !bitPerfectReady,
+                            subtitleEndPadding = 12.dp,
                         )
                         SettingsSubRow(
                             title = miniArtTransitionTitle,
@@ -845,6 +846,7 @@ fun SettingsScreen(
                             onCheckedChange = AppSettings::setAutoMixMiniPlayerTransition,
                             enabled = !bitPerfectReady,
                             titleMaxLines = 2,
+                            subtitleEndPadding = 12.dp,
                         )
                     }
                 }
@@ -2821,6 +2823,7 @@ internal fun SettingsSubRow(
     enabled: Boolean = true,
     indent: Dp = 0.dp,
     titleMaxLines: Int = 1,
+    subtitleEndPadding: Dp = 0.dp,
 ) {
     Row(
         modifier = Modifier
@@ -2847,6 +2850,7 @@ internal fun SettingsSubRow(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
+                    modifier = Modifier.padding(end = subtitleEndPadding),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 5,

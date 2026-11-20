@@ -49,10 +49,14 @@ object SleepTimer {
     fun fractionOf(minutes: Int): Float =
         (minutes - STEP_MINUTES).toFloat() / (MAX_MINUTES - STEP_MINUTES)
 
+    /** Listener triggered when the timer is cancelled or restarted. */
+    var onCancelListener: (() -> Unit)? = null
+
     /** Whether any kind of timer is currently armed. */
     val isRunning: Boolean get() = deadline.value != null || afterTrack.value
 
     fun start(minutes: Int) {
+        onCancelListener?.invoke()
         afterTrack.value = false
         this.minutes.value = minutes
         deadline.value = SystemClock.elapsedRealtime() + minutes * 60_000L
@@ -60,6 +64,7 @@ object SleepTimer {
 
     /** Pause once the track playing right now finishes. */
     fun startAfterTrack() {
+        onCancelListener?.invoke()
         minutes.value = null
         deadline.value = null
         afterTrack.value = true
@@ -69,6 +74,7 @@ object SleepTimer {
         minutes.value = null
         deadline.value = null
         afterTrack.value = false
+        onCancelListener?.invoke()
     }
 
     /** How long is left, or null when no timer is running. */

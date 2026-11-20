@@ -808,7 +808,12 @@ fun SettingsScreen(
                 }
             }
             val automixTitle = stringResource(R.string.automix)
-            row(automixTitle, "crossfade", "smart fade", "mix") {
+            val artTransitionTitle = stringResource(R.string.automix_art_transition)
+            val miniArtTransitionTitle = stringResource(R.string.automix_mini_art_transition)
+            row(
+                automixTitle, "crossfade", "smart fade", "mix",
+                artTransitionTitle.takeIf { smartFade }, miniArtTransitionTitle.takeIf { smartFade },
+            ) {
                 BypassedByBitPerfect(bitPerfectReady) {
                     SettingsRow(
                         icon = SfIcons.AutoAwesome,
@@ -824,6 +829,27 @@ fun SettingsScreen(
                         },
                         onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
                     )
+                    if (smartFade) {
+                        val artwork by AppSettings.autoMixArtwork.collectAsStateWithLifecycle()
+                        val indent = ICON_SIZE + ICON_GAP + 8.dp
+                        SettingsSubRow(
+                            title = artTransitionTitle,
+                            subtitle = stringResource(R.string.automix_art_transition_subtitle),
+                            checked = artwork.artTransition,
+                            onCheckedChange = AppSettings::setAutoMixArtTransition,
+                            enabled = !bitPerfectReady,
+                            indent = indent,
+                        )
+                        SettingsSubRow(
+                            title = miniArtTransitionTitle,
+                            subtitle = stringResource(R.string.automix_mini_art_transition_subtitle),
+                            checked = artwork.miniPlayerTransition,
+                            onCheckedChange = AppSettings::setAutoMixMiniPlayerTransition,
+                            enabled = artwork.artTransition && !bitPerfectReady,
+                            indent = indent,
+                            titleMaxLines = 2,
+                        )
+                    }
                 }
             }
             // The weights Automix analyses with live outside the APK (see
@@ -2796,13 +2822,15 @@ internal fun SettingsSubRow(
     badge: String? = null,
     subtitle: String? = null,
     enabled: Boolean = true,
+    indent: Dp = 0.dp,
+    titleMaxLines: Int = 1,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .alpha(if (enabled) 1f else 0.45f)
-            .padding(start = ROW_INSET, end = ROW_INSET, top = 0.dp, bottom = 10.dp),
+            .padding(start = ROW_INSET + indent, end = ROW_INSET, top = 0.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -2811,7 +2839,7 @@ internal fun SettingsSubRow(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
+                    maxLines = titleMaxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (badge != null) {

@@ -25,6 +25,23 @@ class AutoMixCanvasTest {
     )
 
     @Test
+    fun disablingArtworkRejectsTheHeldGenerationButNotTheNextMix() {
+        val owner = AutoMixCanvasPair()
+        val tracks = requireNotNull(owner.start(visual, outgoing))
+        tracks.incomingClip = clip
+        tracks.started = true
+        assertTrue(tracks.usesGestureSleeve(gesturing = true))
+        val disabled = AutoMixArtworkGate(enabled = false, skipThrough = visual.generation)
+        assertFalse(disabled.allows(tracks.generation))
+        owner.clear()
+        assertNull(owner.visual)
+        val enabled = disabled.copy(enabled = true)
+        val remounted = AutoMixCanvasPair()
+        assertNull(remounted.start(visual, outgoing, enabled))
+        assertTrue(remounted.start(visual.copy(generation = visual.generation + 1), outgoing, enabled) != null)
+    }
+
+    @Test
     fun onlyStartedMixedArtworkUsesTheMovingSleeve() {
         val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, clip) { visual }
         assertFalse(tracks.usesGestureSleeve(gesturing = true))

@@ -297,6 +297,7 @@ interface PlayerSettingsSource {
      */
     val automixDetail: StateFlow<String?>
     val smartFadeEnabled: StateFlow<Boolean>
+    val autoMixArtwork: StateFlow<AutoMixArtworkPreferences> get() = defaultAutoMixArtwork
     /** True only while an analysed Automix transition is audibly mixing two tracks. */
     val smartMixInProgress: StateFlow<Boolean>
     /** The Automix blend in flight, for the scrubber's beat glow; null between blends. */
@@ -322,6 +323,8 @@ interface PlayerSettingsSource {
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
 internal val PlayerSettings: PlayerSettingsSource
     get() = PlayerPlatform.host.settings
+
+private val defaultAutoMixArtwork: StateFlow<AutoMixArtworkPreferences> = MutableStateFlow(AutoMixArtworkPreferences())
 
 /** The lyric offset sheet's range, in milliseconds either way. */
 const val MIN_LYRICS_OFFSET_MS = -5_000

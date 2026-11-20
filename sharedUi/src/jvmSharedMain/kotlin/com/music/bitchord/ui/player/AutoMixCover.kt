@@ -120,18 +120,15 @@ internal class AutoMixCoverState(
         }
     }
 
-    fun update(visual: AutoMixVisualState?) {
-        if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED) {
+    fun update(visual: AutoMixVisualState?, gate: AutoMixArtworkGate = AutoMixArtworkGate()) {
+        if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED || !gate.allows(visual.generation)) {
             if (visual != null) seenMix = visual.generation
             val pair = active
             // If the session already owns a decoded member of the pair, snap to it
             // without a Coil arrival fade. A new occurrence ignores this single frame.
             if (pair != null && visual?.generation == pair.generation) {
-                when (current) {
-                    pair.outgoing -> promoted = pair.outgoing to AutoMixCoverFrames(pair.frames.base)
-                    pair.incoming -> pair.frames.incoming?.let { promoted = pair.incoming to AutoMixCoverFrames(it) }
-                    else -> Unit
-                }
+                val selection = current
+                if (selection != null) pair.selectedFrames(selection)?.let { promoted = selection to it }
             }
             active = null
             frozen = null
@@ -201,10 +198,19 @@ internal class AutoMixCoverState(
         frozen = null
     }
 
-    fun framesFor(occurrence: QueueEntryIdentity?): AutoMixCoverFrames? {
+    private fun PairFrames.selectedFrames(occurrence: QueueEntryIdentity?): AutoMixCoverFrames? =
+        when (occurrence) {
+            outgoing -> AutoMixCoverFrames(frames.base)
+            incoming -> frames.incoming?.let { AutoMixCoverFrames(it) }
+            else -> null
+        }
+
+    fun framesFor(occurrence: QueueEntryIdentity?, gate: AutoMixArtworkGate = AutoMixArtworkGate()): AutoMixCoverFrames? {
         val pair = active
-        return if (pair != null && (occurrence == pair.outgoing || occurrence == pair.incoming)) pair.frames
-        else promoted?.takeIf { it.first == occurrence }?.second
+        if (pair != null && (occurrence == pair.outgoing || occurrence == pair.incoming)) {
+            return if (gate.allows(pair.generation)) pair.frames else pair.selectedFrames(occurrence)
+        }
+        return promoted?.takeIf { it.first == occurrence }?.second
     }
 
     fun promotedFor(occurrence: QueueEntryIdentity?): DecodedAutoMixCover? =
@@ -212,14 +218,18 @@ internal class AutoMixCoverState(
 }
 
 @Composable
-internal fun rememberAutoMixCover(occurrence: QueueEntryIdentity?, art: PlayerArtwork): AutoMixCoverState {
+internal fun rememberAutoMixCover(
+    occurrence: QueueEntryIdentity?,
+    art: PlayerArtwork,
+    gate: AutoMixArtworkGate,
+): AutoMixCoverState {
     val feed = PlayerPlatform.host.autoMixVisualState
     val cover = remember(feed) { AutoMixCoverState() }
     SideEffect {
-        cover.bind(occurrence, art, feed?.value)
+        cover.bind(occurrence, art, feed?.value?.takeIf { gate.allows(it.generation) })
         cover.promotedFor(occurrence)?.let(art::noteDisplayedCover)
     }
-    LaunchedEffect(feed, cover) { feed?.collect { cover.update(it) } }
+    LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
     return cover
 }
 
@@ -264,11 +274,12 @@ fun rememberMiniAutoMixArtwork(
     val feed = PlayerPlatform.host.autoMixVisualState
     val displayed = remember(feed) { DisplayedMiniCovers() }
     val cover = remember(feed) { AutoMixCoverState(displayed::before) }
-    SideEffect { cover.bind(occurrence, null, feed?.value) }
-    LaunchedEffect(feed, cover) { feed?.collect { cover.update(it) } }
+    val gate = autoMixArtworkGate(mini = true)
+    SideEffect { cover.bind(occurrence, null, feed?.value?.takeIf { gate.allows(it.generation) }) }
+    LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
 
     return { model, modifier ->
-        AutoMixCover(cover.framesFor(occurrence), modifier, blur = false) { artworkModifier ->
+        AutoMixCover(cover.framesFor(occurrence, gate), modifier, blur = false) { artworkModifier ->
             AsyncImage(
                 model = model,
                 contentDescription = null,

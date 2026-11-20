@@ -42,8 +42,12 @@ internal class AutoMixCanvasPair {
         shownClip = clip.takeIf { rendered }
     }
 
-    fun start(state: AutoMixVisualState, entry: QueueEntryIdentity?): AutoMixCanvasTracks? {
-        if (seenGeneration == state.generation || entry != state.outgoing.identity) return null
+    fun start(
+        state: AutoMixVisualState,
+        entry: QueueEntryIdentity?,
+        gate: AutoMixArtworkGate = AutoMixArtworkGate(),
+    ): AutoMixCanvasTracks? {
+        if (!gate.allows(state.generation) || seenGeneration == state.generation || entry != state.outgoing.identity) return null
         // A not-yet-bound UI selection must not consume the generation.
         seenGeneration = state.generation
         return AutoMixCanvasTracks(
@@ -179,6 +183,7 @@ internal fun rememberAutoMixCanvasPair(
     landscape: Boolean,
     fullWindow: Boolean,
     fullBleed: Boolean,
+    artworkGate: AutoMixArtworkGate,
 ): AutoMixCanvasPair {
     val host = PlayerPlatform.host
     val feed = host.autoMixVisualState
@@ -197,8 +202,8 @@ internal fun rememberAutoMixCanvasPair(
         pair.invalidatePromotion()
     }
     // Rotation and layout changes cancel the effect, but cannot prepare the same generation again.
-    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed) {
-        if (feed == null || !host.supportsAutoMixCanvas || !allowed) return@LaunchedEffect
+    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed, artworkGate) {
+        if (feed == null || !host.supportsAutoMixCanvas || !allowed || !artworkGate.enabled) return@LaunchedEffect
         var active: AutoMixCanvasTracks? = null
         var resolve: Job? = null
         var timeout: Job? = null
@@ -242,7 +247,7 @@ internal fun rememberAutoMixCanvasPair(
                 }
                 if (active?.generation != state.generation) {
                     clear()
-                    val tracks = pair.start(state, currentEntry) ?: return@collect
+                    val tracks = pair.start(state, currentEntry, artworkGate) ?: return@collect
                     active = tracks
                     sealed = false
                     val index = state.incoming.armedIndex

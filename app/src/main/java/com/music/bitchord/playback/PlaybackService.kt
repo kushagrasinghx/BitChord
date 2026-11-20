@@ -2082,6 +2082,9 @@ class PlaybackService : MediaLibraryService() {
 
     private var autoMixArtworkJob: Job? = null
 
+    private fun allowsAutoMixArtwork(generation: Long, mini: Boolean = false): Boolean =
+        AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
+
     private fun prefetchAutoMixIncoming(item: MediaItem) {
         autoMixArtworkJob?.cancel()
         val coverGeneration = AutoMixVisualFeed.state.value?.takeIf { it.phase == AutoMixVisualPhase.ARMED }?.generation
@@ -2089,7 +2092,8 @@ class PlaybackService : MediaLibraryService() {
             val song = item.toSong()
             // Canvas resolution is independent of still-art extraction and decoding.
             launch {
-                if (AppSettings.animatedCanvas.value &&
+                if (coverGeneration != null && allowsAutoMixArtwork(coverGeneration) &&
+                    AppSettings.animatedCanvas.value &&
                     (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
                 ) {
                     // The repository handles provider settings and caches both hits and settled misses.
@@ -2106,7 +2110,11 @@ class PlaybackService : MediaLibraryService() {
                     null
                 }
                 if (artUrl != null) {
-                    prefetchAutoMixArtwork(this@PlaybackService, artUrl, coverGeneration) { generation ->
+                    prefetchAutoMixArtwork(
+                        this@PlaybackService, artUrl, coverGeneration,
+                        prepareCover = { allowsAutoMixArtwork(it) },
+                        prepareMiniCover = { allowsAutoMixArtwork(it, mini = true) },
+                    ) { generation ->
                         AutoMixVisualFeed.pending(generation)?.phase == AutoMixVisualPhase.ARMED
                     }
                 }

@@ -151,6 +151,8 @@ suspend fun prefetchAutoMixArtwork(
     context: PlatformContext,
     imageUrl: String,
     coverGeneration: Long?,
+    prepareCover: (Long) -> Boolean,
+    prepareMiniCover: (Long) -> Boolean,
     isStillArmed: (Long) -> Boolean,
 ) {
     val loader = SingletonImageLoader.get(context)
@@ -167,30 +169,34 @@ suspend fun prefetchAutoMixArtwork(
     val palette = prefetchArtworkPalette(context, imageUrl)
     if (ambient != null && isStillArmed(ambient.generation)) ambient.palette = palette
 
+    // The ambient cache is useful even when neither artwork reveal is enabled.
+    val generation = coverGeneration ?: return
+    fun wantsCover() = isStillArmed(generation) && prepareCover(generation)
+    fun wantsMiniCover() = wantsCover() && prepareMiniCover(generation)
+
     // The mini surfaces derive their target from layout constraints. Warm their URL
     // with an inexact row-sized decode, using the same crop scale as AsyncImage.
-    val mini = loader.execute(
-        ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(ROW_ART_PX))
-            .size(ROW_ART_PX)
-            .scale(Scale.FILL)
-            .precision(Precision.INEXACT)
-            .build(),
-    )
-    if (mini is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
-        AutoMixPreparedCover.retainMini(coverGeneration, mini)
+    if (wantsMiniCover()) {
+        val mini = loader.execute(
+            ImageRequest.Builder(context)
+                .data(imageUrl.artworkAt(ROW_ART_PX))
+                .size(ROW_ART_PX)
+                .scale(Scale.FILL)
+                .precision(Precision.INEXACT)
+                .build(),
+        )
+        if (mini is SuccessResult && wantsMiniCover()) AutoMixPreparedCover.retainMini(generation, mini)
     }
     // Coil can give different decode sizes the same key. Leave the full-player
     // cover in that slot when URLs coincide; retain the mini decode separately.
+    if (!wantsCover()) return
     val cover = loader.execute(
         playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
             .scale(Scale.FILL)
             .precision(Precision.INEXACT)
             .build(),
     )
-    if (cover is SuccessResult && coverGeneration != null && isStillArmed(coverGeneration)) {
-        AutoMixPreparedCover.retain(coverGeneration, cover)
-    }
+    if (cover is SuccessResult && wantsCover()) AutoMixPreparedCover.retain(generation, cover)
 }
 
 /**

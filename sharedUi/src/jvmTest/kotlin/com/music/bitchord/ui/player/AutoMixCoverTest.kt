@@ -159,6 +159,42 @@ class AutoMixCoverTest {
         assertNull(reveal()) // A live destination owns a different path.
     }
 
+    @Test
+    fun artworkPreferencesRespectParentsWithoutChangingStoredChoices() {
+        val defaults = AutoMixArtworkPreferences()
+        assertTrue(defaults.gate(automix = true).allows(1L))
+        assertTrue(defaults.gate(automix = true, mini = true).allows(1L))
+        for (autoMix in listOf(false, true)) for (art in listOf(false, true)) for (mini in listOf(false, true)) {
+            val preferences = defaults.copy(artTransition = art, miniPlayerTransition = mini)
+            assertEquals(autoMix && art, preferences.gate(automix = autoMix).allows(1L))
+            assertEquals(autoMix && art && mini, preferences.gate(automix = autoMix, mini = true).allows(1L))
+            assertEquals(mini, preferences.miniPlayerTransition)
+        }
+    }
+
+    @Test
+    fun miniOnlyCancellationSettlesSelectedArtworkWithoutReplayingTheMix() {
+        val base = cover()
+        val next = cover()
+        val full = AutoMixCoverState({ base }, { next })
+        val mini = AutoMixCoverState({ base }, { next })
+        for (surface in listOf(full, mini)) {
+            surface.bind(incoming, null, visual)
+            surface.update(visual)
+            assertSame(next, surface.framesFor(incoming)?.incoming)
+        }
+        val disabled = AutoMixArtworkPreferences(miniPlayerTransition = false, skipMiniThrough = visual.generation)
+        val miniGate = disabled.gate(automix = true, mini = true)
+        assertSame(next, mini.framesFor(incoming, miniGate)?.base)
+        assertNull(mini.framesFor(incoming, miniGate)?.incoming)
+        mini.update(visual, miniGate)
+        val enabled = disabled.copy(miniPlayerTransition = true)
+        mini.update(visual, enabled.gate(automix = true, mini = true))
+        assertNull(mini.framesFor(incoming)?.incoming)
+        assertTrue(enabled.gate(automix = true, mini = true).allows(visual.generation + 1))
+        assertSame(next, full.framesFor(incoming, enabled.gate(automix = true))?.incoming)
+    }
+
     private fun cover() = DecodedAutoMixCover(object : Image {
         override val width = 1
         override val height = 1

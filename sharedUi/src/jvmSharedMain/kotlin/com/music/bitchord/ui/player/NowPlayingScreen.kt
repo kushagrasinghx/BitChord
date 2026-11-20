@@ -1060,8 +1060,9 @@ fun NowPlayingScreen(
     // that asked: the queue can move on to a song while it is still sideways.
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
-    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt)
-    val pair = canvasPair.visual?.takeIf { it.contains(coverEntry) }
+    val artworkGate = autoMixArtworkGate()
+    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, artworkGate)
+    val pair = canvasPair.visual?.takeIf { artworkGate.allows(it.generation) && it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
     val canvas = if (pair?.started == true) pair.pinnedClip else promotedCanvas?.incomingClip ?: sessionCanvas
     val staticCanvasMix = pair?.started == true && !pair.liveOutgoing
@@ -1574,8 +1575,8 @@ fun NowPlayingScreen(
     // never fires again. Keyed on the cover there is nothing to reset: the
     // bitmap really is still loaded, so the state stays true.
     val art = rememberPlayerArtwork(remoteArt)
-    val autoMixCover = rememberAutoMixCover(coverEntry, art)
-    val autoMixFrames = autoMixCover.framesFor(coverEntry)
+    val autoMixCover = rememberAutoMixCover(coverEntry, art, artworkGate)
+    val autoMixFrames = autoMixCover.framesFor(coverEntry, artworkGate)
     val heroIncomingStill = autoMixFrames?.incoming.takeIf {
         heroMode && pair?.liveOutgoing == true && !pair.liveIncoming
     }
@@ -1600,10 +1601,10 @@ fun NowPlayingScreen(
     // can land in the middle of the sleeve coming back out of a panel —
     // recomposed this whole screen to run a block that, every time after the
     // first, had nothing left to do.
-    LaunchedEffect(art, coverEntry, canvasRenderedState) {
+    LaunchedEffect(art, coverEntry, canvasRenderedState, artworkGate) {
         if (heroSettled) return@LaunchedEffect
         snapshotFlow {
-            autoMixCover.framesFor(coverEntry) != null || art.loaded || canvasRenderedState.value
+            autoMixCover.framesFor(coverEntry, artworkGate) != null || art.loaded || canvasRenderedState.value
         }.first { it }
         heroSettled = true
         lastHeroSettled = true

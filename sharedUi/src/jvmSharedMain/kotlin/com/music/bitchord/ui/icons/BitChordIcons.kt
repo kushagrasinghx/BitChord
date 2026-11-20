@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -193,6 +194,25 @@ object BitChordIcons {
             "M219 374.24Q151 374.24 102.5 325.74Q54 277.24 54 209.24Q54 141.24 102.5 92.74Q151 44.24 219 44.24Q287 44.24 335.5 92.74Q384 141.24 384 209.24Q384 264.24 350 309.24L451 410.24Q458 417.24 458 427.24Q458 438.24 451 445.24Q444 452.24 434 452.24Q423 452.24 416 445.24L315 343.24Q271 374.24 219 374.24Z" +
                 "M128 300.24Q166 338.24 219 338.24Q272 338.24 310 300.24Q348 262.24 348 209.24Q348 156.24 310 118.24Q272 80.24 219 80.24Q166 80.24 128 118.24Q90 156.24 90 209.24Q90 262.24 128 300.24Z",
         )
+    }
+
+    val TabRadio: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_tab_radio",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).addPath(
+            pathData = addPathNodes(
+                "M0,12C0,14.94 1.09,17.67 3.02,19.7C3.4,20.11 3.98,20.1 4.31,19.71C4.64,19.36 4.58,18.84 4.21,18.44C2.6,16.75 1.73,14.48 1.73,12C1.73,9.52 2.6,7.25 4.21,5.56C4.58,5.16 4.64,4.64 4.31,4.28C3.98,3.9 3.4,3.89 3.02,4.3C1.09,6.34 0,9.06 0,12Z" +
+                    "M3.26,12C3.26,14.1 4,16.08 5.35,17.55C5.74,17.98 6.34,17.99 6.68,17.59C7.01,17.22 6.94,16.73 6.56,16.31C5.53,15.14 4.98,13.65 4.98,12C4.98,10.36 5.53,8.86 6.56,7.69C6.94,7.27 7.01,6.79 6.68,6.41C6.34,6.01 5.74,6.01 5.35,6.45C4,7.92 3.26,9.9 3.26,12Z" +
+                    "M6.51,12C6.51,13.19 6.91,14.33 7.62,15.24C7.98,15.71 8.62,15.72 8.98,15.32C9.31,14.96 9.21,14.51 8.88,14.04C8.46,13.48 8.24,12.79 8.24,12C8.24,11.21 8.46,10.52 8.88,9.96C9.21,9.49 9.31,9.04 8.98,8.68C8.62,8.28 7.98,8.29 7.62,8.76C6.91,9.66 6.51,10.81 6.51,12Z" +
+                    "M17.49,12C17.49,10.81 17.09,9.66 16.38,8.76C16.02,8.29 15.38,8.28 15.02,8.68C14.69,9.04 14.78,9.49 15.12,9.96C15.54,10.52 15.76,11.21 15.76,12C15.76,12.79 15.54,13.48 15.12,14.04C14.78,14.51 14.69,14.96 15.02,15.32C15.38,15.72 16.02,15.71 16.38,15.24C17.09,14.33 17.49,13.19 17.49,12Z" +
+                    "M20.74,12C20.74,9.9 20,7.92 18.65,6.45C18.26,6.01 17.66,6.01 17.32,6.41C16.98,6.79 17.05,7.27 17.43,7.69C18.47,8.86 19.02,10.36 19.02,12C19.02,13.65 18.47,15.14 17.43,16.31C17.05,16.73 16.98,17.22 17.32,17.59C17.66,17.99 18.26,17.98 18.65,17.55C20,16.08 20.74,14.1 20.74,12Z" +
+                    "M24,12C24,9.06 22.91,6.34 20.98,4.3C20.6,3.89 20.02,3.9 19.69,4.28C19.36,4.64 19.41,5.16 19.79,5.56C21.39,7.25 22.27,9.52 22.27,12C22.27,14.48 21.39,16.75 19.79,18.44C19.41,18.84 19.36,19.36 19.69,19.71C20.02,20.1 20.6,20.11 20.98,19.7C22.91,17.67 24,14.94 24,12Z" +
+                    "M10.24,12.02C10.24,12.96 11.06,13.75 12.02,13.75C12.97,13.75 13.76,12.96 13.76,12C13.76,11.03 12.99,10.23 12.02,10.23C11.04,10.23 10.24,11.05 10.24,12.02Z",
+            ),
+            fill = stroke,
+        ).build()
     }
 
     /** A filled glyph outline in the 512-unit em box — see [TabExplore]. */
@@ -789,5 +809,43 @@ object BitChordIcons {
                 moveTo(9.5f, 17.5f); lineTo(19.5f, 17.5f)
             }
         }.build()
+    }
+    /**
+     * AirPlay: three rings with a solid triangle standing at their base, the
+     * mark for sending the sound somewhere else.
+     */
+    val AirPlay: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_airplay",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = 1.7f,
+            ) {
+                ring(12f, 11.8f, 9.2f)
+                ring(12f, 11.8f, 5.8f)
+                ring(12f, 11.8f, 2.8f)
+            }
+            path(
+                fill = stroke,
+                stroke = stroke,
+                strokeLineWidth = 1.2f,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(7.0f, 20.9f)
+                lineTo(17.0f, 20.9f)
+                lineTo(12f, 12.2f)
+                close()
+            }
+        }.build()
+    }
+
+    private fun PathBuilder.ring(cx: Float, cy: Float, radius: Float) {
+        moveTo(cx - radius, cy)
+        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, radius * 2f, 0f)
+        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, -radius * 2f, 0f)
+        close()
     }
 }

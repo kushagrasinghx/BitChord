@@ -103,6 +103,11 @@ fun ThinSlider(
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
     /** Halfway between the two track colours: visible against unplayed, invisible under played. */
     markerColor: Color = Color.White.copy(alpha = 0.5f),
+    /**
+     * Colour-dodges the bar into what is behind it, as the player's glyphs
+     * are — see [vibrantChrome]. The colours are then the dodge's ink.
+     */
+    vibrant: Boolean = false,
     /** Draw-only intensity for the full-player AutoMix glow. */
     autoMixGlow: (() -> Float)? = null,
 ) {
@@ -209,7 +214,8 @@ fun ThinSlider(
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(height),
+                .height(height)
+                .vibrantChrome(vibrant),
         ) {
             val radius = CornerRadius(size.height / 2f)
             drawRoundRect(color = inactiveColor, cornerRadius = radius)
@@ -315,7 +321,8 @@ fun ThinSlider(
                 ),
             exit = fadeOut(tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing)),
         ) {
-            MixSheen(height = height, color = activeColor)
+            // Outside the dodge, so in plain white rather than its grey ink.
+            MixSheen(height = height, color = if (vibrant) Color.White.copy(alpha = 0.92f) else activeColor)
         }
     }
 }

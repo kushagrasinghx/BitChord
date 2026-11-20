@@ -279,6 +279,12 @@ const val EXTRA_QUEUE_MOVE_INDEX = "bitchord.queueMove.index"
 const val EXTRA_QUEUE_MOVE_ENTRY = "bitchord.queueMove.entry"
 const val EXTRA_QUEUE_MOVE_MEDIA = "bitchord.queueMove.media"
 
+/**
+ * Play a history row again from the queue screen, keeping later history as
+ * history. Takes the same index/entry/media extras as [ACTION_QUEUE_MOVE_TO_USER].
+ */
+const val ACTION_QUEUE_REPLAY_HISTORY = "com.music.bitchord.action.QUEUE_REPLAY_HISTORY"
+
 /** A full first page for an explicitly requested station. */
 private const val INITIAL_STATION_TRACKS = 24
 
@@ -857,6 +863,7 @@ class PlaybackService : MediaLibraryService() {
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
     private val queueMoveToUserCommand = SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY)
+    private val queueReplayHistoryCommand = SessionCommand(ACTION_QUEUE_REPLAY_HISTORY, Bundle.EMPTY)
     private val queueMoveMutex = Mutex()
     private val queueRemoveUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_WITH_UNDO, Bundle.EMPTY)
     private val queueRemoveEntriesUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, Bundle.EMPTY)
@@ -3268,6 +3275,44 @@ class PlaybackService : MediaLibraryService() {
         } finally {
             if (queueUndoRestoreBatch === batch) queueUndoRestoreBatch = null
         }
+    }
+
+    /**
+     * A queue-screen tap on a history row. Outside a party and a bounded
+     * context, the row is played again at the playhead (see
+     * [QueueCoordinator.replayFromHistory]). A bounded context's cursor follows
+     * its CONTEXT rows' source order and a party's queue is the server's, so
+     * there it stays the plain backward seek it always was. False means the
+     * row could not be found or the caller should fall back to that seek.
+     */
+    private suspend fun replayFromHistory(args: Bundle): Boolean {
+        if (ListenTogether.state.value.controlsLocked || ListenTogether.state.value.inParty) return false
+        val before = mediaSession?.player ?: return false
+        val requestedIndex = args.getInt(EXTRA_QUEUE_MOVE_INDEX, -1)
+        val entryId = args.getString(EXTRA_QUEUE_MOVE_ENTRY)
+        val mediaId = args.getString(EXTRA_QUEUE_MOVE_MEDIA)
+        val candidates = (0 until before.mediaItemCount).filter { index ->
+            val candidate = before.getMediaItemAt(index)
+            candidate.mediaId == mediaId && candidate.queueEntryId == entryId
+        }
+        val originalIndex = if (entryId != null) {
+            candidates.singleOrNull() ?: candidates.firstOrNull { it == requestedIndex }
+        } else candidates.firstOrNull { it == requestedIndex }
+        if (originalIndex == null || originalIndex >= before.currentMediaItemIndex) return false
+        val original = before.getMediaItemAt(originalIndex)
+        if (boundedContextWindow != null && original.queueTier == QueueTier.CONTEXT) return false
+        val contextGeneration = boundedEditState.contextGeneration
+        // A standby owns a snapshot of the old running order. Settle it before
+        // editing, then reacquire the player in case the handoff adopted it.
+        if (!settleQueueUndoEdit() || ListenTogether.state.value.controlsLocked ||
+            ListenTogether.state.value.inParty || boundedEditState.contextGeneration != contextGeneration
+        ) return false
+        val activePlayer = mediaSession?.player as? SessionPlayer ?: return false
+        val from = (0 until activePlayer.mediaItemCount)
+            .filter { activePlayer.getMediaItemAt(it) === original }.singleOrNull() ?: return false
+        if (!activePlayer.replayFromHistory(from)) return false
+        player?.let(::saveQueueSnapshotImmediately)
+        return true
     }
 
     private suspend fun moveQueueEntryToUser(args: Bundle): Boolean {
@@ -9368,6 +9413,20 @@ class PlaybackService : MediaLibraryService() {
             )
         }
 
+        /**
+         * The queue screen's history tap: [QueueCoordinator.replayFromHistory]
+         * on the native player, so the moved row keeps its source and metadata.
+         * Not a [seekTo] override, which every surface shares and which keeps
+         * an earlier index a plain backward seek.
+         */
+        fun replayFromHistory(index: Int): Boolean {
+            if (locked()) return false
+            if (index !in 0 until wrappedPlayer.currentMediaItemIndex) return false
+            onUserIntent()
+            crossfade.onSkipRequested()
+            return QueueCoordinator.replayFromHistory(wrappedPlayer, index)
+        }
+
         override fun seekToPreviousMediaItem() {
             if (locked()) return
             onUserIntent()
@@ -9419,6 +9478,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(swapVersionCommand)
                 .add(queueDragCommand)
                 .add(queueMoveToUserCommand)
+                .add(queueReplayHistoryCommand)
                 .add(queueRemoveUndoCommand)
                 .add(queueRemoveEntriesUndoCommand)
                 .add(queueClearUndoCommand)
@@ -9472,6 +9532,17 @@ class PlaybackService : MediaLibraryService() {
                         queueMoveMutex.withLock {
                             SessionResult(
                                 if (moveQueueEntryToUser(moveArgs)) SessionResult.RESULT_SUCCESS
+                                else SessionError.ERROR_INVALID_STATE,
+                            )
+                        }
+                    }
+                }
+                ACTION_QUEUE_REPLAY_HISTORY -> {
+                    val replayArgs = Bundle(args)
+                    return scope.future {
+                        queueMoveMutex.withLock {
+                            SessionResult(
+                                if (replayFromHistory(replayArgs)) SessionResult.RESULT_SUCCESS
                                 else SessionError.ERROR_INVALID_STATE,
                             )
                         }
@@ -10715,15 +10786,16 @@ class PlaybackService : MediaLibraryService() {
 /**
  * The stock renderers, plus FFmpeg after the MediaCodec one.
  *
- * FFmpeg comes last so it only gets a track no platform decoder takes: AC-4
- * and Dolby Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
+ * FFmpeg comes last so it only gets a track no platform decoder takes: Dolby
+ * Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
  * then plays as its 5.1 bed, folded down to stereo — the object layer needs
  * Dolby's decoder, which is the only thing that can read it. Same sink as the
  * MediaCodec renderer, so the DSP chain and the precision path see no
  * difference between the two.
  *
- * ALAC goes to FFmpeg on every device, because MediaCodec is never offered it
- * ([withoutPlatformAlac]). Samsung ships no ALAC codec, which is where FFmpeg
+ * ALAC and AC-4 go to FFmpeg on every device, because MediaCodec is never
+ * offered them ([withoutUnreliablePlatformDecoders]); the platform AC-4 decoders proved
+ * unreliable, much as the ALAC ones below did. Samsung ships no ALAC codec, which is where FFmpeg
  * was proved; Qualcomm vendor images ship `c2.qti.alac.sw.decoder`, which
  * released itself on its first input buffer (realme RMX3842, Android 16) and
  * misreports position on the tracks it does play. A codec that fails mid-
@@ -10749,7 +10821,7 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         super.buildAudioRenderers(
             context,
             extensionRendererMode,
-            withoutPlatformAlac(mediaCodecSelector),
+            withoutUnreliablePlatformDecoders(mediaCodecSelector),
             enableDecoderFallback,
             audioSink,
             eventHandler,
@@ -10761,15 +10833,24 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
 }
 
 /**
- * [selector] with no decoders for ALAC, so `MediaCodecAudioRenderer` reports
- * it unsupported and the track selector hands it to FFmpeg — unless this
- * build's FFmpeg cannot decode it (an ABI it was not built for), where a
- * vendor codec is still better than none. Wraps rather than replaces, so a
- * subclass's own selector (the FLAC one) keeps working underneath.
+ * [selector] with no decoders for ALAC or AC-4, so `MediaCodecAudioRenderer`
+ * reports them unsupported and the track selector hands them to FFmpeg —
+ * unless this build's FFmpeg cannot decode one (an ABI it was not built for),
+ * where a vendor codec is still better than none. Wraps rather than replaces,
+ * so a subclass's own selector (the FLAC one) keeps working underneath.
+ *
+ * AC-4 joins ALAC for the same reason: the platform decoders that claim it
+ * misbehave mid-track, and a codec that fails mid-playback is never retried
+ * on the next renderer.
  */
-private fun withoutPlatformAlac(selector: MediaCodecSelector) =
+private fun withoutUnreliablePlatformDecoders(selector: MediaCodecSelector) =
     MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-        if (mimeType == MimeTypes.AUDIO_ALAC && ffmpegDecodesAlac) {
+        val ffmpegFirst = when (mimeType) {
+            MimeTypes.AUDIO_ALAC -> ffmpegDecodesAlac
+            MimeTypes.AUDIO_AC4 -> ffmpegDecodesAc4
+            else -> false
+        }
+        if (ffmpegFirst) {
             emptyList()
         } else {
             selector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
@@ -10777,11 +10858,12 @@ private fun withoutPlatformAlac(selector: MediaCodecSelector) =
     }
 
 /**
- * Asked once per process, and only when an ALAC track is first looked at: the
+ * Asked once per process, and only when such a track is first looked at: the
  * native library then loads on the playback thread, as it did before, rather
  * than on the main thread while a player is built.
  */
 private val ffmpegDecodesAlac by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_ALAC) }
+private val ffmpegDecodesAc4 by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_AC4) }
 
 /**
  * Every lyric setting the service's lyrics depend on, emitting once per real

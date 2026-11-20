@@ -261,7 +261,7 @@ fun ReplayStories(
  * edge of the screen on the exact devices most likely to be running this.
  */
 @Composable
-private fun StoryFrame(content: @Composable () -> Unit) {
+internal fun StoryFrame(content: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val fitsByWidth = maxWidth / maxHeight < STORY_ASPECT
         Box(
@@ -431,7 +431,7 @@ private fun StoryChrome(
 }
 
 @Composable
-private fun Segment(fraction: Float, modifier: Modifier = Modifier) {
+internal fun Segment(fraction: Float, modifier: Modifier = Modifier) {
     Box(
         modifier
             .height(2.5.dp)
@@ -798,7 +798,7 @@ private fun RecapLine(label: String, value: String) {
 // ── Pieces ──────────────────────────────────────────────────────────────────
 
 @Composable
-private fun Cover(
+internal fun Cover(
     url: String?,
     fallbackText: String,
     size: Dp,
@@ -895,7 +895,7 @@ private fun ArtworkCollage(summary: ReplaySummary, modifier: Modifier = Modifier
 }
 
 /** [this] with every colour turned [degrees] around the wheel, tone untouched. */
-private fun MeshPalette.rotated(degrees: Float): MeshPalette {
+internal fun MeshPalette.rotated(degrees: Float): MeshPalette {
     if (degrees == 0f) return this
     return MeshPalette(
         colors.map { color ->
@@ -912,7 +912,7 @@ private fun MeshPalette.rotated(degrees: Float): MeshPalette {
  * segments and the two words, measured rather than guessed at because the
  * chrome is drawn over the pager and cannot push anything down.
  */
-private val CHROME_HEIGHT = 96.dp
+internal val CHROME_HEIGHT = 96.dp
 
 /** How far down a chart a card goes. */
 private const val STORY_ROWS = 5
@@ -927,4 +927,4 @@ private const val STORY_ASPECT = 9f / 16f
 private const val PAGE_MILLIS = 14_000f
 
 /** The share of the width that means "back" — the left edge, as everywhere else. */
-private const val BACK_ZONE = 0.32f
+internal const val BACK_ZONE = 0.32f

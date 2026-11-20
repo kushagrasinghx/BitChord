@@ -207,4 +207,6 @@
     <string name="queue_download">Tải xuống</string>
     <string name="queue_selection_remove">Xóa</string>
     <string name="queue_add_all_to_playlist">Thêm tất cả vào danh sách phát</string>
+    <string name="mixes_yours">Mix của bạn</string>
+    <string name="mixes_none">Chưa có mix nào. Hãy tiếp tục nghe và YouTube Music sẽ tạo mix cho bạn.</string>
 </resources>

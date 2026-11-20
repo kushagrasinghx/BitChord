@@ -65,8 +65,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -240,6 +238,9 @@ internal const val SEEK_SETTLE_TIMEOUT_MS = 4_000L
 private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
+
+/** How much lower the sleeve's foot (stats, Best Part) sits over full-screen art than on the card. */
+private val BANNER_FOOT_DROP = 26.dp
 /**
  * How long the sleeve takes to travel the whole way between the full player and
  * the queue's header.
@@ -880,6 +881,10 @@ fun NowPlayingScreen(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    /** The live transport decision, including the receiver's position when casting. */
+    previousRestarts: () -> Boolean,
+    /** Read at dispatch so automatic advance cannot turn one swipe into two skips. */
+    currentPlaybackSong: () -> Song?,
     /**
      * A control the host has taken away was reached for anyway.
      *
@@ -1420,6 +1425,10 @@ fun NowPlayingScreen(
     // Horizontal fling anywhere on the player skips tracks; the artwork
     // follows the finger so the gesture has something to hold on to.
     val swipeThreshold = with(density) { 72.dp.toPx() }
+    val infoScope = rememberCoroutineScope()
+    val infoTransition = remember(infoScope) { SongInfoTransition(infoScope) }
+    SideEffect { infoTransition.observe(song) }
+    DisposableEffect(infoTransition) { onDispose { infoTransition.clear() } }
     // Where the finger has dragged the sleeve to, and the sleeve springing
     // after it. What animateFloatAsState does inside — a conflated channel of
     // targets, each chased from the current velocity — but fed straight from
@@ -1439,13 +1448,6 @@ fun NowPlayingScreen(
         }
     }
     val setSwipeOffset: (Float) -> Unit = { swipeTargets.trySend(it) }
-    // The skip hint under the sleeve only needs composing while there is a
-    // drag to hint at, and which way it points; its fade is drawn, not composed.
-    val swipeHintShown by remember(swipeThreshold) {
-        derivedStateOf { abs(swipeSettle.value) / swipeThreshold > 0.01f }
-    }
-    // A leftward drag (negative offset) is the one that skips forward.
-    val swipeHintNext by remember { derivedStateOf { swipeSettle.value < 0f } }
 
     // Signature Apple Music touch: the sleeve shrinks back while paused.
     val artScale by animateFloatAsState(
@@ -1783,37 +1785,66 @@ fun NowPlayingScreen(
     // screen, the landscape one on the sleeve alone — the right column there is
     // full of horizontal sliders and a lyric list that should not be one stray
     // sideways drag away from changing the song.
+    val startInfoDrag by rememberUpdatedState {
+        infoTransition.beginDrag(
+            song = song,
+            next = songInfoNeighbour(queue, queueIndex, next = true, available = hasNext && !controlsLocked),
+            // Freeze the preview decision for this gesture, not the transport's
+            // existing release-time restart decision.
+            previous = songInfoNeighbour(
+                queue, queueIndex, next = false,
+                available = !controlsLocked && !previousRestarts(),
+            ),
+        )
+    }
+    val releaseInfoDrag by rememberUpdatedState { total: Float ->
+        val crossed = total <= -swipeThreshold || total >= swipeThreshold
+        when {
+            controlsLocked -> {
+                infoTransition.cancelDrag()
+                if (crossed) onBlockedControl()
+            }
+            total <= -swipeThreshold -> {
+                haptics.play(Haptic.SkipNext)
+                infoTransition.finishDrag(
+                    next = true, currentSong = currentPlaybackSong, canSlide = { true }, action = onNext,
+                )
+            }
+            total >= swipeThreshold -> {
+                haptics.play(Haptic.SkipPrevious)
+                infoTransition.finishDrag(
+                    next = false, currentSong = currentPlaybackSong,
+                    canSlide = { !previousRestarts() }, action = onPrevious,
+                )
+            }
+            else -> infoTransition.cancelDrag()
+        }
+    }
     val skipSwipeGesture = Modifier.pointerInput(showAudioPipeline, showCast, panelScrolling, controlsLocked, queueOpen) {
         if (showAudioPipeline || showCast || panelScrolling || queueOpen) return@pointerInput
         var total = 0f
+        var acceptsDrag = false
         detectHorizontalDragGestures(
-            onDragStart = { total = 0f },
-            onDragCancel = { setSwipeOffset(0f) },
+            onDragStart = {
+                total = 0f
+                acceptsDrag = startInfoDrag()
+            },
+            onDragCancel = {
+                if (!acceptsDrag) return@detectHorizontalDragGestures
+                setSwipeOffset(0f)
+                infoTransition.cancelDrag()
+            },
             onDragEnd = {
-                // The same two buzzes the transport glyphs give, so swiping the
-                // sleeve and tapping skip feel like one gesture with two
-                // spellings.
-                val crossed = total <= -swipeThreshold || total >= swipeThreshold
-                when {
-                    // Still tracks the finger and still springs back, so the
-                    // sleeve does not feel dead — it just says why it did not
-                    // move on.
-                    controlsLocked -> if (crossed) onBlockedControl()
-                    total <= -swipeThreshold -> {
-                        haptics.play(Haptic.SkipNext)
-                        onNext()
-                    }
-                    total >= swipeThreshold -> {
-                        haptics.play(Haptic.SkipPrevious)
-                        onPrevious()
-                    }
-                }
+                if (!acceptsDrag) return@detectHorizontalDragGestures
+                releaseInfoDrag(total)
                 setSwipeOffset(0f)
             },
             onHorizontalDrag = { _, delta ->
+                if (!acceptsDrag) return@detectHorizontalDragGestures
                 total += delta
                 // Damped: it's a hint, not a drag-to-position.
                 setSwipeOffset(total * 0.35f)
+                infoTransition.dragBy(total)
             },
         )
     }
@@ -1854,17 +1885,22 @@ fun NowPlayingScreen(
             onListenTogether = onListenTogether,
             onOpenListenTogetherMembers = openListenTogetherMembers,
         )
-        // Keep the current output caption visible in every state.
-        Spacer(Modifier.height(18.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(20.dp),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            OutputCaption(
-                accountName = accountName,
-                onOpenOutput = openAudioOutput,
-                onOpenMembers = openListenTogetherMembers,
-            )
+        // Keep the current output caption visible in every state, except on
+        // a phone on its side: its left column is only a phone's width tall,
+        // and the sleeve needs that room more than the caption does. A
+        // tablet's landscape has room for both.
+        if (!(sideways && !fullscreenInPlace)) {
+            Spacer(Modifier.height(18.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().height(20.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                OutputCaption(
+                    accountName = accountName,
+                    onOpenOutput = openAudioOutput,
+                    onOpenMembers = openListenTogetherMembers,
+                )
+            }
         }
     }
 
@@ -2204,6 +2240,8 @@ fun NowPlayingScreen(
         // glass deck up, so the glyphs blend into the blurred, darkened clip.
         // And off everywhere with "Disable blend effects".
         chrome = !disableBlendEffects && !videoFullscreen,
+        softened = !spotifyCanvasPresentation &&
+            (playerTheme == PlayerTheme.DEFAULT || playerTheme == PlayerTheme.LEGACY),
         frost = frost,
         live = spotifyCanvasPresentation,
         // Not the host's ⋯ menu: that takes its own still, of everything.
@@ -2459,6 +2497,7 @@ fun NowPlayingScreen(
                                     // Faded with the player rather than flown with
                                     // the sleeve: the cover in the bar has none.
                                     .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
+                                bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                             )
                         }
                     },
@@ -2471,6 +2510,7 @@ fun NowPlayingScreen(
                             credits = {
                                 LandscapeCredits(
                                     song = song,
+                                    infoTransition = infoTransition,
                                     signedIn = signedIn,
                                     likeStatus = likeStatus,
                                     showRevertCue = showRevertCue,
@@ -2478,6 +2518,8 @@ fun NowPlayingScreen(
                                     onOpenMenu = onOpenMenu,
                                     onOpenAlbum = onOpenAlbum,
                                     onOpenArtist = onOpenArtist,
+                                    hazeState = playerHaze,
+                                    overlayOpen = { overlayOpen.value },
                                 )
                             },
                             lyricStrip = if (syncedLyricsEnabled && !hideLyricsPreview) {
@@ -2529,6 +2571,7 @@ fun NowPlayingScreen(
                                     onPlayPause = onPlayPause,
                                     onNext = onNext,
                                     compact = compact,
+                                    animationsActive = !panelOpen,
                                 )
                             },
                             volume = if (hideVolumeBar) {
@@ -2678,7 +2721,17 @@ fun NowPlayingScreen(
                     label = "fullArtworkBackdropCrossfade",
                 )
                 // One layer for all three, recorded for a shared lyrics card.
-                Box(Modifier.fillMaxSize().recordBackdrop(backdropLayer)) {
+                //
+                // And a source of the player's frost, under the sleeve and the
+                // clip: the banner dissolves into this towards its bottom edge,
+                // and glass over that stretch (the Best Part button, a menu)
+                // found nothing behind it but the frost's flat charcoal.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .recordBackdrop(backdropLayer)
+                        .hazeSource(playerHaze, zIndex = -1f),
+                ) {
                     if (legacyMeshBackdrop) {
                         // v1.5's backdrop, restored verbatim: no seam, because the blobs
                         // are not anchored to anything on screen — they fill the player and
@@ -3965,7 +4018,18 @@ fun NowPlayingScreen(
                                         .padding(horizontal = 10.dp, vertical = 8.dp)
                                         .graphicsLayer {
                                             alpha = (1f - p() * 2f) * spotifyChromeAlpha
+                                            // Full screen, the art runs on past the
+                                            // card's foot (the banner dissolving there,
+                                            // or a Canvas to the screen's edges), so
+                                            // the foot sits lower, nearer the title.
+                                            translationY = BANNER_FOOT_DROP.toPx() * if (spotifyCanvasPresentation) {
+                                                1f - p()
+                                            } else {
+                                                bannerShown()
+                                            }
                                         },
+                                    // Under the stats, or in their place with them off.
+                                    bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                                 )
                             }
                         }
@@ -4038,37 +4102,6 @@ fun NowPlayingScreen(
                             }
                         }
 
-                        // Sits in the gap under the sleeve, clear of its rounded
-                        // corners and shadow — no box, no clip, nothing for the art
-                        // itself to be cropped by. Just a glyph that fades in with
-                        // the drag to hint which way a release would skip.
-                        //
-                        // Shown under the banner as well as under the card, and it is
-                        // the only feedback the drag has there: a card can slide with
-                        // the finger, but a full-bleed image sliding would open a strip
-                        // of bare backdrop down one edge of the screen. It lands where
-                        // the banner has all but dissolved, so it reads against the
-                        // backdrop rather than against the artwork.
-                        if (swipeHintShown) {
-                            val showNext = swipeHintNext
-                            val enabled = if (showNext) hasNext else hasPrevious
-                            val hintAlpha = if (enabled) 0.85f else 0.3f
-                            Icon(
-                                imageVector = if (showNext) Icons.Rounded.FastForward else Icons.Rounded.FastRewind,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .offset {
-                                        IntOffset(0, (artTop() + artSize() + (ART_TITLE_GAP - 16.dp) / 2).roundToPx())
-                                    }
-                                    .size(16.dp)
-                                    .graphicsLayer {
-                                        alpha = (abs(swipeSettle.value) / swipeThreshold)
-                                            .coerceIn(0f, 1f) * (1f - p()) * hintAlpha
-                                    },
-                            )
-                        }
 
                         // ---- Title + menu ----
                         Row(
@@ -4124,16 +4157,13 @@ fun NowPlayingScreen(
                                         transformOrigin = TransformOrigin(0f, 0.5f)
                                     },
                             ) {
-                                // Only the title's own overflow gates the artist's stagger
-                                // below — an artist line that's long on its own has no
-                                // reason to wait on a title that already fits.
-                                var titleOverflowing by remember { mutableStateOf(false) }
+
                                 // Only while these credits are the screen. Collapsed into
                                 // a header over the queue or the lyrics they are a label
                                 // on a list, and a label that crawls pulls the eye off
                                 // whatever is being read below it.
                                 //
-                                // Asked inside the crossfade's own content, so the
+                                // Asked inside each sliding block's content, so the
                                 // switch recomposes the two lines and not the box
                                 // round the whole sleeve — and asked of the panels
                                 // first, so a collapse a tap asked for stops the crawl
@@ -4141,22 +4171,14 @@ fun NowPlayingScreen(
                                 val scrolls = {
                                     !(lyricsOpen || queueOpen || queueDragging) && !collapsePastSettling
                                 }
-                                // Targeted on the words rather than the videoId: two
-                                // cuts that share a title cross-fade into the exact
-                                // same text, which is nothing at all and leaves the
-                                // marquee where it was; a cut that renames the song
-                                // ("… (Live)") dissolves into the new one instead of
-                                // snapping while the rest of the switch moves around
-                                // it.
-                                Crossfade(
-                                    targetState = song.title to song.artist,
-                                    // Round the fade and the marquee's edge masks, whose
-                                    // layers would otherwise hide the backdrop from it. The
-                                    // title is in it too and stays white: see [additiveChrome].
+                                SlidingSongInfo(
+                                    song = song,
+                                    transition = infoTransition,
                                     modifier = Modifier.additiveChrome(LocalPlayerChrome.current),
-                                    animationSpec = tween(durationMillis = 300),
-                                    label = "playerCredits",
-                                ) {
+                                ) { infoSong ->
+                                    val song = infoSong
+                                    // Stagger each block's artist only if its own title crawls.
+                                    var titleOverflowing by remember { mutableStateOf(false) }
                                     val scrolling = scrolls()
                                     val artistColor = chromeWhite(0.55f)
                                     Column {
@@ -4206,60 +4228,66 @@ fun NowPlayingScreen(
                             // there's no account to record it against — except on a
                             // local file or a finished download, whose star is the
                             // device's own Liked playlist and needs no account.
-                            if (signedIn || song.localUri != null) {
-                                val liked = likeStatus == LikeStatus.LIKE
+                            // One frost behind both discs — see [GlassDiscPair].
+                            GlassDiscPair(
+                                hazeState = playerHaze,
+                                overlayOpen = { overlayOpen.value },
+                            ) {
+                                if (signedIn || song.localUri != null) {
+                                    val liked = likeStatus == LikeStatus.LIKE
+                                    CircleGlyph(
+                                        icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                                        contentDescription = stringResource(
+                                            if (liked) Res.string.remove_from_liked else Res.string.like,
+                                        ),
+                                        onClick = onToggleLike,
+                                        active = liked,
+                                        haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                // While the lyrics are up the menu glyph becomes the share
+                                // entry: the same pick mode a long-press on a line opens,
+                                // only on phones where a card can actually be made. While
+                                // picking it is the way back out again — the bar below
+                                // already holds Share.
+                                // Only once the sleeve has fully collapsed: the moment it starts
+                                // coming back the glyph is the menu again.
+                                // And only while the half player under the lyrics is tucked
+                                // away: with it up, the screen is the player again and the
+                                // glyph is its menu. A pick in progress keeps its Close
+                                // whichever way the controls are.
+                                val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
+                                    !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
                                 CircleGlyph(
-                                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
-                                    contentDescription = stringResource(
-                                        if (liked) Res.string.remove_from_liked else Res.string.like,
-                                    ),
-                                    onClick = onToggleLike,
-                                    active = liked,
-                                    haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            // While the lyrics are up the menu glyph becomes the share
-                            // entry: the same pick mode a long-press on a line opens,
-                            // only on phones where a card can actually be made. While
-                            // picking it is the way back out again — the bar below
-                            // already holds Share.
-                            // Only once the sleeve has fully collapsed: the moment it starts
-                            // coming back the glyph is the menu again.
-                            // And only while the half player under the lyrics is tucked
-                            // away: with it up, the screen is the player again and the
-                            // glyph is its menu. A pick in progress keeps its Close
-                            // whichever way the controls are.
-                            val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
-                                !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
-                            CircleGlyph(
-                                icon = when {
-                                    showRevertCue -> Icons.AutoMirrored.Rounded.Undo
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
-                                    lyricsShareGlyphVisible -> Icons.Rounded.IosShare
-                                    else -> Icons.Rounded.MoreHoriz
-                                },
-                                contentDescription = stringResource(
-                                    when {
-                                        showRevertCue -> Res.string.more
-                                        lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
-                                        lyricsShareGlyphVisible -> Res.string.share
-                                        else -> Res.string.more
+                                    icon = when {
+                                        showRevertCue -> Icons.AutoMirrored.Rounded.Undo
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
+                                        lyricsShareGlyphVisible -> Icons.Rounded.IosShare
+                                        else -> Icons.Rounded.MoreHoriz
                                     },
-                                ),
-                                onClick = when {
-                                    showRevertCue -> onOpenMenu
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
-                                    lyricsShareGlyphVisible -> lyricPicker.beginPicking
-                                    else -> onOpenMenu
-                                },
-                                haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
-                                    Haptic.Select
-                                } else {
-                                    Haptic.Tap
-                                },
-                                modifier = Modifier.menuAnchor(),
-                            )
+                                    contentDescription = stringResource(
+                                        when {
+                                            showRevertCue -> Res.string.more
+                                            lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
+                                            lyricsShareGlyphVisible -> Res.string.share
+                                            else -> Res.string.more
+                                        },
+                                    ),
+                                    onClick = when {
+                                        showRevertCue -> onOpenMenu
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
+                                        lyricsShareGlyphVisible -> lyricPicker.beginPicking
+                                        else -> onOpenMenu
+                                    },
+                                    haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
+                                        Haptic.Select
+                                    } else {
+                                        Haptic.Tap
+                                    },
+                                    modifier = Modifier.menuAnchor(),
+                                )
+                            }
                         }
 
                         // [lyricsOpen] asked first: a close has already hidden the
@@ -4593,6 +4621,10 @@ fun NowPlayingScreen(
                             onPrevious = onPrevious,
                             onPlayPause = onPlayPause,
                             onNext = onNext,
+                            animationsActive = !lyricPicker.picking &&
+                                (!lyricsOpen || lyricsControlsOpen) &&
+                                (!queueOpen || queueControlsOpen) &&
+                                (!spotifyCanvasPresentation || spotifyCanvasControlsOpen || mixing),
                         )
                     }
                     if (!hideVolumeBar) {

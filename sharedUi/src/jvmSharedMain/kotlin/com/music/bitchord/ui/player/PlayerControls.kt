@@ -12,6 +12,18 @@ import com.music.bitchord.data.model.ArtistCredit
 import com.music.bitchord.data.model.CreditSegment
 import com.music.bitchord.data.model.creditSegments
 import com.music.bitchord.sharedui.resources.*
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import dev.chrisbanes.haze.HazeState
+import com.music.bitchord.ui.components.liveMenuFrost
+import com.music.bitchord.ui.components.MenuFrostDark
+import com.music.bitchord.playback.PlaybackPosition
+import androidx.compose.ui.semantics.Role
+import androidx.compose.runtime.produceState
+import androidx.compose.animation.AnimatedVisibility
 
 import org.jetbrains.compose.resources.DrawableResource
 import androidx.compose.animation.animateContentSize
@@ -59,7 +71,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Headphones
@@ -240,6 +251,7 @@ internal fun PlayerScrubber(
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
     Column(Modifier.fillMaxWidth()) {
+        val ink = sliderInk()
         ThinSlider(
             value = shown,
             onValueChange = onScrub,
@@ -247,6 +259,10 @@ internal fun PlayerScrubber(
             loading = loading,
             mixing = !scrubbing && versionSwapSheen?.value == true,
             transitionWindow = transitionWindow,
+            vibrant = ink != null,
+            activeColor = ink?.active ?: Color.White.copy(alpha = 0.92f),
+            inactiveColor = ink?.inactive ?: Color.White.copy(alpha = 0.26f),
+            markerColor = ink?.marker ?: Color.White.copy(alpha = 0.5f),
             autoMixGlow = {
                 val sample = visual?.value
                 // A draw can precede lifecycle collection of the cancellation.
@@ -263,10 +279,14 @@ internal fun PlayerScrubber(
                 // so pull the labels back up under it.
                 .offset(y = -SCRUBBER_LABEL_LIFT),
         ) {
-            // Drawn like the artist line: the same white, added the same way.
-            val timeColor = chromeWhite(0.55f)
+            // Dodged like the bottom row's glyphs — see [SCRUBBER_LABELS_DODGED].
+            val chrome = LocalPlayerChrome.current
+            val dodged = chrome && SCRUBBER_LABELS_DODGED
+            val timeColor = if (dodged) brightRowInk() else chromeWhite(0.55f)
             Row(
-                modifier = Modifier.fillMaxWidth().additiveChrome(LocalPlayerChrome.current),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (dodged) Modifier.brightRowChrome(true) else Modifier.additiveChrome(chrome)),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
@@ -517,13 +537,33 @@ internal fun PlaybackQualityLabel(
 }
 
 /**
- * Stats for nerds, on the foot of the sleeve: the measured stream, and under
- * it what Automix's analysis is doing. Nothing at all while the setting is off.
+ * The foot of the sleeve: stats for nerds while that setting is on, and under
+ * them the Best Part button while there is one to offer. Either can be there
+ * without the other; with neither, nothing is drawn.
  */
 @Composable
-internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
+internal fun SleeveNerdStats(
+    song: Song,
+    modifier: Modifier = Modifier,
+    /** The button under the stats; nothing where the player offers none. */
+    bestPart: @Composable () -> Unit = {},
+) {
     val showNerdStats by PlayerSettings.showNerdStats.collectAsStateWithLifecycle()
-    if (!showNerdStats) return
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier,
+    ) {
+        if (showNerdStats) NerdStatsLines(song)
+        bestPart()
+    }
+}
+
+/**
+ * Stats for nerds: the measured stream, and under it what Automix's analysis
+ * is doing.
+ */
+@Composable
+private fun NerdStatsLines(song: Song) {
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     val smartFadeOn by PlayerSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val smartAnalysis by PlayerSettings.smartAnalysis.collectAsStateWithLifecycle()
@@ -550,10 +590,7 @@ internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
             blurRadius = 4f,
         ),
     )
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier,
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         nerdStats?.describe()?.let { stats ->
             Text(
                 text = stats,
@@ -605,6 +642,133 @@ internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
 }
 
 /**
+ * "Best Part": a glass pill on the artwork that skips to the part of the song
+ * people replay most, or failing that to its chorus.
+ *
+ * Offered only while it is still ahead: once the playhead has reached the best
+ * part, by the button or by just listening, it goes for the rest of the track.
+ * A track with no best part known (no replay curve, no synced lyrics to find a
+ * chorus in) never shows it, rather than guessing.
+ *
+ * The same material as the ⋯ menu: its frost, blurring the player under it,
+ * with a light rim to read as glass over the artwork.
+ */
+@Composable
+internal fun BestPartPill(
+    song: Song,
+    position: PlaybackPosition,
+    /** Blurred under the pill: the player's own haze. Null draws it flat. */
+    hazeState: HazeState?,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    /**
+     * Whether a drawer or the ⋯ menu is up over the player. Those blur the
+     * player live themselves, so the pill goes flat under them rather than
+     * paying for a second live blur nobody can see.
+     */
+    overlayOpen: () -> Boolean = { false },
+) {
+    val enabled by PlayerSettings.showBestPart.collectAsStateWithLifecycle()
+    if (!enabled) return
+    val start by produceState<Long?>(null, song.videoId) {
+        value = runCatching { PlayerPlatform.host.bestPartMs(song) }.getOrNull()
+    }
+    // Remembered per track: having been heard is what puts the button away.
+    var heard by remember(song.videoId) { mutableStateOf(false) }
+    val at = start
+    // Read through derivedStateOf, so the pill recomposes as the playhead
+    // crosses the best part, not on every tick of it.
+    val ahead by remember(at, position) {
+        derivedStateOf { at != null && position.positionMs < at - AHEAD_SLACK_MS }
+    }
+    val reaching by remember(at, position) {
+        // Only a playhead inside the best part counts as hearing it. Further on
+        // is a reading left over from the last track, or a skip past it, and
+        // the button should come back for a seek to before it.
+        derivedStateOf { at != null && position.positionMs in (at - AHEAD_SLACK_MS)..(at + HEARD_WINDOW_MS) }
+    }
+    LaunchedEffect(reaching) { if (reaching) heard = true }
+
+    // Not while Automix is mixing into the next track: what is ahead then is
+    // the next song, not this one's best part.
+    val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
+
+    val haptics = rememberHaptics()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    AnimatedVisibility(
+        visible = at != null && ahead && !heard && !mixing,
+        // A fade either way. The room it takes opens and closes around the
+        // fade, so the stats over it glide instead of jumping.
+        enter = expandVertically(tween(BEST_PART_FADE_MS)) +
+            fadeIn(tween(BEST_PART_FADE_MS, delayMillis = BEST_PART_FADE_MS / 2)),
+        exit = fadeOut(tween(BEST_PART_FADE_MS)) +
+            shrinkVertically(tween(BEST_PART_FADE_MS, delayMillis = BEST_PART_FADE_MS / 2)),
+        modifier = modifier,
+    ) {
+        val shape = CircleShape
+        val label = stringResource(Res.string.best_part)
+        val description = stringResource(Res.string.best_part_description)
+        val chrome = LocalPlayerChrome.current
+        Box(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .clip(shape)
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen())
+                .clickable(role = Role.Button) {
+                    val target = at ?: return@clickable
+                    haptics.play(Haptic.Tap)
+                    heard = true
+                    onSeek(target)
+                }
+                .semantics { contentDescription = description },
+        ) {
+            // The star and ⋯ discs' own fill over the frost, so the three
+            // read as one material, then the rim over both.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .vibrantChrome(chrome)
+                    .background(discFill(chrome)),
+            )
+            Box(Modifier.matchParentSize().glassRim(shape))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 12.dp, end = 15.dp, top = 7.dp, bottom = 7.dp),
+            ) {
+                Icon(
+                    imageVector = BitChordIcons.MusicNote,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.W700,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** Just short of the best part already counts as there, so the pill doesn't flash back on a late reading. */
+private const val AHEAD_SLACK_MS = 400L
+
+/** How far into the best part a playhead still counts as having heard it. */
+private const val HEARD_WINDOW_MS = 20_000L
+
+private const val BEST_PART_FADE_MS = 280
+
+/** Thinner than the menu's slab, so the glass reads as glass over the artwork. */
+private const val GLASS_SLAB_ALPHA = 0.38f
+
+/** The slab alone, with no blur under it, thick enough to hold the glyph on any cover. */
+private const val GLASS_FLAT_ALPHA = 0.72f
+
+/**
  * Previous, play/pause, next.
  *
  * [compact] is the landscape player on a phone, where the portrait player's
@@ -626,10 +790,21 @@ internal fun TransportRow(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     compact: Boolean = false,
+    animationsActive: Boolean = true,
 ) {
     val playSize = if (compact) 58.dp else 74.dp
     val playTouch = if (compact) 76.dp else 92.dp
     val skipSize = if (compact) 44.dp else PLAYER_SKIP_ICON_SIZE
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val previousMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val nextMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val playVector = vectorResource(Res.drawable.ic_player_play)
+    val pauseVector = vectorResource(Res.drawable.ic_player_pause)
+    val playPauseMotion = rememberExpandedPlayPauseMotion(
+        isPlaying = isPlaying,
+        active = animationsActive && !isLoading && playVector.root.size > 0 && pauseVector.root.size > 0,
+        reduceMotion = reduceAnimation,
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         // SpaceAround, not SpaceEvenly: the outer margins take half a gap, so
@@ -646,6 +821,8 @@ internal fun TransportRow(
             onClick = onPrevious,
             enabled = previousEnabled,
             haptic = Haptic.SkipPrevious,
+            skipMotion = previousMotion,
+            skipPrevious = true,
         )
         if (isLoading) {
             // Same footprint as the play/pause target — a smaller box here
@@ -665,6 +842,7 @@ internal fun TransportRow(
                 touchSize = playTouch,
                 onClick = onPlayPause,
                 haptic = if (isPlaying) Haptic.Pause else Haptic.Resume,
+                playPauseMotion = playPauseMotion,
             )
         }
         TransportGlyph(
@@ -676,6 +854,7 @@ internal fun TransportRow(
             onClick = onNext,
             enabled = nextEnabled,
             haptic = Haptic.SkipNext,
+            skipMotion = nextMotion,
         )
     }
 }
@@ -702,10 +881,11 @@ internal fun VolumeRow(
         Icon(
             Icons.AutoMirrored.Rounded.VolumeDown,
             contentDescription = null,
-            tint = if (chrome) VibrantChromeInk else chromeWhite(0.5f),
-            modifier = Modifier.size(20.dp).vibrantChrome(chrome),
+            tint = if (chrome) brightRowInk() else chromeWhite(0.5f),
+            modifier = Modifier.size(20.dp).brightRowChrome(chrome),
         )
         Spacer(Modifier.width(10.dp))
+        val ink = sliderInk()
         ThinSlider(
             value = value(),
             onValueChange = onValueChange,
@@ -713,13 +893,16 @@ internal fun VolumeRow(
             idleHeight = 6.dp,
             activeHeight = 10.dp,
             modifier = Modifier.weight(1f),
+            vibrant = ink != null,
+            activeColor = ink?.active ?: Color.White.copy(alpha = 0.92f),
+            inactiveColor = ink?.inactive ?: Color.White.copy(alpha = 0.26f),
         )
         Spacer(Modifier.width(10.dp))
         Icon(
             Icons.AutoMirrored.Rounded.VolumeUp,
             contentDescription = null,
-            tint = if (chrome) VibrantChromeInk else chromeWhite(0.5f),
-            modifier = Modifier.size(20.dp).vibrantChrome(chrome),
+            tint = if (chrome) brightRowInk() else chromeWhite(0.5f),
+            modifier = Modifier.size(20.dp).brightRowChrome(chrome),
         )
     }
 }
@@ -876,6 +1059,85 @@ internal fun PlayerActionRow(
 /** How much more of the ink [CircleGlyph]'s disc takes than its plain white — 0.45 at rest, 0.85 lit. */
 private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
 
+/** The star and ⋯ discs' fill at rest. */
+private const val CIRCLE_DISC_ALPHA = 0.18f
+
+/**
+ * The lyrics, output and queue glyphs, and the volume bar's speakers, dodged
+ * harder than the rest of the chrome: a thin glyph shows far less of a blend
+ * than a filled disc does, and at the usual strength they read as dim on any
+ * cover that isn't already bright. More of the cover's own colour, not more
+ * white. False puts them back as they were.
+ */
+private const val BOTTOM_ROW_BRIGHT = true
+
+/**
+ * The bottom row's ink: solid, and a lighter grey than [VibrantChromeInk] for
+ * a dodge of about 3x rather than 2.5x. Short of the 3.4x that flattened
+ * bright, saturated covers to one loud colour.
+ */
+private val BrightChromeInk = Color(0xFFAAAAAA)
+
+/**
+ * The timestamps and the quality badge between them dodged as the bottom row's
+ * glyphs are, rather than added in white. False puts them back.
+ */
+private const val SCRUBBER_LABELS_DODGED = true
+
+/** The volume bar's two speakers, drawn as the bottom row's glyphs are. */
+@Composable
+@ReadOnlyComposable
+private fun brightRowInk(): Color = when {
+    !BOTTOM_ROW_BRIGHT -> VibrantChromeInk
+    LocalChromeSoftened.current -> SoftenedChromeInk
+    else -> BrightChromeInk
+}
+
+/** [BrightChromeInk] a touch down, about 2.75x, for [LocalChromeSoftened]. */
+private val SoftenedChromeInk = Color(0xFFA2A2A2)
+
+private fun Modifier.brightRowChrome(chrome: Boolean): Modifier = vibrantChrome(chrome)
+
+/**
+ * The seek and volume bars dodged as the bottom row's glyphs are, rather than
+ * laid over the cover in white. False puts them back.
+ */
+private const val SLIDERS_DODGED = true
+
+/**
+ * The bars' ink: a shade lighter than the bottom row's, for about 3.2x. A bar
+ * is a thin line too, and at the glyphs' strength it read as dim.
+ */
+private val SliderChromeInk = Color(0xFFB0B0B0)
+
+/** [SliderChromeInk] a touch down, about 2.9x, for [LocalChromeSoftened]. */
+private val SoftenedSliderInk = Color(0xFFA8A8A8)
+
+@Composable
+@ReadOnlyComposable
+private fun sliderChromeInk(): Color =
+    if (LocalChromeSoftened.current) SoftenedSliderInk else SliderChromeInk
+
+/** The unplayed track's share of [SliderChromeInk]. */
+private const val SLIDER_TRACK_ALPHA = 0.6f
+
+/** Played, unplayed and the Automix window, in the bars' ink. */
+private data class SliderInk(val active: Color, val inactive: Color, val marker: Color)
+
+/** Null where the bars are drawn as they always were. */
+@Composable
+private fun sliderInk(): SliderInk? =
+    if (LocalPlayerChrome.current && SLIDERS_DODGED) {
+        SliderInk(
+            active = sliderChromeInk(),
+            // Enough of the cover to read as track, well short of the played part.
+            inactive = sliderChromeInk().copy(alpha = SLIDER_TRACK_ALPHA),
+            marker = sliderChromeInk().copy(alpha = 0.75f),
+        )
+    } else {
+        null
+    }
+
 /**
  * Translucent circular button used for the track menu and the like control.
  *
@@ -895,7 +1157,7 @@ internal fun CircleGlyph(
 ) {
     val haptics = rememberHaptics()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
+        targetValue = if (active) 0.34f else CIRCLE_DISC_ALPHA,
         label = "glyphDisc",
     )
     val chrome = LocalPlayerChrome.current
@@ -919,14 +1181,10 @@ internal fun CircleGlyph(
             Modifier
                 .matchParentSize()
                 .vibrantChrome(chrome)
-                .background(
-                    if (chrome) {
-                        VibrantChromeInk.copy(alpha = (discAlpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
-                    } else {
-                        Color.White.copy(alpha = discAlpha)
-                    },
-                ),
+                .background(discFill(chrome, discAlpha)),
         )
+        // Outside the blend: the rim is light catching the edge, not ink.
+        Box(Modifier.matchParentSize().glassRim(CircleShape))
         Crossfade(
             targetState = icon,
             animationSpec = tween(durationMillis = 180),
@@ -941,6 +1199,81 @@ internal fun CircleGlyph(
         }
     }
 }
+
+/**
+ * The star and ⋯ discs' fill at [alpha]: under the blend, the ink at a few
+ * times that strength, since a dodge laid on this thinly is next to nothing.
+ */
+private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
+    if (chrome) {
+        VibrantChromeInk.copy(alpha = (alpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+    } else {
+        Color.White.copy(alpha = alpha)
+    }
+
+/**
+ * Glass's body: the ⋯ menu's frost, blurring the player live under a thin
+ * charcoal slab. [flat] (dynamic blur reduced, or a drawer or the ⋯ menu up
+ * over it, which blur the player live themselves) and a missing [hazeState]
+ * draw the slab alone, thicker, and blur nothing.
+ */
+internal fun Modifier.glassFrost(hazeState: HazeState?, flat: Boolean): Modifier =
+    if (flat || hazeState == null) {
+        background(MenuFrostDark.copy(alpha = GLASS_FLAT_ALPHA))
+    } else {
+        liveMenuFrost(hazeState, MenuFrostDark, alpha = GLASS_SLAB_ALPHA)
+    }
+
+/**
+ * The star and ⋯ discs beside the credits, behind one frost between them.
+ *
+ * One blur, cut to both circles, rather than one per disc: the two always move
+ * together (a skip's slide, the collapse), and each would otherwise be blurred
+ * again on every frame of it, side by side, from the same source.
+ */
+@Composable
+internal fun GlassDiscPair(
+    hazeState: HazeState?,
+    /** See [BestPartPill]'s, which goes flat for the same reason. */
+    overlayOpen: () -> Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    Box(modifier) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(DiscPairShape)
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen()),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, content = content)
+    }
+}
+
+/**
+ * A disc at each end of a row as tall as one: both glyphs, or the ⋯ alone
+ * (a row no wider than it is tall) for a guest, who gets no star.
+ */
+private val DiscPairShape = GenericShape { size, _ ->
+    val d = size.height
+    addOval(Rect(0f, 0f, d, d))
+    if (size.width >= d * 1.5f) addOval(Rect(size.width - d, 0f, size.width, d))
+}
+
+/**
+ * Glass's edge: a hairline rim, brighter along the top where the light would
+ * catch it. One rim for the Best Part pill and the star and ⋯ discs, so they
+ * read as the same material.
+ */
+internal fun Modifier.glassRim(shape: Shape): Modifier = border(
+    width = 1.dp,
+    brush = Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.42f),
+        1f to Color.White.copy(alpha = 0.14f),
+    ),
+    shape = shape,
+)
 
 /**
  * Transport / bottom glyphs. The circular clip belongs on the touch target,
@@ -958,8 +1291,12 @@ private fun TransportGlyph(
     haptic: Haptic = Haptic.Tap,
     /** Vertical squash of the glyph alone; its width and touch box are untouched. */
     heightScale: Float = 1f,
+    skipMotion: PlayerSkipMotion? = null,
+    skipPrevious: Boolean = false,
+    playPauseMotion: ExpandedPlayPauseMotion? = null,
 ) {
     val haptics = rememberHaptics()
+    val interactionSource = remember { MutableInteractionSource() }
     // Faded rather than hidden: the row keeps its shape at the ends of a queue.
     val alpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0.3f,
@@ -968,30 +1305,73 @@ private fun TransportGlyph(
     Box(
         modifier = Modifier
             .size(touchSize)
+            .then(
+                if (skipMotion != null) Modifier.playerSkipPressCircle(
+                    motion = skipMotion,
+                    interactionSource = interactionSource,
+                    enabled = enabled,
+                    tint = Color.White.copy(alpha = alpha),
+                    glyphSize = size,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
+                ) else if (playPauseMotion != null) Modifier.expandedPlayPausePressCircle(
+                    motion = playPauseMotion,
+                    interactionSource = interactionSource,
+                    tint = Color.White.copy(alpha = alpha),
+                    glyphSize = size,
+                    diameter = PLAYER_PRESS_CIRCLE_DIAMETER,
+                ) else Modifier,
+            )
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
             ) {
                 haptics.play(haptic)
+                skipMotion?.onTap()
+                playPauseMotion?.onTap()
                 onClick()
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = contentDescription,
-            tint = Color.White.copy(alpha = alpha),
-            modifier = Modifier
-                .size(size)
-                .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
-        )
+        if (skipMotion != null) {
+            PlayerSkipGlyph(
+                motion = skipMotion,
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+                previous = skipPrevious,
+            )
+        } else if (playPauseMotion != null) {
+            ExpandedPlayPauseGlyph(
+                motion = playPauseMotion,
+                interactionSource = interactionSource,
+                playPainter = painterResource(Res.drawable.ic_player_play),
+                pausePainter = painterResource(Res.drawable.ic_player_pause),
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier.size(size),
+            )
+        } else {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = contentDescription,
+                tint = Color.White.copy(alpha = alpha),
+                modifier = Modifier
+                    .size(size)
+                    .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
+            )
+        }
     }
 }
 
 /** The skip glyphs' width, and their touch box, beside the larger play button. */
 private val PLAYER_SKIP_ICON_SIZE = 53.dp
 private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
+
+/** Draw-only diameter shared by expanded playback controls; hit targets stay unchanged. */
+private val PLAYER_PRESS_CIRCLE_DIAMETER = 60.dp
 
 /**
  * The skip glyphs are drawn a little flatter than they are wide, so the pair
@@ -1180,9 +1560,9 @@ private fun rememberOutputGlyph(): OutputGlyph {
         watch.active -> OutputGlyph(Icons.Rounded.Watch, PILL_OUTPUT_TALL_SIZE)
         else -> when (active?.kind) {
             // No active row is the phone too — the caption under the pill
-            // says "This phone" in the same case. Cast rather than a phone:
+            // says "This phone" in the same case. AirPlay rather than a phone:
             // on the phone itself the button's job is to send it elsewhere.
-            null, AudioOutputKind.PHONE -> OutputGlyph(Icons.Rounded.Cast, PILL_OUTPUT_WIDE_SIZE)
+            null, AudioOutputKind.PHONE -> OutputGlyph(BitChordIcons.AirPlay)
             AudioOutputKind.BLUETOOTH -> when (active.form) {
                 BluetoothForm.BUDS -> OutputGlyph(vectorResource(Res.drawable.ic_output_buds), PILL_OUTPUT_BUDS_SIZE)
                 BluetoothForm.SPEAKER -> OutputGlyph(vectorResource(Res.drawable.ic_output_speaker))
@@ -1252,14 +1632,11 @@ private fun PillSegment(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = if (vibrant && chrome) {
-            VibrantChromeInk
-        } else {
-            when {
-                !highlighted -> chromeWhite(0.75f)
-                chrome -> Color.White.copy(alpha = CHROME_FULL_ALPHA)
-                else -> Color.White
-            }
+        val tint = when {
+            vibrant && chrome -> brightRowInk()
+            !highlighted -> chromeWhite(0.75f)
+            chrome -> Color.White.copy(alpha = CHROME_FULL_ALPHA)
+            else -> Color.White
         }
         Crossfade(
             targetState = loading,
@@ -1446,8 +1823,11 @@ private fun BottomGlyph(
     // costs no recomposition. Starts a full window in the past so the first tap
     // is never the one that gets swallowed.
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
-    val tileColor = chromeWhite(BOTTOM_ACTIVE_TILE_ALPHA)
     val tileChrome = LocalPlayerChrome.current
+    // The lit tile dodged like the glyphs around it, so lyrics or the queue
+    // being up reads in the cover's colour rather than as a white patch.
+    val tileDodged = tileChrome && vibrant && BOTTOM_ROW_BRIGHT
+    val tileColor = if (tileDodged) brightRowInk() else chromeWhite(BOTTOM_ACTIVE_TILE_ALPHA)
     Box(
         modifier = Modifier
             .size(BOTTOM_ACTION_SIZE)
@@ -1459,7 +1839,9 @@ private fun BottomGlyph(
             .then(
                 if (highlighted) {
                     (
-                        if (tileChrome) {
+                        if (tileDodged) {
+                            Modifier.vibrantChrome(true)
+                        } else if (tileChrome) {
                             Modifier.additiveChrome(true)
                         } else {
                             Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -1498,10 +1880,10 @@ private fun BottomGlyph(
         // Not while lit: the tile's cut-out needs the glyph drawn plainly in the
         // layer above, which is blended as a whole.
         val chrome = LocalPlayerChrome.current && !highlighted
-        val tint = if (vibrant && chrome) {
-            VibrantChromeInk
-        } else {
-            if (highlighted) Color.White else chromeWhite(0.75f)
+        val tint = when {
+            vibrant && chrome -> brightRowInk()
+            highlighted -> Color.White
+            else -> chromeWhite(0.75f)
         }
         val glyphChrome = if (vibrant) Modifier.vibrantChrome(chrome) else Modifier.additiveChrome(chrome)
         if (icon != null) {
@@ -1971,6 +2353,10 @@ private fun LosslessLabel(
     } else {
         null
     }
+    // Dodged like the timestamps either side, but not with the shimmer on:
+    // its white highlight would dodge the cover straight to a flat glare.
+    val chrome = LocalPlayerChrome.current
+    val dodged = chrome && SCRUBBER_LABELS_DODGED && !animated
     Row(
         // Read in the layer, so a frame of the pulse is a redraw of this one
         // label — no recomposition, no relayout. ModulateAlpha fades each draw
@@ -1981,11 +2367,11 @@ private fun LosslessLabel(
                 alpha = pulse?.value ?: 1f
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            .additiveChrome(LocalPlayerChrome.current),
+            .then(if (dodged) Modifier.brightRowChrome(true) else Modifier.additiveChrome(chrome)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val tint = chromeWhite(if (animated) 0.7f else 0.45f)
+        val tint = if (dodged) brightRowInk() else chromeWhite(if (animated) 0.7f else 0.45f)
         // At the drawable's own size — the wave is wide, the double-D
         // nearly square, and one box squashed one of them.
         Icon(
@@ -2004,7 +2390,7 @@ private fun LosslessLabel(
                     fontWeight = FontWeight.Medium,
                     fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
                 ),
-                color = chromeWhite(0.45f),
+                color = if (dodged) brightRowInk() else chromeWhite(0.45f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

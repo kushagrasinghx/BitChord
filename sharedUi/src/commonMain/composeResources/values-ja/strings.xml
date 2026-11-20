@@ -207,4 +207,6 @@
     <string name="queue_download">ダウンロード</string>
     <string name="queue_selection_remove">削除</string>
     <string name="queue_add_all_to_playlist">すべてプレイリストに追加</string>
+    <string name="mixes_yours">あなたのミックス</string>
+    <string name="mixes_none">まだミックスはありません。聴き続けると、YouTube Music があなた向けのミックスを作成します。</string>
 </resources>

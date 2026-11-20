@@ -71,7 +71,6 @@ internal fun QueueSwipeRow(
     canCommit: (QueueTrack, QueueSwipeAction) -> Boolean,
     onCommit: suspend (QueueTrack, QueueSwipeAction) -> Boolean,
     modifier: Modifier = Modifier,
-    allowQueueGesture: Boolean = true,
     content: @Composable (interactive: Boolean) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -220,10 +219,10 @@ internal fun QueueSwipeRow(
             .semantics {
                 customActions = buildList {
                     if (enabled) add(accessibilityAction(removeLabel, QueueSwipeAction.REMOVE))
-                    if (enabled && allowQueueGesture) add(accessibilityAction(queueLabel, QueueSwipeAction.QUEUE))
+                    if (enabled) add(accessibilityAction(queueLabel, QueueSwipeAction.QUEUE))
                 }
             }
-            .pointerInput(track.key, enabled, committing, ltr, allowQueueGesture) {
+            .pointerInput(track.key, enabled, committing, ltr) {
                 if (!enabled || committing) return@pointerInput
                 // Main-pass horizontal slop yields to the existing child handle's
                 // consumed drag, vertical list scrolling and long-press consumption.
@@ -239,10 +238,7 @@ internal fun QueueSwipeRow(
                     onDragEnd = { release(cancelled = false) },
                     onDragCancel = { release(cancelled = true) },
                     onHorizontalDrag = { _, amount ->
-                        val proposed = (offset + amount).coerceIn(-width, width)
-                        // Now Playing permits removal, but must not reveal an add
-                        // affordance for an action that can never commit.
-                        offset = if (!allowQueueGesture && actionAt(proposed) == QueueSwipeAction.QUEUE) 0f else proposed
+                        offset = (offset + amount).coerceIn(-width, width)
                         val eligible = currentCanCommit(gestureTrack, actionAt(offset))
                         val pastThreshold = width > 0f && abs(offset) >= width * 0.45f && eligible
                         if (pastThreshold && !armed) {

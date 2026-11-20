@@ -45,7 +45,8 @@ internal class AutoMixAmbient(
         targetReady && settled?.first == it.generation
     }
 
-    fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = direct ?: settled.takeIf { cancelled || targetReady }
+    // Only the enabled transition's promotion has a composition reset epoch.
+    fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = settled.takeIf { cancelled || targetReady }
 }
 
 /** Keep the reset epoch after leaving a promoted track, so the next ordinary skip still tweens. */

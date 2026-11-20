@@ -342,7 +342,8 @@ private fun PlayerMeshBackdrop(
     val snapKey = rememberAmbientSnapKey(ambient.snapKey(seed != null))
     val mix = ambient.mixFor(seed != null)
     val url = imageUrl ?: ambient.incoming?.resolvedUrl
-    val mesh = key(entry ?: trackKey, snapKey) { rememberArtworkMesh(url, canvasFrame(), ART_PX, seed, canvasKey) }
+    val frame = canvasFrame()
+    val mesh = key(entry ?: trackKey, snapKey) { rememberArtworkMesh(url, frame, ART_PX, seed, canvasKey) }
     val currentSeamTarget by rememberUpdatedState(seamTarget)
     val seam = remember { Animatable(Snapshot.withoutReadObservation { seamTarget() }, Dp.VectorConverter) }
     // Glides to a clip's edge as the clip fades in, and is put straight where
@@ -363,6 +364,8 @@ private fun PlayerMeshBackdrop(
             modifier = modifier.graphicsLayer { this.alpha = alpha() },
             mix = mix,
             currentIsOutgoing = entry == mix?.outgoing,
+            directSelection = ambient.direct,
+            directStill = ambient.direct != null && frame == null,
         )
     }
 }
@@ -383,19 +386,18 @@ private fun LegacyMeshBackdrop(
     val requestedSnap = ambient.snapKey(settled != null)
     val snapKey = rememberAmbientSnapKey(requestedSnap)
     val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled || ambient.direct != null }
-    val palette = key(snapKey) { rememberArtworkColors(url, canvasFrame(), seed, canvasKey) }
-    // Still palettes populate the URL cache; Canvas frames do not. Snap when
-    // the selected still arrives, but keep the regular Canvas color animation.
-    val directPaletteKey = rememberAmbientSnapKey(ambient.direct?.let { url to (cachedArtworkPalette(url) != null) })
+    val frame = canvasFrame()
+    val palette = key(snapKey) { rememberArtworkColors(url, frame, seed, canvasKey) }
     val mix = ambient.mixFor(settled != null)
     MeshGradientBackground(
         palette = palette,
         trackKey = trackKey,
         modifier = modifier,
         mix = mix,
-        snapKey = snapKey to directPaletteKey,
-        settled = requestedSnap != null && ambient.direct == null,
+        snapKey = snapKey,
+        settled = requestedSnap != null,
         currentIsOutgoing = entry == mix?.outgoing,
+        directStill = ambient.direct != null && frame == null,
     )
 }
 
@@ -1978,17 +1980,14 @@ fun NowPlayingScreen(
     val currentBlurMix = rememberUpdatedState(blurMix)
     val currentBlurSnapKey = rememberUpdatedState(blurSnapKey)
     val currentBlurIsOutgoing = rememberUpdatedState(coverEntry == blurMix?.outgoing)
-    // Reset immediately for the selected track, then again if its blur arrives late.
-    // Keep the last reset key so the next ordinary change can crossfade from it.
-    val directBackdropEpoch = rememberAmbientSnapKey(ambient.direct)
-    val directBlurKey = rememberAmbientSnapKey(ambient.direct?.let { Triple(it, ambientBlurUrl, fullArtworkBlurImage != null) })
-    val currentDirectBlurKey = rememberUpdatedState(directBlurKey)
+    val directBlur = rememberUpdatedState(ambient.direct != null)
     val fullArtworkBlurContent = remember {
         movableContentOf<Modifier> { backdropModifier ->
-            key(currentBlurSnapKey.value, currentDirectBlurKey.value) {
+            key(currentBlurSnapKey.value) {
                 FullArtworkBlurBackdrop(
                     currentFullArtworkBlurImage.value, backdropModifier,
                     currentBlurMix.value, currentBlurIsOutgoing.value,
+                    immediate = directBlur.value,
                 )
             }
         }
@@ -2668,18 +2667,16 @@ fun NowPlayingScreen(
                 val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
                     playerTheme == PlayerTheme.LEGACY
                 val artworkMeshBackdrop = !tabletArtworkBackdrop && playerTheme == PlayerTheme.DEFAULT
-                val fullArtworkBackdropAlpha by key(directBackdropEpoch) {
-                    animateFloatAsState(
-                        targetValue = if (
-                            !legacyMeshBackdrop &&
-                            (tabletArtworkBackdrop || blurAvailable) &&
-                            (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
-                            (!artworkMeshBackdrop || lyricsOpen || queueOpen)
-                        ) 1f else 0f,
-                        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-                        label = "fullArtworkBackdropCrossfade",
-                    )
-                }
+                val fullArtworkBackdropAlpha by animateFloatAsState(
+                    targetValue = if (
+                        !legacyMeshBackdrop &&
+                        (tabletArtworkBackdrop || blurAvailable) &&
+                        (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
+                        (!artworkMeshBackdrop || lyricsOpen || queueOpen)
+                    ) 1f else 0f,
+                    animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+                    label = "fullArtworkBackdropCrossfade",
+                )
                 // One layer for all three, recorded for a shared lyrics card.
                 Box(Modifier.fillMaxSize().recordBackdrop(backdropLayer)) {
                     if (legacyMeshBackdrop) {

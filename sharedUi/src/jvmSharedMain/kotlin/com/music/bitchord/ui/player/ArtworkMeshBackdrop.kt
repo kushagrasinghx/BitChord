@@ -3,6 +3,7 @@ package com.music.bitchord.ui.player
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
@@ -48,6 +49,7 @@ import coil3.request.SuccessResult
 import coil3.size.Precision
 import coil3.size.Scale
 import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.Dispatchers
@@ -226,6 +228,7 @@ fun FullArtworkBlurBackdrop(
 @Composable
 internal fun FullArtworkBlurBackdrop(
     image: ImageBitmap?, modifier: Modifier, mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean,
+    immediate: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
         val history = remember { BlurLayers() }
@@ -233,7 +236,7 @@ internal fun FullArtworkBlurBackdrop(
             if (mix == null) null else history.target ?: cachedFullArtworkBlur(mix.outgoingUrl)
                 ?: image.takeIf { currentIsOutgoing }
         }
-        FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null)
+        FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null, immediate = immediate)
         if (mix != null) {
             val held = remember(mix) {
                 history.layers?.map { (bitmap, alpha) -> bitmap to alpha.value }
@@ -262,20 +265,20 @@ private class BlurLayers {
 
 /** The ordinary Crossfade behavior, with its visible layers accessible for the AutoMix hold. */
 @Composable
-private fun FullBlurTrackFade(image: ImageBitmap?, history: BlurLayers, draw: Boolean) {
+private fun FullBlurTrackFade(image: ImageBitmap?, history: BlurLayers, draw: Boolean, immediate: Boolean) {
     val fade = updateTransition(image, label = "preparedBackdropImage")
     val visible = remember { mutableStateListOf(fade.currentState) }
-    if (fade.currentState == fade.targetState && visible.size > 1) {
+    if (immediate || (fade.currentState == fade.targetState && visible.size > 1)) {
         visible.removeAll { it != fade.targetState }
     }
     if (fade.targetState !in visible) visible.add(fade.targetState)
     val layers = visible.mapNotNull { bitmap ->
         key(bitmap) {
-            val alpha = fade.animateFloat(transitionSpec = { tween(320, easing = FastOutSlowInEasing) }) {
+            val alpha = fade.animateFloat(transitionSpec = { if (immediate) snap() else tween(320, easing = FastOutSlowInEasing) }) {
                 if (it == bitmap) 1f else 0f
             }
             bitmap?.let {
-                if (draw) FullBlurImage(it, Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha.value })
+                if (draw) FullBlurImage(it, Modifier.fillMaxSize().graphicsLayer { this.alpha = if (immediate) 1f else alpha.value })
                 it to alpha
             }
         }
@@ -410,6 +413,7 @@ fun ArtworkMeshBackdrop(
 internal fun ArtworkMeshBackdrop(
     mesh: ArtworkMesh?, modifier: Modifier, seam: () -> Dp, fallback: Color = FallbackBackdrop,
     mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean = false,
+    directSelection: Pair<Long, QueueEntryIdentity>? = null, directStill: Boolean = false,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
@@ -421,10 +425,19 @@ internal fun ArtworkMeshBackdrop(
     var incoming by remember { mutableStateOf<ArtworkMesh?>(null) }
     var fadingToFallback by remember { mutableStateOf(false) }
     val fade = remember { Animatable(0f) }
+    var appliedDirect by remember { mutableStateOf<Pair<Long, QueueEntryIdentity>?>(null) }
+    val immediate = directSelection != null && (appliedDirect != directSelection || directStill)
 
-    LaunchedEffect(mesh, mix, reduceAnimation) {
+    LaunchedEffect(mesh, mix, reduceAnimation, directSelection, directStill) {
         if (mix != null) return@LaunchedEffect
         val next = mesh
+        if (immediate) {
+            shown = next
+            incoming = null
+            fadingToFallback = false
+            appliedDirect = directSelection
+            return@LaunchedEffect
+        }
         // A change arriving mid-fade. Whatever was fading in has been on screen
         // for a while and is what the new one should fade *from*; leaving it in
         // [incoming] would restart the fade from the mesh before it, and a clip
@@ -472,9 +485,10 @@ internal fun ArtworkMeshBackdrop(
             mix.prepared?.mesh?.let { drawMesh(it, seamY, alpha = mix.ease()) }
         } else {
             drawn.wasDrawn = true
-            drawn.base = shown
-            drawn.baseAlpha = if (fadingToFallback) 1f - fade.value else 1f
-            drawn.overlay = incoming
+            // Paint the selected mesh (or the regular fallback) even before the effect settles.
+            drawn.base = if (immediate) mesh else shown
+            drawn.baseAlpha = if (!immediate && fadingToFallback) 1f - fade.value else 1f
+            drawn.overlay = incoming.takeUnless { immediate }
             drawn.alpha = fade.value
             drawn.base?.let { drawMesh(it, seamY, alpha = drawn.baseAlpha) }
             drawn.overlay?.let { drawMesh(it, seamY, alpha = drawn.alpha) }

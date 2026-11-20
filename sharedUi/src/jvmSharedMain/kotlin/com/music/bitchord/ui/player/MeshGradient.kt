@@ -134,6 +134,7 @@ internal fun MeshGradientBackground(
     continuous: Boolean = false, blurRadius: Dp = 64.dp, animated: Boolean = true,
     colorFadeMillis: Int = 1400, paused: Boolean = false, mix: AutoMixAmbientMix?,
     snapKey: Any?, settled: Boolean, currentIsOutgoing: Boolean,
+    directStill: Boolean = false,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
@@ -149,7 +150,7 @@ internal fun MeshGradientBackground(
 
     // Each colour slot crossfades independently when the track (palette) changes,
     // unless "reduce animation" is on, in which case colours snap straight to target.
-    val colorSpec: AnimationSpec<Color> = if (reduceAnimation || !animated) snap() else tween(colorFadeMillis)
+    val colorSpec: AnimationSpec<Color> = if (directStill || reduceAnimation || !animated) snap() else tween(colorFadeMillis)
     val (animatedColors, baseColor) = key(snapKey) {
         val slots = tuned.mapIndexed { index, color ->
             animateColorAsState(color, colorSpec, label = "meshColor$index")
@@ -206,7 +207,9 @@ internal fun MeshGradientBackground(
                 scaleX = 1.3f
                 scaleY = 1.3f
             }
-            .then(if (held == null || mix == null) Modifier.background(baseColor.value) else Modifier.drawBehind {
+            .then(if (held == null || mix == null) Modifier.background(
+                if (directStill) tuned.first().dimmed() else baseColor.value,
+            ) else Modifier.drawBehind {
                 drawRect(ambientColor(held.base, target?.base, mix.ease()))
             })
             .blur(blurRadius),
@@ -221,9 +224,9 @@ internal fun MeshGradientBackground(
         val drift = phase.value
 
         val e = mix?.ease() ?: 0f
-        val slots = held?.slots ?: animatedColors.map { it.value }
+        val slots = held?.slots ?: if (directStill) tuned else animatedColors.map { it.value }
         if (held == null && trackKey != null) {
-            lastDrawn.colors = LegacyAmbientColors(slots, baseColor.value)
+            lastDrawn.colors = LegacyAmbientColors(slots, if (directStill) tuned.first().dimmed() else baseColor.value)
         }
         slots.forEachIndexed { index, slot ->
             val color = ambientColor(slot, target?.slots?.get(index), e)

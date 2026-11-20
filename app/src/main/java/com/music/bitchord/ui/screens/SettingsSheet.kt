@@ -248,6 +248,7 @@ fun SettingsScreen(
     val dolbyAtmosSupported = DeviceCodecs.playsDolbyAtmos
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+    val bestPart by AppSettings.showBestPart.collectAsStateWithLifecycle()
     val listenTogetherButton by AppSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -1803,6 +1804,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
+                )
+            }
+            val bestPartTitle = stringResource(R.string.show_best_part)
+            row(bestPartTitle, "best part", "chorus", "skip", "replayed", "highlight") {
+                SettingsRow(
+                    icon = SfIcons.MusicNote,
+                    title = bestPartTitle,
+                    subtitle = stringResource(R.string.show_best_part_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = bestPart,
+                            onCheckedChange = AppSettings::setShowBestPart,
+                        )
+                    },
+                    onClick = { AppSettings.setShowBestPart(!bestPart) },
                 )
             }
             val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)

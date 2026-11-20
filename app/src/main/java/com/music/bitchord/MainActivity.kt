@@ -672,6 +672,10 @@ private fun BitChordApp(
     var showReplayShare by rememberSaveable { mutableStateOf(false) }
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
+    // The Replay year story, opened from its button on Home, and the card of it
+    // the share sheet is up for. Apart from the ordinary Replay's, because the
+    // year story is drawn from a calendar year rather than the page's period.
+    var yearStoryOpen by rememberSaveable { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
 
     // Hosted here rather than inside SourcesScreen so its frosted card has
@@ -681,8 +685,6 @@ private fun BitChordApp(
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
     var choosingSourceQuality by remember { mutableStateOf<SourceConfig?>(null) }
-    /** An addon whose "Outdated addon" line was tapped; see [SourceConfig.needsAddonUpdate]. */
-    var explainingOutdatedAddon by remember { mutableStateOf<SourceConfig?>(null) }
     var confirmJioSaavn by remember { mutableStateOf(false) }
     var confirmBitPerfect by remember { mutableStateOf<BitPerfectMode?>(null) }
     var confirmFixedVolume by remember { mutableStateOf(false) }
@@ -2548,6 +2550,26 @@ private fun BitChordApp(
         (selectedTab == TAB_LIBRARY && detail == null && route == null)
     val replayPageOpen = replayEntryId != null || replayStory != null || showReplayShare
     val (replay, setReplayPeriod) = rememberReplayState(replayOpen, replayPageOpen)
+    // The year the Home button offers. Read only while Home or the story is up.
+    val replayYear = com.music.bitchord.ui.replay.year.rememberReplayYear(
+        active = selectedTab == TAB_HOME || yearStoryOpen,
+    )
+    val replayYearDescription = replayYear?.let {
+        stringResource(R.string.replay_year_open, it.year.toString())
+    }
+    val replayYearBadge = remember(replayYear, replayYearDescription) {
+        replayYear?.let { year ->
+            com.music.bitchord.ui.screens.ReplayYearBadge(
+                year = year.year,
+                artworkUrl = year.data.summary.songs.firstOrNull()?.song?.thumbnailUrl,
+                contentDescription = replayYearDescription.orEmpty(),
+                onOpen = { yearStoryOpen = true },
+            )
+        }
+    }
+    // The story has its own soundtrack: whatever was playing stops for it, and
+    // stays stopped after, rather than coming back in under the last card.
+    LaunchedEffect(yearStoryOpen) { if (yearStoryOpen) controller?.pause() }
     val replayCards = remember(replay.summary) {
         replay.summary?.takeUnless { it.isEmpty }?.cards(context).orEmpty()
     }
@@ -2965,7 +2987,6 @@ private fun BitChordApp(
         BackHandler(enabled = discordDialog != null) { discordDialog = null }
         BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = choosingSourceQuality != null) { choosingSourceQuality = null }
-        BackHandler(enabled = explainingOutdatedAddon != null) { explainingOutdatedAddon = null }
         BackHandler(enabled = editingPartyServer) { editingPartyServer = false }
         BackHandler(enabled = editingSignatureApi) { editingSignatureApi = false }
 
@@ -3197,7 +3218,6 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                                 onEditSource = { editingSource = it },
                                 onChooseSourceQuality = { choosingSourceQuality = it },
-                                onExplainOutdatedAddon = { explainingOutdatedAddon = it },
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
@@ -3581,6 +3601,7 @@ private fun BitChordApp(
                                 onMoodsShowAll = { navigator.push(AppRoute.Moods) },
                                 // Nothing on Home is seen while the greeting covers it.
                                 artworkMotion = artworkMotion,
+                                replayYear = replayYearBadge,
                                 onTopPickLongPress = { pick ->
                                     pick.browseId?.let { browseId ->
                                         onShelfLongPress(
@@ -5091,6 +5112,14 @@ private fun BitChordApp(
             }
         }
 
+        // ---- Replay year story ----
+        // Mounted over the window like the Replay story, for the same reason.
+        com.music.bitchord.ui.replay.year.ReplayYearHost(
+            year = replayYear,
+            open = yearStoryOpen,
+            onClose = { yearStoryOpen = false },
+        )
+
         // ---- Track menu ----
         // In a recompose scope of its own: whether a menu is up is read in
         // here, and read in the app's own body it recomposed all of the app
@@ -6184,15 +6213,6 @@ private fun BitChordApp(
                     choosingSourceQuality = null
                 },
                 onDismiss = { choosingSourceQuality = null },
-            )
-        }
-
-        explainingOutdatedAddon?.let { config ->
-            InfoAlert(
-                hazeState = hazeState,
-                title = config.displayName,
-                description = stringResource(R.string.source_needs_update),
-                onDismiss = { explainingOutdatedAddon = null },
             )
         }
 

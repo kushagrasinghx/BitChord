@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -808,5 +809,43 @@ object BitChordIcons {
                 moveTo(9.5f, 17.5f); lineTo(19.5f, 17.5f)
             }
         }.build()
+    }
+    /**
+     * AirPlay: three rings with a solid triangle standing at their base, the
+     * mark for sending the sound somewhere else.
+     */
+    val AirPlay: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_airplay",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = 1.7f,
+            ) {
+                ring(12f, 11.8f, 9.2f)
+                ring(12f, 11.8f, 5.8f)
+                ring(12f, 11.8f, 2.8f)
+            }
+            path(
+                fill = stroke,
+                stroke = stroke,
+                strokeLineWidth = 1.2f,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(7.0f, 20.9f)
+                lineTo(17.0f, 20.9f)
+                lineTo(12f, 12.2f)
+                close()
+            }
+        }.build()
+    }
+
+    private fun PathBuilder.ring(cx: Float, cy: Float, radius: Float) {
+        moveTo(cx - radius, cy)
+        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, radius * 2f, 0f)
+        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, -radius * 2f, 0f)
+        close()
     }
 }

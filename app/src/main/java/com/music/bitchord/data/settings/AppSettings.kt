@@ -453,6 +453,12 @@ object AppSettings {
     /** Put the playing track's codec, bitrate and sample rate on the player. */
     val showNerdStats = MutableStateFlow(false)
 
+    /**
+     * The "Best Part" button on the player's artwork, which skips to the part of
+     * the song listeners replay most. On unless turned off.
+     */
+    val showBestPart = MutableStateFlow(true)
+
     /** Show the output / Listen Together pill under the player's transport. */
     val showListenTogetherButton = MutableStateFlow(false)
 
@@ -1092,6 +1098,7 @@ object AppSettings {
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
+        showBestPart.value = prefs.getBoolean(KEY_BEST_PART, true)
         showListenTogetherButton.value = prefs.getBoolean(KEY_LISTEN_TOGETHER_BUTTON, false)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
         onboardingComplete.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
@@ -1484,6 +1491,11 @@ object AppSettings {
     fun setShowNerdStats(value: Boolean) {
         showNerdStats.value = value
         prefs.edit().putBoolean(KEY_NERD_STATS, value).apply()
+    }
+
+    fun setShowBestPart(value: Boolean) {
+        showBestPart.value = value
+        prefs.edit().putBoolean(KEY_BEST_PART, value).apply()
     }
 
     fun setShowListenTogetherButton(value: Boolean) {
@@ -2399,6 +2411,7 @@ object AppSettings {
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
     private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"
+    private const val KEY_BEST_PART = "show_best_part"
     private const val KEY_LISTEN_TOGETHER_BUTTON = "show_listen_together_button"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"

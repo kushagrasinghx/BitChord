@@ -1294,8 +1294,6 @@
 
 
     <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
-    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitChord के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
-    <string name="source_outdated">पुराना ऐडऑन</string>
     <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
     <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
     <string name="source_downloads_on">डाउनलोड की अनुमति है</string>

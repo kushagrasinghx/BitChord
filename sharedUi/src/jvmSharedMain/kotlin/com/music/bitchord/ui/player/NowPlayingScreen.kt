@@ -237,6 +237,9 @@ internal const val SEEK_SETTLE_TIMEOUT_MS = 4_000L
 private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
+
+/** How much lower the sleeve's foot (stats, Best Part) sits over full-screen art than on the card. */
+private val BANNER_FOOT_DROP = 26.dp
 /**
  * How long the sleeve takes to travel the whole way between the full player and
  * the queue's header.
@@ -1803,17 +1806,22 @@ fun NowPlayingScreen(
             onListenTogether = onListenTogether,
             onOpenListenTogetherMembers = openListenTogetherMembers,
         )
-        // Keep the current output caption visible in every state.
-        Spacer(Modifier.height(18.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(20.dp),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            OutputCaption(
-                accountName = accountName,
-                onOpenOutput = openAudioOutput,
-                onOpenMembers = openListenTogetherMembers,
-            )
+        // Keep the current output caption visible in every state, except on
+        // a phone on its side: its left column is only a phone's width tall,
+        // and the sleeve needs that room more than the caption does. A
+        // tablet's landscape has room for both.
+        if (!(sideways && !fullscreenInPlace)) {
+            Spacer(Modifier.height(18.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().height(20.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                OutputCaption(
+                    accountName = accountName,
+                    onOpenOutput = openAudioOutput,
+                    onOpenMembers = openListenTogetherMembers,
+                )
+            }
         }
     }
 
@@ -2095,6 +2103,8 @@ fun NowPlayingScreen(
         // glass deck up, so the glyphs blend into the blurred, darkened clip.
         // And off everywhere with "Disable blend effects".
         chrome = !disableBlendEffects && !videoFullscreen,
+        softened = !spotifyCanvasPresentation &&
+            (playerTheme == PlayerTheme.DEFAULT || playerTheme == PlayerTheme.LEGACY),
         frost = frost,
         live = spotifyCanvasPresentation,
         // Not the host's ⋯ menu: that takes its own still, of everything.
@@ -2347,6 +2357,7 @@ fun NowPlayingScreen(
                                     // Faded with the player rather than flown with
                                     // the sleeve: the cover in the bar has none.
                                     .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
+                                bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                             )
                         }
                     },
@@ -2367,6 +2378,8 @@ fun NowPlayingScreen(
                                     onOpenMenu = onOpenMenu,
                                     onOpenAlbum = onOpenAlbum,
                                     onOpenArtist = onOpenArtist,
+                                    hazeState = playerHaze,
+                                    overlayOpen = { overlayOpen.value },
                                 )
                             },
                             lyricStrip = if (syncedLyricsEnabled && !hideLyricsPreview) {
@@ -2567,7 +2580,17 @@ fun NowPlayingScreen(
                     label = "fullArtworkBackdropCrossfade",
                 )
                 // One layer for all three, recorded for a shared lyrics card.
-                Box(Modifier.fillMaxSize().recordBackdrop(backdropLayer)) {
+                //
+                // And a source of the player's frost, under the sleeve and the
+                // clip: the banner dissolves into this towards its bottom edge,
+                // and glass over that stretch (the Best Part button, a menu)
+                // found nothing behind it but the frost's flat charcoal.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .recordBackdrop(backdropLayer)
+                        .hazeSource(playerHaze, zIndex = -1f),
+                ) {
                     if (legacyMeshBackdrop) {
                         // v1.5's backdrop, restored verbatim: no seam, because the blobs
                         // are not anchored to anything on screen — they fill the player and
@@ -3743,7 +3766,18 @@ fun NowPlayingScreen(
                                         .padding(horizontal = 10.dp, vertical = 8.dp)
                                         .graphicsLayer {
                                             alpha = (1f - p() * 2f) * spotifyChromeAlpha
+                                            // Full screen, the art runs on past the
+                                            // card's foot (the banner dissolving there,
+                                            // or a Canvas to the screen's edges), so
+                                            // the foot sits lower, nearer the title.
+                                            translationY = BANNER_FOOT_DROP.toPx() * if (spotifyCanvasPresentation) {
+                                                1f - p()
+                                            } else {
+                                                bannerShown()
+                                            }
                                         },
+                                    // Under the stats, or in their place with them off.
+                                    bestPart = { BestPartPill(song, position, playerHaze, onSeek, overlayOpen = { overlayOpen.value }) },
                                 )
                             }
                         }
@@ -3942,60 +3976,66 @@ fun NowPlayingScreen(
                             // there's no account to record it against — except on a
                             // local file or a finished download, whose star is the
                             // device's own Liked playlist and needs no account.
-                            if (signedIn || song.localUri != null) {
-                                val liked = likeStatus == LikeStatus.LIKE
+                            // One frost behind both discs — see [GlassDiscPair].
+                            GlassDiscPair(
+                                hazeState = playerHaze,
+                                overlayOpen = { overlayOpen.value },
+                            ) {
+                                if (signedIn || song.localUri != null) {
+                                    val liked = likeStatus == LikeStatus.LIKE
+                                    CircleGlyph(
+                                        icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                                        contentDescription = stringResource(
+                                            if (liked) Res.string.remove_from_liked else Res.string.like,
+                                        ),
+                                        onClick = onToggleLike,
+                                        active = liked,
+                                        haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                // While the lyrics are up the menu glyph becomes the share
+                                // entry: the same pick mode a long-press on a line opens,
+                                // only on phones where a card can actually be made. While
+                                // picking it is the way back out again — the bar below
+                                // already holds Share.
+                                // Only once the sleeve has fully collapsed: the moment it starts
+                                // coming back the glyph is the menu again.
+                                // And only while the half player under the lyrics is tucked
+                                // away: with it up, the screen is the player again and the
+                                // glyph is its menu. A pick in progress keeps its Close
+                                // whichever way the controls are.
+                                val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
+                                    !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
                                 CircleGlyph(
-                                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
-                                    contentDescription = stringResource(
-                                        if (liked) Res.string.remove_from_liked else Res.string.like,
-                                    ),
-                                    onClick = onToggleLike,
-                                    active = liked,
-                                    haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            // While the lyrics are up the menu glyph becomes the share
-                            // entry: the same pick mode a long-press on a line opens,
-                            // only on phones where a card can actually be made. While
-                            // picking it is the way back out again — the bar below
-                            // already holds Share.
-                            // Only once the sleeve has fully collapsed: the moment it starts
-                            // coming back the glyph is the menu again.
-                            // And only while the half player under the lyrics is tucked
-                            // away: with it up, the screen is the player again and the
-                            // glyph is its menu. A pick in progress keeps its Close
-                            // whichever way the controls are.
-                            val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
-                                !lyrics.isNullOrEmpty() && (!lyricsControlsOpen || lyricPicker.picking)
-                            CircleGlyph(
-                                icon = when {
-                                    showRevertCue -> Icons.AutoMirrored.Rounded.Undo
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
-                                    lyricsShareGlyphVisible -> Icons.Rounded.IosShare
-                                    else -> Icons.Rounded.MoreHoriz
-                                },
-                                contentDescription = stringResource(
-                                    when {
-                                        showRevertCue -> Res.string.more
-                                        lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
-                                        lyricsShareGlyphVisible -> Res.string.share
-                                        else -> Res.string.more
+                                    icon = when {
+                                        showRevertCue -> Icons.AutoMirrored.Rounded.Undo
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
+                                        lyricsShareGlyphVisible -> Icons.Rounded.IosShare
+                                        else -> Icons.Rounded.MoreHoriz
                                     },
-                                ),
-                                onClick = when {
-                                    showRevertCue -> onOpenMenu
-                                    lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
-                                    lyricsShareGlyphVisible -> lyricPicker.beginPicking
-                                    else -> onOpenMenu
-                                },
-                                haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
-                                    Haptic.Select
-                                } else {
-                                    Haptic.Tap
-                                },
-                                modifier = Modifier.menuAnchor(),
-                            )
+                                    contentDescription = stringResource(
+                                        when {
+                                            showRevertCue -> Res.string.more
+                                            lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
+                                            lyricsShareGlyphVisible -> Res.string.share
+                                            else -> Res.string.more
+                                        },
+                                    ),
+                                    onClick = when {
+                                        showRevertCue -> onOpenMenu
+                                        lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
+                                        lyricsShareGlyphVisible -> lyricPicker.beginPicking
+                                        else -> onOpenMenu
+                                    },
+                                    haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
+                                        Haptic.Select
+                                    } else {
+                                        Haptic.Tap
+                                    },
+                                    modifier = Modifier.menuAnchor(),
+                                )
+                            }
                         }
 
                         // [lyricsOpen] asked first: a close has already hidden the

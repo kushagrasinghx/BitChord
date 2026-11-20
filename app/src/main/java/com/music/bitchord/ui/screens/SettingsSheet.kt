@@ -831,14 +831,12 @@ fun SettingsScreen(
                     )
                     if (smartFade) {
                         val artwork by AppSettings.autoMixArtwork.collectAsStateWithLifecycle()
-                        val indent = TEXT_INSET - ROW_INSET
                         SettingsSubRow(
                             title = artTransitionTitle,
                             subtitle = stringResource(R.string.automix_art_transition_subtitle),
                             checked = artwork.artTransition,
                             onCheckedChange = AppSettings::setAutoMixArtTransition,
                             enabled = !bitPerfectReady,
-                            indent = indent,
                         )
                         SettingsSubRow(
                             title = miniArtTransitionTitle,
@@ -846,7 +844,6 @@ fun SettingsScreen(
                             checked = artwork.miniPlayerTransition,
                             onCheckedChange = AppSettings::setAutoMixMiniPlayerTransition,
                             enabled = !bitPerfectReady,
-                            indent = indent,
                             titleMaxLines = 2,
                         )
                     }

@@ -2815,6 +2815,13 @@ fun NowPlayingScreen(
                             nowPlaying = true,
                             organicReveal = if (standby) {
                                 pair?.standbyReveal(staticHeroUnderlay != null || (matchedLiveHero && !stillMoving))
+                            } else if (fullBleedArt && heroIncomingStill != null && !stillMoving) {
+                                pair?.outgoingStillBannerReveal(
+                                    autoMixFrames,
+                                    IntSize(playerBounds.width, with(density) { heroHeight.roundToPx() }),
+                                    HERO_FADE_FRACTION,
+                                    clipTransitionAlpha,
+                                )
                             } else null,
                             // Frames only for a mesh that will use them.
                             frameCapturePx = if (!standby && canvasOwnsAmbient && tintsOffClip && !fullscreen && !tabletArtworkBackdrop) {

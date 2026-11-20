@@ -617,6 +617,7 @@ internal fun AndroidCanvasArtworkPlayer(
                 alpha * presentationAlpha()
             }
             val progress = organicReveal?.progress?.invoke() ?: 1f
+            val outgoingStill = organicReveal?.outgoingStill
             // Only when something they are made of has changed. The fade above
             // re-runs this block on every frame of a collapse or of the player
             // closing into the mini player, and each pass built a fresh matrix,
@@ -633,7 +634,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    frame.applyOrganicReveal(view, generation, progress, fadeChanged)
+                    frame.applyOrganicReveal(view, generation, progress, fadeChanged, outgoingStill)
                 } else {
                     if (fadeChanged) view.setRenderEffect(frame.bottomEffect)
                     false
@@ -645,7 +646,11 @@ internal fun AndroidCanvasArtworkPlayer(
             }
             // Texture paint keeps hidden standby traversable so it can latch a frame.
             // Only readiness/presentation goes here when the shader supplies coverage.
-            val opacity = visibility * (if (masked) 1f else progress)
+            val opacity = when {
+                outgoingStill != null -> if (masked) alpha * outgoingStill.presentationAlpha() else visibility
+                masked -> visibility
+                else -> visibility * progress
+            }
             if (nowPlaying) frame.setTextureOpacity(view, opacity) else view.alpha = opacity
         },
         modifier = modifier.onSizeChanged { bounds = it },
@@ -906,6 +911,12 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var revealProgress = 0f
     private var revealBounds = IntSize.Zero
     private var revealGeneration: Long? = null
+    private var outgoingMask: OutgoingStillRevealMask? = null
+    private var outgoingMaskFailed = false
+    private var stillBounds = IntSize.Zero
+    private var stillFraction = 0f
+    private var stillShader: LinearGradient? = null
+    private var outgoingEffectApplied = false
 
     @RequiresApi(Build.VERSION_CODES.S)
     fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
@@ -920,20 +931,70 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    fun applyOrganicReveal(view: TextureView, generation: Long?, progress: Float, fadeChanged: Boolean): Boolean {
+    fun applyOrganicReveal(
+        view: TextureView,
+        generation: Long?,
+        progress: Float,
+        fadeChanged: Boolean,
+        outgoingStill: CanvasStillRevealTarget?,
+    ): Boolean {
         val bounds = IntSize(view.width, view.height)
-        if (generation == null || revealFailed || !view.isHardwareAccelerated || !(progress > 0f && progress < 1f) ||
+        if (generation == null || !view.isHardwareAccelerated || !(progress > 0f && progress < 1f) ||
             bounds.width <= 0 || bounds.height <= 0
         ) {
             restoreBottomEffect(view, fadeChanged)
             return false
         }
-        if (!fadeChanged && progress == revealProgress && bounds == revealBounds && generation == revealGeneration) return true
+        if (outgoingStill != null) {
+            if (outgoingMaskFailed || !stillRevealMaskAvailable() || outgoingStill.bounds.width != bounds.width ||
+                outgoingStill.bounds.height !in 1..bounds.height
+            ) {
+                restoreBottomEffect(view, fadeChanged)
+                return false
+            }
+            val stillChanged = stillBounds != outgoingStill.bounds || stillFraction != outgoingStill.bottomFade
+            if (stillChanged) {
+                stillBounds = outgoingStill.bounds
+                stillFraction = outgoingStill.bottomFade
+                stillShader = createBottomFade(stillFraction, stillBounds, null)
+            }
+            val feather = stillShader
+            if (feather == null) {
+                restoreBottomEffect(view, fadeChanged)
+                return false
+            }
+            if (!fadeChanged && !stillChanged && outgoingEffectApplied &&
+                progress == revealProgress && bounds == revealBounds && generation == revealGeneration
+            ) return true
+            return runCatching {
+                val mask = outgoingMask ?: OutgoingStillRevealMask().also { outgoingMask = it }
+                view.setRenderEffect(
+                    mask.effect(stillBounds.width.toFloat(), stillBounds.height.toFloat(), progress, generation, bottomShader, feather),
+                )
+                outgoingEffectApplied = true
+                revealProgress = progress
+                revealBounds = bounds
+                revealGeneration = generation
+                true
+            }.getOrElse {
+                outgoingMaskFailed = true
+                restoreBottomEffect(view, fadeChanged)
+                false
+            }
+        }
+        if (revealFailed) {
+            restoreBottomEffect(view, fadeChanged)
+            return false
+        }
+        if (!fadeChanged && !outgoingEffectApplied && progress == revealProgress &&
+            bounds == revealBounds && generation == revealGeneration
+        ) return true
         return runCatching {
             val mask = reveal ?: LiveAutoMixMask().also { reveal = it }
             // Bind to the RenderNode that records drawTextureLayer, preserving its
             // existing bottom gradient without an intermediate image filter.
             view.setRenderEffect(mask.effect(bounds.width.toFloat(), bounds.height.toFloat(), progress, generation, bottomShader))
+            outgoingEffectApplied = false
             revealProgress = progress
             revealBounds = bounds
             revealGeneration = generation
@@ -950,6 +1011,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
         if (revealProgress == 0f && !fadeChanged) return
         view.setRenderEffect(bottomEffect)
         revealProgress = 0f
+        outgoingEffectApplied = false
     }
 
     fun setTextureOpacity(view: TextureView, opacity: Float) {

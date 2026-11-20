@@ -27,6 +27,9 @@ import kotlin.random.Random
 private var revealFailed = false
 private var cachedBlur: BlurSteps? = null
 
+/** Keep the outgoing video on its fallback when the incoming still cannot use AGSL. */
+internal fun stillRevealMaskAvailable(): Boolean = !revealFailed
+
 @Composable
 internal fun androidAutoMixIncomingReveal(
     eased: () -> Float,
@@ -220,6 +223,58 @@ internal class LiveAutoMixMask {
             shader.setFloatUniform("bounds", width, height)
             appliedWidth = width
             appliedHeight = height
+        }
+        shader.setFloatUniform("progress", progress)
+        return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")
+    }
+}
+
+/** Retires the outgoing video through the same field as the incoming still. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+internal class OutgoingStillRevealMask {
+    private val shader = RuntimeShader("""
+        uniform shader content;
+        uniform shader bottomFade;
+        uniform shader stillFade;
+        $ORGANIC_MASK_FIELD
+        half4 main(float2 xy) {
+            float feather = stillFade.eval(xy).a;
+            float remaining = 1.0;
+            // Source-over already removes the outgoing video behind the opaque still.
+            // Correct only the excess elsewhere: (1 - reveal * feather) * remaining = 1 - reveal.
+            if (feather < 1.0) {
+                float reveal = revealCoverage(xy);
+                remaining = (1.0 - reveal) / (1.0 - reveal * feather);
+            }
+            return content.eval(xy) * half(bottomFade.eval(xy).a * remaining);
+        }
+    """.trimIndent())
+    private val opaque = LinearGradient(0f, 0f, 0f, 1f, Color.BLACK, Color.BLACK, Shader.TileMode.CLAMP)
+    private var appliedGeneration: Long? = null
+    private var appliedBottom: Shader? = null
+    private var appliedStill: Shader? = null
+
+    fun effect(
+        width: Float,
+        height: Float,
+        progress: Float,
+        generation: Long,
+        bottom: Shader?,
+        still: Shader,
+    ): PlatformRenderEffect {
+        if (appliedGeneration != generation) {
+            shader.setPattern(generation)
+            appliedGeneration = generation
+        }
+        val fade = bottom ?: opaque
+        if (appliedBottom !== fade) {
+            shader.setInputShader("bottomFade", fade)
+            appliedBottom = fade
+        }
+        if (appliedStill !== still) {
+            shader.setInputShader("stillFade", still)
+            shader.setFloatUniform("bounds", width, height)
+            appliedStill = still
         }
         shader.setFloatUniform("progress", progress)
         return PlatformRenderEffect.createRuntimeShaderEffect(shader, "content")

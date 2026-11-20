@@ -427,11 +427,19 @@ class CanvasVideoSpec(
     val organicReveal: CanvasOrganicReveal? = null,
 )
 
-/** Audio-clock coverage for the incoming slot, independent of its presentation alpha. */
+/** Audio-clock coverage, independent of the video slot's presentation alpha. */
 class CanvasOrganicReveal(
     val generation: Long,
     val progress: () -> Float,
     val allowSpatialMask: Boolean,
+    val outgoingStill: CanvasStillRevealTarget? = null,
+)
+
+/** The still sleeve's full-width, top-aligned bounds in the outgoing view's pixels. */
+class CanvasStillRevealTarget(
+    val bounds: IntSize,
+    val bottomFade: Float,
+    val presentationAlpha: () -> Float,
 )
 
 /**

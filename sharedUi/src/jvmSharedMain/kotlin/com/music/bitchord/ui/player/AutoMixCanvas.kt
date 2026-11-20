@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.QueueEntryIdentity
@@ -139,6 +140,18 @@ internal class AutoMixCanvasTracks(
 
     fun standbyReveal(allowSpatialMask: Boolean): CanvasOrganicReveal =
         if (allowSpatialMask) spatialStandby else opacityStandby
+
+    fun outgoingStillBannerReveal(
+        frames: AutoMixCoverFrames?,
+        bounds: IntSize,
+        bottomFade: Float,
+        presentationAlpha: () -> Float,
+    ): CanvasOrganicReveal? {
+        if (!liveOutgoing || liveIncoming || frames?.generation != generation || frames.incoming == null ||
+            bounds.width <= 0 || bounds.height <= 0
+        ) return null
+        return CanvasOrganicReveal(generation, ::reveal, true, CanvasStillRevealTarget(bounds, bottomFade, presentationAlpha))
+    }
 
     /** Make the live/still choice once; a late frame cannot change it. */
     fun sealIncoming(): Boolean {

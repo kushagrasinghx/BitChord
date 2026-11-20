@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.ui.unit.IntSize
 import coil3.Image
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.QueueEntryIdentity
@@ -133,6 +134,29 @@ class AutoMixCoverTest {
             coverState.update(sample.copy(phase = AutoMixVisualPhase.COMPLETED))
             assertSame(next, coverState.framesFor(destination)?.base)
         }
+    }
+
+    @Test
+    fun outgoingBannerCompositorRequiresTheSameLiveToStillGenerationAndMeasuredDestination() {
+        val tracks = AutoMixCanvasTracks(visual.generation, outgoing, incoming, CanvasArtwork("outgoing.mp4")) { visual }
+        val frames = AutoMixCoverFrames(cover(), cover(), visual.generation)
+        val bounds = IntSize(1080, 1272)
+        fun reveal(candidate: AutoMixCoverFrames? = frames, size: IntSize = bounds) =
+            tracks.outgoingStillBannerReveal(candidate, size, 0.42f) { 1f }
+
+        assertNull(reveal()) // Not mixed yet.
+        tracks.started = true
+        assertNull(reveal(size = IntSize.Zero))
+        assertNull(reveal(AutoMixCoverFrames(frames.base, frames.incoming, visual.generation + 1)))
+        assertNull(reveal(AutoMixCoverFrames(frames.base))) // Already promoted or no destination.
+        val selected = assertNotNull(reveal())
+        assertEquals(visual.generation, selected.generation)
+        assertEquals(bounds, selected.outgoingStill?.bounds)
+        assertEquals(0.42f, selected.outgoingStill?.bottomFade)
+        tracks.incomingClip = CanvasArtwork("incoming.mp4")
+        tracks.incomingReady = true
+        tracks.sealIncoming()
+        assertNull(reveal()) // A live destination owns a different path.
     }
 
     private fun cover() = DecodedAutoMixCover(object : Image {

@@ -49,6 +49,8 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Transition
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
@@ -218,15 +220,17 @@ fun FloatingTabBar(
     elevations: FloatingTabBarElevations = FloatingTabBarDefaults.elevations(),
     contentKey: Any? = null,
     mergeStandaloneWhenExpanded: Boolean = false,
+    foldTransition: Transition<Boolean>? = null,
     content: FloatingTabBarScope.() -> Unit
 ) {
     val scope = remember(contentKey) { FloatingTabBarScopeImpl().apply { content() } }
 
     val isAccessoryShared = inlineAccessory != null && expandedAccessory != null
 
+    val defaultFold = updateTransition(scrollConnection.isInline, label = "barFold")
+    val fold = foldTransition ?: defaultFold
     SharedTransitionLayout(modifier = modifier) {
-        AnimatedContent(
-            targetState = scrollConnection.isInline,
+        fold.AnimatedContent(
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             contentAlignment = Alignment.BottomCenter
         ) { isInline ->

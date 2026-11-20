@@ -403,11 +403,19 @@ internal fun AndroidCanvasArtworkPlayer(
         // caller still holding the last still. Leave that one standing.
         val view = textureView
         if (!rendered || view == null) return@LaunchedEffect
+        val surface = view.surfaceTexture ?: return@LaunchedEffect
+        val report = reportStill
         val position = player.currentPosition
+        val capturedUrl = url
         val still = view.copyStill(player.videoSize, clipAspect, contentMode, alignPortraitTop)
+        // Do not assign a copy to a new rendition or a replacement surface.
+        if (!isActive || !rendered || url != capturedUrl || view.surfaceTexture !== surface) {
+            still?.recycle()
+            return@LaunchedEffect
+        }
         if (still != null) gate.holdingStill = true
         Log.d(TAG, "still captured: ${still?.let { "${it.width}x${it.height}" }} at $position")
-        reportStill(still?.asImageBitmap(), position)
+        report(still?.asImageBitmap(), position)
     }
 
     // Repaint onto a surface that has just been handed back. A TextureView's
@@ -715,8 +723,7 @@ private fun TextureView.captureAt(
  * The clip's current frame at the size it is shown, for a caller to draw in
  * its place — see [AndroidCanvasArtworkPlayer]'s `captureStill`.
  *
- * Copied off the decoder's last buffer with [PixelCopy], which on API 34+
- * runs on the render thread and leaves the main thread alone, and comes back
+ * Copied asynchronously off the decoder's last buffer with [PixelCopy]. It comes back
  * as the picture itself: no view transform, no transparent margins, the
  * clip's own shape, for the caller to crop exactly as the view does. Where
  * that copy fails, read back off the view instead, as [captureAt] does.
@@ -747,26 +754,34 @@ private suspend fun TextureView.copyStill(
         (videoHeight * scale).roundToInt().coerceAtLeast(1),
         Bitmap.Config.ARGB_8888,
     )
-    val result = runCatching {
-        suspendCancellableCoroutine { continuation ->
-            val surface = Surface(texture)
+    val result = suspendCancellableCoroutine<Int> { continuation ->
+        val surface = Surface(texture)
+        try {
             PixelCopy.request(
                 surface,
                 bitmap,
                 { result ->
-                    // Let go here rather than on cancellation: the copy may
-                    // still be reading from it.
+                    // The request may still be using both objects after cancellation.
                     surface.release()
-                    if (continuation.isActive) continuation.resume(result)
+                    if (continuation.isActive) continuation.resume(result) else bitmap.recycle()
                 },
                 mainHandler,
             )
+        } catch (_: IllegalArgumentException) {
+            surface.release()
+            continuation.resume(PixelCopy.ERROR_SOURCE_INVALID)
         }
-    }.getOrDefault(PixelCopy.ERROR_UNKNOWN)
+    }
     if (result == PixelCopy.SUCCESS) return bitmap
     Log.w(TAG, "still copy failed ($result), reading the view instead")
     bitmap.recycle()
-    return captureAt(maxOf(width, height), clipAspect, contentMode, alignPortraitTop)
+    val fallback = captureAt(maxOf(width, height), clipAspect, contentMode, alignPortraitTop) ?: return null
+    // getBitmap can return an unchanged, transparent bitmap on copy failure.
+    if (fallback.getPixel(fallback.width / 2, fallback.height / 2) ushr 24 == 0) {
+        fallback.recycle()
+        return null
+    }
+    return fallback
 }
 
 /**

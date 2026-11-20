@@ -25,6 +25,19 @@ class AutoMixCanvasTest {
     )
 
     @Test
+    fun onlyStartedMixedArtworkUsesTheMovingSleeve() {
+        val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, clip) { visual }
+        assertFalse(tracks.usesGestureSleeve(gesturing = true))
+        tracks.started = true
+        assertTrue(tracks.usesGestureSleeve(gesturing = true))
+        assertFalse(tracks.usesGestureSleeve(gesturing = false))
+        tracks.pinnedClip = null
+        assertFalse(tracks.usesGestureSleeve(gesturing = true))
+        tracks.incomingClip = clip
+        assertTrue(tracks.usesGestureSleeve(gesturing = true))
+    }
+
+    @Test
     fun outgoingArtworkStaysOpaqueUntilOnlyTheUncoveredTailNeedsRetiring() {
         assertEquals(1f, outgoingArtworkTailAlpha(0f))
         assertEquals(1f, outgoingArtworkTailAlpha(0.5f))

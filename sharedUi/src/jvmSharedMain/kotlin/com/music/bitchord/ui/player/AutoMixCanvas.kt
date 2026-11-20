@@ -67,6 +67,7 @@ internal class AutoMixCanvasPair {
     }
 
     fun finish(tracks: AutoMixCanvasTracks) {
+        tracks.gestureOutgoing = null
         promoted = tracks.takeIf { it.liveIncoming }
         clear()
     }
@@ -91,6 +92,8 @@ internal class AutoMixCanvasTracks(
     var outgoingReady by mutableStateOf(pinnedClip != null)
     var windowOpen by mutableStateOf(false)
     var progress by mutableFloatStateOf(0f)
+    var gestureOutgoing by mutableStateOf<CanvasStill?>(null)
+    var gestureIncoming by mutableStateOf<CanvasStill?>(null)
     val liveIncoming get() = incomingAccepted && incomingReady
     val selectedStill get() = choiceSealed && !liveIncoming
     val liveOutgoing get() = started && outgoingReady && pinnedClip != null
@@ -163,6 +166,9 @@ internal class AutoMixCanvasTracks(
     }
 
     fun contains(entry: QueueEntryIdentity?) = entry == outgoing || entry == incoming
+
+    fun usesGestureSleeve(gesturing: Boolean): Boolean = gesturing && started &&
+        (pinnedClip != null || incomingClip != null || gestureIncoming != null)
 }
 
 @Composable

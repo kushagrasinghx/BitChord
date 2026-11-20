@@ -164,6 +164,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
@@ -2056,6 +2057,37 @@ fun NowPlayingScreen(
     // The moves the still is for. Not the drawers and popups, under which the
     // clip pauses but nothing moves.
     val stillMoving = collapseStarted || dockMoving || lyricsOpen || queueOpen || queueDragging
+    val queueArtworkMoving by remember { derivedStateOf { queueSlide.floatValue > 0f } }
+    val gestureArtwork = dockMoving || (!lyricsOpen && (queueDragging || queueOpen || queueArtworkMoving))
+    val gesturePair = pair?.takeIf { it.usesGestureSleeve(gestureArtwork) }
+
+    fun captureStandby(clip: CanvasArtwork): Boolean {
+        val tracks = pair ?: return false
+        return gestureArtwork && !collapseDone && tracks.incomingClip?.url == clip.url &&
+            tracks.incomingReady && tracks.gestureIncoming == null
+    }
+
+    fun retainGestureStill(clip: CanvasArtwork, standby: Boolean, image: ImageBitmap?, position: Long) {
+        val tracks = pair ?: return
+        if (image == null || canvasPair.visual !== tracks) return
+        val still = CanvasStill(clip.url, image, position)
+        if (standby) {
+            if (tracks.incomingClip?.url == clip.url && tracks.incomingReady) tracks.gestureIncoming = still
+        } else if (tracks.pinnedClip?.url == clip.url) {
+            tracks.gestureOutgoing = still
+        }
+    }
+
+    // In-place promotion keeps the existing decoder. If the gesture is still
+    // held, hand its last frame to the ordinary current-clip still path.
+    SideEffect {
+        val captured = promotedCanvas?.gestureIncoming ?: return@SideEffect
+        if (gestureArtwork && captured.url == stillUrl) {
+            CanvasStills.current = captured
+            CanvasStills.fresh = true
+        }
+        promotedCanvas.gestureIncoming = null
+    }
     // The hero TextureView sits behind the control/sleeve subtree. Move only the
     // frozen still pixels below that host; the live slot stays where it will be promoted.
     val staticHeroUnderlay = autoMixFrames?.takeIf { frames ->
@@ -2077,7 +2109,7 @@ fun NowPlayingScreen(
         return minOf(playerBounds.width * image.height / image.width.toFloat(), playerBounds.height.toFloat())
     }
     // The clip's dissolve, held at the banner's height in pixels — see [clipFadeFraction].
-    fun sleeveStillBottomPx(): Float = if (heroIncomingStill != null) 0f else stillBottomPx()
+    fun sleeveStillBottomPx(): Float = if (heroIncomingStill != null || gesturePair != null) 0f else stillBottomPx()
     fun stillFadeFraction(): Float {
         val bottom = sleeveStillBottomPx()
         if (bottom <= 0f) return HERO_FADE_FRACTION
@@ -2780,7 +2812,7 @@ fun NowPlayingScreen(
                             //
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
-                                if (stillTakesOver()) 0f
+                                if (gesturePair != null || stillTakesOver()) 0f
                                 else if (standby) clipTransitionAlpha()
                                 else if (staticCanvasMix) 0f
                                 else if (matchedLiveHero && !pair.sharesClip && !fullscreen) {
@@ -2803,9 +2835,17 @@ fun NowPlayingScreen(
                             resumeDelayMs = if (!standby && fullscreen) SPOTIFY_CANVAS_RESUME_DELAY_MS else 0L,
                             startPositionMs = stillStart?.positionMs ?: 0L,
                             revealInstantly = standby || stillStart != null,
-                            captureStill = !standby && !staticCanvasMix && stillMoving && !fullscreen,
-                            onStillCaptured = { image, position -> if (!standby) onStillCaptured(image, position) },
-                            onResumed = { if (!standby) onClipResumed() },
+                            captureStill = if (standby) captureStandby(clip) else
+                                !staticCanvasMix && stillMoving && (!fullscreen || (gesturePair != null && gesturePair.gestureOutgoing == null)),
+                            onStillCaptured = { image, position ->
+                                if (standby || fullscreen) retainGestureStill(clip, standby, image, position)
+                                else onStillCaptured(image, position)
+                            },
+                            onResumed = {
+                                if (standby) pair?.gestureIncoming = null
+                                else if (fullscreen) pair?.gestureOutgoing = null
+                                else onClipResumed()
+                            },
                             onRenderedChanged = {
                                 if (standby) pair?.reportIncoming(it) else {
                                     canvasSurfaceRendered = it
@@ -2815,7 +2855,7 @@ fun NowPlayingScreen(
                             nowPlaying = true,
                             organicReveal = if (standby) {
                                 pair?.standbyReveal(staticHeroUnderlay != null || (matchedLiveHero && !stillMoving))
-                            } else if (fullBleedArt && heroIncomingStill != null && !stillMoving) {
+                            } else if (fullBleedArt && heroIncomingStill != null && !stillMoving && gesturePair == null) {
                                 pair?.outgoingStillBannerReveal(
                                     autoMixFrames,
                                     IntSize(playerBounds.width, with(density) { heroHeight.roundToPx() }),
@@ -3601,7 +3641,7 @@ fun NowPlayingScreen(
                                     // again by the time it unmounts.
                                     // Whole while the clip's still is standing in for it.
                                     alpha = (
-                                        if (stillTakesOver()) 1f
+                                        if (gesturePair != null || stillTakesOver()) 1f
                                         else if (staticHeroUnderlay != null) 0f
                                         else if (heroMode && pair?.liveOutgoing == true) 1f
                                         else if ((heroMode || incomingFullWindow) && pair?.liveIncoming == true) 1f - pair.standbyOpacity()
@@ -3705,14 +3745,14 @@ fun NowPlayingScreen(
                                         // A live hero is behind this sleeve. AutoMix makes the
                                         // sleeve visible again for the incoming still, not its
                                         // square empty-state tile over the outgoing video.
-                                        if (!heroMode || pair?.liveOutgoing != true || stillTakesOver()) {
+                                        if (!heroMode || pair?.liveOutgoing != true || stillTakesOver() || gesturePair != null) {
                                             drawRect(Color.Black.copy(alpha = 0.18f))
                                             drawContent()
                                         }
                                     },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (!coverLoaded() && !canvasRendered) {
+                                if (!coverLoaded() && (!canvasRendered || gesturePair != null)) {
                                     Icon(
                                         imageVector = BitChordIcons.MusicNote,
                                         contentDescription = null,
@@ -3727,7 +3767,11 @@ fun NowPlayingScreen(
                                     )
                                 }
                             }
-                            if (heroIncomingStill != null && pair != null) {
+                            if (gesturePair != null) {
+                                AutoMixGestureCover(art, autoMixFrames, gesturePair) {
+                                    gesturePair.gestureOutgoing?.image ?: still()?.takeIf { CanvasStills.fresh }?.image
+                                }
+                            } else if (heroIncomingStill != null && pair != null) {
                                 AutoMixIncomingStill(
                                     heroIncomingStill, pair::reveal, pair.generation, polish = !stillMoving,
                                 )
@@ -3794,8 +3838,10 @@ fun NowPlayingScreen(
                             // inside the same clip as the still art, taking the
                             // sleeve's corners, shadow and paused shrink for free.
                             if (!heroMode) {
-                                WhileShown({ !collapsePastHalf }) {
-                                    CanvasPresentationHost(canvas, pair?.incomingClip.takeUnless { incomingFullWindow }) { clip, standby ->
+                                // Keep the standby in its original slot while the queue moves.
+                                // Do not remount an outgoing decoder past the ordinary cutoff.
+                                WhileShown({ !collapsePastHalf || (gestureArtwork && !collapseDone && pair?.incomingClip != null) }) {
+                                    CanvasPresentationHost(canvas.takeUnless { collapsePastHalf }, pair?.incomingClip.takeUnless { incomingFullWindow }) { clip, standby ->
                                         val stillStart = remember(clip.url) { if (standby) null else stillAtMount() }
                                         CanvasArtworkPlayer(
                                             canvas = clip,
@@ -3805,7 +3851,7 @@ fun NowPlayingScreen(
                                                 collapseStarted || dockMoving || overlayOpen.value ||
                                                 (standby && pair?.started != true),
                                             presentationAlpha = {
-                                                if (stillTakesOver()) 0f
+                                                if (gesturePair != null || stillTakesOver()) 0f
                                                 else if (standby) 1f
                                                 else if (staticCanvasMix) 0f
                                                 else if (incomingFullWindow) 1f - pair.standbyOpacity()
@@ -3814,9 +3860,12 @@ fun NowPlayingScreen(
                                             },
                                             startPositionMs = stillStart?.positionMs ?: 0L,
                                             revealInstantly = standby || stillStart != null,
-                                            captureStill = !standby && !staticCanvasMix && stillMoving,
-                                            onStillCaptured = { image, position -> if (!standby) onStillCaptured(image, position) },
-                                            onResumed = { if (!standby) onClipResumed() },
+                                            captureStill = if (standby) captureStandby(clip) else !staticCanvasMix && stillMoving,
+                                            onStillCaptured = { image, position ->
+                                                if (standby) retainGestureStill(clip, true, image, position)
+                                                else onStillCaptured(image, position)
+                                            },
+                                            onResumed = { if (standby) pair?.gestureIncoming = null else onClipResumed() },
                                             onRenderedChanged = {
                                                 if (standby) pair?.reportIncoming(it) else {
                                                     canvasSurfaceRendered = it
@@ -3840,7 +3889,7 @@ fun NowPlayingScreen(
                                         )
                                     }
                                     val incoming = autoMixFrames?.incoming
-                                    if (incoming != null && pair?.liveOutgoing == true && !pair.liveIncoming) {
+                                    if (gesturePair == null && incoming != null && pair?.liveOutgoing == true && !pair.liveIncoming) {
                                         AutoMixIncomingStill(incoming, pair::reveal, pair.generation)
                                     }
                                 }

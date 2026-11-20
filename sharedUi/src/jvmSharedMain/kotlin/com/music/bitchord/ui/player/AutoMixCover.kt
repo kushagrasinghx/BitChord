@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
@@ -324,12 +325,40 @@ internal fun AutoMixIncomingStill(
     polish: Boolean = true,
     blur: Boolean = true,
 ) {
+    DecodedCover(result, Modifier.fillMaxSize().then(autoMixIncomingMask(eased, generation, polish, blur)))
+}
+
+@Composable
+private fun autoMixIncomingMask(eased: () -> Float, generation: Long, polish: Boolean, blur: Boolean): Modifier {
     val appReduced = PlayerSettings.reduceAnimation.collectAsState()
     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
     val reducedMotion = { appReduced.value || systemMotion?.scaleFactor == 0f }
-    val reveal = if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion, generation, blur)
+    return if (polish) PlayerPlatform.host.autoMixIncomingReveal(eased, reducedMotion, generation, blur)
     else Modifier.graphicsLayer { alpha = eased() }
-    DecodedCover(result, Modifier.fillMaxSize().then(reveal))
+}
+
+/** The sleeve measures and clips both pictures, then feathers the composite once. */
+@Composable
+internal fun AutoMixGestureCover(
+    art: PlayerArtwork,
+    frames: AutoMixCoverFrames?,
+    pair: AutoMixCanvasTracks,
+    outgoing: () -> ImageBitmap?,
+) {
+    val matching = frames?.takeIf { it.generation == pair.generation }
+    Box(Modifier.fillMaxSize()) {
+        AutoMixPlayerCover(art, matching?.let { AutoMixCoverFrames(it.base) }, Modifier.fillMaxSize())
+        outgoing()?.let {
+            Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
+        val incoming = pair.gestureIncoming?.takeIf { pair.liveIncoming && !pair.sharesClip }?.image
+        if (incoming != null) {
+            val mask = autoMixIncomingMask(pair::reveal, pair.generation, polish = true, blur = true)
+            Image(incoming, contentDescription = null, modifier = Modifier.fillMaxSize().then(mask), contentScale = ContentScale.Crop)
+        } else if (!pair.sharesClip) {
+            matching?.incoming?.let { AutoMixIncomingStill(it, pair::reveal, pair.generation) }
+        }
+    }
 }
 
 @Composable

@@ -845,7 +845,7 @@ fun SettingsScreen(
                             subtitle = stringResource(R.string.automix_mini_art_transition_subtitle),
                             checked = artwork.miniPlayerTransition,
                             onCheckedChange = AppSettings::setAutoMixMiniPlayerTransition,
-                            enabled = artwork.artTransition && !bitPerfectReady,
+                            enabled = !bitPerfectReady,
                             indent = indent,
                             titleMaxLines = 2,
                         )

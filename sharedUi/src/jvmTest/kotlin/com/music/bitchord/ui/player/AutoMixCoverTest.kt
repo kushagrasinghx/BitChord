@@ -160,16 +160,33 @@ class AutoMixCoverTest {
     }
 
     @Test
-    fun artworkPreferencesRespectParentsWithoutChangingStoredChoices() {
+    fun artworkPreferencesAreIndependentUnderTheAutoMixParent() {
         val defaults = AutoMixArtworkPreferences()
         assertTrue(defaults.gate(automix = true).allows(1L))
         assertTrue(defaults.gate(automix = true, mini = true).allows(1L))
         for (autoMix in listOf(false, true)) for (art in listOf(false, true)) for (mini in listOf(false, true)) {
             val preferences = defaults.copy(artTransition = art, miniPlayerTransition = mini)
             assertEquals(autoMix && art, preferences.gate(automix = autoMix).allows(1L))
-            assertEquals(autoMix && art && mini, preferences.gate(automix = autoMix, mini = true).allows(1L))
+            assertEquals(autoMix && mini, preferences.gate(automix = autoMix, mini = true).allows(1L))
             assertEquals(mini, preferences.miniPlayerTransition)
         }
+    }
+
+    @Test
+    fun disablingFullArtDoesNotCancelTheMiniPlayersCurrentGeneration() {
+        val base = cover()
+        val next = cover()
+        val mini = AutoMixCoverState({ base }, { next })
+        mini.bind(incoming, null, visual)
+        mini.update(visual)
+        val disabled = AutoMixArtworkPreferences(artTransition = false, skipArtworkThrough = visual.generation)
+        assertEquals(false, disabled.allows(automix = true, generation = visual.generation))
+        val miniGate = disabled.gate(automix = true, mini = true)
+        mini.update(visual, miniGate)
+        assertSame(next, mini.framesFor(incoming, miniGate)?.incoming)
+        val reenabled = disabled.copy(artTransition = true)
+        assertEquals(false, reenabled.allows(automix = true, generation = visual.generation))
+        assertTrue(reenabled.allows(automix = true, generation = visual.generation, mini = true))
     }
 
     @Test

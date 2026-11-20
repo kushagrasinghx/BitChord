@@ -12,8 +12,8 @@ data class AutoMixArtworkPreferences(
     val skipMiniThrough: Long = 0L,
 ) {
     internal fun gate(automix: Boolean, mini: Boolean = false) = AutoMixArtworkGate(
-        enabled = automix && artTransition && (!mini || miniPlayerTransition),
-        skipThrough = if (mini) maxOf(skipArtworkThrough, skipMiniThrough) else skipArtworkThrough,
+        enabled = automix && (if (mini) miniPlayerTransition else artTransition),
+        skipThrough = if (mini) skipMiniThrough else skipArtworkThrough,
     )
 
     fun allows(automix: Boolean, generation: Long, mini: Boolean = false): Boolean =

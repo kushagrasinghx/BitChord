@@ -1343,7 +1343,10 @@ object AppSettings {
     fun setSmartFadeEnabled(value: Boolean) {
         if (smartFadeEnabled.value != value) {
             val previous = _autoMixArtwork.value
-            _autoMixArtwork.value = previous.copy(skipArtworkThrough = artworkCutoff(previous.skipArtworkThrough))
+            _autoMixArtwork.value = previous.copy(
+                skipArtworkThrough = artworkCutoff(previous.skipArtworkThrough),
+                skipMiniThrough = artworkCutoff(previous.skipMiniThrough),
+            )
         }
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()

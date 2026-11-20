@@ -53,7 +53,9 @@ import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -158,29 +160,16 @@ suspend fun prefetchAutoMixArtwork(
     prepareCover: (Long) -> Boolean,
     prepareMiniCover: (Long) -> Boolean,
     isStillArmed: (Long) -> Boolean,
-) {
-    if (!prepareCover(generation)) return
+) = coroutineScope {
+    if (!isStillArmed(generation) || (!prepareCover(generation) && !prepareMiniCover(generation))) return@coroutineScope
     val loader = SingletonImageLoader.get(context)
     fun wantsCover() = isStillArmed(generation) && prepareCover(generation)
-    fun wantsMiniCover() = wantsCover() && prepareMiniCover(generation)
-    val ambient = if (wantsCover()) PreparedAutoMixAmbient(generation, imageUrl) else null
-    if (ambient != null) preparedAutoMixAmbient = ambient
-    if (meshCache[imageUrl] == null) {
-        val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
-        val result = loader.execute(request)
-        (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
-    }
-    if (!prepareCover(generation)) return
-    if (ambient != null && wantsCover()) ambient.mesh = meshCache[imageUrl]
-    if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
-    if (!prepareCover(generation)) return
-    if (ambient != null && wantsCover()) ambient.blur = fullBlurCache[imageUrl]
-    val palette = prefetchArtworkPalette(context, imageUrl)
-    if (ambient != null && wantsCover()) ambient.palette = palette
+    fun wantsMiniCover() = isStillArmed(generation) && prepareMiniCover(generation)
 
     // The mini surfaces derive their target from layout constraints. Warm their URL
     // with an inexact row-sized decode, using the same crop scale as AsyncImage.
-    if (wantsMiniCover()) {
+    val miniJob = launch {
+        if (!wantsMiniCover()) return@launch
         val mini = loader.execute(
             ImageRequest.Builder(context)
                 .data(imageUrl.artworkAt(ROW_ART_PX))
@@ -191,9 +180,27 @@ suspend fun prefetchAutoMixArtwork(
         )
         if (mini is SuccessResult && wantsMiniCover()) AutoMixPreparedCover.retainMini(generation, mini)
     }
+
+    if (!wantsCover()) return@coroutineScope
+    val ambient = PreparedAutoMixAmbient(generation, imageUrl)
+    preparedAutoMixAmbient = ambient
+    if (meshCache[imageUrl] == null) {
+        val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
+        val result = loader.execute(request)
+        (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
+    }
+    if (!wantsCover()) return@coroutineScope
+    ambient.mesh = meshCache[imageUrl]
+    if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
+    if (!wantsCover()) return@coroutineScope
+    ambient.blur = fullBlurCache[imageUrl]
+    val palette = prefetchArtworkPalette(context, imageUrl)
+    if (wantsCover()) ambient.palette = palette
+
     // Coil can give different decode sizes the same key. Leave the full-player
     // cover in that slot when URLs coincide; retain the mini decode separately.
-    if (!wantsCover()) return
+    miniJob.join()
+    if (!wantsCover()) return@coroutineScope
     val cover = loader.execute(
         playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
             .scale(Scale.FILL)

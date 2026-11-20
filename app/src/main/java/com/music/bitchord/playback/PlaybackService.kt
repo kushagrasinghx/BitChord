@@ -2087,10 +2087,13 @@ class PlaybackService : MediaLibraryService() {
     private fun allowsAutoMixArtwork(generation: Long, mini: Boolean = false): Boolean =
         AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
 
+    private fun allowsAnyAutoMixArtwork(generation: Long): Boolean =
+        allowsAutoMixArtwork(generation) || allowsAutoMixArtwork(generation, mini = true)
+
     private fun prefetchAutoMixIncoming(item: MediaItem) {
         autoMixArtworkJob?.cancel()
         val coverGeneration = AutoMixVisualFeed.state.value?.takeIf {
-            it.phase == AutoMixVisualPhase.ARMED && allowsAutoMixArtwork(it.generation)
+            it.phase == AutoMixVisualPhase.ARMED && allowsAnyAutoMixArtwork(it.generation)
         }?.generation
         autoMixArtworkGeneration = coverGeneration
         if (coverGeneration == null) return
@@ -7952,7 +7955,7 @@ class PlaybackService : MediaLibraryService() {
     private fun observeSettings() {
         scope.launch {
             AppSettings.autoMixArtwork.collect {
-                if (autoMixArtworkGeneration?.let { !allowsAutoMixArtwork(it) } == true) {
+                if (autoMixArtworkGeneration?.let { !allowsAnyAutoMixArtwork(it) } == true) {
                     autoMixArtworkJob?.cancel()
                     autoMixArtworkGeneration = null
                 }

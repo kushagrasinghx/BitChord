@@ -1,7 +1,9 @@
 package com.music.bitchord.ui.player
 
 import coil3.Image
+import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.QueueEntryIdentity
+import com.music.bitchord.playback.AutoMixArtworkTuning
 import com.music.bitchord.playback.AutoMixArtworkWindow
 import com.music.bitchord.playback.AutoMixVisualPhase
 import com.music.bitchord.playback.AutoMixVisualState
@@ -12,8 +14,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class AutoMixCoverTest {
+    @Test
+    fun incomingStillUsesTheSettledSquareOrBannerInsteadOfTheOutgoingSleeve() {
+        for (fullBleed in listOf(false, true)) {
+            val end = if (fullBleed) 1f else 0f
+            val promoted = autoMixStaticSleeveShare(fullBleed, end, revealing = false)
+            assertEquals(promoted, autoMixStaticSleeveShare(fullBleed, 0.72f, revealing = true))
+            assertEquals(0.72f, autoMixStaticSleeveShare(fullBleed, 0.72f, revealing = false))
+        }
+    }
+
     private val outgoing = QueueEntryIdentity("a", null, 0)
     private val incoming = QueueEntryIdentity("b", null, 0)
     private val visual = AutoMixVisualState(
@@ -87,6 +100,39 @@ class AutoMixCoverTest {
         assertSame(next, frames.base)
         assertSame(last, frames.incoming)
         assertEquals(2L, frames.generation)
+    }
+
+    @Test
+    fun liveToStillUsesTheActiveGenerationAndAudioProgressAcrossMetadataHandoff() {
+        val base = cover()
+        val next = cover()
+        val other = QueueEntryIdentity("c", null, 0)
+        val coverState = AutoMixCoverState({ base }, { next })
+        val mixes = listOf(
+            visual,
+            visual.copy(generation = 2L),
+            visual.copy(generation = 3L, incoming = AutoMixVisualTrack(other, 1, null)),
+        )
+        for (mix in mixes) {
+            var sample = mix
+            val source = mix.outgoing.identity
+            val destination = mix.incoming.identity
+            val tracks = AutoMixCanvasTracks(mix.generation, source, destination, CanvasArtwork("live.mp4")) { sample }
+            tracks.started = true
+            tracks.sealIncoming()
+            assertTrue(tracks.liveOutgoing && tracks.selectedStill)
+            coverState.bind(source, null, mix)
+            coverState.update(mix)
+            val frames = assertNotNull(coverState.framesFor(source))
+            coverState.bind(destination, null, mix)
+            assertSame(frames, coverState.framesFor(destination))
+            assertSame(next, frames.incoming)
+            assertEquals(tracks.generation, frames.generation)
+            sample = mix.copy(audioSeconds = 2.0, artworkProgress = 0.5f)
+            assertEquals(AutoMixArtworkTuning.revealProgress(0.5f), tracks.reveal())
+            coverState.update(sample.copy(phase = AutoMixVisualPhase.COMPLETED))
+            assertSame(next, coverState.framesFor(destination)?.base)
+        }
     }
 
     private fun cover() = DecodedAutoMixCover(object : Image {

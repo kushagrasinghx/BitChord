@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.snap
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import androidx.compose.animation.core.AnimationVector1D
@@ -591,6 +592,10 @@ private class LandscapeDockPose(val left: Float, val top: Float, val scale: Floa
 
 /** The placeholder tile's corners — one shape, not a new one every frame it moves. */
 private val TileShape = RoundedCornerShape(8.dp)
+
+/** The endpoint of the ordinary sleeve, not the animated clip's current share. */
+internal fun autoMixStaticSleeveShare(fullBleed: Boolean, settledShare: Float, revealing: Boolean): Float =
+    if (!revealing) settledShare else if (fullBleed) 1f else 0f
 
 /** The same bottom feather for the sleeve and a still drawn below the hero host. */
 private fun Modifier.artworkBottomFade(shown: () -> Float, fraction: () -> Float): Modifier = drawWithContent {
@@ -1570,6 +1575,9 @@ fun NowPlayingScreen(
     val art = rememberPlayerArtwork(remoteArt)
     val autoMixCover = rememberAutoMixCover(coverEntry, art)
     val autoMixFrames = autoMixCover.framesFor(coverEntry)
+    val heroIncomingStill = autoMixFrames?.incoming.takeIf {
+        heroMode && pair?.liveOutgoing == true && !pair.liveIncoming
+    }
     fun coverLoaded() = autoMixFrames != null || art.loaded
     // Sticky, unlike [PlayerArtwork.loaded]: the banner is the shape of the player rather
     // than a property of the track in it. Waiting on each new cover would
@@ -1670,16 +1678,16 @@ fun NowPlayingScreen(
     // the sleeve goes from banner to thumbnail as one movement, rather than the
     // banner waiting on a threshold and then dissolving into a finished
     // thumbnail — see `sleeveRect` down in the layout.
+    val settlingToSquare = !fullBleedArt && pair?.selectedStill == true && heroIncomingStill != null
     val heroT = animateFloatAsState(
         targetValue = if (
             // Latched first, so a clip coming and going isn't listened for
             // once the banner has settled — see [heroSettled].
             heroMode && (heroSettled || coverLoaded() || canvasRendered) &&
-                // A Spotify-only hero is going back to the square sleeve. Let the
-                // incoming still settle into that frame before the handoff, not after it.
-                !(!fullBleedArt && pair?.liveOutgoing == true && pair.selectedStill && autoMixFrames?.incoming != null)
+                !settlingToSquare
         ) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+        // Keep the ordinary sleeve at the square endpoint after promotion, too.
+        animationSpec = if (settlingToSquare) snap() else tween(durationMillis = 420, easing = FastOutSlowInEasing),
         label = "heroCanvas",
     )
     val spotifyChromeAlpha by animateFloatAsState(
@@ -2069,8 +2077,9 @@ fun NowPlayingScreen(
         return minOf(playerBounds.width * image.height / image.width.toFloat(), playerBounds.height.toFloat())
     }
     // The clip's dissolve, held at the banner's height in pixels — see [clipFadeFraction].
+    fun sleeveStillBottomPx(): Float = if (heroIncomingStill != null) 0f else stillBottomPx()
     fun stillFadeFraction(): Float {
-        val bottom = stillBottomPx()
+        val bottom = sleeveStillBottomPx()
         if (bottom <= 0f) return HERO_FADE_FRACTION
         return (with(density) { heroHeight.toPx() } * HERO_FADE_FRACTION / bottom).coerceIn(0f, 1f)
     }
@@ -3400,8 +3409,9 @@ fun NowPlayingScreen(
                         // How far the expanded sleeve is the banner rather than the
                         // card. Zero until there is a banner to be, which is to say
                         // until [heroHeight] and the player's width have been measured.
-                        fun bannerShare(): Float =
-                            if (heroHeight > 0.dp && playerBounds.width > 0) heroT.value else 0f
+                        fun bannerShare(): Float = if (heroHeight > 0.dp && playerBounds.width > 0) {
+                            autoMixStaticSleeveShare(fullBleedArt, heroT.value, heroIncomingStill != null)
+                        } else 0f
                         // How much of the banner is on screen: its share, given up as
                         // the sleeve collapses — the same movement as the collapse
                         // rather than a fade chained after it.
@@ -3445,7 +3455,7 @@ fun NowPlayingScreen(
                                     // is, from the same top edge.
                                     size = Size(
                                         playerBounds.width.toFloat(),
-                                        stillBottomPx().takeIf { it > 0f } ?: heroHeight.roundToPx().toFloat(),
+                                        sleeveStillBottomPx().takeIf { it > 0f } ?: heroHeight.roundToPx().toFloat(),
                                     ),
                                 )
                             }
@@ -3709,9 +3719,6 @@ fun NowPlayingScreen(
                                             },
                                     )
                                 }
-                            }
-                            val heroIncomingStill = autoMixFrames?.incoming.takeIf {
-                                heroMode && pair?.liveOutgoing == true && !pair.liveIncoming
                             }
                             if (heroIncomingStill != null && pair != null) {
                                 AutoMixIncomingStill(

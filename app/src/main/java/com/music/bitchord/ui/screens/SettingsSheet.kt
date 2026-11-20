@@ -831,7 +831,7 @@ fun SettingsScreen(
                     )
                     if (smartFade) {
                         val artwork by AppSettings.autoMixArtwork.collectAsStateWithLifecycle()
-                        val indent = ICON_SIZE + ICON_GAP + 8.dp
+                        val indent = TEXT_INSET - ROW_INSET
                         SettingsSubRow(
                             title = artTransitionTitle,
                             subtitle = stringResource(R.string.automix_art_transition_subtitle),

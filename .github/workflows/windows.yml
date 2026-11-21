@@ -1,0 +1,46 @@
+name: Windows
+
+# The Windows app (windows/): the web player and its extension, built as they
+# are for the site, inside a Tauri shell. Runs when the shell or either of the
+# web packages it hosts changes, and uploads the installer.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'windows/**'
+      - 'web/**'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths:
+      - 'windows/**'
+      - 'web/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows · build installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows/src-tauri
+
+      # Installs, builds the extension and the site, then the shell (windows/README.md).
+      - name: Build
+        run: node windows/scripts/build.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-windows
+          path: windows/src-tauri/target/release/bundle/nsis/*.exe

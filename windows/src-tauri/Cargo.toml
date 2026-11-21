@@ -1,0 +1,19 @@
+[package]
+name = "bitchord-windows"
+version = "0.0.0" # the real version comes from build.gradle.kts via scripts/build.mjs
+edition = "2024"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+panic = "abort"

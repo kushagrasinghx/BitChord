@@ -2,6 +2,7 @@ package com.music.bitchord.data
 
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okio.Buffer
@@ -9,6 +10,10 @@ import okio.BufferedSource
 import okio.ForwardingSource
 import okio.Source
 import okio.buffer
+import java.net.HttpURLConnection
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -130,8 +135,54 @@ object Http {
         chain.proceed(request)
     }
 
+    private object DynamicDns : Dns {
+        private val cache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
+        private const val TTL_MS = 10 * 60 * 1000L
+
+        override fun lookup(hostname: String): List<InetAddress> {
+            val now = System.currentTimeMillis()
+            cache[hostname]?.let { (time, addrs) ->
+                if (now - time < TTL_MS) return addrs
+            }
+
+            val addresses = try {
+                Dns.SYSTEM.lookup(hostname)
+            } catch (e: Exception) {
+                queryDoh(hostname).ifEmpty { throw e }
+            }
+
+            val sorted = addresses.sortedBy { if (it is Inet4Address) 0 else 1 }
+            if (sorted.isNotEmpty()) {
+                cache[hostname] = now to sorted
+            }
+            return sorted
+        }
+
+        private fun queryDoh(hostname: String): List<InetAddress> {
+            for (endpoint in listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")) {
+                try {
+                    val url = URI("$endpoint?name=$hostname&type=A").toURL()
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.requestMethod = "GET"
+                    conn.setRequestProperty("Accept", "application/dns-json")
+                    conn.connectTimeout = 3000
+                    conn.readTimeout = 3000
+                    if (conn.responseCode != 200) continue
+                    val response = conn.inputStream.bufferedReader().use { it.readText() }
+                    val ipRegex = Regex(""""data"\s*:\s*"([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"""")
+                    val addrs = ipRegex.findAll(response).map { InetAddress.getByName(it.groupValues[1]) }.toList()
+                    if (addrs.isNotEmpty()) return addrs
+                } catch (_: Exception) {
+                    continue
+                }
+            }
+            return emptyList()
+        }
+    }
+
     val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
+        .dns(DynamicDns)
+        .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })

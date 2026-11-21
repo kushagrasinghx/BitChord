@@ -50,7 +50,7 @@ internal fun timedLyrics(page: JsonObject): List<LyricLine>? {
         val end = (cue?.get("endTimeMilliseconds") as? JsonPrimitive)
             ?.contentOrNull?.toLongOrNull()
         LyricLine(start, text, sungUntilMs = end)
-    }.takeIf { it.isNotEmpty() }
+    }.sortedBy { it.timeMs }.takeIf { it.isNotEmpty() }
 }
 
 /** The untimed description shelf the web client gets; the old behaviour. */

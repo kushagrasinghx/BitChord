@@ -99,6 +99,10 @@ private fun rhythmOf(haptic: Haptic): List<Beat> = when (haptic) {
         Beat(Beat.Kind.Tick, 0.45f, 12),
         Beat(Beat.Kind.Click, 0.6f, 12),
     )
+    Haptic.Slam -> listOf(
+        Beat(Beat.Kind.Click, 1f, 0),
+        Beat(Beat.Kind.LowTick, 0.6f, 24),
+    )
 }
 
 // ── The motor ─────────────────────────────────────────────────────────────────

@@ -187,7 +187,7 @@
     <string name="playback">播放</string>
     <string name="appearance">外觀</string>
     <string name="storage">儲存空間</string>
-    <string name="your_data">你的資料</string>
+    <string name="your_data">備份與還原</string>
     <string name="miscellaneous">其他</string>
     <string name="lossless_hq_audio">無損 / 高品質音訊</string>
     <string name="on_wifi">使用 Wi-Fi 時</string>
@@ -851,6 +851,8 @@
     <string name="export_compatible_downloads">匯出相容的下載</string>
     <string name="sync_downloaded_playlists">保持播放清單更新</string>
     <string name="sync_downloaded_playlists_subtitle">每天檢查兩次，並下載已下載播放清單中新加入的歌曲</string>
+    <string name="download_liked_songs">下載喜歡的歌曲</string>
+    <string name="download_liked_songs_subtitle">下載你喜歡的音樂，以及之後你喜歡的每首歌曲</string>
     <string name="playlist_sync_ask_title">%1$s 有新歌曲：%2$d</string>
     <string name="playlist_sync_ask_text">輕觸即可下載</string>
     <string name="playlist_sync_done_title">已新增至 %1$s：%2$d</string>
@@ -1268,8 +1270,6 @@
 
 
     <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
-    <string name="source_needs_update">此附加元件已過時。目前仍可使用，但請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
-    <string name="source_outdated">附加元件已過時</string>
     <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
     <string name="source_downloads_off">僅限線上播放</string>
@@ -1472,4 +1472,68 @@
     <string name="queue_selected_count">已選擇 %1$d 項</string>
     <string name="queue_playlist_added">已新增 %1$d/%2$d 首歌曲</string>
     <string name="queue_playlist_partial">%1$s（%2$d 首不相容，%3$d 首已存在，%4$d 首失敗）</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Google 雲端硬碟備份</string>
+    <string name="drive_backup_unavailable">Google 雲端硬碟備份需要 Google Play 服務，但這部裝置沒有。</string>
+    <string name="drive_backup_never">從未</string>
+    <string name="drive_restore_failed">還原失敗：%1$s</string>
+    <string name="drive_account_header">Google 帳戶</string>
+    <string name="drive_connect_failed">無法連線：%1$s</string>
+    <string name="drive_connect">連結 Google 雲端硬碟</string>
+    <string name="drive_connect_subtitle">選擇這支手機上的帳戶來備份</string>
+    <string name="drive_sign_in_again_subtitle">Google 雲端硬碟的存取權已遭移除。請重新登入以繼續備份。</string>
+    <string name="drive_sign_in_again">登入</string>
+    <string name="drive_restore_header">還原</string>
+    <string name="drive_backup_footer">備份會存放在你 Google 雲端硬碟中的隱藏應用程式資料夾，並佔用雲端硬碟儲存空間。絕不包含密碼和登入資訊。如要刪除，請開啟雲端硬碟 → 設定 → 管理應用程式。</string>
+    <string name="drive_restore_connect_first">請先連結 Google 帳戶</string>
+    <string name="drive_restore_action">還原</string>
+    <string name="drive_disconnect_confirm_title">要中斷 Google 雲端硬碟連結嗎？</string>
+    <string name="drive_backup_restoring">正在還原…</string>
+    <string name="drive_frequency_daily">每天</string>
+    <string name="drive_frequency_weekly">每週</string>
+    <string name="drive_frequency_monthly">每月</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">自動同步</string>
+    <string name="drive_auto_sync_footer">在電量不低時，這支手機會在背景上傳自己的收聽記錄，並下載你其他裝置的記錄。手動同步也會計入排程。</string>
+    <string name="drive_choose_device">選擇這支手機的裝置</string>
+    <string name="drive_choose_device_subtitle">以新裝置身分備份，或還原為雲端硬碟中已有的裝置</string>
+    <string name="drive_device_not_set">選擇裝置</string>
+    <string name="drive_device_synced">同步於 %1$s</string>
+    <string name="drive_devices_checking">正在尋找裝置…</string>
+    <string name="drive_devices_failed">無法載入裝置：%1$s</string>
+    <string name="drive_devices_footer">所有裝置的收聽記錄會在 Replay 中加總。輕觸裝置即可刪除其備份。</string>
+    <string name="drive_devices_header">裝置</string>
+    <string name="drive_devices_none">這個帳戶還沒有裝置</string>
+    <string name="drive_devices_none_other">這個帳戶還沒有其他裝置</string>
+    <string name="drive_devices_title">備份或還原為</string>
+    <string name="drive_forked_notice">另一支手機已還原為這個裝置，因此這支手機現在以 %1$s 的身分同步。</string>
+    <string name="drive_new_device">以新裝置身分備份</string>
+    <string name="drive_new_device_footer">這支手機的收聽記錄會保留為獨立裝置，你其他裝置的收聽記錄會在 Replay 中一併加總。</string>
+    <string name="drive_remove_confirm_title">要刪除 %1$s 的備份嗎？</string>
+    <string name="drive_remove_confirm_body">它的備份會從 Google 雲端硬碟刪除，其收聽記錄也會從你所有裝置的 Replay 中移除。此動作無法復原。</string>
+    <string name="drive_delete_mine_body">這支手機的備份會從 Google 雲端硬碟刪除，並關閉自動同步。這支手機上的 Replay 會保留所有記錄，輕觸「立即同步」即可建立新的備份。</string>
+    <string name="drive_rename">重新命名</string>
+    <string name="drive_rename_title">重新命名這支手機</string>
+    <string name="drive_rename_message">你的其他裝置會以這個名稱顯示這支手機。</string>
+    <string name="drive_restore_as_done">現以 %1$s 的身分同步 · %2$s</string>
+    <string name="drive_restore_as_footer">這支手機會成為你選擇的裝置：該裝置的收聽記錄和設定會取代這支手機上的。</string>
+    <string name="drive_restore_as_header">還原為</string>
+    <string name="drive_restore_as_subtitle">選擇雲端硬碟中的裝置以繼續使用</string>
+    <string name="drive_restore_as_title">還原為其他裝置</string>
+    <string name="drive_sync_done">剛剛已同步</string>
+    <string name="drive_sync_downloading">正在從 %1$s 下載 · 第 %2$d 個，共 %3$d 個</string>
+    <string name="drive_sync_failed">同步失敗：%1$s</string>
+    <string name="drive_sync_last">上次同步</string>
+    <string name="drive_sync_now">立即同步</string>
+    <string name="drive_sync_preparing">正在準備同步…</string>
+    <string name="drive_sync_uploading">正在上傳第 %1$d 個月，共 %2$d 個月</string>
+    <string name="drive_this_phone">這支手機</string>
+    <string name="drive_this_phone_header">這支手機</string>
+    <string name="drive_this_phone_subtitle">這支手機備份所用的裝置</string>
+    <string name="drive_restore_confirm_title">要還原為 %1$s 嗎？</string>
+    <string name="drive_restore_confirm_body">這支手機會成為 %1$s。該裝置的收聽記錄和設定會取代這支手機上的，之後這支手機將以 %1$s 的身分同步。不包含登入資訊。</string>
+    <string name="drive_disconnect_confirm_body">同步會停止。雲端硬碟中的內容會保留，在重新連結之前，這支手機的 Replay 將不再包含你其他裝置的收聽記錄。</string>
+    <string name="drive_backup_row_subtitle">在你的所有裝置間備份並同步 Replay</string>
+    <string name="drive_over_cellular">使用行動數據同步</string>
+    <string name="drive_over_cellular_subtitle">關閉時，自動同步會等待 Wi-Fi</string>
 </resources>

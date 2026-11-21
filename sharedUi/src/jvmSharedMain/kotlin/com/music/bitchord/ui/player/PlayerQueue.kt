@@ -58,6 +58,7 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -195,6 +196,13 @@ private fun QueueTrack.sameEntryAs(other: QueueTrack): Boolean =
     } else {
         uniqueSongReference && other.uniqueSongReference && song === other.song
     }
+
+/** A queue row the user tapped to play, and where it sat in the viewport. */
+private class QueueTap(val track: QueueTrack, val viewportOffset: Int, val fromHistory: Boolean) {
+    /** Whether [playing] is the tapped entry, possibly after a jump re-created it. */
+    fun matches(playing: QueueTrack): Boolean = track.sameEntryAs(playing) ||
+        (track.song.videoId == playing.song.videoId && track.song.queueEntryId == playing.song.queueEntryId)
+}
 
 /** The groups a queue row can be dragged within; a drag never leaves its own. */
 internal enum class QueueSection { USER, CONTEXT, AUTOPLAY }
@@ -446,11 +454,43 @@ internal fun InlineQueue(
     // Start at what plays next; history stays above, reachable by scrolling up.
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
+    // A tapped row becomes Now playing and leaves the list. Its successors take
+    // its place on screen instead of the list scrolling back to the top. Plain
+    // holders: written from a click and from apply, never read by composition.
+    val pendingTap = remember { arrayOfNulls<QueueTap>(1) }
+    val anchoredTapKey = remember { arrayOfNulls<String>(1) }
+    val jumpTo: (Int) -> Unit = { index ->
+        val row = latestTracks.rows.firstOrNull { it.timelineIndex == index }
+        val offset = row?.let { r -> listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == r.key }?.offset }
+        pendingTap[0] = if (row != null && offset != null) {
+            QueueTap(row, offset, fromHistory = latestTracks.history.any { it.key == row.key })
+        } else null
+        onJumpTo(index)
+    }
+    // During apply, so the list lays the new rows out at the anchor in the
+    // same frame instead of showing a jump first.
+    SideEffect {
+        val tap = pendingTap[0] ?: return@SideEffect
+        val playing = nowPlaying ?: return@SideEffect
+        if (!tap.matches(playing)) return@SideEffect
+        pendingTap[0] = null
+        if (selectionState.active || drag.held != null) return@SideEffect
+        anchoredTapKey[0] = playing.key
+        // A replayed history row only trades places with the old current track
+        // at the end of history; the rows on screen keep their keys and stay put.
+        if (tap.fromHistory) return@SideEffect
+        // Hidden history leaves nothing above, so this clamps to the top.
+        listState.requestScrollToItem(upcomingStartIndex(tracks), -tap.viewportOffset)
+    }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
         val target = upcomingStartIndex(latestTracks)
         val scrolledAway = listState.firstVisibleItemIndex != target || listState.firstVisibleItemScrollOffset != 0
+        val anchoredByTap = nowPlaying != null && anchoredTapKey[0] == nowPlaying.key
+        anchoredTapKey[0] = null
+        // A change that isn't the tapped song (the track ended first) drops the tap.
+        pendingTap[0]?.let { tap -> if (nowPlaying == null || !tap.matches(nowPlaying)) pendingTap[0] = null }
         if (!selectionState.active && drag.held == null && nowPlaying != null) {
-            if (scrolledAway) {
+            if (scrolledAway && !anchoredByTap) {
                 if (hasScrolledOnce) {
                     listState.animateScrollToItem(target)
                 } else {
@@ -536,7 +576,7 @@ internal fun InlineQueue(
                     items(tracks.history, key = { it.key }) { track ->
                         SwipeableQueueRow(
                             track = track,
-                            onClick = { onJumpTo(track.timelineIndex) },
+                            onClick = { jumpTo(track.timelineIndex) },
                             onLongPress = { onSongMenu(track.timelineIndex, track.song) },
                             locked = controlsLocked,
                             selection = selectionState,
@@ -569,7 +609,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (tracks.user.isNotEmpty()) {
-                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onSongMenu,
+                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, jumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
                 queueHeadingItem(
@@ -588,7 +628,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (tracks.context.isNotEmpty()) {
-                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onSongMenu,
+                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, jumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
                 queueHeadingItem(
@@ -602,7 +642,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
-                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onSongMenu,
+                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, jumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
             }

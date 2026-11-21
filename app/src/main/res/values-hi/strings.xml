@@ -193,7 +193,7 @@
     <string name="playback">प्लेबैक</string>
     <string name="appearance">दिखावट</string>
     <string name="storage">स्टोरेज</string>
-    <string name="your_data">आपका डेटा</string>
+    <string name="your_data">बैकअप और रीस्टोर</string>
     <string name="miscellaneous">विविध</string>
     <string name="lossless_hq_audio">लॉसलेस / HQ ऑडियो</string>
     <string name="on_wifi">Wi-Fi पर</string>
@@ -873,6 +873,8 @@
     <string name="export_compatible_downloads">संगत डाउनलोड निर्यात करें</string>
     <string name="sync_downloaded_playlists">प्लेलिस्ट अपडेट रखें</string>
     <string name="sync_downloaded_playlists_subtitle">दिन में दो बार जाँचता है और डाउनलोड की गई प्लेलिस्ट में जोड़े गए नए गाने डाउनलोड करता है</string>
+    <string name="download_liked_songs">पसंद किए गए गाने डाउनलोड करें</string>
+    <string name="download_liked_songs_subtitle">आपके पसंद किए गए गाने और अब से पसंद किया गया हर गाना डाउनलोड करता है</string>
     <string name="playlist_sync_ask_title">%1$s में नए गाने: %2$d</string>
     <string name="playlist_sync_ask_text">डाउनलोड करने के लिए टैप करें</string>
     <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>
@@ -1292,8 +1294,6 @@
 
 
     <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
-    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitChord के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
-    <string name="source_outdated">पुराना ऐडऑन</string>
     <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
     <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
     <string name="source_downloads_on">डाउनलोड की अनुमति है</string>
@@ -1496,4 +1496,68 @@
     <string name="queue_selected_count">%1$d चुने गए</string>
     <string name="queue_playlist_added">%2$d में से %1$d गाने जोड़े गए</string>
     <string name="queue_playlist_partial">%1$s (%2$d असंगत, %3$d पहले से मौजूद, %4$d विफल)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Google Drive बैकअप</string>
+    <string name="drive_backup_unavailable">Google Drive बैकअप के लिए Google Play सेवाएँ चाहिए, जो इस डिवाइस पर नहीं हैं।</string>
+    <string name="drive_backup_never">कभी नहीं</string>
+    <string name="drive_restore_failed">बहाली विफल: %1$s</string>
+    <string name="drive_account_header">Google खाता</string>
+    <string name="drive_connect_failed">कनेक्ट नहीं हो सका: %1$s</string>
+    <string name="drive_connect">Google Drive कनेक्ट करें</string>
+    <string name="drive_connect_subtitle">बैकअप के लिए इस फ़ोन का कोई खाता चुनें</string>
+    <string name="drive_sign_in_again_subtitle">Google Drive की पहुँच हटा दी गई। बैकअप जारी रखने के लिए फिर से साइन इन करें।</string>
+    <string name="drive_sign_in_again">साइन इन करें</string>
+    <string name="drive_restore_header">बहाल करें</string>
+    <string name="drive_backup_footer">बैकअप आपकी Google Drive के एक छिपे ऐप फ़ोल्डर में रखे जाते हैं और आपके Drive स्टोरेज में गिने जाते हैं। पासवर्ड और साइन-इन कभी शामिल नहीं होते। इसे हटाने के लिए Drive → सेटिंग्स → ऐप्स प्रबंधित करें खोलें।</string>
+    <string name="drive_restore_connect_first">पहले कोई Google खाता कनेक्ट करें</string>
+    <string name="drive_restore_action">बहाल करें</string>
+    <string name="drive_disconnect_confirm_title">Google Drive डिस्कनेक्ट करें?</string>
+    <string name="drive_backup_restoring">बहाल किया जा रहा है…</string>
+    <string name="drive_frequency_daily">रोज़ाना</string>
+    <string name="drive_frequency_weekly">साप्ताहिक</string>
+    <string name="drive_frequency_monthly">मासिक</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">ऑटो सिंक</string>
+    <string name="drive_auto_sync_footer">बैटरी कम न होने पर यह फ़ोन बैकग्राउंड में अपनी सुनने की हिस्ट्री अपलोड करता है और आपके दूसरे डिवाइस की डाउनलोड करता है। हाथ से किया गया सिंक भी शेड्यूल में गिना जाता है।</string>
+    <string name="drive_choose_device">इस फ़ोन का डिवाइस चुनें</string>
+    <string name="drive_choose_device_subtitle">नए डिवाइस के रूप में बैकअप लें, या Drive में मौजूद किसी डिवाइस के रूप में बहाल करें</string>
+    <string name="drive_device_not_set">डिवाइस चुनें</string>
+    <string name="drive_device_synced">%1$s को सिंक हुआ</string>
+    <string name="drive_devices_checking">डिवाइस खोजे जा रहे हैं…</string>
+    <string name="drive_devices_failed">डिवाइस लोड नहीं हो सके: %1$s</string>
+    <string name="drive_devices_footer">हर डिवाइस की सुनने की हिस्ट्री Replay में जुड़ती है। किसी डिवाइस का बैकअप मिटाने के लिए उस पर टैप करें।</string>
+    <string name="drive_devices_header">डिवाइस</string>
+    <string name="drive_devices_none">इस खाते में अभी कोई डिवाइस नहीं है</string>
+    <string name="drive_devices_none_other">इस खाते में अभी कोई दूसरा डिवाइस नहीं है</string>
+    <string name="drive_devices_title">इस रूप में बैकअप या बहाल करें</string>
+    <string name="drive_forked_notice">किसी दूसरे फ़ोन को इस डिवाइस के रूप में बहाल किया गया, इसलिए यह फ़ोन अब %1$s के रूप में सिंक होता है।</string>
+    <string name="drive_new_device">नए डिवाइस के रूप में बैकअप लें</string>
+    <string name="drive_new_device_footer">इस फ़ोन की सुनने की हिस्ट्री अपने अलग डिवाइस के रूप में रहती है। आपके दूसरे डिवाइस की हिस्ट्री Replay में इसके साथ जुड़ती है।</string>
+    <string name="drive_remove_confirm_title">%1$s का बैकअप मिटाएँ?</string>
+    <string name="drive_remove_confirm_body">इसका बैकअप Google Drive से हटा दिया जाएगा और इसकी सुनने की हिस्ट्री आपके सभी डिवाइस पर Replay से हट जाएगी। इसे पूर्ववत नहीं किया जा सकता।</string>
+    <string name="drive_delete_mine_body">इस फ़ोन का बैकअप Google Drive से मिटा दिया जाएगा और ऑटो सिंक बंद हो जाएगा। इस फ़ोन पर Replay में सब कुछ रहेगा, और अभी सिंक करें से नया बैकअप शुरू होगा।</string>
+    <string name="drive_rename">नाम बदलें</string>
+    <string name="drive_rename_title">इस फ़ोन का नाम बदलें</string>
+    <string name="drive_rename_message">आपके दूसरे डिवाइस इस फ़ोन को इसी नाम से दिखाएँगे।</string>
+    <string name="drive_restore_as_done">अब %1$s के रूप में सिंक हो रहा है · %2$s</string>
+    <string name="drive_restore_as_footer">यह फ़ोन चुना गया डिवाइस बन जाता है: उसकी सुनने की हिस्ट्री और सेटिंग्स इस फ़ोन की जगह ले लेती हैं।</string>
+    <string name="drive_restore_as_header">इस रूप में बहाल करें</string>
+    <string name="drive_restore_as_subtitle">आगे जारी रखने के लिए अपनी Drive का कोई डिवाइस चुनें</string>
+    <string name="drive_restore_as_title">किसी दूसरे डिवाइस के रूप में बहाल करें</string>
+    <string name="drive_sync_done">अभी सिंक हुआ</string>
+    <string name="drive_sync_downloading">%1$s से डाउनलोड हो रहा है · %3$d में से %2$d</string>
+    <string name="drive_sync_failed">सिंक विफल: %1$s</string>
+    <string name="drive_sync_last">पिछला सिंक</string>
+    <string name="drive_sync_now">अभी सिंक करें</string>
+    <string name="drive_sync_preparing">सिंक तैयार हो रहा है…</string>
+    <string name="drive_sync_uploading">%2$d में से महीना %1$d अपलोड हो रहा है</string>
+    <string name="drive_this_phone">यह फ़ोन</string>
+    <string name="drive_this_phone_header">यह फ़ोन</string>
+    <string name="drive_this_phone_subtitle">वह डिवाइस जिसके रूप में यह फ़ोन बैकअप लेता है</string>
+    <string name="drive_restore_confirm_title">%1$s के रूप में बहाल करें?</string>
+    <string name="drive_restore_confirm_body">यह फ़ोन %1$s बन जाएगा। उसकी सुनने की हिस्ट्री और सेटिंग्स इस फ़ोन की जगह ले लेंगी, और अब से यह फ़ोन %1$s के रूप में सिंक होगा। साइन-इन शामिल नहीं हैं।</string>
+    <string name="drive_disconnect_confirm_body">सिंक रुक जाएगा। आपकी Drive में मौजूद सब कुछ बना रहेगा, और फिर से कनेक्ट करने तक इस फ़ोन पर Replay से आपके दूसरे डिवाइस की हिस्ट्री हट जाएगी।</string>
+    <string name="drive_backup_row_subtitle">अपने सभी डिवाइस पर Replay का बैकअप और सिंक करें</string>
+    <string name="drive_over_cellular">मोबाइल डेटा पर सिंक करें</string>
+    <string name="drive_over_cellular_subtitle">बंद होने पर, ऑटो सिंक Wi-Fi का इंतज़ार करते हैं</string>
 </resources>

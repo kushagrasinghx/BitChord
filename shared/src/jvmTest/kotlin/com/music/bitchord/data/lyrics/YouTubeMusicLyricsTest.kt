@@ -136,4 +136,19 @@ class YouTubeMusicLyricsTest {
         assertEquals(listOf("kept"), lines.map { it.text })
         assertEquals(100L, lines.single().timeMs)
     }
+
+    @Test
+    fun timedLinesComeBackInPlaybackOrder() {
+        val lines = timedLyrics(
+            page(
+                """
+                {"timedLyricsData": [
+                  {"lyricLine": "later", "cueRange": {"startTimeMilliseconds": "5000"}},
+                  {"lyricLine": "sooner", "cueRange": {"startTimeMilliseconds": "1000"}}
+                ]}
+                """.trimIndent(),
+            ),
+        )
+        assertEquals(listOf("sooner", "later"), lines?.map { it.text })
+    }
 }

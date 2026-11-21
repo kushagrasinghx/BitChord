@@ -49,6 +49,7 @@ export function timedYoutubeLyrics(data: unknown): LyricLine[] | null {
     if (start === null) return [];
     return [line(start, text, { sungUntilMs: milliseconds(cue.endTimeMilliseconds) })];
   });
+  lines.sort((a, b) => a.timeMs - b.timeMs);
   return lines.length ? lines : null;
 }
 

@@ -7,8 +7,13 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -46,6 +51,9 @@ object Backup {
         prettyPrint = true
     }
 
+    /** The same rules without the indentation, for copies no one reads by eye. */
+    private val compactJson = Json(json) { prettyPrint = false }
+
     /** A suggested filename, dated so successive exports don't collide. */
     fun suggestedName(): String =
         "bitchord-backup-${DateTimeFormatter.ofPattern("yyyy-MM-dd").format(
@@ -62,21 +70,36 @@ object Backup {
      */
     suspend fun exportTo(context: Context, target: Uri): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
-            val buckets = ListeningStats.exportAll()
-            val file = BackupFile(
-                versionName = BuildConfig.VERSION_NAME,
-                exportedAt = Instant.now().toString(),
-                settings = AppSettings.exportPrefs().mapNotNull { (key, value) ->
-                    PrefValue.of(value)?.let { key to it }
-                }.toMap(),
-                listening = buckets,
-            )
-            val text = json.encodeToString(BackupFile.serializer(), file)
             context.contentResolver.openOutputStream(target, "wt")
-                ?.use { it.write(text.toByteArray()) }
+                ?.use { writeTo(it, pretty = true) }
                 ?: error("Couldn't open that file for writing")
-            buckets.size
         }
+    }
+
+    /**
+     * Writes a backup into [out], returning how many months of listening it
+     * held. [out] is left open: the caller owns it.
+     *
+     * Streamed rather than built as one String and then copied to bytes, which
+     * held the whole file in memory twice over — fine at a few hundred KB, an
+     * out-of-memory waiting to happen in a background worker once Replay has
+     * years in it. [pretty] is for a file someone may open and read; the Drive
+     * copy is compressed and never read by a person, so it goes without.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    suspend fun writeTo(out: OutputStream, pretty: Boolean): Int = withContext(Dispatchers.IO) {
+        val buckets = ListeningStats.exportAll()
+        val file = BackupFile(
+            versionName = BuildConfig.VERSION_NAME,
+            exportedAt = Instant.now().toString(),
+            settings = AppSettings.exportPrefs().mapNotNull { (key, value) ->
+                PrefValue.of(value)?.let { key to it }
+            }.toMap(),
+            listening = buckets,
+        )
+        (if (pretty) json else compactJson).encodeToStream(BackupFile.serializer(), file, out)
+        out.flush()
+        buckets.size
     }
 
     /**
@@ -89,28 +112,37 @@ object Backup {
      */
     suspend fun importFrom(context: Context, source: Uri): Result<Summary> = withContext(Dispatchers.IO) {
         runCatching {
-            val text = context.contentResolver.openInputStream(source)
-                ?.use { it.readBytes().decodeToString() }
+            context.contentResolver.openInputStream(source)
+                ?.use { readFrom(it) }
                 ?: error("Couldn't open that file")
-            val file = runCatching { json.decodeFromString(BackupFile.serializer(), text) }
-                .getOrElse { error("That doesn't look like a BitChord backup") }
-            require(file.app == APP_TAG) { "That backup is from another app" }
-            require(file.version <= SCHEMA_VERSION) {
-                "That backup was written by a newer version of BitChord"
-            }
-
-            ListeningStats.importAll(file.listening)
-            AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
-            // Shares AppSettings' preference file, so it has already been
-            // overwritten by the line above — it just doesn't know yet.
-            SearchHistory.reload()
-            Summary(
-                months = file.listening.size,
-                settings = file.settings.size,
-                from = file.versionName,
-                at = file.exportedAt,
-            )
         }
+    }
+
+    /**
+     * Reads a backup from [input] and applies it, under the same all-or-nothing
+     * rule as [importFrom]: everything is parsed and checked before anything on
+     * this device is touched. [input] is left open: the caller owns it.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    suspend fun readFrom(input: InputStream): Summary = withContext(Dispatchers.IO) {
+        val file = runCatching { json.decodeFromStream(BackupFile.serializer(), input) }
+            .getOrElse { error("That doesn't look like a BitChord backup") }
+        require(file.app == APP_TAG) { "That backup is from another app" }
+        require(file.version <= SCHEMA_VERSION) {
+            "That backup was written by a newer version of BitChord"
+        }
+
+        ListeningStats.importAll(file.listening)
+        AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
+        // Shares AppSettings' preference file, so it has already been
+        // overwritten by the line above — it just doesn't know yet.
+        SearchHistory.reload()
+        Summary(
+            months = file.listening.size,
+            settings = file.settings.size,
+            from = file.versionName,
+            at = file.exportedAt,
+        )
     }
 
     /** What an import turned out to contain, for the line shown afterwards. */

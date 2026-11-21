@@ -194,7 +194,7 @@
     <string name="playback">Reproducción</string>
     <string name="appearance">Apariencia</string>
     <string name="storage">Almacenamiento</string>
-    <string name="your_data">Tus datos</string>
+    <string name="your_data">Copia de seguridad y restauración</string>
     <string name="miscellaneous">Varios</string>
     <string name="lossless_hq_audio">Audio sin pérdida / alta calidad</string>
     <string name="on_wifi">Con Wi-Fi</string>
@@ -857,6 +857,8 @@
     <string name="export_compatible_downloads">Exportar descargas compatibles</string>
     <string name="sync_downloaded_playlists">Mantener playlists actualizadas</string>
     <string name="sync_downloaded_playlists_subtitle">Comprueba dos veces al día y descarga las canciones nuevas de tus playlists descargadas</string>
+    <string name="download_liked_songs">Descargar canciones que te gustan</string>
+    <string name="download_liked_songs_subtitle">Descarga tus canciones que te gustan y cada canción que marques a partir de ahora</string>
     <string name="playlist_sync_ask_title">Canciones nuevas en %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Toca para descargar</string>
     <string name="playlist_sync_done_title">Añadidas a %1$s: %2$d</string>
@@ -1264,8 +1266,6 @@
 
 
     <string name="source_needs_lossless_output">Necesita una salida sin pérdida · usa un dispositivo compatible con audio sin pérdida</string>
-    <string name="source_needs_update">Este complemento está desactualizado. Sigue funcionando, pero pide a su desarrollador que lo actualice siguiendo la documentación más reciente de complementos de BitChord.</string>
-    <string name="source_outdated">Complemento desactualizado</string>
     <string name="source_needs_lossless_bt_codec">Necesita una salida sin pérdida · el Bluetooth usa %1$s; usa un dispositivo compatible con audio sin pérdida</string>
     <string name="source_needs_lossless_bt_unknown">Necesita una salida sin pérdida · no se puede saber qué códec Bluetooth se usa</string>
     <string name="source_downloads_on">Descargas permitidas</string>
@@ -1468,4 +1468,68 @@
     <string name="queue_selected_count">Seleccionadas: %1$d</string>
     <string name="queue_playlist_added">Se añadieron %1$d de %2$d canciones</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatibles, %3$d ya estaban, %4$d fallaron)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Copia de seguridad en Google Drive</string>
+    <string name="drive_backup_unavailable">La copia en Google Drive necesita los servicios de Google Play, que este dispositivo no tiene.</string>
+    <string name="drive_backup_never">Nunca</string>
+    <string name="drive_restore_failed">Error al restaurar: %1$s</string>
+    <string name="drive_account_header">Cuenta de Google</string>
+    <string name="drive_connect_failed">No se pudo conectar: %1$s</string>
+    <string name="drive_connect">Conectar Google Drive</string>
+    <string name="drive_connect_subtitle">Elige una cuenta de este teléfono para la copia</string>
+    <string name="drive_sign_in_again_subtitle">Se quitó el acceso a Google Drive. Inicia sesión de nuevo para seguir haciendo copias.</string>
+    <string name="drive_sign_in_again">Iniciar sesión</string>
+    <string name="drive_restore_header">Restaurar</string>
+    <string name="drive_backup_footer">Las copias se guardan en una carpeta oculta de la app en tu Google Drive y cuentan para tu almacenamiento. Nunca incluyen contraseñas ni inicios de sesión. Para eliminarla, abre Drive → Configuración → Administrar aplicaciones.</string>
+    <string name="drive_restore_connect_first">Primero conecta una cuenta de Google</string>
+    <string name="drive_restore_action">Restaurar</string>
+    <string name="drive_disconnect_confirm_title">¿Desconectar Google Drive?</string>
+    <string name="drive_backup_restoring">Restaurando…</string>
+    <string name="drive_frequency_daily">Diaria</string>
+    <string name="drive_frequency_weekly">Semanal</string>
+    <string name="drive_frequency_monthly">Mensual</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">Sincronización automática</string>
+    <string name="drive_auto_sync_footer">Este teléfono sube su historial de escucha y descarga el de tus otros dispositivos en segundo plano si la batería no está baja. Una sincronización manual cuenta para la programación.</string>
+    <string name="drive_choose_device">Elige el dispositivo de este teléfono</string>
+    <string name="drive_choose_device_subtitle">Haz copia como dispositivo nuevo o restaura como uno que ya está en Drive</string>
+    <string name="drive_device_not_set">Elegir dispositivo</string>
+    <string name="drive_device_synced">Sincronizado: %1$s</string>
+    <string name="drive_devices_checking">Buscando dispositivos…</string>
+    <string name="drive_devices_failed">No se pudieron cargar los dispositivos: %1$s</string>
+    <string name="drive_devices_footer">La escucha de todos tus dispositivos se suma en Replay. Toca un dispositivo para eliminar su copia.</string>
+    <string name="drive_devices_header">Dispositivos</string>
+    <string name="drive_devices_none">Aún no hay dispositivos en esta cuenta</string>
+    <string name="drive_devices_none_other">Aún no hay otros dispositivos en esta cuenta</string>
+    <string name="drive_devices_title">Copiar o restaurar como</string>
+    <string name="drive_forked_notice">Otro teléfono se restauró como este dispositivo, así que este teléfono ahora se sincroniza como %1$s.</string>
+    <string name="drive_new_device">Copiar como dispositivo nuevo</string>
+    <string name="drive_new_device_footer">La escucha de este teléfono queda como un dispositivo propio. La de tus otros dispositivos se suma en Replay.</string>
+    <string name="drive_remove_confirm_title">¿Eliminar la copia de %1$s?</string>
+    <string name="drive_remove_confirm_body">Su copia se elimina de Google Drive y su escucha desaparece de Replay en todos tus dispositivos. No se puede deshacer.</string>
+    <string name="drive_delete_mine_body">La copia de este teléfono se elimina de Google Drive y la sincronización automática se desactiva. Replay en este teléfono lo conserva todo y Sincronizar ahora inicia una copia nueva.</string>
+    <string name="drive_rename">Cambiar nombre</string>
+    <string name="drive_rename_title">Cambiar nombre de este teléfono</string>
+    <string name="drive_rename_message">Tus otros dispositivos mostrarán este teléfono con este nombre.</string>
+    <string name="drive_restore_as_done">Ahora se sincroniza como %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">Este teléfono se convierte en el dispositivo que elijas: su historial de escucha y ajustes reemplazan los de este teléfono.</string>
+    <string name="drive_restore_as_header">Restaurar como</string>
+    <string name="drive_restore_as_subtitle">Elige un dispositivo de tu Drive para continuar como él</string>
+    <string name="drive_restore_as_title">Restaurar como otro dispositivo</string>
+    <string name="drive_sync_done">Sincronizado ahora mismo</string>
+    <string name="drive_sync_downloading">Descargando de %1$s · %2$d de %3$d</string>
+    <string name="drive_sync_failed">Error al sincronizar: %1$s</string>
+    <string name="drive_sync_last">Última sincronización</string>
+    <string name="drive_sync_now">Sincronizar ahora</string>
+    <string name="drive_sync_preparing">Preparando la sincronización…</string>
+    <string name="drive_sync_uploading">Subiendo mes %1$d de %2$d</string>
+    <string name="drive_this_phone">Este teléfono</string>
+    <string name="drive_this_phone_header">Este teléfono</string>
+    <string name="drive_this_phone_subtitle">El dispositivo con el que este teléfono hace copia</string>
+    <string name="drive_restore_confirm_title">¿Restaurar como %1$s?</string>
+    <string name="drive_restore_confirm_body">Este teléfono pasa a ser %1$s. Su historial de escucha y ajustes reemplazan los de este teléfono, y desde ahora se sincroniza como %1$s. No incluye inicios de sesión.</string>
+    <string name="drive_disconnect_confirm_body">La sincronización se detiene. Todo lo que hay en tu Drive se conserva, y la escucha de tus otros dispositivos se quita de Replay en este teléfono hasta que vuelvas a conectar.</string>
+    <string name="drive_backup_row_subtitle">Copia y sincroniza Replay entre tus dispositivos</string>
+    <string name="drive_over_cellular">Sincronizar con datos móviles</string>
+    <string name="drive_over_cellular_subtitle">Si está desactivado, las sincronizaciones automáticas esperan al Wi-Fi</string>
 </resources>

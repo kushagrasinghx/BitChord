@@ -54,11 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.music.bitchord.R
-import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBar
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
@@ -72,7 +69,6 @@ import com.music.bitchord.ui.player.PlayerPlayPauseGlyph
 import com.music.bitchord.ui.player.rememberPlayerPlayPauseMotion
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
 
 /**
@@ -119,6 +115,7 @@ fun GlassNavBar(
     modifier: Modifier = Modifier,
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -173,6 +170,7 @@ fun GlassNavBar(
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.then(glassSurface()),
+                    autoMixArtwork = autoMixArtwork,
                 )
             }
         },
@@ -194,6 +192,7 @@ fun GlassNavBar(
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
+                    autoMixArtwork = autoMixArtwork,
                 )
             }
         },
@@ -315,6 +314,7 @@ private fun GlassNowPlaying(
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
     modifier: Modifier = Modifier,
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?,
 ) {
     val haptics = rememberHaptics()
     val pressSource = remember { MutableInteractionSource() }
@@ -414,12 +414,7 @@ private fun GlassNowPlaying(
                     .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                MiniPlayerArtwork(song, autoMixArtwork)
                 if (showsPicture) {
                     AndroidMusicVideo(
                         videoId = song.videoId,

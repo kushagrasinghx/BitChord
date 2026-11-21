@@ -6710,20 +6710,80 @@ class PlaybackService : MediaLibraryService() {
     }
 
     /**
-     * Pause when the sleep timer runs out.
+     * Fades out volume before the sleep timer expires so that playback stops
+     * exactly at the sleep timer deadline.
      *
-     * `collectLatest` is what makes re-setting the timer work: the pending wait
-     * is cancelled and restarted on the new deadline instead of both firing.
+     * `combine` and `collectLatest` recalculate the fade-out schedule whenever
+     * either the deadline or the fade-out duration setting changes.
      */
     private fun watchSleepTimer() {
         scope.launch {
-            SleepTimer.deadline.collectLatest { deadline ->
+            combine(
+                SleepTimer.deadline,
+                AppSettings.sleepTimerFadeOutSeconds,
+            ) { deadline, fadeSec ->
+                deadline to fadeSec
+            }.collectLatest { (deadline, fadeSec) ->
                 if (deadline == null) return@collectLatest
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining > 0) delay(remaining)
-                player?.pause()
-                SleepTimer.cancel()
+                val now = SystemClock.elapsedRealtime()
+                val totalRemaining = deadline - now
+                if (totalRemaining <= 0L) {
+                    val activePlayer = player
+                    activePlayer?.pause()
+                    activePlayer?.volume = 1f
+                    SleepTimer.cancel()
+                    return@collectLatest
+                }
+
+                val configuredFadeMs = (fadeSec * 1000L).coerceAtLeast(0L)
+                val fadeMs = minOf(configuredFadeMs, totalRemaining)
+                val fadeStartTime = deadline - fadeMs
+                val timeUntilFadeStart = fadeStartTime - SystemClock.elapsedRealtime()
+
+                if (timeUntilFadeStart > 0L) {
+                    delay(timeUntilFadeStart)
+                }
+
+                val activePlayer = player
+                if (activePlayer == null || !activePlayer.isPlaying) {
+                    val remainingToDeadline = deadline - SystemClock.elapsedRealtime()
+                    if (remainingToDeadline > 0L) delay(remainingToDeadline)
+                    player?.pause()
+                    player?.volume = 1f
+                    SleepTimer.cancel()
+                    return@collectLatest
+                }
+
+                if (fadeMs <= 0L) {
+                    val remainingToDeadline = deadline - SystemClock.elapsedRealtime()
+                    if (remainingToDeadline > 0L) delay(remainingToDeadline)
+                    activePlayer.pause()
+                    activePlayer.volume = 1f
+                    SleepTimer.cancel()
+                } else {
+                    crossfade?.startSleepFadeOut(fadeMs) ?: performFallbackSleepFadeOut(activePlayer, fadeMs)
+                }
             }
+        }
+    }
+
+    private fun performFallbackSleepFadeOut(activePlayer: Player, fadeMs: Long) {
+        scope.launch {
+            val startGain = activePlayer.volume
+            val startTime = SystemClock.elapsedRealtime()
+            while (isActive) {
+                val elapsed = SystemClock.elapsedRealtime() - startTime
+                val progress = (elapsed.toFloat() / fadeMs).coerceIn(0f, 1f)
+                val fallGain = kotlin.math.cos(progress * Math.PI.toFloat() / 2f)
+                activePlayer.volume = startGain * fallGain
+                if (progress >= 1f || !activePlayer.isPlaying || activePlayer.playbackState == Player.STATE_ENDED) {
+                    break
+                }
+                delay(20L)
+            }
+            activePlayer.pause()
+            activePlayer.volume = 1f
+            SleepTimer.cancel()
         }
     }
 

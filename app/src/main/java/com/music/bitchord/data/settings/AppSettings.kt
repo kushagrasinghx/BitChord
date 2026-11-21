@@ -262,6 +262,7 @@ object AppSettings {
     // which now reads [effectiveAudioQuality] and nothing else.
 
     val crossfadeSeconds = MutableStateFlow(0)
+    val sleepTimerFadeOutSeconds = MutableStateFlow(DEFAULT_SLEEP_TIMER_FADE_OUT_SECONDS)
 
     /**
      * Lets Automix's analyzer decide the transition's timing and length
@@ -973,6 +974,10 @@ object AppSettings {
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
+        sleepTimerFadeOutSeconds.value = prefs.getInt(
+            KEY_SLEEP_TIMER_FADE_OUT_SECONDS,
+            DEFAULT_SLEEP_TIMER_FADE_OUT_SECONDS,
+        ).coerceIn(0, 60)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
@@ -1290,6 +1295,12 @@ object AppSettings {
     fun setCrossfadeSeconds(value: Int) {
         crossfadeSeconds.value = value
         prefs.edit().putInt(KEY_CROSSFADE, value).apply()
+    }
+
+    fun setSleepTimerFadeOutSeconds(value: Int) {
+        val clamped = value.coerceIn(0, 60)
+        sleepTimerFadeOutSeconds.value = clamped
+        prefs.edit().putInt(KEY_SLEEP_TIMER_FADE_OUT_SECONDS, clamped).apply()
     }
 
     fun setSmartFadeEnabled(value: Boolean) {
@@ -2255,6 +2266,8 @@ object AppSettings {
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
+    const val DEFAULT_SLEEP_TIMER_FADE_OUT_SECONDS = 15
+    private const val KEY_SLEEP_TIMER_FADE_OUT_SECONDS = "sleep_timer_fade_out_seconds"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"

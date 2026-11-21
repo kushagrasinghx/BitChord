@@ -27,4 +27,39 @@ class SleepTimerTest {
             assertEquals(minutes, SleepTimer.minutesAt(SleepTimer.fractionOf(minutes)))
         }
     }
+
+    @Test
+    fun timerStartSetsDeadlineAndMinutes() {
+        SleepTimer.start(30)
+        assertEquals(30, SleepTimer.minutes.value)
+        assertEquals(false, SleepTimer.afterTrack.value)
+        assertEquals(true, SleepTimer.isRunning)
+        SleepTimer.cancel()
+    }
+
+    @Test
+    fun timerStartAfterTrackSetsAfterTrackFlag() {
+        SleepTimer.startAfterTrack()
+        assertEquals(null, SleepTimer.minutes.value)
+        assertEquals(null, SleepTimer.deadline.value)
+        assertEquals(true, SleepTimer.afterTrack.value)
+        assertEquals(true, SleepTimer.isRunning)
+        SleepTimer.cancel()
+    }
+
+    @Test
+    fun timerCancelClearsStateAndTriggersListener() {
+        var listenerCalled = false
+        SleepTimer.onCancelListener = { listenerCalled = true }
+        SleepTimer.start(15)
+        assertEquals(true, SleepTimer.isRunning)
+
+        SleepTimer.cancel()
+        assertEquals(false, SleepTimer.isRunning)
+        assertEquals(null, SleepTimer.deadline.value)
+        assertEquals(null, SleepTimer.minutes.value)
+        assertEquals(false, SleepTimer.afterTrack.value)
+        assertEquals(true, listenerCalled)
+        SleepTimer.onCancelListener = null
+    }
 }

@@ -528,6 +528,7 @@ class CrossfadeController(
      * not keep counting down underneath a silent, stopped player.
      */
     private var sleepFadeStartPositionMs = 0L
+    private var sleepFadeStartTimeRealtime = 0L
 
     /**
      * The outgoing track's own volume when [beginSleepFadeOut] started, so a
@@ -767,6 +768,7 @@ class CrossfadeController(
 
     fun start() {
         listenTo(active())
+        SleepTimer.onCancelListener = { cancelSleepFade() }
         tickerJob?.cancel()
         tickerJob = scope.launch {
             while (isActive) {
@@ -828,6 +830,10 @@ class CrossfadeController(
      * player this class has finished with.
      */
     fun onSkipRequested() {
+        if (phase == Phase.SLEEP_FADE) {
+            cancelSleepFade()
+            return
+        }
         if (phase != Phase.IDLE) bail()
     }
 
@@ -1019,21 +1025,25 @@ class CrossfadeController(
             return
         }
 
+        if (SleepTimer.afterTrack.value) {
+            val sleepFadeMs = AppSettings.sleepTimerFadeOutSeconds.value * 1000L
+            val remaining = duration - player.currentPosition
+            if (sleepFadeMs <= 0L) {
+                if (remaining <= 0L) finishSleepFade()
+                return
+            }
+            if (remaining <= sleepFadeMs) {
+                startSleepFadeOut(sleepFadeMs)
+            }
+            return
+        }
+
         if (configuredFadeMs() <= 0L) return
         val fade = fadeFor(duration)
         if (fade <= 0L) return
 
         player.currentMediaItem?.mediaId?.let { plannedTransition = it to duration - fade }
         val remaining = duration - player.currentPosition
-        if (SleepTimer.afterTrack.value) {
-            // The sleep timer is due when this track ends. There is no next
-            // track to arm a crossfade into, so run the same fade-out this
-            // pair would otherwise have used against silence instead — see
-            // [beginSleepFadeOut]. No arm-lead margin: nothing is buffering.
-            if (remaining > fade) return
-            beginSleepFadeOut(fade)
-            return
-        }
         holdAhead(player, duration)
         // Arm early: the standby has to open the incoming track and buffer to
         // its cue point, and that work has to be finished by the time the fade
@@ -1222,11 +1232,14 @@ class CrossfadeController(
             )
         }
         if (SleepTimer.afterTrack.value) {
-            // Automix would start blending into the next track here; the sleep
-            // timer means there is no next track, so run the same fade-out
-            // against silence instead — see [beginSleepFadeOut].
-            if (remaining > 0L) return
-            beginSleepFadeOut(fade)
+            val sleepFadeMs = AppSettings.sleepTimerFadeOutSeconds.value * 1000L
+            if (sleepFadeMs <= 0L) {
+                if (remaining <= 0L) finishSleepFade()
+                return
+            }
+            if (remaining <= sleepFadeMs) {
+                startSleepFadeOut(sleepFadeMs)
+            }
             return
         }
         holdAhead(player, duration)
@@ -2307,47 +2320,72 @@ class CrossfadeController(
      * coming, and preparing a second decoder just to throw it away the moment
      * the fade ends wastes exactly the work this exists to skip.
      */
-    private fun beginSleepFadeOut(fade: Long) {
+    /**
+     * Starts [Phase.SLEEP_FADE]: the track playing right now is faded to
+     * silence on its own over [fadeMs] using an equal-power fade curve, and
+     * then paused.
+     */
+    fun startSleepFadeOut(fadeMs: Long) {
         val out = active()
-        sleepFadeMs = fade.coerceAtLeast(1L)
+        if (!out.isPlaying) {
+            finishSleepFade()
+            return
+        }
+        if (fadeMs <= 0L) {
+            finishSleepFade()
+            return
+        }
+        if (standby().isPlaying) {
+            standby().pause()
+            standby().volume = 0f
+        }
+        sleepFadeMs = fadeMs.coerceAtLeast(1L)
         sleepFadeStartPositionMs = out.currentPosition
+        sleepFadeStartTimeRealtime = SystemClock.elapsedRealtime()
         sleepFadeStartGain = out.volume
         outgoing = out
         incoming = null
         handedOff = false
-        Log.d(TAG, "sleep timer due: fading out over ${fade}ms instead of transitioning")
+        Log.d(TAG, "sleep timer due: fading out over ${fadeMs}ms")
         phase = Phase.SLEEP_FADE
     }
 
     /**
+     * Cancels an active sleep fade-out, restoring active volume to 1f immediately.
+     */
+    fun cancelSleepFade() {
+        if (phase == Phase.SLEEP_FADE || outgoing != null) {
+            outgoing?.volume = 1f
+            active().volume = 1f
+            outgoing = null
+            phase = Phase.IDLE
+        }
+    }
+
+    /**
      * The fade-out proper. Mirrors [driveFade]'s curve on the outgoing side —
-     * same [fallGain], same position-driven progress — but there is no
-     * incoming track to weigh it against, so the span is simply [sleepFadeMs].
+     * same [fallGain] — running over [sleepFadeMs] until completion.
      */
     private fun driveSleepFade() {
         val out = outgoing ?: return finishSleepFade()
-        // The listener turned the timer off mid-fade — nothing left to do but
-        // hand the track back at full volume and let ordinary transition
-        // logic resume next tick.
-        if (!SleepTimer.afterTrack.value) {
-            out.volume = 1f
-            outgoing = null
-            phase = Phase.IDLE
-            return
-        }
-        val elapsed = (out.currentPosition - sleepFadeStartPositionMs).coerceAtLeast(0L)
+        val elapsed = (SystemClock.elapsedRealtime() - sleepFadeStartTimeRealtime).coerceAtLeast(0L)
         val progress = (elapsed.toFloat() / sleepFadeMs).coerceIn(0f, 1f)
         out.volume = sleepFadeStartGain * fallGain(progress)
         val done = progress >= 1f ||
+            !out.isPlaying ||
             out.playbackState == Player.STATE_ENDED ||
             out.playbackState == Player.STATE_IDLE
         if (done) finishSleepFade()
     }
 
-    /** Pauses the track the fade-out was run on and retires the timer that asked for it. */
+    /** Pauses active and standby tracks, restores volume to 1f, and resets phase. */
     private fun finishSleepFade() {
         outgoing?.pause()
+        active().pause()
+        if (standby().isPlaying) standby().pause()
         outgoing?.volume = 1f
+        active().volume = 1f
+        standby().volume = 1f
         SleepTimer.cancel()
         outgoing = null
         phase = Phase.IDLE

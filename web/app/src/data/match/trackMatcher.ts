@@ -310,6 +310,15 @@ export function parseTitle(raw: string, artist = ''): TitleParts {
     } else break;
   }
 
+  // A title that is entirely inside brackets — "(Nice Dream)", "(sic)" —
+  // has no words left once the bracket pass files the aside as context.
+  // The aside IS the title here, so it becomes the words. Noise-only
+  // and version-only brackets stay empty (their words never reach
+  // context, and take markers land in versions), so "(Official Video)"
+  // still asks for nothing and "Song (Official Video)" is untouched
+  // because its words are already non-empty.
+  if (words.length === 0 && context.size > 0) words = [...context];
+
   const core = containsCJK ? text.replace(CJK_CORE_STRIP, '') : foldLatin(words.join(''));
   return { words, core, versions, context };
 }

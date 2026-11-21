@@ -464,6 +464,17 @@ object TrackMatcher {
             } else break
         }
 
+        // A title that is entirely inside brackets — "(Nice Dream)", "(sic)" —
+        // has no words left once the bracket pass files the aside as context.
+        // The aside IS the title here, so it becomes the words. Noise-only
+        // and version-only brackets stay empty (their words never reach
+        // context, and take markers land in versions), so "(Official Video)"
+        // still asks for nothing and "Song (Official Video)" is untouched
+        // because its words are already non-empty.
+        if (words.isEmpty() && context.isNotEmpty()) {
+            words = context.toList()
+        }
+
         val coreString = if (containsCJK) {
             text.replace(Regex("""[\s\p{Punct}・～〜ー-]+"""), "")
         } else {

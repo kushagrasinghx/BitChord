@@ -29,6 +29,7 @@ import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.haptics.MusicHapticsCapability
 import com.music.bitchord.ui.components.backdrop.backdrops.SnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberSnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.snapshotBackdropSource
@@ -96,6 +97,11 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val syncedLyrics get() = AppSettings.syncedLyrics
         override val translationLanguage get() = AppSettings.translationLanguage
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
+
+        override val musicHapticsSupported: Boolean get() = MusicHapticsCapability.isSupported(app)
+        override val musicHapticsEnabled get() = AppSettings.musicHapticsEnabled
+        override val showMusicHapticsButton get() = AppSettings.showMusicHapticsButton
+        override fun setMusicHapticsEnabled(value: Boolean) = AppSettings.setMusicHapticsEnabled(value)
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)

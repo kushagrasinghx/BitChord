@@ -45,20 +45,8 @@ internal object AutoMixVisualFeed {
         )
     }
 
-    private fun windowAfter(swap: Double, end: Double): AutoMixArtworkWindow? {
-        val remaining = end - swap
-        // A late arm (a seek into the overlap) must not start revealing while the
-        // incoming artwork is still being prepared. This part of the lag is never
-        // sacrificed; without room for a minimum window after it, skip the dissolve.
-        val preparedFor = (SystemClock.elapsedRealtime() - armedAtMs) / 1000.0
-        val prepareLag = (AutoMixArtworkTuning.MIN_PREPARE_LEAD_SECONDS - preparedFor).coerceAtLeast(0.0)
-        if (remaining - prepareLag < AutoMixArtworkTuning.MIN_WINDOW_SECONDS) return null
-        // Sacrifice the cosmetic lag first, then duration; never schedule before the observed swap.
-        val duration = minOf(AutoMixArtworkTuning.WINDOW_SECONDS, remaining - prepareLag)
-        val lag = maxOf(prepareLag, minOf(AutoMixArtworkTuning.START_LAG_AFTER_SWAP, remaining - duration))
-        val start = swap + lag
-        return AutoMixArtworkWindow(start, minOf(end, start + duration))
-    }
+    private fun windowAfter(swap: Double, end: Double): AutoMixArtworkWindow? =
+        AutoMixArtworkTuning.windowAfter(swap, end, (SystemClock.elapsedRealtime() - armedAtMs) / 1000.0)
 
     fun advance(id: Long?, audioSeconds: Double, endSeconds: Double) {
         val previous = pending(id)?.takeIf { it.mixActive } ?: return

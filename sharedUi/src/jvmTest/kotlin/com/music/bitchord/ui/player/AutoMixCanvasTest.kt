@@ -63,6 +63,25 @@ class AutoMixCanvasTest {
     }
 
     @Test
+    fun skippingOntoTheMixShortensThePrepareLeadInsteadOfDroppingTheDissolve() {
+        val t = AutoMixArtworkTuning
+        // Armed long ago: the usual lag and full window.
+        val settled = requireNotNull(t.windowAfter(10.0, 20.0, preparedForSeconds = 5.0))
+        assertEquals(10.0 + t.START_LAG_AFTER_SWAP, settled.startSeconds, 1e-9)
+        assertEquals(t.WINDOW_SECONDS, settled.endSeconds - settled.startSeconds, 1e-9)
+        // Just armed with room: waits out the whole prepare lead.
+        val lead = requireNotNull(t.windowAfter(10.0, 20.0, preparedForSeconds = 0.0))
+        assertEquals(10.0 + t.MIN_PREPARE_LEAD_SECONDS, lead.startSeconds, 1e-9)
+        // Just armed by a skip with little overlap left: the lead gives way, the dissolve stays.
+        val skipped = requireNotNull(t.windowAfter(10.0, 11.5, preparedForSeconds = 0.0))
+        assertEquals(11.5, skipped.endSeconds, 1e-9)
+        assertEquals(t.MIN_WINDOW_SECONDS, skipped.endSeconds - skipped.startSeconds, 1e-9)
+        assertTrue(skipped.startSeconds >= 10.0)
+        // Only an overlap shorter than a minimum window cuts.
+        assertNull(t.windowAfter(10.0, 10.0 + t.MIN_WINDOW_SECONDS - 0.01, preparedForSeconds = 0.0))
+    }
+
+    @Test
     fun outgoingSpotifyCanvasRetiresInsteadOfJoiningTheReveal() {
         val spotify = CanvasArtwork("outgoing.mp4", source = CanvasSource.SPOTIFY)
         val owner = AutoMixCanvasPair()

@@ -30,6 +30,24 @@ object AutoMixArtworkTuning {
     // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
     const val CANVAS_READY_MARGIN_SECONDS = 0.05
 
+    /**
+     * The artwork window for a swap observed at [swap], with the overlap ending at [end].
+     * [preparedForSeconds] is how long ago the mix was armed. A late arm (a skip into the
+     * overlap) should give the incoming artwork time to prepare before revealing, but that
+     * lead is a preference, not a gate: it gives way to a minimum window, so a skip onto
+     * the mix still dissolves instead of cutting. Then the cosmetic lag gives way, then
+     * duration; never scheduled before the observed swap.
+     */
+    fun windowAfter(swap: Double, end: Double, preparedForSeconds: Double): AutoMixArtworkWindow? {
+        val remaining = end - swap
+        if (remaining < MIN_WINDOW_SECONDS) return null
+        val prepareLag = (MIN_PREPARE_LEAD_SECONDS - preparedForSeconds).coerceIn(0.0, remaining - MIN_WINDOW_SECONDS)
+        val duration = minOf(WINDOW_SECONDS, remaining - prepareLag)
+        val lag = maxOf(prepareLag, minOf(START_LAG_AFTER_SWAP, remaining - duration))
+        val start = swap + lag
+        return AutoMixArtworkWindow(start, minOf(end, start + duration))
+    }
+
     fun ease(progress: Float): Float = progress * progress * (3f - 2f * progress)
 
     fun revealProgress(progress: Float): Float {

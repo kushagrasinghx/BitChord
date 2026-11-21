@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
@@ -72,8 +73,9 @@ fun rememberReplayState(active: Boolean, pageOpen: Boolean): Pair<ReplayState, (
     var summary by remember { mutableStateOf<ReplaySummary?>(null) }
     var loading by remember { mutableStateOf(true) }
     var memberSince by remember { mutableStateOf<String?>(null) }
+    val scopeRevision by ListeningStats.scopeRevision.collectAsStateWithLifecycle()
 
-    LaunchedEffect(active) {
+    LaunchedEffect(active, scopeRevision) {
         if (!active) return@LaunchedEffect
         // A directory listing, so off the composition's thread.
         memberSince = withContext(Dispatchers.IO) {
@@ -82,7 +84,7 @@ fun rememberReplayState(active: Boolean, pageOpen: Boolean): Pair<ReplayState, (
             }
         }
     }
-    LaunchedEffect(period, active) {
+    LaunchedEffect(period, active, scopeRevision) {
         if (!active) return@LaunchedEffect
         // Only the first read shows a spinner. Switching period must not blank
         // the charts for the beat it takes to merge the files — that reads as

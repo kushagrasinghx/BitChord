@@ -183,7 +183,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
-        ListeningStats.init(this)
+        val initialListenerKey = restoredSession?.let { s ->
+            s.activeProfileId?.let { p -> "${s.accountId}:$p" }
+        }
+        ListeningStats.init(this, initialListenerKey)
         // After AppSettings, whose switch decides whether half of it runs.
         ArtistFacts.init(this)
         // One cache directory can only be opened once per process, and

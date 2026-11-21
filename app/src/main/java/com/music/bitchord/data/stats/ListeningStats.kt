@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -58,7 +59,13 @@ import java.util.Locale
  */
 object ListeningStats {
 
+    private lateinit var baseDirectory: File
+
+    @Volatile
     private lateinit var directory: File
+
+    @Volatile
+    private var currentScopeKey: String = GUEST_SCOPE
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -109,8 +116,11 @@ object ListeningStats {
         val summary: ReplaySummary,
     )
 
-    fun init(context: Context) {
-        directory = File(context.filesDir, DIRECTORY)
+    fun init(context: Context, listenerKey: String? = null) {
+        baseDirectory = File(context.filesDir, DIRECTORY)
+        currentScopeKey = scopeKeyFor(listenerKey)
+        directory = File(baseDirectory, "$SCOPES_DIR/$currentScopeKey")
+        migrateLegacyMonthsIfNeeded(directory)
         // Other devices' months, added in by [summary]; see PeerListening.
         PeerListening.init(context)
         // Opening a month means reading and parsing it, and the first thing to
@@ -120,7 +130,95 @@ object ListeningStats {
         writer.launch { synchronized(lock) { bucketFor(YearMonth.now()) } }
     }
 
-    private val ready: Boolean get() = this::directory.isInitialized
+    /**
+     * Switches the active local listening bucket folder to match the signed-in
+     * account/profile (or guest when signed out). Any unsaved changes in the
+     * previous scope are flushed to that scope's own folder first.
+     */
+    fun setScope(listenerKey: String?) {
+        if (!ready) return
+        val nextKey = scopeKeyFor(listenerKey)
+        var pendingWrite: Triple<File, String, StoredBucket>? = null
+        synchronized(lock) {
+            if (nextKey == currentScopeKey) return
+            if (dirty) {
+                open?.let { bucket ->
+                    dirty = false
+                    pendingWrite = Triple(directory, bucket.key, bucket.snapshot())
+                }
+            }
+            currentScopeKey = nextKey
+            directory = File(baseDirectory, "$SCOPES_DIR/$nextKey")
+            open = null
+            dirty = false
+            cached = null
+            version++
+        }
+        pendingWrite?.let { (targetDir, key, snapshot) ->
+            lastWriteJob = writer.launch { write(targetDir, key, snapshot) }
+        }
+        _scopeRevision.value++
+    }
+
+    @Volatile
+    private var lastWriteJob: kotlinx.coroutines.Job? = null
+
+    internal fun initForTest(baseDir: File, listenerKey: String? = null) {
+        synchronized(lock) {
+            baseDirectory = baseDir
+            currentScopeKey = scopeKeyFor(listenerKey)
+            directory = File(baseDirectory, "$SCOPES_DIR/$currentScopeKey")
+            open = null
+            dirty = false
+            cached = null
+            version++
+            migrateLegacyMonthsIfNeeded(directory)
+        }
+    }
+
+    internal suspend fun awaitWritesForTest() {
+        flushAndAwait()
+        lastWriteJob?.join()
+        writeLock.withLock { }
+    }
+
+    /**
+     * Moves legacy single-folder `YYYY-MM.json` files from [baseDirectory] into
+     * [targetDir] once on upgrade, so existing single-account installs retain
+     * their Replay history while new accounts start isolated.
+     */
+    private fun migrateLegacyMonthsIfNeeded(targetDir: File) {
+        val legacyFiles = baseDirectory.listFiles()?.filter { file ->
+            file.isFile &&
+                file.name.endsWith(".json") &&
+                runCatching { YearMonth.parse(file.name.removeSuffix(".json")) }.isSuccess
+        }.orEmpty()
+        if (legacyFiles.isEmpty()) return
+        val existingInTarget = targetDir.listFiles()?.any { it.isFile && it.name.endsWith(".json") } == true
+        if (existingInTarget) return
+        targetDir.mkdirs()
+        legacyFiles.forEach { legacy ->
+            val destination = File(targetDir, legacy.name)
+            runCatching {
+                if (!legacy.renameTo(destination)) {
+                    legacy.copyTo(destination, overwrite = true)
+                    legacy.delete()
+                }
+            }.onFailure { Log.w(TAG, "Could not migrate legacy listening bucket ${legacy.name}", it) }
+        }
+    }
+
+    private fun scopeKeyFor(listenerKey: String?): String {
+        val raw = listenerKey?.trim().orEmpty()
+        if (raw.isEmpty()) return GUEST_SCOPE
+        val hash = MessageDigest.getInstance("SHA-256")
+            .digest(raw.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .take(16)
+        return "acct_$hash"
+    }
+
+    private val ready: Boolean get() = this::directory.isInitialized && this::baseDirectory.isInitialized
 
     // ── Writing ─────────────────────────────────────────────────────────────
 
@@ -249,22 +347,22 @@ object ListeningStats {
      * than re-serialising a month every time a track ticks over.
      */
     fun flush() {
-        pending()?.let { (key, snapshot) -> writer.launch { write(key, snapshot) } }
+        pending()?.let { (targetDir, key, snapshot) -> writer.launch { write(targetDir, key, snapshot) } }
     }
 
     /** As [flush], for a caller that is about to read back what it wrote. */
     private suspend fun flushAndAwait() {
-        pending()?.let { (key, snapshot) -> writer.launch { write(key, snapshot) }.join() }
+        pending()?.let { (targetDir, key, snapshot) -> writer.launch { write(targetDir, key, snapshot) }.join() }
     }
 
     /** The open month as bytes-to-be, or null when nothing has changed. */
-    private fun pending(): Pair<String, StoredBucket>? {
+    private fun pending(): Triple<File, String, StoredBucket>? {
         if (!ready) return null
         return synchronized(lock) {
             if (!dirty) return null
             val bucket = open ?: return null
             dirty = false
-            bucket.key to bucket.snapshot()
+            Triple(directory, bucket.key, bucket.snapshot())
         }
     }
 
@@ -280,11 +378,11 @@ object ListeningStats {
      * Written aside and renamed, so a kill mid-write leaves the previous
      * month rather than a truncated one.
      */
-    private suspend fun write(key: String, snapshot: StoredBucket) = writeLock.withLock {
+    private suspend fun write(targetDir: File, key: String, snapshot: StoredBucket) = writeLock.withLock {
         runCatching {
-            directory.mkdirs()
-            val file = File(directory, "$key.json")
-            val temporary = File(directory, "$key.json.tmp")
+            targetDir.mkdirs()
+            val file = File(targetDir, "$key.json")
+            val temporary = File(targetDir, "$key.json.tmp")
             temporary.writeText(json.encodeToString(StoredBucket.serializer(), snapshot))
             if (!temporary.renameTo(file)) {
                 // renameTo will not replace on some filesystems; the delete is
@@ -301,9 +399,10 @@ object ListeningStats {
         open?.takeIf { it.key == key }?.let { return it }
         // The month rolled over mid-session. Whatever the last one still held
         // has to reach disk before it is dropped on the floor.
+        val currentDir = directory
         open?.let { previous ->
             val stale = previous.snapshot()
-            writer.launch { write(previous.key, stale) }
+            writer.launch { write(currentDir, previous.key, stale) }
         }
         val loaded = read(key) ?: StoredBucket(month = key)
         return OpenBucket.of(key, loaded).also {
@@ -451,6 +550,11 @@ object ListeningStats {
     /** Bumped by [peersChanged], for a page that should redraw when it does. */
     val peerRevision: StateFlow<Int> = _peerRevision.asStateFlow()
 
+    private val _scopeRevision = MutableStateFlow(0)
+
+    /** Bumped when the active account scope changes or local stats are replaced. */
+    val scopeRevision: StateFlow<Int> = _scopeRevision.asStateFlow()
+
     private fun read(key: String): StoredBucket? {
         val file = File(directory, "$key.json")
         if (!file.exists()) return null
@@ -549,6 +653,7 @@ object ListeningStats {
                 }.onFailure { Log.w(TAG, "Could not import bucket $key", it) }
             }
         }
+        _scopeRevision.value++
     }
 
     // ── Shapes ──────────────────────────────────────────────────────────────
@@ -957,6 +1062,8 @@ object ListeningStats {
 
     private const val TAG = "BitChordListening"
     private const val DIRECTORY = "listening"
+    private const val SCOPES_DIR = "scopes"
+    private const val GUEST_SCOPE = "guest"
 
     /** How far down the artist chart a page opening will send lookups for. */
     private const val ARTISTS_TO_RESOLVE = 15

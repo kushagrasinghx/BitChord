@@ -6,8 +6,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -811,41 +812,55 @@ object BitChordIcons {
         }.build()
     }
     /**
-     * AirPlay: three rings with a solid triangle standing at their base, the
-     * mark for sending the sound somewhere else.
+     * AirPlay: three open rings over a solid triangle, the mark for sending the
+     * sound somewhere else. Apple's outlines, a touch heavier to sit with the
+     * Material glyphs beside it: each ring is stroked over its own fill, and
+     * the triangle's stroke rounds its corners.
      */
     val AirPlay: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_airplay",
-            defaultWidth = 24.dp, defaultHeight = 24.dp,
-            viewportWidth = 24f, viewportHeight = 24f,
+            defaultWidth = 24.dp,
+            defaultHeight = (24f * AIRPLAY_HEIGHT / AIRPLAY_WIDTH).dp,
+            viewportWidth = AIRPLAY_WIDTH,
+            viewportHeight = AIRPLAY_HEIGHT,
         ).apply {
-            path(
-                stroke = stroke,
-                strokeLineWidth = 1.7f,
-            ) {
-                ring(12f, 11.8f, 9.2f)
-                ring(12f, 11.8f, 5.8f)
-                ring(12f, 11.8f, 2.8f)
-            }
-            path(
-                fill = stroke,
-                stroke = stroke,
-                strokeLineWidth = 1.2f,
-                strokeLineJoin = StrokeJoin.Round,
-            ) {
-                moveTo(7.0f, 20.9f)
-                lineTo(17.0f, 20.9f)
-                lineTo(12f, 12.2f)
-                close()
+            // Inset by the strokes' reach, so the outer ring isn't shaved at the edge.
+            group(translationX = AIRPLAY_INSET, translationY = AIRPLAY_INSET) {
+                listOf(
+                    "M0 12.8125C0 16.5137 1.5918 19.8535 4.12109 22.1777C4.25781 22.3145 4.41406 22.3047 4.53125 22.168L5.04883 21.6016C5.16602 21.4453 5.15625 21.3086 5.01953 21.1816C2.77344 19.0918 1.33789 16.1035 1.33789 12.8125C1.33789 6.55273 6.52344 1.35742 12.8027 1.35742C19.0918 1.35742 24.2676 6.55273 24.2676 12.8125C24.2676 16.1133 22.8223 19.1113 20.5664 21.1914C20.4297 21.3281 20.4199 21.4648 20.5371 21.6113L21.0547 22.1875C21.1719 22.3242 21.3281 22.334 21.4551 22.1973C24.0039 19.873 25.6055 16.5234 25.6055 12.8125C25.6055 5.79102 19.873 0 12.8027 0C5.74219 0 0 5.79102 0 12.8125Z",
+                    "M3.67188 12.8125C3.67188 15.4199 4.77539 17.7637 6.5625 19.4238C6.69922 19.5605 6.85547 19.541 6.97266 19.4043L7.48047 18.8574C7.61719 18.7207 7.59766 18.5645 7.4707 18.418C5.9668 17.0215 5.01953 15.0195 5.01953 12.8125C5.01953 8.55469 8.53516 5.0293 12.8027 5.0293C17.0801 5.0293 20.5859 8.55469 20.5859 12.8125C20.5859 15.0293 19.6387 17.041 18.125 18.4277C17.998 18.5742 17.9785 18.7305 18.1055 18.8672L18.623 19.4336C18.7402 19.5703 18.8965 19.5801 19.0332 19.4434C20.8203 17.7832 21.9434 15.4297 21.9434 12.8125C21.9434 7.80273 17.8418 3.67188 12.8027 3.67188C7.76367 3.67188 3.67188 7.80273 3.67188 12.8125Z",
+                    "M7.33398 12.8125C7.33398 14.3164 7.97852 15.6836 8.99414 16.6406C9.12109 16.7773 9.27734 16.7773 9.4043 16.6309L9.92188 16.0938C10.0586 15.9473 10.0488 15.8008 9.93164 15.6543C9.16992 14.9512 8.69141 13.9258 8.69141 12.8125C8.69141 10.5664 10.5566 8.69141 12.8027 8.69141C15.0488 8.69141 16.9238 10.5664 16.9238 12.8125C16.9238 13.9355 16.4355 14.9707 15.6543 15.6738C15.5371 15.8203 15.5273 15.9668 15.6641 16.1133L16.1914 16.6602C16.3184 16.7969 16.4648 16.7969 16.5918 16.6602C17.627 15.7031 18.2715 14.3262 18.2715 12.8125C18.2715 9.81445 15.8203 7.34375 12.8027 7.34375C9.79492 7.34375 7.33398 9.81445 7.33398 12.8125Z",
+                ).forEach { data ->
+                    addPath(
+                        pathData = PathParser().parsePathString(data).toNodes(),
+                        fill = stroke,
+                        stroke = stroke,
+                        strokeLineWidth = AIRPLAY_RING_STROKE,
+                        strokeLineJoin = StrokeJoin.Round,
+                    )
+                }
+                addPath(
+                    pathData = PathParser().parsePathString(
+                        "M5.07812 25.2148L20.4883 25.2148C21.0059 25.2148 21.2012 24.668 20.8789 24.2969L13.2715 15.6934C13.0176 15.4004 12.5586 15.4004 12.3047 15.6934L4.69727 24.2969C4.36523 24.6777 4.57031 25.2148 5.07812 25.2148Z",
+                    ).toNodes(),
+                    fill = stroke,
+                    stroke = stroke,
+                    strokeLineWidth = AIRPLAY_TRIANGLE_STROKE,
+                    strokeLineJoin = StrokeJoin.Round,
+                )
             }
         }.build()
     }
 
-    private fun PathBuilder.ring(cx: Float, cy: Float, radius: Float) {
-        moveTo(cx - radius, cy)
-        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, radius * 2f, 0f)
-        arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, -radius * 2f, 0f)
-        close()
-    }
+    /** How much each ring is thickened, in the glyph's own units (about 26 to its width). */
+    private const val AIRPLAY_RING_STROKE = 0.6f
+
+    /** The triangle's, which rounds its corners by half this. */
+    private const val AIRPLAY_TRIANGLE_STROKE = 1.6f
+
+    /** Half the widest stroke, so nothing reaches past the box. */
+    private const val AIRPLAY_INSET = AIRPLAY_TRIANGLE_STROKE / 2f
+    private const val AIRPLAY_WIDTH = 25.9668f + AIRPLAY_INSET * 2f
+    private const val AIRPLAY_HEIGHT = 25.6348f + AIRPLAY_INSET * 2f
 }

@@ -1271,6 +1271,13 @@ private val PILL_PARTY_SIZE = 22.dp
 /** Cast and Tv run 92% of their box wide; at 23dp they read bigger than the rest. */
 private val PILL_OUTPUT_WIDE_SIZE = 21.dp
 
+/**
+ * AirPlay fills its whole box, where the Material glyphs either side leave a
+ * margin in theirs, so it is drawn smaller to stand the same height: about
+ * 22dp on its own in the bottom row.
+ */
+private val PILL_OUTPUT_AIRPLAY_SIZE = 19.5.dp
+
 /** Watch is drawn the full height of its box. */
 private val PILL_OUTPUT_TALL_SIZE = 17.dp
 
@@ -1416,7 +1423,7 @@ private fun rememberOutputGlyph(): OutputGlyph {
             // No active row is the phone too — the caption under the pill
             // says "This phone" in the same case. AirPlay rather than a phone:
             // on the phone itself the button's job is to send it elsewhere.
-            null, AudioOutputKind.PHONE -> OutputGlyph(BitChordIcons.AirPlay)
+            null, AudioOutputKind.PHONE -> OutputGlyph(BitChordIcons.AirPlay, PILL_OUTPUT_AIRPLAY_SIZE)
             AudioOutputKind.BLUETOOTH -> when (active.form) {
                 BluetoothForm.BUDS -> OutputGlyph(vectorResource(Res.drawable.ic_output_buds), PILL_OUTPUT_BUDS_SIZE)
                 BluetoothForm.SPEAKER -> OutputGlyph(vectorResource(Res.drawable.ic_output_speaker))

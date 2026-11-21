@@ -349,6 +349,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.music.bitchord.ui.player.LocalPlayerDock
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.screens.DetailScreen
+import com.music.bitchord.ui.screens.addedOrderOf
 import com.music.bitchord.ui.screens.sortedForDetail
 import com.music.bitchord.ui.screens.ExploreScreen
 import com.music.bitchord.ui.screens.LocalFolder
@@ -4265,7 +4266,7 @@ private fun BitChordApp(
                                                 subtitle = detail.subtitle,
                                                 thumbnailUrl = detail.thumbnailUrl,
                                                 type = detail.type,
-                                                songs = releaseSongs.sortedForDetail(songSort).map { song ->
+                                                songs = releaseSongs.sortedForDetail(songSort, addedOrderOf(detail.browseId, detail.type)).map { song ->
                                                     if (detail.type == BrowseType.ALBUM) {
                                                         song.copy(albumName = song.albumName ?: detail.title)
                                                     } else {

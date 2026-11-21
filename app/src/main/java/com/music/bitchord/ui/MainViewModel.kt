@@ -3600,6 +3600,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             // Every resolver verdict and personalised page belongs to the
             // identity that was active before validation succeeded.
+            ListeningStats.setScope(listenerKey())
             StreamResolver.onSessionChanged()
             if (wasSignedIn) clearListenerState()
             reloadForAccount()
@@ -3642,6 +3643,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         Innertube.selectChannel(profile.pageId, profile.dataSyncId, profile.authUser)
         _selectedChannelKey.value = profile.profileId
         _selectedChannelName.value = profile.name
+        ListeningStats.setScope(listenerKey())
         StreamResolver.onSessionChanged()
         clearListenerState(restoreCached = true)
         reloadForAccount()
@@ -3776,6 +3778,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _googleAccounts.value = emptyList()
         _activeAccountId.value = null
         _activeProfileId.value = null
+        ListeningStats.setScope(null)
         _library.value = UiState.Loading
         // Ratings and playlists belong to the account that just left; keeping
         // them would show the next signed-in user someone else's hearts.

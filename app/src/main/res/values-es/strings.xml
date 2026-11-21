@@ -147,6 +147,7 @@
     <string name="spatial_audio">Audio espacial</string>
     <string name="spatial_audio_subtitle">Amplía las pistas estéreo para una experiencia más inmersiva</string>
     <string name="spatial_audio_atmos_subtitle">En pausa para esta pista: Dolby Atmos ya es espacial</string>
+    <string name="clear_animated_artwork">Quitar el desenfoque de las portadas animadas</string>
     <string name="animated_cover_cellular">Reproducir portada animada con datos móviles</string>
     <string name="replay">Resumen anual</string>
     <string name="replay_subtitle">Tus canciones, artistas, álbumes y géneros principales</string>

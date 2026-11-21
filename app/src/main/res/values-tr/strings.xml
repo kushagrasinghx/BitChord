@@ -159,6 +159,7 @@
     <string name="spatial_audio">Uzamsal ses</string>
     <string name="spatial_audio_subtitle">Daha sürükleyici bir dinleme için stereo parçaları genişletir</string>
     <string name="spatial_audio_atmos_subtitle">Bu parça için duraklatıldı — Dolby Atmos zaten uzamsal</string>
+    <string name="clear_animated_artwork">Animasyonlu kapaklarda bulanıklığı kaldır</string>
     <string name="animated_cover_cellular">Mobil veri ile hareketli kapağı oynat</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">En çok dinlediğin şarkılar, sanatçılar, albümler ve türler</string>

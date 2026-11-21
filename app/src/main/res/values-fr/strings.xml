@@ -147,6 +147,7 @@
     <string name="spatial_audio">Audio spatial</string>
     <string name="spatial_audio_subtitle">Élargit les pistes stéréo pour une expérience plus immersive</string>
     <string name="spatial_audio_atmos_subtitle">En pause pour ce titre : le Dolby Atmos est déjà spatial</string>
+    <string name="clear_animated_artwork">Retirer le flou sur les pochettes animées</string>
     <string name="animated_cover_cellular">Lire la pochette animée avec les données mobiles</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Vos meilleures chansons, artistes, albums et genres</string>

@@ -148,6 +148,7 @@
     <string name="spatial_audio">Áudio espacial</string>
     <string name="spatial_audio_subtitle">Amplia as faixas estéreo para uma experiência mais imersiva</string>
     <string name="spatial_audio_atmos_subtitle">Pausado nesta faixa: o Dolby Atmos já é espacial</string>
+    <string name="clear_animated_artwork">Remover o desfoque nas capas animadas</string>
     <string name="animated_cover_cellular">Reproduzir capa animada com dados móveis</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Suas músicas, artistas, álbuns e gêneros mais ouvidos</string>

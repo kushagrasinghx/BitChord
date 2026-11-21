@@ -146,6 +146,7 @@
     <string name="spatial_audio">स्पेशियल ऑडियो</string>
     <string name="spatial_audio_subtitle">ज़्यादा इमर्सिव अनुभव के लिए स्टीरियो ट्रैक को चौड़ा करता है</string>
     <string name="spatial_audio_atmos_subtitle">इस ट्रैक के लिए रुका हुआ — Dolby Atmos पहले से ही स्पेशियल है</string>
+    <string name="clear_animated_artwork">ऐनिमेटेड कवर पर धुंधलापन हटाएँ</string>
     <string name="animated_cover_cellular">मोबाइल डेटा पर एनिमेटेड कवर चलाएं</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">आपके टॉप गाने, कलाकार, एल्बम और शैलियां</string>

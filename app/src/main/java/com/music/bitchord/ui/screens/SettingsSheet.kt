@@ -251,6 +251,7 @@ fun SettingsScreen(
     val liquidGlassSupported = isGlassSupported()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val clearAnimatedArtwork by AppSettings.clearAnimatedArtwork.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
@@ -1186,6 +1187,14 @@ fun SettingsScreen(
             // plays, so on cellular this is not a one-time video cost but
             // that cost repeated on every loop — see AppSettings.canvasOverCellular.
             if (animatedCanvas) {
+                val clearArtworkTitle = stringResource(R.string.clear_animated_artwork)
+                row(clearArtworkTitle, "canvas", "blur", "player", divided = false) {
+                    SettingsSubRow(
+                        title = clearArtworkTitle,
+                        checked = clearAnimatedArtwork,
+                        onCheckedChange = AppSettings::setClearAnimatedArtwork,
+                    )
+                }
                 val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
                 row(coverCellularTitle, "canvas", "cellular", divided = false) {
                     SettingsSubRow(

@@ -141,6 +141,7 @@
     <string name="spatial_audio">空間オーディオ</string>
     <string name="spatial_audio_subtitle">よりイマーシブな体験のためにステレオトラックを広げます</string>
     <string name="spatial_audio_atmos_subtitle">この曲では一時停止中 — Dolby Atmosはすでに空間オーディオです</string>
+    <string name="clear_animated_artwork">アニメーションカバーのぼかしを解除</string>
     <string name="animated_cover_cellular">モバイルデータでアニメーションカバーを再生</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">よく聴いた曲、アーティスト、アルバム、ジャンル</string>

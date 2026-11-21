@@ -141,6 +141,7 @@
     <string name="spatial_audio">空间音频</string>
     <string name="spatial_audio_subtitle">拓宽立体声音轨，带来更沉浸的体验</string>
     <string name="spatial_audio_atmos_subtitle">此曲目已暂停 — Dolby Atmos 本身就是空间音频</string>
+    <string name="clear_animated_artwork">移除动态封面的模糊效果</string>
     <string name="animated_cover_cellular">在移动数据下播放动态封面</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">你的热门歌曲、艺人、专辑和流派</string>

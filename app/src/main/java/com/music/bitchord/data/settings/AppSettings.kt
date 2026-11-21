@@ -542,6 +542,8 @@ object AppSettings {
      */
     val animatedCanvas = MutableStateFlow(true)
 
+    val clearAnimatedArtwork = MutableStateFlow(false)
+
     /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
      * connection, as distinct from the switch that turns the feature off
@@ -1055,6 +1057,7 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
+        clearAnimatedArtwork.value = prefs.getBoolean(KEY_CLEAR_ANIMATED_ARTWORK, false)
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1667,6 +1670,11 @@ object AppSettings {
         setLyricsSources(LyricsSource.offered.toSet())
         setLyricsSourceOrder(LyricsSource.offered)
         setPrioritizeSyllableSync(false)
+    }
+
+    fun setClearAnimatedArtwork(value: Boolean) {
+        clearAnimatedArtwork.value = value
+        prefs.edit().putBoolean(KEY_CLEAR_ANIMATED_ARTWORK, value).apply()
     }
 
     fun setAnimatedCanvas(value: Boolean) {
@@ -2313,6 +2321,7 @@ object AppSettings {
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
+    private const val KEY_CLEAR_ANIMATED_ARTWORK = "clear_animated_artwork"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"

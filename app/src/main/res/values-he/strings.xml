@@ -148,6 +148,7 @@
     <string name="spatial_audio">אודיו מרחבי</string>
     <string name="spatial_audio_subtitle">מרחיב רצועות סטריאו לתחושה סוחפת יותר</string>
     <string name="spatial_audio_atmos_subtitle">מושהה עבור הרצועה הזו — Dolby Atmos כבר מרחבי</string>
+    <string name="clear_animated_artwork">הסרת הטשטוש בעטיפות מונפשות</string>
     <string name="animated_cover_cellular">הפעלת עטיפה מונפשת ברשת הסלולרית</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">השירים, האמנים, האלבומים והז\'אנרים המובילים שלך</string>

@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +44,7 @@ fun ShelfRow(
     horizontalArrangement: Arrangement.Horizontal,
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
+    flingBehavior: FlingBehavior = rememberSnapFlingBehavior(lazyListState = state),
     content: LazyListScope.() -> Unit,
 ) {
     LocalShelfRowChrome.current.Wrap(state) {
@@ -51,7 +53,7 @@ fun ShelfRow(
             state = state,
             contentPadding = contentPadding,
             horizontalArrangement = horizontalArrangement,
-            flingBehavior = rememberSnapFlingBehavior(lazyListState = state),
+            flingBehavior = flingBehavior,
             content = content,
         )
     }

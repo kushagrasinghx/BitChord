@@ -18,6 +18,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.DebugLog
+import com.music.bitchord.data.YouTubeThumbnailFallback
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import androidx.appcompat.app.AppCompatDelegate
 import com.music.bitchord.ui.player.AndroidPlayerHost
@@ -49,6 +50,13 @@ import kotlinx.coroutines.launch
 import kotlin.concurrent.thread
 
 class BitChordApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
+
+    init {
+        // SLF4J (through Ktor) has no provider here and says so on System.err, which
+        // R8's Log stripping cannot reach. Only errors from its own setup in a release
+        // build. In the constructor, ahead of the content providers that can reach it first.
+        if (!BuildConfig.DEBUG) System.setProperty("slf4j.internal.verbosity", "ERROR")
+    }
 
     /** Asked for on first use rather than at launch; see [PlaylistSync.init]. */
     override val workManagerConfiguration: Configuration
@@ -142,6 +150,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // After AppSettings: fetches Automix's models as soon as Automix is on,
+        // rather than waiting for the first song it would mix.
+        com.music.bitchord.playback.smart.AutomixModels.install(this)
         // Restores the addon token, so the first search after a process restart
         // doesn't have to attest the device again.
         com.music.bitchord.data.sources.addon.AddonAuth.init(this)
@@ -166,6 +177,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         Downloads.init(this)
         // After both of the things a check reads: the setting and the record.
         PlaylistSync.init(this)
+        // Before anything could run a scheduled backup: its worker reads the
+        // account and the schedule this loads.
+        com.music.bitchord.data.backup.DriveBackup.init(this)
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
@@ -243,6 +257,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             // the header is attached per request instead. See WebDavCoilAuth.
             .components {
                 add(WebDavCoilAuth())
+                // A larger YouTube cover than the video has 404s; this
+                // falls back to the size every video has. See the class.
+                add(YouTubeThumbnailFallback())
                 // Covers filed on the SMB share; anything else falls
                 // through to Coil's own fetchers. See SmbCoverFetcher.
                 add(SmbCoverFetcher.Factory())

@@ -198,4 +198,15 @@
     <string name="search_library_empty">ค้นหาเพลงในโฟลเดอร์เพลงในเครื่องของคุณ</string>
     <string name="search_library_hint">เพลง ศิลปิน และอัลบั้ม</string>
     <string name="search_library_no_results">ไม่มีอะไรในเพลงในเครื่องตรงกับ “%1$s”</string>
+    <string name="add_to_queue">เพิ่มลงคิว</string>
+    <string name="queue_selected_count">เลือก %1$d รายการ</string>
+    <string name="queue_select_all">เลือกทั้งหมด</string>
+    <string name="queue_select">เลือก</string>
+    <string name="queue_close_selection">ปิดโหมดเลือก</string>
+    <string name="queue_add_to_playlist">เพลย์ลิสต์</string>
+    <string name="queue_download">ดาวน์โหลด</string>
+    <string name="queue_selection_remove">นำออก</string>
+    <string name="queue_add_all_to_playlist">เพิ่มทั้งหมดลงเพลย์ลิสต์</string>
+    <string name="mixes_yours">มิกซ์ของคุณ</string>
+    <string name="mixes_none">ยังไม่มีมิกซ์ ฟังต่อไปแล้ว YouTube Music จะสร้างมิกซ์ให้คุณ</string>
 </resources>

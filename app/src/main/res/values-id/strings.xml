@@ -21,6 +21,7 @@
     <string name="search">Cari</string>
     <string name="clear_search">Hapus pencarian</string>
     <string name="library">Perpustakaan</string>
+    <string name="radio">Radio</string>
     <string name="home">Beranda</string>
     <string name="play">Putar</string>
     <string name="explore">Jelajahi</string>
@@ -84,6 +85,8 @@
     <string name="testing">Menguji…</string>
     <string name="connected">Terhubung</string>
     <string name="account_integrations">Akun &amp; integrasi</string>
+    <string name="youtube_premium_audio">Audio YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Saya punya Premium: putar Opus berkualitas lebih tinggi ~256 kbps, bukan 160 kbps standar</string>
     <string name="account_scrobbling">Akun &amp; scrobbling</string>
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>
@@ -185,7 +188,7 @@
     <string name="playback">Pemutaran</string>
     <string name="appearance">Tampilan</string>
     <string name="storage">Penyimpanan</string>
-    <string name="your_data">Data Anda</string>
+    <string name="your_data">Cadangkan dan Pulihkan</string>
     <string name="miscellaneous">Lainnya</string>
     <string name="lossless_hq_audio">Audio Lossless / HQ</string>
     <string name="on_wifi">Saat Wi-Fi</string>
@@ -195,6 +198,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Memadukan satu trek ke trek berikutnya</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Ringkasan Automix</string>
     <string name="skip_silence">Lewati keheningan</string>
     <string name="skip_silence_subtitle">Memotong jeda lebih dari satu detik</string>
     <string name="skip_silence_float_subtitle">Tidak tersedia pada output float 32-bit</string>
@@ -499,8 +503,14 @@
     <string name="listen_most_around">Anda paling banyak mendengarkan sekitar %1$s.</string>
     <string name="lyrics_share_title">Bagikan lirik</string>
     <string name="lyrics_share_description">Baris yang kamu pilih, ditata pada kartu bersama sampul.</string>
-    <string name="lyrics_share_story">Jadikan story</string>
-    <string name="lyrics_share_story_revert">Kembali ke kartu</string>
+    <string name="lyrics_share_story">Ubah jadi story</string>
+    <string name="lyrics_share_story_revert">Ubah jadi kartu</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Gambar</string>
+    <string name="lyrics_share_saving">Menyimpan…</string>
+    <string name="lyrics_share_gradient">Gradien</string>
+    <string name="lyrics_share_show_logo">Tampilkan logo BitChord</string>
     <string name="listening_shape">Pola mendengarkan Anda</string>
     <string name="member_since">Anggota sejak</string>
     <string name="member_since_value">Anggota sejak %1$s</string>
@@ -623,6 +633,14 @@
     <string name="version_cut_aligned">selaras</string>
     <string name="automix_enabled_subtitle">Mengatur waktu dan memadukan setiap transisi dari trek itu sendiri. Nonaktifkan jika ponsel menjadi panas atau pemutaran tersendat.</string>
     <string name="automix_disabled_subtitle">Mengatur waktu dan memadukan transisi secara otomatis, tanpa penggeser. Performa dapat bervariasi pada perangkat yang lebih lambat.</string>
+    <string name="automix_models_downloading">Mengunduh Automix (%1$d MB)… %2$d%%. Lagu memakai crossfade biasa sampai selesai.</string>
+    <string name="automix_model">Model Automix</string>
+    <string name="automix_model_missing">Belum diunduh. Automix mengunduhnya saat diaktifkan, atau unduh sekarang.</string>
+    <string name="automix_model_download">Unduh (%1$d MB)</string>
+    <string name="automix_model_ready">Sudah diunduh, memakai %1$d MB di perangkat ini.</string>
+    <string name="automix_models_failed">Tidak dapat mengunduh model. Periksa koneksi Anda dan coba lagi.</string>
+    <string name="automix_model_delete_title">Hapus model Automix?</string>
+    <string name="automix_model_delete_warning">Ini mengosongkan %1$d MB dan menonaktifkan Automix. Mengaktifkan Automix lagi akan mengunduh model kembali.</string>
     <string name="advanced_automix">Automix Lanjutan</string>
     <string name="advanced_automix_subtitle">Mencampur seperti DJ: menjaga ketukan tetap selaras, melakukan setiap perpindahan tepat di ketukan, dan memotong antar lagu yang tidak cocok. Tanpa pemrosesan tambahan.</string>
     <string name="no_lyrics_sources_enabled">Tidak ada. Lirik tidak akan diambil.</string>
@@ -834,6 +852,8 @@
     <string name="export_compatible_downloads">Ekspor unduhan yang kompatibel</string>
     <string name="sync_downloaded_playlists">Selalu perbarui playlist</string>
     <string name="sync_downloaded_playlists_subtitle">Memeriksa dua kali sehari dan mengunduh lagu baru di playlist yang telah diunduh</string>
+    <string name="download_liked_songs">Unduh lagu yang disukai</string>
+    <string name="download_liked_songs_subtitle">Mengunduh Musik yang Disukai dan setiap lagu yang kamu sukai mulai sekarang</string>
     <string name="playlist_sync_ask_title">Lagu baru di %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Ketuk untuk mengunduh</string>
     <string name="playlist_sync_done_title">Ditambahkan ke %1$s: %2$d</string>
@@ -979,6 +999,7 @@
     <string name="sort_date_added_toggle">Tanggal ditambahkan</string>
 
     <string name="sort_default">Urutan default</string>
+    <string name="sort_track_number">Nomor trek</string>
 
     <string name="sort_library">Urutkan</string>
 
@@ -1250,8 +1271,6 @@
 
 
     <string name="source_needs_lossless_output">Perlu output lossless · gunakan perangkat yang mendukung lossless</string>
-    <string name="source_needs_update">Addon ini sudah usang. Addon masih berfungsi, tetapi minta pengembangnya memperbaruinya dengan mengikuti dokumentasi addon BitChord terbaru.</string>
-    <string name="source_outdated">Addon usang</string>
     <string name="source_needs_lossless_bt_codec">Perlu output lossless · Bluetooth memakai %1$s; gunakan perangkat yang mendukung lossless</string>
     <string name="source_needs_lossless_bt_unknown">Perlu output lossless · codec Bluetooth yang dipakai tidak bisa diketahui</string>
     <string name="source_downloads_on">Unduhan diizinkan</string>
@@ -1434,4 +1453,87 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
+    <string name="find_a_playlist">Cari playlist</string>
+    <string name="no_playlists_match">Tidak ada playlist yang cocok dengan “%1$s”</string>
+    <string name="hide_lyrics_preview">Sembunyikan lirik</string>
+    <string name="hide_lyrics_preview_subtitle">Menyembunyikan baris lirik di pemutar</string>
+    <string name="show_total_duration">Tampilkan durasi total</string>
+    <string name="show_total_duration_subtitle">Menampilkan durasi penuh lagu, bukan sisa waktu</string>
+    <string name="sleep_timer_fade_out">Pelankan sebelum jeda</string>
+    <string name="sleep_timer_fade_out_subtitle">Menurunkan volume perlahan selama 30 detik terakhir</string>
+    <string name="disable_spotify_canvas">Nonaktifkan Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Jangan pernah gunakan Spotify Canvas. Sampul animasi berasal dari sumber lain</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">%1$d lagu dihapus</item>
+    </plurals>
+    <string name="queue_removed_song">%1$s dihapus</string>
+    <string name="queue_undo_action">Urungkan</string>
+    <string name="queue_cleared">Antrean dikosongkan</string>
+    <string name="queue_selected_count">%1$d dipilih</string>
+    <string name="queue_playlist_added">%1$d dari %2$d lagu ditambahkan</string>
+    <string name="queue_playlist_partial">%1$s (%2$d tidak kompatibel, %3$d sudah ada, %4$d gagal)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Cadangan Google Drive</string>
+    <string name="drive_backup_unavailable">Cadangan Google Drive memerlukan layanan Google Play, yang tidak ada di perangkat ini.</string>
+    <string name="drive_backup_never">Belum pernah</string>
+    <string name="drive_restore_failed">Pemulihan gagal: %1$s</string>
+    <string name="drive_account_header">Akun Google</string>
+    <string name="drive_connect_failed">Tidak dapat terhubung: %1$s</string>
+    <string name="drive_connect">Hubungkan Google Drive</string>
+    <string name="drive_connect_subtitle">Pilih akun di ponsel ini untuk pencadangan</string>
+    <string name="drive_sign_in_again_subtitle">Akses Google Drive telah dihapus. Masuk lagi untuk terus mencadangkan.</string>
+    <string name="drive_sign_in_again">Masuk</string>
+    <string name="drive_restore_header">Pulihkan</string>
+    <string name="drive_backup_footer">Cadangan disimpan di folder aplikasi tersembunyi di Google Drive Anda dan dihitung dalam penyimpanan Drive. Kata sandi dan info masuk tidak pernah disertakan. Untuk menghapusnya, buka Drive → Setelan → Kelola aplikasi.</string>
+    <string name="drive_restore_connect_first">Hubungkan akun Google terlebih dahulu</string>
+    <string name="drive_restore_action">Pulihkan</string>
+    <string name="drive_disconnect_confirm_title">Putuskan Google Drive?</string>
+    <string name="drive_backup_restoring">Memulihkan…</string>
+    <string name="drive_frequency_daily">Harian</string>
+    <string name="drive_frequency_weekly">Mingguan</string>
+    <string name="drive_frequency_monthly">Bulanan</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">Sinkronisasi otomatis</string>
+    <string name="drive_auto_sync_footer">Ponsel ini mengunggah riwayat dengarnya dan mengunduh riwayat perangkat Anda yang lain di latar belakang saat baterai tidak lemah. Sinkronisasi manual ikut dihitung dalam jadwal.</string>
+    <string name="drive_choose_device">Pilih perangkat untuk ponsel ini</string>
+    <string name="drive_choose_device_subtitle">Cadangkan sebagai perangkat baru, atau pulihkan sebagai perangkat yang sudah ada di Drive</string>
+    <string name="drive_device_not_set">Pilih perangkat</string>
+    <string name="drive_device_synced">Disinkronkan %1$s</string>
+    <string name="drive_devices_checking">Mencari perangkat…</string>
+    <string name="drive_devices_failed">Tidak dapat memuat perangkat: %1$s</string>
+    <string name="drive_devices_footer">Riwayat dengar dari setiap perangkat dijumlahkan di Replay. Ketuk perangkat untuk menghapus cadangannya.</string>
+    <string name="drive_devices_header">Perangkat</string>
+    <string name="drive_devices_none">Belum ada perangkat di akun ini</string>
+    <string name="drive_devices_none_other">Belum ada perangkat lain di akun ini</string>
+    <string name="drive_devices_title">Cadangkan atau pulihkan sebagai</string>
+    <string name="drive_forked_notice">Ponsel lain dipulihkan sebagai perangkat ini, jadi ponsel ini sekarang disinkronkan sebagai %1$s.</string>
+    <string name="drive_new_device">Cadangkan sebagai perangkat baru</string>
+    <string name="drive_new_device_footer">Riwayat dengar ponsel ini tetap menjadi perangkatnya sendiri. Riwayat perangkat Anda yang lain ditambahkan di Replay.</string>
+    <string name="drive_remove_confirm_title">Hapus cadangan %1$s?</string>
+    <string name="drive_remove_confirm_body">Cadangannya dihapus dari Google Drive dan riwayat dengarnya hilang dari Replay di semua perangkat Anda. Tindakan ini tidak dapat diurungkan.</string>
+    <string name="drive_delete_mine_body">Cadangan ponsel ini dihapus dari Google Drive dan sinkronisasi otomatis dimatikan. Replay di ponsel ini tetap menyimpan semuanya, dan Sinkronkan sekarang memulai cadangan baru.</string>
+    <string name="drive_rename">Ganti nama</string>
+    <string name="drive_rename_title">Ganti nama ponsel ini</string>
+    <string name="drive_rename_message">Perangkat Anda yang lain akan menampilkan ponsel ini dengan nama ini.</string>
+    <string name="drive_restore_as_done">Kini disinkronkan sebagai %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">Ponsel ini menjadi perangkat yang Anda pilih: riwayat dengar dan pengaturannya menggantikan milik ponsel ini.</string>
+    <string name="drive_restore_as_header">Pulihkan sebagai</string>
+    <string name="drive_restore_as_subtitle">Pilih perangkat di Drive Anda untuk dilanjutkan</string>
+    <string name="drive_restore_as_title">Pulihkan sebagai perangkat lain</string>
+    <string name="drive_sync_done">Baru saja disinkronkan</string>
+    <string name="drive_sync_downloading">Mengunduh dari %1$s · %2$d dari %3$d</string>
+    <string name="drive_sync_failed">Sinkronisasi gagal: %1$s</string>
+    <string name="drive_sync_last">Sinkronisasi terakhir</string>
+    <string name="drive_sync_now">Sinkronkan sekarang</string>
+    <string name="drive_sync_preparing">Menyiapkan sinkronisasi…</string>
+    <string name="drive_sync_uploading">Mengunggah bulan %1$d dari %2$d</string>
+    <string name="drive_this_phone">Ponsel ini</string>
+    <string name="drive_this_phone_header">Ponsel ini</string>
+    <string name="drive_this_phone_subtitle">Perangkat yang digunakan ponsel ini untuk mencadangkan</string>
+    <string name="drive_restore_confirm_title">Pulihkan sebagai %1$s?</string>
+    <string name="drive_restore_confirm_body">Ponsel ini menjadi %1$s. Riwayat dengar dan pengaturannya menggantikan milik ponsel ini, dan mulai sekarang ponsel ini disinkronkan sebagai %1$s. Info masuk tidak disertakan.</string>
+    <string name="drive_disconnect_confirm_body">Sinkronisasi berhenti. Semua yang sudah ada di Drive tetap disimpan, dan riwayat perangkat Anda yang lain dihapus dari Replay di ponsel ini sampai Anda terhubung lagi.</string>
+    <string name="drive_backup_row_subtitle">Cadangkan dan sinkronkan Replay di semua perangkat Anda</string>
+    <string name="drive_over_cellular">Sinkronkan lewat data seluler</string>
+    <string name="drive_over_cellular_subtitle">Jika nonaktif, sinkronisasi otomatis menunggu Wi-Fi</string>
 </resources>

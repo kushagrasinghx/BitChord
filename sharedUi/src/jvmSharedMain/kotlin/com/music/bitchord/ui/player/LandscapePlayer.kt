@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import dev.chrisbanes.haze.HazeState
 import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.animation.Crossfade
@@ -52,20 +53,18 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
-import coil3.request.ImageRequest
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.stableStatusBarInsets
 import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
 
@@ -277,13 +276,25 @@ internal fun LandscapePlayerLayout(
  */
 @Composable
 internal fun LandscapeArtwork(
-    artRequest: ImageRequest,
+    art: PlayerArtwork,
+    autoMixFrames: AutoMixCoverFrames?,
     artLoaded: Boolean,
-    onArtState: (AsyncImagePainter.State) -> Unit,
     canvas: CanvasArtwork?,
+    canvasPair: AutoMixCanvasTracks?,
     canvasRendered: Boolean,
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
+    hideCanvas: Boolean,
+    /** A hidden clip's opacity: zero, or an outgoing Spotify Canvas fading out before an AutoMix reveal. */
+    hiddenCanvasAlpha: () -> Float = { 0f },
+    /** Hold the outgoing clip on its frame for the AutoMix reveal. */
+    freezeCanvas: Boolean = false,
+    transitionAlpha: () -> Float,
+    transitionStill: () -> ImageBitmap?,
+    transitionStillVisible: () -> Boolean,
+    captureStill: Boolean,
+    onStillCaptured: (ImageBitmap?, Long) -> Unit,
+    onClipResumed: () -> Unit,
     modifier: Modifier = Modifier,
     /** Halts the clip for a transition — see [CanvasArtworkPlayer]'s own. */
     pausedForTransition: Boolean = false,
@@ -328,25 +339,53 @@ internal fun LandscapeArtwork(
                     modifier = Modifier.fillMaxSize(0.36f),
                 )
             }
-            AsyncImage(
-                model = artRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                onState = onArtState,
+            AutoMixPlayerCover(
+                art = art,
+                frames = autoMixFrames.baseUnderCanvas(canvasPair),
                 // Not drawn under a clip that got there first — see the
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
                     .fillMaxSize()
-                    .drawWithContent { if (artLoaded || !canvasRendered) drawContent() },
+                    .drawWithContent {
+                        if (artLoaded || !canvasRendered) drawContent()
+                        if (!hideCanvas && canvas?.source == CanvasSource.APPLE && transitionStillVisible()) {
+                            transitionStill()?.let { drawCropped(it, if (artLoaded) transitionAlpha() else 1f) }
+                        }
+                    },
             )
-            canvas?.let { clip ->
+            CanvasPresentationHost(canvas, canvasPair?.incomingClip) { clip, standby ->
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
-                    pausedForTransition = pausedForTransition,
-                    onRenderedChanged = onCanvasRenderedChange,
+                    pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true) ||
+                        (!standby && freezeCanvas),
+                    presentationAlpha = {
+                        if (standby) 1f
+                        else if (hideCanvas) hiddenCanvasAlpha()
+                        else if (clip.source != CanvasSource.APPLE) 1f
+                        else if (transitionStillVisible()) 0f
+                        else if (artLoaded) transitionAlpha() else 1f
+                    },
+                    captureStill = !standby && !hideCanvas && clip.source == CanvasSource.APPLE && captureStill,
+                    onStillCaptured = { image, position ->
+                        if (!standby && clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
+                    },
+                    onResumed = { if (!standby && clip.source == CanvasSource.APPLE) onClipResumed() },
+                    onRenderedChanged = {
+                        if (standby) canvasPair?.reportIncoming(it) else {
+                            onCanvasRenderedChange(it)
+                            canvasPair?.reportOutgoing(it)
+                        }
+                    },
+                    revealInstantly = standby,
+                    nowPlaying = true,
+                    organicReveal = if (standby) canvasPair?.standbyReveal(!pausedForTransition) else null,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+            val incoming = autoMixFrames?.incoming
+            if (incoming != null && canvasPair?.liveOutgoing == true && !canvasPair.liveIncoming) {
+                AutoMixIncomingStill(incoming, canvasPair::reveal, canvasPair.generation)
             }
         }
         overlay()
@@ -414,6 +453,7 @@ internal fun LandscapeMainPane(
 @Composable
 internal fun LandscapeCredits(
     song: Song,
+    infoTransition: SongInfoTransition,
     signedIn: Boolean,
     likeStatus: LikeStatus,
     /** The menu glyph is briefly the undo arrow after a quality upgrade. */
@@ -424,14 +464,17 @@ internal fun LandscapeCredits(
     /** Null browse id for anyone but the lead credit — see [NowPlayingScreen]. */
     onOpenArtist: (browseId: String?, name: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Blurred behind the star and ⋯ — see [GlassDiscPair]. */
+    hazeState: HazeState? = null,
+    overlayOpen: () -> Boolean = { false },
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Crossfade(
-            targetState = song.title to song.artist,
-            animationSpec = tween(durationMillis = 300),
+        SlidingSongInfo(
+            song = song,
+            transition = infoTransition,
             modifier = Modifier.weight(1f).additiveChrome(LocalPlayerChrome.current),
-            label = "landscapeCredits",
-        ) {
+        ) { infoSong ->
+            val song = infoSong
             Column {
                 var titleOverflowing by remember { mutableStateOf(false) }
                 val artistColor = chromeWhite(0.55f)
@@ -467,25 +510,27 @@ internal fun LandscapeCredits(
         // Same gate as the portrait player's: no account to like against for a
         // guest — but a local file or a finished download is liked on the
         // device, which needs none.
-        if (signedIn || song.localUri != null) {
-            val liked = likeStatus == LikeStatus.LIKE
+        GlassDiscPair(hazeState = hazeState, overlayOpen = overlayOpen) {
+            if (signedIn || song.localUri != null) {
+                val liked = likeStatus == LikeStatus.LIKE
+                CircleGlyph(
+                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                    contentDescription = stringResource(
+                        if (liked) Res.string.remove_from_liked else Res.string.like,
+                    ),
+                    onClick = onToggleLike,
+                    active = liked,
+                    haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             CircleGlyph(
-                icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
-                contentDescription = stringResource(
-                    if (liked) Res.string.remove_from_liked else Res.string.like,
-                ),
-                onClick = onToggleLike,
-                active = liked,
-                haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
+                icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(Res.string.more),
+                onClick = onOpenMenu,
+                modifier = Modifier.menuAnchor(),
             )
-            Spacer(Modifier.width(8.dp))
         }
-        CircleGlyph(
-            icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
-            contentDescription = stringResource(Res.string.more),
-            onClick = onOpenMenu,
-            modifier = Modifier.menuAnchor(),
-        )
     }
 }
 

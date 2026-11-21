@@ -47,16 +47,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
-import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBar
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConnection
@@ -64,17 +64,19 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.rememberPlayerSkipMotion
+import com.music.bitchord.ui.player.PlayerPlayPauseGlyph
+import com.music.bitchord.ui.player.rememberPlayerPlayPauseMotion
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
  * controls and the tabs are one component rather than two stacked bars.
  *
- * Expanded, it is a full width now playing pill sitting over the tab pill and a
- * separate circular Search tab. Scrolling down collapses it inline — the tabs
+ * Expanded, it is a full width now playing pill sitting over the tab pill, with
+ * Search as the pill's last tab. Scrolling down collapses it inline — the tabs
  * fold down to just the selected one, the now playing controls narrow into the
  * gap between it and Search, and the whole thing becomes a single row the width
  * of the screen. Scrolling back up expands it. The fold is driven by
@@ -108,7 +110,12 @@ fun GlassNavBar(
     dock: PlayerDock? = null,
     /** Dragging the bar's player up into the full player. */
     pull: MiniPlayerPull? = null,
+    /** False while the expanded player covers either accessory density. */
+    animationsActive: Boolean = true,
     modifier: Modifier = Modifier,
+    /** Called when the user taps the currently active tab (scroll-to-top). */
+    onActiveTabTap: () -> Unit = {},
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -126,9 +133,9 @@ fun GlassNavBar(
     // handler out of the key.
     val currentOnTabSelected by rememberUpdatedState(onTabSelected)
 
-    // Search is the odd one out in the iOS 26 layout: a circle of its own beside
-    // the pill rather than a quarter of it. It is the last tab in BitChord's
-    // order, which is where the shape wants it anyway.
+    // Search is the odd one out when collapsed: a circle of its own at the end
+    // of the row. It is the last tab in BitChord's order, which is where the
+    // shape wants it anyway. Expanded, it is folded back into the pill.
     val standaloneIndex = tabs.lastIndex
 
     // A factory, not a value — see the note in FloatingTabBar's header. Each of
@@ -152,6 +159,7 @@ fun GlassNavBar(
                     isInline = true,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    animationsActive = animationsActive,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
@@ -162,6 +170,7 @@ fun GlassNavBar(
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.then(glassSurface()),
+                    autoMixArtwork = autoMixArtwork,
                 )
             }
         },
@@ -172,6 +181,7 @@ fun GlassNavBar(
                     isInline = false,
                     isPlaying = isPlaying,
                     isLoading = isLoading,
+                    animationsActive = animationsActive,
                     contentColor = contentColor,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
@@ -182,6 +192,7 @@ fun GlassNavBar(
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
+                    autoMixArtwork = autoMixArtwork,
                 )
             }
         },
@@ -226,53 +237,47 @@ fun GlassNavBar(
         contentKey = remember(selectedIndex, tabs, contentColor) {
             listOf(selectedIndex, tabs, contentColor)
         },
+        // Expanded, Search shares the tab pill; collapsed, it is the circle at
+        // the end of the row.
+        mergeStandaloneWhenExpanded = true,
     ) {
         tabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
             val tint = if (isSelected) selectedColor else unselectedColor
             val onClick = {
-                if (!isSelected) haptics.play(Haptic.Select)
+                if (isSelected) {
+                    onActiveTabTap()
+                } else {
+                    haptics.play(Haptic.Select)
+                }
                 currentOnTabSelected(index)
             }
+            val icon = @Composable {
+                Icon(
+                    imageVector = tab.icon,
+                    contentDescription = tab.label,
+                    tint = tint,
+                    modifier = Modifier.size(TAB_ICON_SIZE),
+                )
+            }
+            val title = @Composable {
+                Text(
+                    text = tab.label,
+                    style = tabLabelStyle(),
+                    color = tint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // The library's Tab stacks the glyph and the label
+                    // with nothing between them; the plain bar spaces
+                    // them, and this is where that gap goes.
+                    modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP),
+                )
+            }
             if (index == standaloneIndex) {
-                standaloneTab(
-                    key = index,
-                    icon = {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE),
-                        )
-                    },
-                    onClick = onClick,
-                )
+                // Titled for the expanded bar, where it is the pill's last tab.
+                standaloneTab(key = index, icon = icon, onClick = onClick, title = title)
             } else {
-                tab(
-                    key = index,
-                    icon = {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE),
-                        )
-                    },
-                    title = {
-                        Text(
-                            text = tab.label,
-                            style = tabLabelStyle(),
-                            color = tint,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            // The library's Tab stacks the glyph and the label
-                            // with nothing between them; the plain bar spaces
-                            // them, and this is where that gap goes.
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP),
-                        )
-                    },
-                    onClick = onClick,
-                )
+                tab(key = index, icon = icon, title = title, onClick = onClick)
             }
         }
     }
@@ -298,6 +303,7 @@ private fun GlassNowPlaying(
     isInline: Boolean,
     isPlaying: Boolean,
     isLoading: Boolean,
+    animationsActive: Boolean,
     contentColor: Color,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -308,9 +314,17 @@ private fun GlassNowPlaying(
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
     modifier: Modifier = Modifier,
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?,
 ) {
     val haptics = rememberHaptics()
     val pressSource = remember { MutableInteractionSource() }
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val nextMotion = rememberPlayerSkipMotion(active = animationsActive, reduceMotion = reduceAnimation)
+    val playPauseMotion = rememberPlayerPlayPauseMotion(
+        isPlaying = isPlaying,
+        active = animationsActive && !isLoading,
+        reduceMotion = reduceAnimation,
+    )
     val isPressed by pressSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 1.04f else 1f,
@@ -400,12 +414,7 @@ private fun GlassNowPlaying(
                     .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                AsyncImage(
-                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                MiniPlayerArtwork(song, autoMixArtwork)
                 if (showsPicture) {
                     AndroidMusicVideo(
                         videoId = song.videoId,
@@ -448,12 +457,17 @@ private fun GlassNowPlaying(
                 IconButton(
                     onClick = {
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
+                        playPauseMotion.onTap()
                         onPlayPause()
                     },
                     modifier = Modifier.size(glyphSlot),
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    PlayerPlayPauseGlyph(
+                        motion = playPauseMotion,
+                        play = Icons.Rounded.PlayArrow,
+                        pause = Icons.Rounded.Pause,
+                        playPainter = rememberVectorPainter(Icons.Rounded.PlayArrow),
+                        pausePainter = rememberVectorPainter(Icons.Rounded.Pause),
                         contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                         tint = contentColor,
                         modifier = Modifier.size(glyphSize),
@@ -469,12 +483,14 @@ private fun GlassNowPlaying(
                 IconButton(
                     onClick = {
                         haptics.play(Haptic.SkipNext)
+                        nextMotion.onTap()
                         onNext()
                     },
                     enabled = !controlsLocked,
                     modifier = Modifier.size(glyphSlot),
                 ) {
                     MiniPlayerNextGlyph(
+                        motion = nextMotion,
                         tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
                     )
                 }

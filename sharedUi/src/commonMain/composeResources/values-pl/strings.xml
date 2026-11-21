@@ -198,4 +198,15 @@
     <string name="search_library_empty">Szukaj utworów w folderze muzyki lokalnej.</string>
     <string name="search_library_hint">Utwory, wykonawcy i albumy</string>
     <string name="search_library_no_results">NIC w muzyce lokalnej nie pasuje do „%1$s”.</string>
+    <string name="add_to_queue">Dodaj do kolejki</string>
+    <string name="queue_selected_count">Wybrano: %1$d</string>
+    <string name="queue_select_all">Zaznacz wszystko</string>
+    <string name="queue_select">Zaznacz</string>
+    <string name="queue_close_selection">Zamknij zaznaczanie</string>
+    <string name="queue_add_to_playlist">Playlista</string>
+    <string name="queue_download">Pobierz</string>
+    <string name="queue_selection_remove">Usuń</string>
+    <string name="queue_add_all_to_playlist">Dodaj wszystkie do playlisty</string>
+    <string name="mixes_yours">Twoje miksy</string>
+    <string name="mixes_none">Nie ma jeszcze miksów. Słuchaj dalej, a YouTube Music przygotuje je dla Ciebie.</string>
 </resources>

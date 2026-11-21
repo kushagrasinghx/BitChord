@@ -198,4 +198,15 @@
     <string name="search_library_empty">Durchsuche die Songs in deinem Ordner für lokale Musik.</string>
     <string name="search_library_hint">Songs, Künstler und Alben</string>
     <string name="search_library_no_results">Nichts in der lokalen Musik passt zu „%1$s“.</string>
+    <string name="add_to_queue">Zur Warteschlange hinzufügen</string>
+    <string name="queue_selected_count">%1$d ausgewählt</string>
+    <string name="queue_select_all">Alle auswählen</string>
+    <string name="queue_select">Auswählen</string>
+    <string name="queue_close_selection">Auswahl beenden</string>
+    <string name="queue_add_to_playlist">Playlist</string>
+    <string name="queue_download">Herunterladen</string>
+    <string name="queue_selection_remove">Entfernen</string>
+    <string name="queue_add_all_to_playlist">Alle zur Playlist hinzufügen</string>
+    <string name="mixes_yours">Deine Mixe</string>
+    <string name="mixes_none">Noch keine Mixe. Hör weiter Musik, dann erstellt YouTube Music welche für dich.</string>
 </resources>

@@ -1513,7 +1513,7 @@ object SourceResolver {
      * seconds allows for a service rounding a runtime differently and nothing
      * else.
      */
-    private const val UPGRADE_DRIFT_SEC = 2
+    private const val UPGRADE_DRIFT_SEC = 3
 
     /**
      * How close two runtimes have to be to be the same cut of a song.

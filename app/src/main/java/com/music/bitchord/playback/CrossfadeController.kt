@@ -1923,8 +1923,11 @@ class CrossfadeController(
         // analysed anchor. In that case the outgoing deck must still reach
         // zero before its final sample instead of remaining loud and appearing
         // to stop. Normally this is zero and incoming timing remains authority.
+        // Through [outClock], not the raw report: near the file end this term leads the
+        // blend, and the raw position only moves every ~280ms (see [PositionClock]). Read
+        // raw, the faders and the AutoMix artwork reveal advanced in quarter-second lurches.
         val outRemaining = out.duration.takeIf { it != C.TIME_UNSET && it > 0L }
-            ?.minus(out.currentPosition)
+            ?.minus(outClock.read(out).toLong())
         val endDrivenProgress = outRemaining?.let {
             ((span - it).toFloat() / span).coerceIn(0f, 1f)
         } ?: 0f

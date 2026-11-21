@@ -52,7 +52,7 @@ internal class AutoMixCanvasPair {
         seenGeneration = state.generation
         return AutoMixCanvasTracks(
             state.generation, state.outgoing.identity, state.incoming.identity,
-            shownClip.takeIf { shownEntry == entry },
+            shownClip.takeIf { shownEntry == entry }?.takeUnless { it.retiresBeforeAutoMix },
         ).also { visual = it }
     }
 
@@ -61,7 +61,11 @@ internal class AutoMixCanvasPair {
     }
 
     fun beginMix(tracks: AutoMixCanvasTracks) {
-        tracks.pinnedClip = shownClip.takeIf { shownEntry == tracks.outgoing }
+        val shown = shownClip.takeIf { shownEntry == tracks.outgoing }
+        // A Spotify Canvas is the whole phone screen, not a slot either picture can
+        // share. It fades back to its cover before the reveal, which then runs on stills.
+        tracks.retiringClip = shown?.takeIf { it.retiresBeforeAutoMix }
+        tracks.pinnedClip = shown?.takeUnless { it.retiresBeforeAutoMix }
         tracks.outgoingReady = tracks.pinnedClip != null
         if (tracks.sharesClip) {
             tracks.incomingClip = tracks.pinnedClip
@@ -87,6 +91,10 @@ internal class AutoMixCanvasTracks(
     private val visualSample: () -> AutoMixVisualState? = { PlayerPlatform.host.autoMixVisualState?.value },
 ) {
     var pinnedClip by mutableStateOf(pinnedClip)
+    /** An outgoing Spotify Canvas fading out to its cover; never part of the reveal. */
+    var retiringClip by mutableStateOf<CanvasArtwork?>(null)
+    /** Hold the outgoing clip on its current frame: the reveal animates that paused frame. */
+    var freezeOutgoing by mutableStateOf(false)
     var started by mutableStateOf(false)
     var incomingClip by mutableStateOf<CanvasArtwork?>(null)
     var incomingReady by mutableStateOf(false)
@@ -136,7 +144,9 @@ internal class AutoMixCanvasTracks(
         val observed = progress
         val sample = visualSample()
         if (sample?.generation != generation || sample.artworkWindow == null) return 0f
-        return AutoMixArtworkTuning.revealProgress(maxOf(observed, sample.artworkProgress))
+        return AutoMixArtworkTuning.revealProgress(
+            AutoMixRevealClock.progress(sample, maxOf(observed, sample.artworkProgress)),
+        )
     }
 
     fun standbyOpacity(): Float = if (windowOpen && liveIncoming) reveal() else 0f
@@ -262,13 +272,11 @@ internal fun rememberAutoMixCanvasPair(
                         } catch (_: Exception) {
                             null
                         }?.takeUnless { spotifyDisabled && it.source == CanvasSource.SPOTIFY }
+                            // An incoming Spotify Canvas reveals as its cover; the ordinary
+                            // selected-track path brings the clip in once the mix has promoted.
+                            ?.takeUnless { it.retiresBeforeAutoMix }
                             ?.nowPlayingRendition(fullWindow) ?: return@launch
                         if (sealed || active !== tracks || !tracks.beforeIncomingDeadline(feed.value)) return@launch
-                        val outgoingHero = fullBleed || tracks.pinnedClip?.source == CanvasSource.SPOTIFY
-                        val incomingHero = fullBleed || clip.source == CanvasSource.SPOTIFY
-                        // The fullscreen slot can be prepared behind the square sleeve. The
-                        // reverse would require putting a square view into a banner's parent.
-                        if (!landscape && fullWindow && outgoingHero && !incomingHero) return@launch
                         tracks.incomingClip = tracks.pinnedClip?.takeIf { it.url == clip.url } ?: clip
                         if (clip.url == tracks.pinnedClip?.url) tracks.incomingReady = true
                     }
@@ -283,6 +291,10 @@ internal fun rememberAutoMixCanvasPair(
                     }
                 }
                 tracks.progress = state.artworkProgress
+                val window = state.artworkWindow
+                if (!tracks.freezeOutgoing && window != null &&
+                    state.audioSeconds >= window.startSeconds - AutoMixArtworkTuning.CANVAS_READY_MARGIN_SECONDS
+                ) tracks.freezeOutgoing = true
                 if (!sealed && !tracks.beforeIncomingDeadline(state)) {
                     if (!tracks.sealIncoming()) stopPreparing() else sealed = true
                 }
@@ -318,6 +330,9 @@ internal fun sharesHeroRevealFootprint(
     outgoingAspect.isFinite() && incomingAspect.isFinite() && outgoingAspect > 0f && incomingAspect > 0f &&
         ((outgoingAspect >= 1f && incomingAspect >= 1f) || outgoingAspect == incomingAspect)
 }
+
+/** Spotify's full-screen Canvas never takes part in an AutoMix reveal; see [AutoMixCanvasPair.beginMix]. */
+internal val CanvasArtwork.retiresBeforeAutoMix: Boolean get() = source == CanvasSource.SPOTIFY
 
 internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean): CanvasArtwork {
     val tall = portraitUrl

@@ -97,6 +97,7 @@ internal class AutoMixCoverState(
     private var active by mutableStateOf<PairFrames?>(null)
     private var promoted by mutableStateOf<Pair<QueueEntryIdentity, AutoMixCoverFrames>?>(null)
     private var progress by mutableFloatStateOf(0f)
+    private var latest: AutoMixVisualState? = null
 
     fun bind(occurrence: QueueEntryIdentity?, art: PlayerArtwork?, visual: AutoMixVisualState?) {
         if (current != occurrence) {
@@ -121,6 +122,7 @@ internal class AutoMixCoverState(
     }
 
     fun update(visual: AutoMixVisualState?, gate: AutoMixArtworkGate = AutoMixArtworkGate()) {
+        latest = visual
         if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED || !gate.allows(visual.generation)) {
             if (visual != null) seenMix = visual.generation
             val pair = active
@@ -160,7 +162,9 @@ internal class AutoMixCoverState(
                     frozen = if (outgoing != null && incoming != null && visual.artworkProgress < 1f) {
                         PairFrames(
                             visual.generation, visual.outgoing.identity, visual.incoming.identity,
-                            AutoMixCoverFrames(outgoing, incoming, visual.generation) { progress },
+                            AutoMixCoverFrames(outgoing, incoming, visual.generation) {
+                                AutoMixRevealClock.progress(latest?.takeIf { it.generation == visual.generation }, progress)
+                            },
                         )
                     } else null
                     armedArt = null
@@ -230,6 +234,7 @@ internal fun rememberAutoMixCover(
         cover.promotedFor(occurrence)?.let(art::noteDisplayedCover)
     }
     LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
+    AutoMixRevealClockEffect()
     return cover
 }
 
@@ -277,6 +282,7 @@ fun rememberMiniAutoMixArtwork(
     val gate = autoMixArtworkGate(mini = true)
     SideEffect { cover.bind(occurrence, null, feed?.value?.takeIf { gate.allows(it.generation) }) }
     LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
+    AutoMixRevealClockEffect()
 
     return { model, modifier ->
         AutoMixCover(cover.framesFor(occurrence, gate), modifier, blur = false) { artworkModifier ->

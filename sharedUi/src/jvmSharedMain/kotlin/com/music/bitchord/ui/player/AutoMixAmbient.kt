@@ -152,7 +152,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
                         if (currentEntry.value == visual.incoming.identity) 1f else 0f
                     live.artworkWindow == null || observed?.generation != live.generation -> 0f
                     live.phase == AutoMixVisualPhase.COMPLETED -> 1f
-                    else -> AutoMixArtworkTuning.revealProgress(live.artworkProgress)
+                    else -> AutoMixArtworkTuning.revealProgress(AutoMixRevealClock.progress(live, live.artworkProgress))
                 }
             },
         )
@@ -190,5 +190,8 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
         if (entry != null && resolvedUrl != null) history.note(entry, resolvedUrl)
     }
     val hold = (outgoing || incoming) && holdsPair && !promoted && !stage.noDissolve
-    return AutoMixAmbient(pair.takeIf { hold }, settled?.settled, settled?.incoming, settled?.cancelled == true, direct)
+    // [direct] stays internal bookkeeping. Handed to the backdrops it made them drop the
+    // held previous backdrop and snap to the new track's assets — black until those were
+    // decoded — where a song change with art transition off should look like any other.
+    return AutoMixAmbient(pair.takeIf { hold }, settled?.settled, settled?.incoming, settled?.cancelled == true, null)
 }

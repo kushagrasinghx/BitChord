@@ -1,5 +1,6 @@
 package com.music.bitchord.playback
 
+import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,9 +10,11 @@ internal object AutoMixVisualFeed {
     private val mutableState = MutableStateFlow<AutoMixVisualState?>(null)
     val state: StateFlow<AutoMixVisualState?> = mutableState.asStateFlow()
     private var generation = 0L
+    private var armedAtMs = 0L
 
     fun arm(outgoing: AutoMixVisualTrack, incoming: AutoMixVisualTrack): Long {
         val id = ++generation
+        armedAtMs = SystemClock.elapsedRealtime()
         mutableState.value = AutoMixVisualState(id, outgoing, incoming)
         return id
     }
@@ -27,6 +30,7 @@ internal object AutoMixVisualFeed {
             phase = AutoMixVisualPhase.MIXING,
             overlapStartSeconds = 0.0,
             audioSeconds = audioSeconds,
+            sampledAtNanos = System.nanoTime(),
         )
     }
 
@@ -37,15 +41,21 @@ internal object AutoMixVisualFeed {
             audioSeconds = at,
             swapSeconds = at,
             artworkWindow = windowAfter(at, endSeconds),
+            sampledAtNanos = System.nanoTime(),
         )
     }
 
     private fun windowAfter(swap: Double, end: Double): AutoMixArtworkWindow? {
         val remaining = end - swap
-        if (remaining < AutoMixArtworkTuning.MIN_WINDOW_SECONDS) return null
-        // Sacrifice lag first, then duration; never schedule before the observed swap.
-        val duration = minOf(AutoMixArtworkTuning.WINDOW_SECONDS, remaining)
-        val lag = minOf(AutoMixArtworkTuning.START_LAG_AFTER_SWAP, remaining - duration)
+        // A late arm (a seek into the overlap) must not start revealing while the
+        // incoming artwork is still being prepared. This part of the lag is never
+        // sacrificed; without room for a minimum window after it, skip the dissolve.
+        val preparedFor = (SystemClock.elapsedRealtime() - armedAtMs) / 1000.0
+        val prepareLag = (AutoMixArtworkTuning.MIN_PREPARE_LEAD_SECONDS - preparedFor).coerceAtLeast(0.0)
+        if (remaining - prepareLag < AutoMixArtworkTuning.MIN_WINDOW_SECONDS) return null
+        // Sacrifice the cosmetic lag first, then duration; never schedule before the observed swap.
+        val duration = minOf(AutoMixArtworkTuning.WINDOW_SECONDS, remaining - prepareLag)
+        val lag = maxOf(prepareLag, minOf(AutoMixArtworkTuning.START_LAG_AFTER_SWAP, remaining - duration))
         val start = swap + lag
         return AutoMixArtworkWindow(start, minOf(end, start + duration))
     }
@@ -68,7 +78,12 @@ internal object AutoMixVisualFeed {
             previous.artworkProgress,
             ((at - window.startSeconds) / (window.endSeconds - window.startSeconds)).coerceIn(0.0, 1.0).toFloat(),
         )
-        mutableState.value = previous.copy(audioSeconds = at, artworkWindow = window, artworkProgress = progress)
+        mutableState.value = previous.copy(
+            audioSeconds = at,
+            artworkWindow = window,
+            artworkProgress = progress,
+            sampledAtNanos = System.nanoTime(),
+        )
     }
 
     fun complete(id: Long?) {

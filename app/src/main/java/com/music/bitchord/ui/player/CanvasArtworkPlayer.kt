@@ -580,7 +580,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         // can never become the only visible artwork layer.
                         rendered = false
                         pendingTextureFrame = null
-                        if (owned?.closed == true) return true
+                        if (owned?.released == true) return true
                         // Going with the player — see [Teardown.orphan].
                         if (currentPausedForTransition || teardown.disposed) {
                             teardown.orphan = surface
@@ -1144,8 +1144,8 @@ private fun rememberNowPlayingDecoder(context: Context, teardown: Teardown): Now
             awaitCancellation()
         } finally {
             teardown.disposed = true
-            opened.close()
-            teardown.releaseOrphan()
+            // The surface stays orphaned until the deferred release has let go of it.
+            opened.close { teardown.releaseOrphan() }
         }
     }
     return lease

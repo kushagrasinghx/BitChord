@@ -405,6 +405,9 @@ private fun LegacyMeshBackdrop(
 /** How long a full-screen Spotify Canvas holds still after the player has opened. */
 private const val SPOTIFY_CANVAS_RESUME_DELAY_MS = 1_000L
 
+/** How long an outgoing Spotify Canvas takes to fade back to its cover once an AutoMix starts. */
+private const val AUTOMIX_CANVAS_RETIRE_MS = 700
+
 /** [image] filling this scope, centred and cropped as [ContentScale.Crop] would. */
 /** Draws as usual, and keeps what it drew in [layer] for a still taken later. */
 private fun Modifier.recordBackdrop(layer: GraphicsLayer): Modifier = drawWithContent {
@@ -1074,8 +1077,26 @@ fun NowPlayingScreen(
     val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, artworkGate)
     val pair = canvasPair.visual?.takeIf { artworkGate.allows(it.generation) && it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
-    val canvas = if (pair?.started == true) pair.pinnedClip else promotedCanvas?.incomingClip ?: sessionCanvas
+    // An outgoing Spotify Canvas fades back to its cover as the mix starts, well
+    // before the reveal; the reveal then runs cover to cover. See [AutoMixCanvasPair.beginMix].
+    val retiringCanvas = pair?.retiringClip?.takeIf { pair.started }
+    val canvasRetire = remember { Animatable(0f) }
+    LaunchedEffect(retiringCanvas?.url) {
+        canvasRetire.snapTo(0f)
+        if (retiringCanvas != null) {
+            canvasRetire.animateTo(1f, tween(AUTOMIX_CANVAS_RETIRE_MS, easing = FastOutSlowInEasing))
+        }
+    }
+    val canvasRetired by remember { derivedStateOf { canvasRetire.value >= 1f } }
+    val canvasRetiring = retiringCanvas != null && !canvasRetired
+    // Read from draw/update lambdas only, so the fade does not recompose the screen.
+    val retiringCanvasAlpha: () -> Float = { 1f - canvasRetire.value }
+    val canvas = if (pair?.started == true) {
+        pair.pinnedClip ?: retiringCanvas.takeIf { canvasRetiring }
+    } else promotedCanvas?.incomingClip ?: sessionCanvas
     val staticCanvasMix = pair?.started == true && !pair.liveOutgoing
+    // A non-Spotify outgoing clip stops on its frame as the reveal begins.
+    val freezeOutgoingCanvas = pair?.liveOutgoing == true && pair.freezeOutgoing
     val incomingFullWindow = !sideways && fullCanvasWindow && pair?.incomingClip?.source == CanvasSource.SPOTIFY
     LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
     // A tablet is the other way round: landscape is where it is usually held,
@@ -2135,7 +2156,7 @@ fun NowPlayingScreen(
     // frozen still pixels below that host; the live slot stays where it will be promoted.
     val staticHeroUnderlay = autoMixFrames?.takeIf { frames ->
         pair?.liveIncoming == true && pair.pinnedClip == null && frames.generation == pair.generation &&
-            !stillMoving && !overlayOpen.value &&
+            !canvasRetiring && !stillMoving && !overlayOpen.value &&
             (if (heroMode) heroHeight > 0.dp else incomingFullWindow && !expandedSquare.isEmpty)
     }?.base
     // Whether the still is on screen in the clip's place: while it moves, and
@@ -2265,8 +2286,7 @@ fun NowPlayingScreen(
                             shown = shown,
                             durationMs = durationMs,
                             loading = versionAligning || audioVersionSwitching,
-                            scrubbing = scrub.scrubbing,
-                            isPlaying = isPlaying,
+                            mixing = mixing && !scrub.scrubbing,
                             transitionWindow = transitionWindow
                                 ?.takeIf { !scrub.scrubbing && it.end > it.start }
                                 ?.let { it.start..it.end },
@@ -2385,6 +2405,8 @@ fun NowPlayingScreen(
                             isPlaying = isPlaying,
                             onCanvasRenderedChange = { canvasSurfaceRendered = it },
                             hideCanvas = staticCanvasMix,
+                            hiddenCanvasAlpha = { if (canvasRetiring) retiringCanvasAlpha() else 0f },
+                            freezeCanvas = freezeOutgoingCanvas,
                             transitionAlpha = dockFade,
                             transitionStill = { still()?.image },
                             transitionStillVisible = { dockMoving && stillTakesOver() },
@@ -2543,8 +2565,7 @@ fun NowPlayingScreen(
                                     shown = shown,
                                     durationMs = durationMs,
                                     loading = versionAligning || audioVersionSwitching,
-                                    scrubbing = scrub.scrubbing,
-                                    isPlaying = isPlaying,
+                                    mixing = mixing && !scrub.scrubbing,
                                     transitionWindow = transitionWindow
                                         ?.takeIf { !scrub.scrubbing && it.end > it.start }
                                         ?.let { it.start..it.end },
@@ -2847,7 +2868,7 @@ fun NowPlayingScreen(
                             // screen, and keeps playing under them, blurred live.
                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
                                 collapseStarted || dockMoving || (overlayOpen.value && !fullscreen) ||
-                                (standby && pair?.started != true),
+                                (standby && pair?.started != true) || (!standby && freezeOutgoingCanvas),
                             // Spotify's 9:16 Canvas is the phone background, so it
                             // covers every edge. Other providers retain the contained
                             // portrait treatment introduced for motion cover art.
@@ -2874,7 +2895,9 @@ fun NowPlayingScreen(
                             presentationAlpha = {
                                 if (gesturePair != null || stillTakesOver()) 0f
                                 else if (standby) clipTransitionAlpha()
-                                else if (staticCanvasMix) 0f
+                                else if (staticCanvasMix) {
+                                    if (clip.url == retiringCanvas?.url) retiringCanvasAlpha() * clipTransitionAlpha() else 0f
+                                }
                                 else if (matchedLiveHero && !pair.sharesClip && !fullscreen) {
                                     // A shared, translucent bottom edge would otherwise show
                                     // the outgoing clip until the exact promotion frame.
@@ -3702,6 +3725,7 @@ fun NowPlayingScreen(
                                     // Whole while the clip's still is standing in for it.
                                     alpha = (
                                         if (gesturePair != null || stillTakesOver()) 1f
+                                        else if (canvasRetiring) canvasRetire.value
                                         else if (staticHeroUnderlay != null) 0f
                                         else if (heroMode && pair?.liveOutgoing == true) 1f
                                         else if ((heroMode || incomingFullWindow) && pair?.liveIncoming == true) 1f - pair.standbyOpacity()
@@ -3909,11 +3933,13 @@ fun NowPlayingScreen(
                                             // Pause as soon as the panels ask for the collapse.
                                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
                                                 collapseStarted || dockMoving || overlayOpen.value ||
-                                                (standby && pair?.started != true),
+                                                (standby && pair?.started != true) || (!standby && freezeOutgoingCanvas),
                                             presentationAlpha = {
                                                 if (gesturePair != null || stillTakesOver()) 0f
                                                 else if (standby) 1f
-                                                else if (staticCanvasMix) 0f
+                                                else if (staticCanvasMix) {
+                                                    if (clip.url == retiringCanvas?.url) retiringCanvasAlpha() else 0f
+                                                }
                                                 else if (incomingFullWindow) 1f - pair.standbyOpacity()
                                                 else if (clip.source == CanvasSource.APPLE && coverLoaded()) clipTransitionAlpha()
                                                 else 1f
@@ -4590,8 +4616,7 @@ fun NowPlayingScreen(
                         shown = shown,
                         durationMs = durationMs,
                         loading = versionSwitching,
-                        scrubbing = scrub.scrubbing,
-                        isPlaying = isPlaying,
+                        mixing = mixing && !scrub.scrubbing,
                         // Hidden while scrubbing: the planner is still describing
                         // where the transition *would* be, and a marker sitting under
                         // a finger that is moving the playhead invites reading it as

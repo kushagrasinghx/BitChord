@@ -21,7 +21,7 @@ class AutoMixAmbientTest {
 
     @Test
     fun onlyTheFullArtworkGateControlsAmbientHandoff() {
-        val miniOff = AutoMixArtworkPreferences(miniPlayerTransition = false).gate(automix = true)
+        val miniOff = AutoMixArtworkPreferences(artTransition = true, miniPlayerTransition = false).gate(automix = true)
         assertNull(directAutoMixAmbientSelection(mix, incoming, miniOff, null))
         assertEquals(1L to incoming, directAutoMixAmbientSelection(mix, incoming, off, null))
         assertNull(directAutoMixAmbientSelection(mix.copy(phase = AutoMixVisualPhase.ARMED), outgoing, off, null))
@@ -60,7 +60,7 @@ class AutoMixAmbientTest {
         try {
             val prepared = PreparedAutoMixAmbient(mix.generation, "incoming")
             preparedAutoMixAmbient = prepared
-            val miniOff = AutoMixArtworkPreferences(miniPlayerTransition = false).gate(automix = true)
+            val miniOff = AutoMixArtworkPreferences(artTransition = true, miniPlayerTransition = false).gate(automix = true)
             discardBlockedAutoMixAmbient(miniOff::allows)
             assertSame(prepared, preparedAutoMixAmbient)
             discardBlockedAutoMixAmbient(off::allows)

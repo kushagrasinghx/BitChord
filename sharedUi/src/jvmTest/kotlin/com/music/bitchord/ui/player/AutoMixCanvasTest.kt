@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.playback.AutoMixArtworkTuning
 import com.music.bitchord.playback.AutoMixArtworkWindow
@@ -39,6 +40,54 @@ class AutoMixCanvasTest {
         val remounted = AutoMixCanvasPair()
         assertNull(remounted.start(visual, outgoing, enabled))
         assertTrue(remounted.start(visual.copy(generation = visual.generation + 1), outgoing, enabled) != null)
+    }
+
+    @Test
+    fun revealProgressMovesBetweenControllerSamplesButIsCappedAhead() {
+        val sampled = visual.copy(
+            phase = AutoMixVisualPhase.MIXING,
+            audioSeconds = 1.0,
+            artworkWindow = AutoMixArtworkWindow(0.0, 2.0),
+            artworkProgress = 0.5f,
+            sampledAtNanos = 1_000_000_000L,
+        )
+        assertEquals(0.5f, sampled.artworkProgressAt(1_000_000_000L))
+        // 10ms after the sample: 0.01s of a 2s window further on.
+        assertEquals(0.505f, sampled.artworkProgressAt(1_010_000_000L), 1e-4f)
+        // A stalled controller cannot carry it more than the cap ahead.
+        val capped = 0.5f + (AutoMixArtworkTuning.MAX_PROGRESS_EXTRAPOLATION_SECONDS / 2.0).toFloat()
+        assertEquals(capped, sampled.artworkProgressAt(5_000_000_000L), 1e-4f)
+        // Never behind the sample, and untouched without a window or once cancelled.
+        assertEquals(0.5f, sampled.artworkProgressAt(500_000_000L))
+        assertEquals(0.5f, sampled.copy(phase = AutoMixVisualPhase.CANCELLED).artworkProgressAt(1_010_000_000L))
+    }
+
+    @Test
+    fun outgoingSpotifyCanvasRetiresInsteadOfJoiningTheReveal() {
+        val spotify = CanvasArtwork("outgoing.mp4", source = CanvasSource.SPOTIFY)
+        val owner = AutoMixCanvasPair()
+        owner.displayed(outgoing, spotify, rendered = true)
+        val tracks = requireNotNull(owner.start(visual, outgoing))
+        assertNull(tracks.pinnedClip)
+        owner.beginMix(tracks)
+        assertNull(tracks.pinnedClip)
+        assertSame(spotify, tracks.retiringClip)
+        assertFalse(tracks.liveOutgoing)
+    }
+
+    @Test
+    fun squareOutgoingCanvasStaysLiveAndIsPinned() {
+        val square = CanvasArtwork("outgoing.mp4", source = CanvasSource.APPLE)
+        val owner = AutoMixCanvasPair()
+        owner.displayed(outgoing, square, rendered = true)
+        val tracks = requireNotNull(owner.start(visual, outgoing))
+        owner.beginMix(tracks)
+        assertSame(square, tracks.pinnedClip)
+        assertNull(tracks.retiringClip)
+        assertTrue(tracks.liveOutgoing)
+        assertFalse(tracks.freezeOutgoing)
+        assertTrue(CanvasArtwork("x", source = CanvasSource.SPOTIFY).retiresBeforeAutoMix)
+        assertFalse(square.retiresBeforeAutoMix)
     }
 
     @Test

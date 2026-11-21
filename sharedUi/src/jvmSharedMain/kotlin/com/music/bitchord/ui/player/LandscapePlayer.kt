@@ -285,6 +285,10 @@ internal fun LandscapeArtwork(
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
     hideCanvas: Boolean,
+    /** A hidden clip's opacity: zero, or an outgoing Spotify Canvas fading out before an AutoMix reveal. */
+    hiddenCanvasAlpha: () -> Float = { 0f },
+    /** Hold the outgoing clip on its frame for the AutoMix reveal. */
+    freezeCanvas: Boolean = false,
     transitionAlpha: () -> Float,
     transitionStill: () -> ImageBitmap?,
     transitionStillVisible: () -> Boolean,
@@ -353,10 +357,11 @@ internal fun LandscapeArtwork(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
-                    pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true),
+                    pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true) ||
+                        (!standby && freezeCanvas),
                     presentationAlpha = {
                         if (standby) 1f
-                        else if (hideCanvas) 0f
+                        else if (hideCanvas) hiddenCanvasAlpha()
                         else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
                         else if (artLoaded) transitionAlpha() else 1f

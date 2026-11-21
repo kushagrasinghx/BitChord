@@ -61,7 +61,6 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val main = Handler(Looper.getMainLooper())
 
     override val autoMixVisualState get() = AutoMixVisualFeed.state
-    override val versionSwapSheen get() = AppSettings.versionSwapSheen
 
     override fun onAutoMixScrubIntent() = AutoMixVisualFeed.cancel()
 

@@ -36,19 +36,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MixBlend
-import com.music.bitchord.playback.AutoMixArtworkTuning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -108,8 +104,6 @@ fun ThinSlider(
      * are — see [vibrantChrome]. The colours are then the dodge's ink.
      */
     vibrant: Boolean = false,
-    /** Draw-only intensity for the full-player AutoMix glow. */
-    autoMixGlow: (() -> Float)? = null,
 ) {
     var dragging by remember { mutableStateOf(false) }
     val height by animateDpAsState(
@@ -158,25 +152,6 @@ fun ThinSlider(
         animationSpec = tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing),
         label = "fillFactor",
     )
-    val density = LocalDensity.current
-    val haloOutset = with(density) { AutoMixArtworkTuning.SEEK_GLOW_HALO_OUTSET_DP.dp.toPx() }
-    val trackHeight = with(density) { height.roundToPx().toFloat() }
-    val haloCore = trackHeight * (1f + AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_FRACTION)
-    val haloHeight = haloCore + 2f * haloOutset
-    val haloTop = (trackHeight - haloHeight) / 2f
-    val halo = if (autoMixGlow != null) remember(trackHeight, haloOutset) {
-        val feather = haloOutset / haloHeight
-        val ramp = (0..4).map { step ->
-            val t = step / 4f
-            val alpha = AutoMixArtworkTuning.SEEK_GLOW_HALO_ALPHA * AutoMixArtworkTuning.ease(t)
-            t * feather to Color.White.copy(alpha = alpha)
-        }
-        Brush.verticalGradient(
-            colorStops = (ramp + ramp.asReversed().map { (t, color) -> 1f - t to color }).toTypedArray(),
-            startY = haloTop,
-            endY = haloTop + haloHeight,
-        )
-    } else null
 
     Box(
         modifier = modifier
@@ -273,35 +248,15 @@ fun ThinSlider(
             // dot under the sheen.
             val filled = size.width * fraction * fillFactor
             if (filled > 0f) {
-                val alpha = when {
-                    dragging -> activeColor.alpha
-                    !sheenVisible && halo != null && mixPulse?.active != true -> AutoMixArtworkTuning.SEEK_IDLE_FILL_ALPHA
-                    else -> mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
-                }
-                val fillColor = activeColor.copy(alpha = alpha)
-                val fillWidth = filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width)
-                val glow = if (dragging || sheenVisible) 0f else autoMixGlow?.invoke() ?: 0f
-                if (glow > 0f && halo != null) {
-                    val extraHeight = size.height * AutoMixArtworkTuning.SEEK_GLOW_EXTRA_HEIGHT_FRACTION * glow
-                    val coreHeight = size.height + extraHeight
-                    val coreTop = -extraHeight / 2f
-                    // Only our draw alpha changes each tick; the soft falloff stays cached.
-                    drawRoundRect(
-                        brush = halo,
-                        alpha = glow,
-                        topLeft = Offset(0f, haloTop),
-                        size = Size(fillWidth, haloHeight),
-                        cornerRadius = CornerRadius(haloHeight / 2f),
-                    )
-                    drawRoundRect(
-                        color = lerp(fillColor, Color.White, glow),
-                        topLeft = Offset(0f, coreTop),
-                        size = Size(fillWidth, coreHeight),
-                        cornerRadius = CornerRadius(coreHeight / 2f),
-                    )
-                } else {
-                    drawRoundRect(color = fillColor, size = Size(fillWidth, size.height), cornerRadius = radius)
-                }
+                val alpha = if (dragging) activeColor.alpha else mixPulse?.alpha(activeColor.alpha) ?: activeColor.alpha
+                drawRoundRect(
+                    color = activeColor.copy(alpha = alpha),
+                    size = Size(
+                        filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width),
+                        size.height,
+                    ),
+                    cornerRadius = radius,
+                )
             }
         }
         // Composed only while switching or mixing. The infinite animation therefore costs no

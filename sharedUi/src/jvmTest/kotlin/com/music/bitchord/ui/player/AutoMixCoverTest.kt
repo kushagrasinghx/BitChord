@@ -12,6 +12,7 @@ import com.music.bitchord.playback.AutoMixVisualTrack
 import org.jetbrains.skia.Canvas
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -162,8 +163,9 @@ class AutoMixCoverTest {
     @Test
     fun artworkPreferencesAreIndependentUnderTheAutoMixParent() {
         val defaults = AutoMixArtworkPreferences()
-        assertTrue(defaults.gate(automix = true).allows(1L))
-        assertTrue(defaults.gate(automix = true, mini = true).allows(1L))
+        // Both artwork transitions are opt-in.
+        assertFalse(defaults.gate(automix = true).allows(1L))
+        assertFalse(defaults.gate(automix = true, mini = true).allows(1L))
         for (autoMix in listOf(false, true)) for (art in listOf(false, true)) for (mini in listOf(false, true)) {
             val preferences = defaults.copy(artTransition = art, miniPlayerTransition = mini)
             assertEquals(autoMix && art, preferences.gate(automix = autoMix).allows(1L))
@@ -179,7 +181,7 @@ class AutoMixCoverTest {
         val mini = AutoMixCoverState({ base }, { next })
         mini.bind(incoming, null, visual)
         mini.update(visual)
-        val disabled = AutoMixArtworkPreferences(artTransition = false, skipArtworkThrough = visual.generation)
+        val disabled = AutoMixArtworkPreferences(artTransition = false, miniPlayerTransition = true, skipArtworkThrough = visual.generation)
         assertEquals(false, disabled.allows(automix = true, generation = visual.generation))
         val miniGate = disabled.gate(automix = true, mini = true)
         mini.update(visual, miniGate)
@@ -200,7 +202,7 @@ class AutoMixCoverTest {
             surface.update(visual)
             assertSame(next, surface.framesFor(incoming)?.incoming)
         }
-        val disabled = AutoMixArtworkPreferences(miniPlayerTransition = false, skipMiniThrough = visual.generation)
+        val disabled = AutoMixArtworkPreferences(artTransition = true, miniPlayerTransition = false, skipMiniThrough = visual.generation)
         val miniGate = disabled.gate(automix = true, mini = true)
         assertSame(next, mini.framesFor(incoming, miniGate)?.base)
         assertNull(mini.framesFor(incoming, miniGate)?.incoming)

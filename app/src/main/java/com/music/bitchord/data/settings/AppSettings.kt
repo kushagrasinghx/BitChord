@@ -912,8 +912,6 @@ object AppSettings {
      */
     val versionAlignmentInProgress = MutableStateFlow(false)
 
-    /** Sheen during a version crossfade that does not already hold the bar for alignment. */
-    val versionSwapSheen = MutableStateFlow(false)
 
     /**
      * How much of the *upcoming* transition has been analysed, for stats for
@@ -1061,8 +1059,8 @@ object AppSettings {
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         _autoMixArtwork.value = AutoMixArtworkPreferences(
-            artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, true),
-            miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, true),
+            artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, false),
+            miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
         )
         sleepTimerFadeOut.value = prefs.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, true)
         automixPerformanceMode.value = runCatching {

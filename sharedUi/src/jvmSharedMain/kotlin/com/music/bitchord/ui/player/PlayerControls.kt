@@ -13,6 +13,7 @@ import com.music.bitchord.data.model.CreditSegment
 import com.music.bitchord.data.model.creditSegments
 import com.music.bitchord.sharedui.resources.*
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.animation.shrinkVertically
@@ -22,6 +23,7 @@ import com.music.bitchord.ui.components.liveMenuFrost
 import com.music.bitchord.ui.components.MenuFrostDark
 import com.music.bitchord.playback.PlaybackPosition
 import androidx.compose.ui.semantics.Role
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.animation.AnimatedVisibility
 
@@ -87,33 +89,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.composed
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.withSaveLayer
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.vectorResource
 import androidx.compose.ui.layout.layout
@@ -121,16 +114,13 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.ui.components.LINE_FADE
@@ -144,11 +134,9 @@ import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.playback.AutoMixArtworkTuning
-import com.music.bitchord.playback.AutoMixVisualState
+import com.music.bitchord.playback.AutoMixVisualPhase
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -234,8 +222,8 @@ internal fun PlayerScrubber(
     durationMs: Long,
     /** A version switch's wait, drawn along the bar — see [ThinSlider.loading]. */
     loading: Boolean,
-    scrubbing: Boolean,
-    isPlaying: Boolean,
+    /** An analysed Automix handoff, drawn as a travelling sheen. */
+    mixing: Boolean,
     transitionWindow: ClosedFloatingPointRange<Float>?,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
@@ -244,12 +232,14 @@ internal fun PlayerScrubber(
     val shown = shown()
     val showTotalDuration by PlayerSettings.showTotalDuration.collectAsStateWithLifecycle()
     val totalDuration = durationMs.takeIf { it > 0L }
-    val host = PlayerPlatform.host
-    val feed = host.autoMixVisualState
-    val visual = feed?.collectAsStateWithLifecycle()
-    val versionSwapSheen = host.versionSwapSheen?.collectAsStateWithLifecycle()
+    // Held as a State and read only inside the bar's draw: the blend republishes
+    // every fade tick, and collecting it by value here would recompose the
+    // scrubber and its labels thirty times a second for a change only the
+    // canvas needs.
+    val mixBlend = PlayerSettings.smartMixBlend.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
+    // One clock for the bar and the "Mixing" label, so they breathe on the same beat.
+    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation)
     Column(Modifier.fillMaxWidth()) {
         val ink = sliderInk()
         ThinSlider(
@@ -257,20 +247,13 @@ internal fun PlayerScrubber(
             onValueChange = onScrub,
             onValueChangeFinished = onScrubFinished,
             loading = loading,
-            mixing = !scrubbing && versionSwapSheen?.value == true,
+            mixing = mixing,
+            mixPulse = mixPulse,
             transitionWindow = transitionWindow,
             vibrant = ink != null,
             activeColor = ink?.active ?: Color.White.copy(alpha = 0.92f),
             inactiveColor = ink?.inactive ?: Color.White.copy(alpha = 0.26f),
             markerColor = ink?.marker ?: Color.White.copy(alpha = 0.5f),
-            autoMixGlow = {
-                val sample = visual?.value
-                // A draw can precede lifecycle collection of the cancellation.
-                val live = feed?.value
-                if (!scrubbing && sample != null && live != null && live.mixActive &&
-                    sample.generation == live.generation
-                ) sample.seekGlow(reduceAnimation || systemMotion?.scaleFactor == 0f) else 0f
-            },
         )
         Box(
             modifier = Modifier
@@ -304,100 +287,35 @@ internal fun PlayerScrubber(
                     color = timeColor,
                 )
             }
-            AutoMixBadgeSlot(isPlaying, reduceAnimation, centerLabel)
-        }
-    }
-}
-
-private fun AutoMixVisualState.seekGlow(reducedMotion: Boolean): Float {
-    val start = overlapStartSeconds ?: return 0f
-    if (!mixActive) return 0f
-    val swap = swapSeconds
-    val attack = if (reducedMotion) AutoMixArtworkTuning.SEEK_GLOW_REDUCED_FADE_SECONDS
-        else AutoMixArtworkTuning.SEEK_GLOW_ATTACK_SECONDS
-    val release = if (reducedMotion) AutoMixArtworkTuning.SEEK_GLOW_REDUCED_FADE_SECONDS
-        else AutoMixArtworkTuning.SEEK_GLOW_RELEASE_SECONDS
-    // Freeze the attack level at the actual handoff; a short overlap need not reach full glow.
-    val attackAt = if (swap == null) audioSeconds else minOf(audioSeconds, swap)
-    val rise = ((attackAt - start) / attack).coerceIn(0.0, 1.0).toFloat()
-    val fall = if (swap == null) 0f else ((audioSeconds - swap) / release).coerceIn(0.0, 1.0).toFloat()
-    return AutoMixArtworkTuning.ease(rise) * (1f - AutoMixArtworkTuning.ease(fall))
-}
-
-@Composable
-private fun BoxScope.AutoMixBadgeSlot(
-    isPlaying: Boolean,
-    reduceAnimation: Boolean,
-    centerLabel: @Composable BoxScope.() -> Unit,
-) {
-    val feed = PlayerPlatform.host.autoMixVisualState
-    val visual = feed?.collectAsStateWithLifecycle()
-    val activeGeneration by remember(visual) {
-        derivedStateOf { visual?.value?.takeIf { it.mixActive }?.generation }
-    }
-    val generation = activeGeneration
-    val opacity = animateFloatAsState(
-        targetValue = if (generation != null) 1f else 0f,
-        animationSpec = tween(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS),
-        label = "mixing badge visibility",
-    )
-    // The quality label stays in its original centered slot and returns on fade-out.
-    Box(Modifier.matchParentSize().graphicsLayer { alpha = 1f - opacity.value }) {
-        centerLabel()
-    }
-    val stillVisible by remember(opacity) { derivedStateOf { opacity.value > 0f } }
-    if (generation != null || stillVisible) {
-        val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
-        val reducedMotion = reduceAnimation || systemMotion?.scaleFactor == 0f
-        val glowGeneration = generation.takeIf { isPlaying && !reducedMotion }
-        val glow = remember(glowGeneration) { Animatable(0f) }
-        if (glowGeneration != null) {
-            LaunchedEffect(glowGeneration) {
-                delay(AutoMixArtworkTuning.MIXING_BADGE_FADE_MS.toLong())
-                while (true) {
-                    glow.animateTo(
-                        1f,
-                        tween(AutoMixArtworkTuning.MIXING_BADGE_ILLUMINATE_MS, easing = LinearEasing),
-                    )
-                    delay(AutoMixArtworkTuning.MIXING_BADGE_FULL_HOLD_MS)
-                    glow.animateTo(
-                        2f,
-                        tween(AutoMixArtworkTuning.MIXING_BADGE_EXTINGUISH_MS, easing = LinearEasing),
-                    )
-                    glow.snapTo(0f) // Both endpoints are fully dim.
-                    delay(AutoMixArtworkTuning.MIXING_BADGE_DIM_HOLD_MS)
-                }
+            // Pinned to the box's own centre rather than squeezed into the gap
+            // between the two timestamps: that gap's width changes by a digit's
+            // worth every time a minute rolls over. Cross-faded with "Mixing"
+            // for as long as a blend holds the bar.
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer { alpha = 1f - mixPulse.cover },
+            ) {
+                centerLabel()
+            }
+            val mixingShown by remember { derivedStateOf { mixPulse.cover > 0f } }
+            if (mixingShown) {
+                MixingLabel(mixPulse, Modifier.align(Alignment.Center))
             }
         }
-        MixingLabel(
-            modifier = Modifier.align(Alignment.Center),
-            opacity = { opacity.value },
-            bright = reducedMotion,
-            glowProgress = {
-                // A pending draw must not show a glow after the producer cancels it.
-                if (glowGeneration != null && systemMotion?.scaleFactor != 0f &&
-                    feed?.value?.let { it.mixActive && it.generation == glowGeneration } == true
-                ) glow.value else 0f
-            },
-        )
     }
 }
 
+/**
+ * "Mixing", in the quality badge's place while an Automix blend runs, breathing on the same
+ * beat as the bar above it. Its opacity is read in a graphics layer, so the pulse redraws the
+ * label every frame without recomposing it. Plain text in the badge's own type, no icon and
+ * no glow: over artwork, a white haze reads as grey fog rather than light.
+ */
 @Composable
-private fun MixingLabel(
-    modifier: Modifier,
-    opacity: () -> Float,
-    bright: Boolean,
-    glowProgress: () -> Float,
-) {
-    var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    val haloRadius = AutoMixArtworkTuning.MIXING_BADGE_HALO_RADIUS_DP.dp
-    val additive = LocalPlayerChrome.current
-    val baseColor = if (bright) Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_BRIGHT_ALPHA)
-    else chromeWhite(AutoMixArtworkTuning.MIXING_BADGE_DIM_ALPHA)
+private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
     Text(
         text = stringResource(Res.string.mixing),
-        onTextLayout = { textLayout = it },
         modifier = modifier
             // Opens the mix view. Plain text that takes taps: no padding, no
             // ripple, so it lays out exactly as the label always did and
@@ -407,82 +325,16 @@ private fun MixingLabel(
                 interactionSource = remember { MutableInteractionSource() },
             ) { MixViewRequest.open = true }
             .graphicsLayer {
-                alpha = opacity()
+                alpha = pulse.cover * pulse.alpha(1f, restShare = MIXING_LABEL_REST)
                 // A buffer to fade through would cut the blend below off from the backdrop.
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            .then(if (additive) Modifier.drawWithCache {
-                // Plus forces an offscreen buffer. Size that buffer to the halo,
-                // not the text layout, and keep the label at its original origin.
-                val inset = ceil(2f * haloRadius.toPx()).toInt()
-                val paddedSize = IntSize(size.width.toInt() + 2 * inset, size.height.toInt() + 2 * inset)
-                val layer = obtainGraphicsLayer().apply { blendMode = BlendMode.Plus }
-                onDrawWithContent {
-                    val padding = inset.toFloat()
-                    layer.record(size = paddedSize) {
-                        translate(left = padding, top = padding) { this@onDrawWithContent.drawContent() }
-                    }
-                    translate(left = -padding, top = -padding) { drawLayer(layer) }
-                }
-            } else Modifier)
-            .drawWithCache {
-                val glowRadius = haloRadius.toPx()
-                val haloInset = 2f * glowRadius
-                val bounds = Rect(-haloInset, -haloInset, size.width + haloInset, size.height + haloInset)
-                val paint = Paint()
-                val halo = Shadow(
-                    color = Color.White.copy(alpha = AutoMixArtworkTuning.MIXING_BADGE_HALO_ALPHA),
-                    blurRadius = glowRadius,
-                )
-                val feather = size.width * AutoMixArtworkTuning.MIXING_BADGE_EDGE_FEATHER_FRACTION
-                // Like the lyrics wipe, feather into the glyphs ahead of the front. Ease the
-                // alpha at both ends so neither the full light nor the dim text has a visible seam.
-                fun featherBrush(lighting: Boolean): Brush = Brush.horizontalGradient(
-                    *Array(9) { index ->
-                        val t = index / 8f
-                        val eased = t * t * (3f - 2f * t)
-                        t to Color.White.copy(alpha = if (lighting) 1f - eased else eased)
-                    },
-                    startX = 0f,
-                    endX = feather,
-                )
-                val illuminate = featherBrush(lighting = true)
-                val extinguish = featherBrush(lighting = false)
-                onDrawWithContent {
-                    val layout = textLayout
-                    val progress = glowProgress()
-                    if (layout == null) {
-                        drawContent()
-                    } else {
-                        // Set the shadow explicitly: the highlight shares this paragraph's paint.
-                        drawText(layout, color = baseColor, shadow = Shadow.None)
-                        if (feather > 0f && progress > 0f && progress < 2f) {
-                            val lighting = progress <= 1f
-                            val phase = if (lighting) progress else progress - 1f
-                            // Both fronts travel across the shadow as well as the glyphs.
-                            val edge = bounds.left - feather + (bounds.width + feather) * phase
-                            // Mask only the bright glyphs and their halo, not the base or backdrop.
-                            drawContext.canvas.withSaveLayer(bounds, paint) {
-                                drawText(layout, color = Color.White, shadow = halo)
-                                // Move the cached shader, not the mask's coverage rectangle.
-                                translate(left = edge) {
-                                    drawRect(
-                                        brush = if (lighting) illuminate else extinguish,
-                                        topLeft = Offset(bounds.left - edge, bounds.top),
-                                        size = bounds.size,
-                                        blendMode = BlendMode.DstIn,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
+            .additiveChrome(LocalPlayerChrome.current),
         style = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Medium,
             fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
         ),
-        color = baseColor,
+        color = chromeWhite(0.85f),
         maxLines = 1,
     )
 }
@@ -490,6 +342,9 @@ private fun MixingLabel(
 /** How far "Upgrading quality" fades between breaths, and how long each half takes. */
 private const val UPGRADING_PULSE_LOW = 0.4f
 private const val UPGRADING_PULSE_MS = 900
+
+/** The label dips only to half between beats: text fading further stops reading as a word. */
+private const val MIXING_LABEL_REST = 0.5f
 
 /**
  * Sp over labelMedium for the quality badge and what stands in for it. Was a
@@ -695,6 +550,7 @@ internal fun BestPartPill(
 
     val haptics = rememberHaptics()
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val autoMixHold = rememberAutoMixFrostHold()
     AnimatedVisibility(
         visible = at != null && ahead && !heard && !mixing,
         // A fade either way. The room it takes opens and closes around the
@@ -713,7 +569,7 @@ internal fun BestPartPill(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(shape)
-                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen())
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
                 .clickable(role = Role.Button) {
                     val target = at ?: return@clickable
                     haptics.play(Haptic.Tap)
@@ -1212,6 +1068,22 @@ private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
     }
 
 /**
+ * Whether an AutoMix transition is armed or mixing. The glass goes flat for it, as it
+ * does under a drawer: re-blurring a playing Canvas (and, while armed, a standby
+ * decoder warming up behind it) every frame cost the GPU most of its frame budget
+ * through the handover. Read in composition, but only changes at the phase edges.
+ */
+@Composable
+internal fun rememberAutoMixFrostHold(): () -> Boolean {
+    val feed = PlayerPlatform.host.autoMixVisualState ?: return { false }
+    val visual = feed.collectAsStateWithLifecycle()
+    val hold = remember(visual) {
+        derivedStateOf { visual.value?.let { it.mixActive || it.phase == AutoMixVisualPhase.ARMED } == true }
+    }
+    return { hold.value }
+}
+
+/**
  * Glass's body: the ⋯ menu's frost, blurring the player live under a thin
  * charcoal slab. [flat] (dynamic blur reduced, or a drawer or the ⋯ menu up
  * over it, which blur the player live themselves) and a missing [hazeState]
@@ -1240,12 +1112,13 @@ internal fun GlassDiscPair(
     content: @Composable RowScope.() -> Unit,
 ) {
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val autoMixHold = rememberAutoMixFrostHold()
     Box(modifier) {
         Box(
             Modifier
                 .matchParentSize()
                 .clip(DiscPairShape)
-                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen()),
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold()),
         )
         Row(verticalAlignment = Alignment.CenterVertically, content = content)
     }

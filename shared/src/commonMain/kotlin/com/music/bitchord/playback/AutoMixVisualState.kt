@@ -6,6 +6,10 @@ object AutoMixArtworkTuning {
     const val START_LAG_AFTER_SWAP = 0.6
     const val WINDOW_SECONDS = 2.6
     const val MIN_WINDOW_SECONDS = 0.8
+    // Arming starts the incoming cover decode, ambient prep and the standby Canvas
+    // decoder. A seek straight into the mix arms right at the overlap; starting the
+    // reveal before that work settles shares its frames with it and drops to low fps.
+    const val MIN_PREPARE_LEAD_SECONDS = 1.5
     private const val LINEAR_REVEAL_WEIGHT = 0.25f
     const val OUTGOING_END_SCALE = 1f
     const val INCOMING_START_SCALE = 1f
@@ -19,25 +23,12 @@ object AutoMixArtworkTuning {
     const val NOISE_SEED_SPAN = 32f
     const val NOISE_OCTAVES = 3
     const val CANVAS_PREPARE_TIMEOUT_MS = 4_000L
+    // The audio clock is sampled every 20-30ms, a quarter of a 120Hz display's frames.
+    // The UI extrapolates between samples, at most this far, so a stalled controller
+    // cannot run the reveal ahead of the audio.
+    const val MAX_PROGRESS_EXTRAPOLATION_SECONDS = 0.12
     // Leave one audio-clock sample of margin so a late UI callback cannot join the window.
     const val CANVAS_READY_MARGIN_SECONDS = 0.05
-    const val MIXING_BADGE_FADE_MS = 400
-    const val MIXING_BADGE_ILLUMINATE_MS = 950
-    const val MIXING_BADGE_FULL_HOLD_MS = 120L
-    const val MIXING_BADGE_EXTINGUISH_MS = 950
-    const val MIXING_BADGE_DIM_HOLD_MS = 1_100L
-    const val MIXING_BADGE_DIM_ALPHA = 0.55f
-    const val MIXING_BADGE_BRIGHT_ALPHA = 0.95f
-    const val MIXING_BADGE_HALO_RADIUS_DP = 4.5f
-    const val MIXING_BADGE_HALO_ALPHA = 0.62f
-    const val MIXING_BADGE_EDGE_FEATHER_FRACTION = 0.34f
-    const val SEEK_GLOW_ATTACK_SECONDS = 0.8
-    const val SEEK_GLOW_RELEASE_SECONDS = 1.0
-    const val SEEK_GLOW_REDUCED_FADE_SECONDS = 0.15
-    const val SEEK_IDLE_FILL_ALPHA = 0.88f
-    const val SEEK_GLOW_EXTRA_HEIGHT_FRACTION = 0.12f
-    const val SEEK_GLOW_HALO_OUTSET_DP = 4f
-    const val SEEK_GLOW_HALO_ALPHA = 0.26f
 
     fun ease(progress: Float): Float = progress * progress * (3f - 2f * progress)
 
@@ -74,6 +65,24 @@ data class AutoMixVisualState(
     val swapSeconds: Double? = null,
     val artworkWindow: AutoMixArtworkWindow? = null,
     val artworkProgress: Float = 0f,
+    /** System.nanoTime() when [audioSeconds] was sampled; 0 when unknown. */
+    val sampledAtNanos: Long = 0L,
 ) {
     val mixActive: Boolean get() = phase == AutoMixVisualPhase.MIXING
+
+    /**
+     * [artworkProgress] carried forward from its sample to a display frame at [frameNanos]
+     * (same clock as [sampledAtNanos]), so the reveal moves every frame instead of in steps
+     * at the controller's tick rate. Never behind the sample; capped ahead of it.
+     */
+    fun artworkProgressAt(frameNanos: Long): Float {
+        val window = artworkWindow ?: return artworkProgress
+        if (!mixActive || artworkProgress >= 1f || sampledAtNanos == 0L || frameNanos == 0L) return artworkProgress
+        val span = window.endSeconds - window.startSeconds
+        if (span <= 0.0) return artworkProgress
+        val ahead = ((frameNanos - sampledAtNanos) / 1e9)
+            .coerceIn(0.0, AutoMixArtworkTuning.MAX_PROGRESS_EXTRAPOLATION_SECONDS)
+        val at = ((audioSeconds + ahead - window.startSeconds) / span).coerceIn(0.0, 1.0).toFloat()
+        return maxOf(artworkProgress, at)
+    }
 }

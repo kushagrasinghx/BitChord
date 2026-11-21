@@ -6,8 +6,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /** Saved choices plus in-memory fences for mixes interrupted by a preference change. */
 data class AutoMixArtworkPreferences(
-    val artTransition: Boolean = true,
-    val miniPlayerTransition: Boolean = true,
+    // Both off until the listener turns them on: AutoMix audio does not depend on them.
+    val artTransition: Boolean = false,
+    val miniPlayerTransition: Boolean = false,
     val skipArtworkThrough: Long = 0L,
     val skipMiniThrough: Long = 0L,
 ) {

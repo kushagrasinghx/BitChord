@@ -90,8 +90,20 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas
     }
 
-    return canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
+    return canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
 }
+
+/**
+ * The full-size cover request, shared by the player and the AutoMix prepared cover so
+ * a prepared decode is the entry the player then reads. Coil leaves size out of the
+ * memory-cache key, and the blur and palette reads load the same URL at thumbnail
+ * sizes; under a URL-only key their small decode could replace the full one, and the
+ * next track's hold-over placeholder came up pixelated. The extra keeps the full-size
+ * decode in its own slot; same-size widget requests use the same extra.
+ */
+internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): ImageRequest.Builder =
+    ImageRequest.Builder(context).data(artworkUrl).size(ART_PX)
+        .memoryCacheKeyExtra(PLAYER_ART_MEMORY_CACHE_KEY_EXTRA, ART_PX.toString())
 
 /**
  * The player's cover: the one request every surface draws it from, whether it
@@ -136,6 +148,15 @@ internal class PlayerArtwork(
 
     /** This cover's memory-cache entry, once it has been drawn. */
     private var shown: MemoryCache.Key? = null
+    private var decodedCover: DecodedAutoMixCover? = null
+    private var decodedDuringMix: Long? = null
+
+    fun decodedCoverBefore(generation: Long): DecodedAutoMixCover? =
+        decodedCover?.takeIf { decodedDuringMix != generation }
+
+    fun noteDisplayedCover(cover: DecodedAutoMixCover) {
+        shown = cover.cacheKey
+    }
 
     /**
      * What the next cover should stand on while it loads: this one, or, if it
@@ -166,18 +187,13 @@ internal class PlayerArtwork(
      */
     val request: ImageRequest by derivedStateOf {
         val attempt = attempt
-        ImageRequest.Builder(context)
-            .data(url)
-            .size(ART_PX)
-            // Other surfaces may load this same URL at thumbnail sizes. Keep
-            // their cache entries from replacing the image used for hold-over;
-            // the matching widget request uses this same extra.
-            .memoryCacheKeyExtra(PLAYER_ART_MEMORY_CACHE_KEY_EXTRA, ART_PX.toString())
+        playerCoverRequest(context, url)
+            // Not part of the cache key, so the AutoMix prepared cover still shares it.
             .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
-            // request keeps the same memory-cache identity as a same-size widget
-            // request. The disk key is unaffected either way.
+            // request keeps the memory-cache identity of the AutoMix prepared cover
+            // and of a same-size widget request. The disk key is unaffected either way.
             .apply { if (attempt > 0) memoryCacheKeyExtra("attempt", attempt.toString()) }
             .build()
     }
@@ -192,6 +208,8 @@ internal class PlayerArtwork(
         if (state is AsyncImagePainter.State.Success) {
             failed = false
             shown = state.result.memoryCacheKey
+            decodedCover = state.result.decodedAutoMixCover()
+            decodedDuringMix = PlayerPlatform.host.autoMixVisualState?.value?.takeIf { it.mixActive }?.generation
         }
         if (state is AsyncImagePainter.State.Error) failed = true
     }

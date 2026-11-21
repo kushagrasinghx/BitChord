@@ -27,16 +27,24 @@ private class ActivityOrientation(private val activity: Activity) : ScreenOrient
         // With auto-rotate off the sensor would only turn it straight back:
         // the request then holds until this is let go of.
         if (!autoRotate()) return
+        // Turned sideways, the screen stays sideways until the phone is held
+        // upright again. Handing it back to the sensor the moment the phone
+        // was turned instead raced the system's own reading of it, which
+        // trails this one: for that moment the system still saw it upright,
+        // and the screen flicked to portrait and back.
+        var turned = false
         listener = object : OrientationEventListener(activity) {
             override fun onOrientationChanged(degrees: Int) {
                 if (degrees == ORIENTATION_UNKNOWN) return
-                val held = if (landscape) {
-                    degrees in 60..120 || degrees in 240..300
+                val upright = degrees <= 25 || degrees >= 335
+                val release = if (landscape) {
+                    if (degrees in 60..120 || degrees in 240..300) turned = true
+                    turned && upright
                 } else {
-                    degrees <= 25 || degrees >= 335
+                    // Held the way it was turned: the sensor has it from here.
+                    upright
                 }
-                // Held the way it was turned: the sensor has it from here.
-                if (held) {
+                if (release) {
                     disable()
                     listener = null
                     original?.let { activity.requestedOrientation = it }

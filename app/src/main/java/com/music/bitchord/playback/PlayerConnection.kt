@@ -353,6 +353,27 @@ suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolea
         false
     }
 
+/**
+ * A queue-screen tap on a history row: played again at the playhead, keeping
+ * later history as history. False when the service left the queue as it was
+ * (a party, a bounded context, a row that moved): seek to it instead.
+ */
+suspend fun MediaController.replayFromHistory(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_REPLAY_HISTORY, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
 /** Only queue-screen removals enter the service's transient Undo history. */
 suspend fun MediaController.removeQueueItemWithUndo(index: Int, song: Song): Boolean =
     acknowledgedQueueEdit(

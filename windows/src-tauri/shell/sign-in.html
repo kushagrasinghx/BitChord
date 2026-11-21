@@ -1,0 +1,238 @@
+<!doctype html>
+<!--
+  The sign-in sheet's chrome (src/sign_in.rs). The provider's own page is a
+  separate webview placed over .body; the card's numbers here (520×720 max,
+  32/48px margins, 64px header, 44px footer) must match the ones in sign_in.rs.
+  Its buttons talk to sign_in.rs by navigating this frame to /close or /back.
+  Styled as upstream's modals (web/app/src/shell/LyricsSettings.tsx), with
+  upstream's tokens.css compiled in where the marker below is.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap"
+    />
+    <style>
+      /*TOKENS*/
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font: var(--body);
+        color: var(--systemPrimary);
+        -webkit-font-smoothing: antialiased;
+      }
+      .scrim {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: var(--modalScrimColor);
+        animation: fade 0.15s ease-out;
+      }
+      .card {
+        width: min(520px, calc(100vw - 32px));
+        height: min(720px, calc(100vh - 48px));
+        display: grid;
+        grid-template-rows: 64px 1fr 44px;
+        border-radius: 14px;
+        background: var(--pageBG);
+        box-shadow: 0 10px 40px var(--glassMaterialShadowColor), 0 0 0 0.5px var(--labelDivider);
+        overflow: hidden;
+        animation: zoom 0.2s ease-out;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 20px;
+      }
+      h2 {
+        font: var(--title-2-emphasized);
+      }
+      .site {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 3px;
+        font: var(--callout);
+        color: var(--systemSecondary);
+      }
+      .close {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 50%;
+        background: #333336;
+        color: var(--systemSecondary-onDark);
+        cursor: pointer;
+      }
+      .close:focus-visible {
+        outline: 2px solid var(--keyColor-focus-color);
+        outline-offset: 2px;
+      }
+      /* Covered by the provider's page once it paints; until then, a spinner. */
+      .body {
+        display: grid;
+        place-items: center;
+        background: var(--systemQuinary);
+      }
+      .spinner {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--systemQuaternary);
+        border-top-color: var(--systemSecondary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      footer {
+        display: grid;
+        padding: 0 20px;
+        font: var(--callout);
+        color: var(--systemTertiary);
+        border-top: 0.5px solid var(--labelDivider);
+        transition: background-color 0.15s ease-out;
+      }
+      /* The two footer states share one cell, so swapping them never moves the card. */
+      .note,
+      .away {
+        grid-area: 1 / 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: opacity 0.15s ease-out;
+      }
+      .away {
+        justify-content: space-between;
+        gap: 12px;
+        font: var(--body-emphasized);
+        color: var(--systemPrimary);
+        opacity: 0;
+        visibility: hidden;
+      }
+      footer.is-away {
+        background: var(--systemQuinary);
+      }
+      footer.is-away .note {
+        opacity: 0;
+        visibility: hidden;
+      }
+      footer.is-away .away {
+        opacity: 1;
+        visibility: visible;
+      }
+      /* The web player's own key-colour pill (shell/AccountButton.tsx, "Sign In"). */
+      .pill {
+        border: 0;
+        border-radius: 16px;
+        padding: 5px 14px;
+        background: var(--keyColor);
+        color: #fff;
+        font: 600 13px / 18px var(--font-family);
+        cursor: pointer;
+      }
+      .pill:hover {
+        filter: brightness(1.08);
+      }
+      .pill:focus-visible {
+        outline: 2px solid var(--keyColor-focus-color);
+        outline-offset: 2px;
+      }
+      svg {
+        flex: none;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+      }
+      @keyframes zoom {
+        from {
+          transform: scale(0.97);
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .scrim,
+        .card {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scrim" id="scrim">
+      <section class="card" role="dialog" aria-modal="true" aria-labelledby="title">
+        <header>
+          <div>
+            <h2 id="title">Sign in</h2>
+            <p class="site">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              <span id="host"></span>
+            </p>
+          </div>
+          <button class="close" id="close" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div class="body"><div class="spinner" role="status" aria-label="Loading"></div></div>
+        <footer>
+          <p class="note">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span id="note"></span>
+          </p>
+          <!-- Shown when the provider's page leaves the sign-in (help, privacy, terms). -->
+          <div class="away" role="status" aria-live="polite">
+            <p>You've left sign-in</p>
+            <button class="pill" id="back">Back to sign-in</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+    <script>
+      // sign_in.rs calls this again on every navigation of the provider's page; `away` is true off the sign-in.
+      function show(name, host, away = false) {
+        document.getElementById('title').textContent = `Sign in to ${name}`;
+        document.getElementById('host').textContent = host;
+        if (!away) document.getElementById('note').textContent = `Your password goes only to ${host}, never to BitChord.`;
+        document.querySelector('footer').classList.toggle('is-away', away);
+        document.title = `Sign in to ${name}`;
+      }
+      const params = new URLSearchParams(location.search);
+      show(params.get('name') ?? '', params.get('host') ?? '');
+
+      // sign_in.rs answers these navigations: /close closes the sheet, /back returns to the last sign-in step.
+      const close = () => location.assign('/close');
+      document.getElementById('close').addEventListener('click', close);
+      document.getElementById('back').addEventListener('click', () => location.assign('/back'));
+      document.getElementById('scrim').addEventListener('pointerdown', (e) => e.target === e.currentTarget && close());
+      addEventListener('keydown', (e) => e.key === 'Escape' && close());
+      document.getElementById('close').focus();
+    </script>
+  </body>
+</html>

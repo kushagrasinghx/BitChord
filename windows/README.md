@@ -49,8 +49,30 @@ missing.
 Verified on Windows 11 (26300) with v1.10: the extension loads with its pinned
 id, the page reaches it over `externally_connectable`, search and playback work
 (InnerTube and googlevideo through the extension's header rules), lyrics come
-through `lyrics.fetch`, and the Google and Spotify sign-in pages open in in-app
-popups that share the extension's cookie jar.
+through `lyrics.fetch`, and the Google and Spotify sign-in pages open in the
+sign-in sheet, which closes itself when the provider hands back.
+
+## Sign-in
+
+Google's sign-in (the page's "Sign In") and Spotify's (the extension's
+`spotify.signIn`) open as a sheet over the player rather than a separate
+window: `src/sign_in.rs` with `shell/sign-in.html`, styled as the web player's
+own modals and drawn with `web/app/src/styles/tokens.css`, compiled in, so it
+follows upstream's design and light/dark mode.
+
+The provider's page inside the sheet is the real one, unmodified. The header
+shows the site it is on and follows every navigation ("Continue with Google"
+on Spotify's page changes it), so the padlock never names a site you are not
+on. The sheet is a webview in the player's own profile, so the session lands in
+the cookie jar the extension reads, and it closes itself once the provider
+hands back to its own site (`music.youtube.com`, `open.spotify.com`). Other
+links the player opens go to the default browser.
+
+Each provider lists the sites its sign-in passes through (`flow` in
+`sign_in.rs`). If the page leaves them, for example through Help, Privacy or
+Terms (which open in the sheet rather than a new window), the footer becomes
+"You've left sign-in" with a **Back to sign-in** button in the player's
+key-colour pill, which returns to the last sign-in step.
 
 ## Keeping it current
 
@@ -65,8 +87,8 @@ permission that WebView2 does not support.
 
 ## Known limits
 
-- **Sign-in** goes through Google's and Spotify's own pages in an app popup, so the cookies
-  land in the app's WebView2 profile, not your browser's. You sign in once inside the app.
+- **Sign-in** lives in the app's WebView2 profile, not your browser's: you sign in once inside the app.
+- The sheet uses Tauri's child webviews, which are behind its `unstable` feature flag.
 - **Discord presence** needs the extension to script a `discord.com` tab; WebView2 extensions
   may not allow that, so it can be unavailable.
 - WebView2 extension support is a subset of Chrome's (no toolbar popup). The player never

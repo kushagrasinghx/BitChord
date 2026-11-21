@@ -8,8 +8,9 @@
 //! in a browser. WebView2 is Chromium, so it loads the same MV3 build the
 //! Chrome zip holds; this file only hosts the two together.
 
-use tauri::webview::NewWindowResponse;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+mod sign_in;
+
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 fn main() {
     tauri::Builder::default()
@@ -20,18 +21,24 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
+        .register_uri_scheme_protocol(sign_in::SCHEME, |_ctx, _request| sign_in::serve())
+        .on_window_event(|window, event| {
+            if let WindowEvent::Resized(_) = event {
+                sign_in::relayout(window.app_handle());
+            }
+        })
         .setup(|app| {
             // scripts/build.mjs bundles the built extension at resources/extensions/bitchord.
             let extensions = app.path().resource_dir()?.join("extensions");
+            let handle = app.handle().clone();
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("BitChord")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(400.0, 600.0)
                 .browser_extensions_enabled(true)
                 .extensions_path(extensions)
-                // Sign-in (Google, Spotify) opens as a popup; WebView2's own popup shares this
-                // profile, so the session lands in the cookie jar the extension reads.
-                .on_new_window(|_url, _features| NewWindowResponse::Allow)
+                // Google's and Spotify's sign-in become a sheet over the player; other links open in the browser.
+                .on_new_window(move |url, _features| sign_in::on_new_window(&handle, url))
                 .build()?;
             Ok(())
         })

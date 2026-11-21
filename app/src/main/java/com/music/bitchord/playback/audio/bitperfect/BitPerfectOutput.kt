@@ -284,6 +284,7 @@ internal object BitPerfectOutput {
                     convert = convert,
                     allowFixedVolume = AppSettings.usbAllowFixedVolume.value,
                     rememberedDb = UsbDirectDevices.rememberedVolume(device.deviceId),
+                    attenuateStartupVolume = AppSettings.usbAttenuateStartupVolume.value,
                 )
             }
         }

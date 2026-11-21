@@ -132,11 +132,14 @@ internal object UsbVolume {
     ) {
         var snapshot: Snapshot = snapshot
             private set
+        var modified: Boolean = false
+            private set
 
         /** Sets every controlled channel to [db] (at most 0 dB), verified by read-back. */
         fun set(control: UsbControl, db: Double): Snapshot {
             require(db.isFinite() && db <= 0.0 && db >= -128.0) { "Invalid USB volume" }
             val target = floor(minOf(db, snapshot.maxDb) * 256.0).toInt()
+            modified = true
             return setTargets(control, List(feature.channels.size) { target })
         }
 
@@ -146,7 +149,12 @@ internal object UsbVolume {
          * the stream, and would otherwise follow it into Android's own driver
          * and every other app.
          */
-        fun restore(control: UsbControl): Snapshot = setTargets(control, original)
+        fun restore(control: UsbControl): Snapshot {
+            if (!modified) return snapshot
+            val result = setTargets(control, original)
+            modified = false
+            return result
+        }
 
         internal fun setTargets(control: UsbControl, targets: List<Int>): Snapshot {
             val index = (feature.unit shl 8) or feature.interface_
@@ -187,7 +195,11 @@ internal object UsbVolume {
              * lowers each to at most [STARTUP_DB] — never raising one — and
              * confirms by read-back before any audio may play.
              */
-            fun open(control: UsbControl, feature: Feature): Volume {
+            fun open(
+                control: UsbControl,
+                feature: Feature,
+                attenuateStartupVolume: Boolean = true,
+            ): Volume {
                 val index = (feature.unit shl 8) or feature.interface_
                 val ranges = mutableListOf<List<Range>>()
                 var current = Short.MIN_VALUE.toInt()
@@ -202,7 +214,7 @@ internal object UsbVolume {
                     current = maxOf(current, level)
                     restoreLimit = minOf(restoreLimit, level)
                     original += level
-                    startup += minOf(level, STARTUP_DB * 256)
+                    startup += if (attenuateStartupVolume) minOf(level, STARTUP_DB * 256) else level
                     ranges += if (feature.uac2) {
                         control.transfer(true, UAC2_RANGE, selector, index, data)
                         val count = (data[0].toInt() and 255) or ((data[1].toInt() and 255) shl 8)
@@ -224,7 +236,7 @@ internal object UsbVolume {
                 }
                 val min = ranges.maxOf { r -> r.minOf { it.min } }
                 val max = minOf(ranges.minOf { r -> r.maxOf { it.max } }, 0)
-                if (min >= max || min > STARTUP_DB * 256) {
+                if (min >= max || (attenuateStartupVolume && min > STARTUP_DB * 256)) {
                     throw IllegalStateException("USB volume cannot provide startup attenuation")
                 }
                 val volume = Volume(
@@ -236,11 +248,14 @@ internal object UsbVolume {
                         minDb = min / 256.0,
                         maxDb = max / 256.0,
                         currentDb = current / 256.0,
-                        restoreLimitDb = restoreLimit / 256.0,
+                        restoreLimitDb = if (attenuateStartupVolume) restoreLimit / 256.0 else max / 256.0,
                     ),
                 )
-                // Never raise the device's current volume on connection.
-                volume.setTargets(control, startup)
+                if (attenuateStartupVolume) {
+                    // Never raise the device's current volume on connection.
+                    volume.setTargets(control, startup)
+                    volume.modified = true
+                }
                 return volume
             }
         }

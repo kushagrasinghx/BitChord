@@ -527,6 +527,9 @@ object AppSettings {
     /** Music videos are square wherever they show — see [com.music.bitchord.ui.components.VideoThumbnails]. */
     val squareVideoThumbnails = MutableStateFlow(false)
 
+    /** Displays stylized album title logos and custom PNG title logos in place of plain text. */
+    val albumTitleLogos = MutableStateFlow(true)
+
     /** Analyzes audio waveform/envelope to align matching playback moment between versions. */
     val smartVersionAlignment = MutableStateFlow(true)
 
@@ -1132,6 +1135,7 @@ object AppSettings {
         hideHomeMoods.value = prefs.getBoolean(KEY_HIDE_HOME_MOODS, false)
         squareVideoThumbnails.value = prefs.getBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, false)
         VideoThumbnails.square = squareVideoThumbnails.value
+        albumTitleLogos.value = prefs.getBoolean(KEY_ALBUM_TITLE_LOGOS, true)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         disableBlendEffects.value = prefs.getBoolean(KEY_DISABLE_BLEND_EFFECTS, false)
@@ -1642,6 +1646,11 @@ object AppSettings {
         squareVideoThumbnails.value = value
         VideoThumbnails.square = value
         prefs.edit().putBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, value).apply()
+    }
+
+    fun setAlbumTitleLogos(value: Boolean) {
+        albumTitleLogos.value = value
+        prefs.edit().putBoolean(KEY_ALBUM_TITLE_LOGOS, value).apply()
     }
 
     fun setSmartVersionAlignment(value: Boolean) {
@@ -2477,6 +2486,7 @@ object AppSettings {
     private const val KEY_HIDE_TOP_PICKS = "hide_top_picks"
     private const val KEY_HIDE_HOME_MOODS = "hide_home_moods"
     private const val KEY_SQUARE_VIDEO_THUMBNAILS = "square_video_thumbnails"
+    private const val KEY_ALBUM_TITLE_LOGOS = "album_title_logos"
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_DISABLE_BLEND_EFFECTS = "disable_blend_effects"

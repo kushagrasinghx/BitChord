@@ -68,6 +68,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.heightIn
+import com.music.bitchord.data.canvas.AlbumLogoRepository
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -1054,14 +1062,9 @@ private fun ReleaseHeader(
         }
 
         Spacer(Modifier.height(20.dp))
-        Text(
-            text = page.title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = palette.onBackground,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = HEADER_GUTTER),
+        AlbumTitleHeader(
+            page = page,
+            palette = palette,
         )
         if (credit.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
@@ -1189,6 +1192,127 @@ private fun ReleaseHeader(
                 }
             }
         }
+    }
+}
+
+/**
+ * Displays either the user's custom PNG title logo or the album/playlist title text,
+ * with support for long-press to set or remove a custom title logo.
+ */
+@Composable
+private fun AlbumTitleHeader(
+    page: DetailPage,
+    palette: ArtworkPalette,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalPlatformContext.current
+    val scope = rememberCoroutineScope()
+    val updates by AlbumLogoRepository.updates.collectAsStateWithLifecycle()
+    val enabled by AppSettings.albumTitleLogos.collectAsStateWithLifecycle()
+    val customLogo = remember(page.browseId, updates) {
+        AlbumLogoRepository.customLogoFile(context, page.browseId)
+    }
+
+    var showLogoDialog by remember { mutableStateOf(false) }
+
+    val logoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                AlbumLogoRepository.saveCustomLogo(context, page.browseId, uri)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = HEADER_GUTTER),
+        contentAlignment = Alignment.Center,
+    ) {
+        var logoLoaded by remember(customLogo, enabled) { mutableStateOf(false) }
+
+        if (enabled && customLogo != null) {
+            AsyncImage(
+                model = customLogo,
+                contentDescription = page.title,
+                contentScale = ContentScale.Fit,
+                onState = { state ->
+                    logoLoaded = state is AsyncImagePainter.State.Success
+                },
+                modifier = Modifier
+                    .heightIn(max = 64.dp)
+                    .fillMaxWidth(0.85f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .longPressMenuClickable(
+                        onClick = { showLogoDialog = true },
+                        onLongClick = { showLogoDialog = true },
+                    ),
+            )
+        }
+
+        if (!logoLoaded || !enabled || customLogo == null) {
+            Text(
+                text = page.title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = palette.onBackground,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .longPressMenuClickable(
+                        onClick = {},
+                        onLongClick = { showLogoDialog = true },
+                    ),
+            )
+        }
+    }
+
+    if (showLogoDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoDialog = false },
+            title = { Text(stringResource(R.string.title_logo_menu_title)) },
+            text = {
+                Text(
+                    text = page.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoDialog = false
+                        logoPicker.launch("image/*")
+                    }
+                ) {
+                    Text(stringResource(R.string.set_title_logo))
+                }
+            },
+            dismissButton = {
+                if (customLogo != null) {
+                    TextButton(
+                        onClick = {
+                            showLogoDialog = false
+                            scope.launch {
+                                AlbumLogoRepository.removeCustomLogo(context, page.browseId)
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.remove_title_logo),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                } else {
+                    TextButton(onClick = { showLogoDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
+        )
     }
 }
 

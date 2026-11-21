@@ -8026,7 +8026,6 @@ class PlaybackService : MediaLibraryService() {
                 com.music.bitchord.sponsorblock.SponsorBlockManager.onEnabledChanged(on) { player }
             }
         }
-        }
         scope.launch {
             // The queue as it stands is re-judged at once, rather than at the
             // next track, and read-ahead may have been warming a video.

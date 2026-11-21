@@ -162,7 +162,7 @@ export default function SearchPage() {
         the suggestions inside it could only blur the bar itself and showed the page underneath unblurred.
       */}
       <div className="sticky top-0 z-[calc(var(--z-default)+5)] flex justify-center px-(--body-gutter) py-3 before:absolute before:inset-0 before:-z-1 before:bg-header-material before:[backdrop-filter:saturate(180%)_blur(20px)]">
-        <SearchField initial={query} onSearch={(q) => setParams(q ? { q } : {})} />
+        <SearchField initial={query} onSearch={(q) => setParams(q ? { q } : {})} autoFocus />
       </div>
       {missing ? <NeedsExtension what="and search YouTube Music" /> : query ? <Results query={query} /> : <Landing />}
     </>

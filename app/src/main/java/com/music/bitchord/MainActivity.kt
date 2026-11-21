@@ -321,6 +321,7 @@ import com.music.bitchord.data.model.TopPickKind
 import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.ui.screens.MoodGridPage
 import com.music.bitchord.ui.player.NowPlayingScreen
+import com.music.bitchord.ui.player.rememberMiniAutoMixArtwork
 import com.music.bitchord.ui.player.QueueBulkAction
 import kotlinx.coroutines.CompletableDeferred
 import com.music.bitchord.ui.player.MixViewRequest
@@ -4384,6 +4385,7 @@ private fun BitChordApp(
                     }
                 }
 
+                val miniArtwork = rememberMiniAutoMixArtwork(player.song, player.queue, player.queueIndex)
                 if (glassActive) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -4421,6 +4423,7 @@ private fun BitChordApp(
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
                         onActiveTabTap = onActiveTabTap,
+                        autoMixArtwork = miniArtwork,
                     )
                 } else Column(
                     modifier = Modifier
@@ -4459,6 +4462,7 @@ private fun BitChordApp(
                             dock = activeDock,
                             pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                             modifier = Modifier.fillMaxWidth(),
+                            autoMixArtwork = miniArtwork,
                         )
                         Spacer(Modifier.height(8.dp))
                     }

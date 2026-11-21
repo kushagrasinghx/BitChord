@@ -89,8 +89,11 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas
     }
 
-    return canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
+    return canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
 }
+
+internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): ImageRequest.Builder =
+    ImageRequest.Builder(context).data(artworkUrl).size(ART_PX)
 
 /**
  * The player's cover: the one request every surface draws it from, whether it
@@ -135,6 +138,15 @@ internal class PlayerArtwork(
 
     /** This cover's memory-cache entry, once it has been drawn. */
     private var shown: MemoryCache.Key? = null
+    private var decodedCover: DecodedAutoMixCover? = null
+    private var decodedDuringMix: Long? = null
+
+    fun decodedCoverBefore(generation: Long): DecodedAutoMixCover? =
+        decodedCover?.takeIf { decodedDuringMix != generation }
+
+    fun noteDisplayedCover(cover: DecodedAutoMixCover) {
+        shown = cover.cacheKey
+    }
 
     /**
      * What the next cover should stand on while it loads: this one, or, if it
@@ -165,9 +177,7 @@ internal class PlayerArtwork(
      */
     val request: ImageRequest by derivedStateOf {
         val attempt = attempt
-        ImageRequest.Builder(context)
-            .data(url)
-            .size(ART_PX)
+        playerCoverRequest(context, url)
             // Not part of the cache key, so the mesh and the palette still share it.
             .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
@@ -189,6 +199,8 @@ internal class PlayerArtwork(
         if (state is AsyncImagePainter.State.Success) {
             failed = false
             shown = state.result.memoryCacheKey
+            decodedCover = state.result.decodedAutoMixCover()
+            decodedDuringMix = PlayerPlatform.host.autoMixVisualState?.value?.takeIf { it.mixActive }?.generation
         }
         if (state is AsyncImagePainter.State.Error) failed = true
     }

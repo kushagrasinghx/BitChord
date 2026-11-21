@@ -54,14 +54,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
-import coil3.request.ImageRequest
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.ui.haptics.Haptic
@@ -280,13 +276,19 @@ internal fun LandscapePlayerLayout(
  */
 @Composable
 internal fun LandscapeArtwork(
-    artRequest: ImageRequest,
+    art: PlayerArtwork,
+    autoMixFrames: AutoMixCoverFrames?,
     artLoaded: Boolean,
-    onArtState: (AsyncImagePainter.State) -> Unit,
     canvas: CanvasArtwork?,
+    canvasPair: AutoMixCanvasTracks?,
     canvasRendered: Boolean,
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
+    hideCanvas: Boolean,
+    /** A hidden clip's opacity: zero, or an outgoing Spotify Canvas fading out before an AutoMix reveal. */
+    hiddenCanvasAlpha: () -> Float = { 0f },
+    /** Hold the outgoing clip on its frame for the AutoMix reveal. */
+    freezeCanvas: Boolean = false,
     transitionAlpha: () -> Float,
     transitionStill: () -> ImageBitmap?,
     transitionStillVisible: () -> Boolean,
@@ -337,40 +339,53 @@ internal fun LandscapeArtwork(
                     modifier = Modifier.fillMaxSize(0.36f),
                 )
             }
-            AsyncImage(
-                model = artRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                onState = onArtState,
+            AutoMixPlayerCover(
+                art = art,
+                frames = autoMixFrames.baseUnderCanvas(canvasPair),
                 // Not drawn under a clip that got there first — see the
                 // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
                     .fillMaxSize()
                     .drawWithContent {
                         if (artLoaded || !canvasRendered) drawContent()
-                        if (canvas?.source == CanvasSource.APPLE && transitionStillVisible()) {
+                        if (!hideCanvas && canvas?.source == CanvasSource.APPLE && transitionStillVisible()) {
                             transitionStill()?.let { drawCropped(it, if (artLoaded) transitionAlpha() else 1f) }
                         }
                     },
             )
-            canvas?.let { clip ->
+            CanvasPresentationHost(canvas, canvasPair?.incomingClip) { clip, standby ->
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
-                    pausedForTransition = pausedForTransition,
+                    pausedForTransition = pausedForTransition || (standby && canvasPair?.started != true) ||
+                        (!standby && freezeCanvas),
                     presentationAlpha = {
-                        if (clip.source != CanvasSource.APPLE) 1f
+                        if (standby) 1f
+                        else if (hideCanvas) hiddenCanvasAlpha()
+                        else if (clip.source != CanvasSource.APPLE) 1f
                         else if (transitionStillVisible()) 0f
                         else if (artLoaded) transitionAlpha() else 1f
                     },
-                    captureStill = clip.source == CanvasSource.APPLE && captureStill,
+                    captureStill = !standby && !hideCanvas && clip.source == CanvasSource.APPLE && captureStill,
                     onStillCaptured = { image, position ->
-                        if (clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
+                        if (!standby && clip.source == CanvasSource.APPLE) onStillCaptured(image, position)
                     },
-                    onResumed = { if (clip.source == CanvasSource.APPLE) onClipResumed() },
-                    onRenderedChanged = onCanvasRenderedChange,
+                    onResumed = { if (!standby && clip.source == CanvasSource.APPLE) onClipResumed() },
+                    onRenderedChanged = {
+                        if (standby) canvasPair?.reportIncoming(it) else {
+                            onCanvasRenderedChange(it)
+                            canvasPair?.reportOutgoing(it)
+                        }
+                    },
+                    revealInstantly = standby,
+                    nowPlaying = true,
+                    organicReveal = if (standby) canvasPair?.standbyReveal(!pausedForTransition) else null,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+            val incoming = autoMixFrames?.incoming
+            if (incoming != null && canvasPair?.liveOutgoing == true && !canvasPair.liveIncoming) {
+                AutoMixIncomingStill(incoming, canvasPair::reveal, canvasPair.generation)
             }
         }
         overlay()

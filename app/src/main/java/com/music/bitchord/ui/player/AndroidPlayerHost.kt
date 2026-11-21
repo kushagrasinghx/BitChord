@@ -26,6 +26,7 @@ import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.AutoMixVisualFeed
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
@@ -59,6 +60,21 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
 
+    override val autoMixVisualState get() = AutoMixVisualFeed.state
+
+    override fun onAutoMixScrubIntent() = AutoMixVisualFeed.cancel()
+
+    @Composable
+    override fun autoMixIncomingReveal(
+        eased: () -> Float,
+        reducedMotion: () -> Boolean,
+        generation: Long,
+        blur: Boolean,
+    ): Modifier = androidAutoMixIncomingReveal(eased, reducedMotion, generation, blur)
+
+    override val supportsAutoMixCanvas: Boolean get() = true
+
+
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
         override val audioQualityCellular get() = AppSettings.audioQualityCellular
@@ -90,6 +106,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val smartAnalysis get() = AppSettings.smartAnalysis
         override val automixDetail get() = AppSettings.automixDetail
         override val smartFadeEnabled get() = AppSettings.smartFadeEnabled
+        override val autoMixArtwork get() = AppSettings.autoMixArtwork
         override val smartMixInProgress get() = AppSettings.smartMixInProgress
         override val smartMixBlend get() = AppSettings.smartMixBlend
         override val smartMixView get() = AppSettings.smartMixView

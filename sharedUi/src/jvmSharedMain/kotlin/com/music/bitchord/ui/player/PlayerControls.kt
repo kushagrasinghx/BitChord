@@ -134,6 +134,7 @@ import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.playback.AutoMixVisualPhase
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -549,6 +550,7 @@ internal fun BestPartPill(
 
     val haptics = rememberHaptics()
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val autoMixHold = rememberAutoMixFrostHold()
     AnimatedVisibility(
         visible = at != null && ahead && !heard && !mixing,
         // A fade either way. The room it takes opens and closes around the
@@ -567,7 +569,7 @@ internal fun BestPartPill(
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(shape)
-                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen())
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold())
                 .clickable(role = Role.Button) {
                     val target = at ?: return@clickable
                     haptics.play(Haptic.Tap)
@@ -1066,6 +1068,22 @@ private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
     }
 
 /**
+ * Whether an AutoMix transition is armed or mixing. The glass goes flat for it, as it
+ * does under a drawer: re-blurring a playing Canvas (and, while armed, a standby
+ * decoder warming up behind it) every frame cost the GPU most of its frame budget
+ * through the handover. Read in composition, but only changes at the phase edges.
+ */
+@Composable
+internal fun rememberAutoMixFrostHold(): () -> Boolean {
+    val feed = PlayerPlatform.host.autoMixVisualState ?: return { false }
+    val visual = feed.collectAsStateWithLifecycle()
+    val hold = remember(visual) {
+        derivedStateOf { visual.value?.let { it.mixActive || it.phase == AutoMixVisualPhase.ARMED } == true }
+    }
+    return { hold.value }
+}
+
+/**
  * Glass's body: the ⋯ menu's frost, blurring the player live under a thin
  * charcoal slab. [flat] (dynamic blur reduced, or a drawer or the ⋯ menu up
  * over it, which blur the player live themselves) and a missing [hazeState]
@@ -1094,12 +1112,13 @@ internal fun GlassDiscPair(
     content: @Composable RowScope.() -> Unit,
 ) {
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val autoMixHold = rememberAutoMixFrostHold()
     Box(modifier) {
         Box(
             Modifier
                 .matchParentSize()
                 .clip(DiscPairShape)
-                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen()),
+                .glassFrost(hazeState, flat = reduceDynamicBlur || overlayOpen() || autoMixHold()),
         )
         Row(verticalAlignment = Alignment.CenterVertically, content = content)
     }

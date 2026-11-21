@@ -134,3 +134,19 @@ target_link_options(bitchord_usb PRIVATE
     "-Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/bitperfect/exports.map")
 set_property(TARGET bitchord_usb APPEND PROPERTY LINK_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/bitperfect/exports.map")
+
+# Host/emulator native tests are opt-in so ordinary app builds do not grow a
+# second test executable. The policy header has no libusb dependency.
+option(BCHORD_BUILD_NATIVE_TESTS "Build BitChord native regression tests" OFF)
+if(BCHORD_BUILD_NATIVE_TESTS)
+    enable_testing()
+    add_executable(iso_packet_policy_test tests/iso_packet_policy_test.cpp)
+    target_include_directories(iso_packet_policy_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_options(iso_packet_policy_test PRIVATE -std=c++17 -Wall -Wextra)
+    add_test(NAME iso_packet_policy_test COMMAND iso_packet_policy_test)
+
+    add_executable(usb_stream_test bitperfect/tests/usb_stream_test.cpp)
+    target_include_directories(usb_stream_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bitperfect)
+    target_compile_options(usb_stream_test PRIVATE -std=c++17 -Wall -Wextra)
+    add_test(NAME usb_stream_test COMMAND usb_stream_test)
+endif()

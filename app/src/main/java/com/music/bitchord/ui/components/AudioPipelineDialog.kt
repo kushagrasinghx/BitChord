@@ -65,6 +65,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.dsd.DsdFilter
 import com.music.bitchord.playback.dsd.DsdFormat
@@ -97,12 +98,27 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  *    AudioTrack route can carry. [outputExact] is the sink's own verdict on
  *    that; see `PrecisionAudioSink.publishOutputExactness`.
  *
- * Exactness here stops at the app: Android's mixer may still resample what
- * leaves it. The exclusive output ([bitPerfect], set under Settings → Bit-perfect
- * output) is the one path where it reaches the DAC unchanged, and every DSP
- * stage is bypassed there, so only the source itself can make it inexact.
+ * Exactness here stops at the app and at integer sample values: Android's
+ * mixer may still resample what leaves it, and a lossy decoder that happens to
+ * emit integer PCM (no encoder priming) is not detected. The exclusive output
+ * ([bitPerfect], set under Settings → Bit-perfect output) is the one path where
+ * the samples reach the DAC unchanged, and every DSP stage is bypassed there.
+ * The verdict below therefore says "integer-exact", not "source lossless".
  */
-private fun bitExactVerdict(
+internal fun directStatusText(
+    bitPerfectDriver: String?,
+    directPlaybackActual: Boolean,
+    directPlaybackRejected: Boolean,
+    directPlaybackSupported: Boolean,
+): String = when {
+    bitPerfectDriver != null -> "Active ($bitPerfectDriver, bypasses mixer)"
+    directPlaybackActual -> "Requested (Direct AudioTrack; mixer bypass unverified)"
+    directPlaybackRejected -> "Rejected"
+    directPlaybackSupported -> "Supported (Framework Mixed)"
+    else -> "Not Supported (Mixed Path)"
+}
+
+internal fun bitExactVerdict(
     dsd: Boolean,
     bitPerfect: BitPerfectOutput.Status,
     outputExact: Boolean,
@@ -110,6 +126,8 @@ private fun bitExactVerdict(
     loudnessActive: Boolean,
     eqActive: Boolean,
     spatialActive: Boolean,
+    bluetooth: Boolean = false,
+    bluetoothCodec: String? = null,
 ): String = when {
     // Not a fault to fix: there is no DSD output path (native DSD or DoP)
     // here, so the PCM conversion is a deviation every DSD track carries,
@@ -119,12 +137,19 @@ private fun bitExactVerdict(
         "No — ${bitPerfect.sourceBits}-bit / ${rateText(bitPerfect.sourceRateHz)} converted to " +
             "${bitPerfect.deviceName}'s max"
     // Every DSP stage is bypassed on the exclusive output, so the only
-    // question left is whether the source itself was integer PCM.
-    bitPerfect.active && bitPerfect.exact -> "Yes — bit-perfect to ${bitPerfect.deviceName}"
+    // question left is whether the samples are integer-exact; the source's
+    // own losslessness is not observable at the sink.
+    bitPerfect.active && bitPerfect.exact && bitPerfect.verified ->
+        "Yes — integer-exact to ${bitPerfect.deviceName}"
+    // The Android mixer request cannot be read back through public APIs;
+    // report the uncertainty rather than claiming bit-perfect output.
+    bitPerfect.active && bitPerfect.exact ->
+        "Unverified — Android mixer request"
     bitPerfect.active -> "No — source isn't lossless PCM"
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
+    bluetooth -> "No — lossy Bluetooth${bluetoothCodec?.let { " ($it)" }.orEmpty()} re-encode"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
@@ -442,6 +467,8 @@ fun AudioPipelineDialog(
                         loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                         eqActive = eqEnabled,
                         spatialActive = spatialAudio,
+                        bluetooth = outputStatus.routeKind == AudioRouting.Kind.BLUETOOTH,
+                        bluetoothCodec = outputStatus.bluetoothTelemetry?.codecName,
                     ),
                 )
             }
@@ -477,19 +504,13 @@ fun AudioPipelineDialog(
                 PipelineRow("Route", outputStatus.routeKind.name)
                 PipelineRow("Transport", bitPerfect.driver.takeIf { bitPerfect.active } ?: outputStatus.transportType.label)
 
-                val directStatusText = when {
-                    bitPerfect.active ->
-                        "Active (${bitPerfect.driver}, bypasses mixer)"
-                    outputStatus.directPlaybackActual ->
-                        "Active (Direct AudioTrack, Bypasses Mixer)"
-                    outputStatus.directPlaybackRejected ->
-                        "Rejected"
-                    outputStatus.directPlaybackSupported ->
-                        "Supported (Framework Mixed)"
-                    else ->
-                        "Not Supported (Mixed Path)"
-                }
-                PipelineRow("Direct", directStatusText)
+                val directText = directStatusText(
+                    bitPerfectDriver = bitPerfect.driver.takeIf { bitPerfect.active },
+                    directPlaybackActual = outputStatus.directPlaybackActual,
+                    directPlaybackRejected = outputStatus.directPlaybackRejected,
+                    directPlaybackSupported = outputStatus.directPlaybackSupported,
+                )
+                PipelineRow("Direct", directText)
                 PipelineRow(
                     if (bitPerfect.active) "Output" else "AudioTrack",
                     if (bitPerfect.active) "PCM${bitPerfect.outputBits} / ${rateText(bitPerfect.sampleRateHz)}" else audioTrackText,
@@ -499,7 +520,7 @@ fun AudioPipelineDialog(
                     bitPerfect.active ->
                         if (bitPerfect.dacLimited) "Bypassed (DAC max)" else "Bypassed (bit-perfect)"
                     outputStatus.directPlaybackActual ->
-                        "Direct path active; endpoint format not independently verified"
+                        "Direct AudioTrack requested; granted route not independently verified"
                     outputStatus.systemMixerRateHz != null -> {
                         val hal = outputStatus.halFormat
                         val mixerRate = outputStatus.systemMixerRateHz?.let(::rateText)

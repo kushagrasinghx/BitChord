@@ -123,6 +123,9 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     /** Parks both filters. Glided, not snapped. */
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
+    /** Whether the feedback delay is currently adding wet signal. */
+    val isEchoing: Boolean get() = echoEngaged
+
     val isFiltering: Boolean
         get() = targetLowPassHz < OPEN_HZ || targetHighPassHz > OFF_HZ ||
             currentLowPassHz < OPEN_HZ - SETTLED_HZ || currentHighPassHz > OFF_HZ + SETTLED_HZ

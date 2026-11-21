@@ -56,6 +56,7 @@ import kotlin.math.abs
 @OptIn(UnstableApi::class)
 internal class BitPerfectAudioSink(
     private val outputs: BitPerfectOutputs,
+    private val idleScheduler: IdleReleaseScheduler = IdleReleaseScheduler.NONE,
     private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) : AudioSink {
 
@@ -121,6 +122,9 @@ internal class BitPerfectAudioSink(
 
     /** When playing last stopped, or [NOT_PAUSED]. */
     private var pausedAtMs = NOT_PAUSED
+
+    /** Cancels the scheduled idle check, if one is pending. */
+    private var cancelIdleRelease: (() -> Unit)? = null
 
     /** The device was handed back during a long pause; [resume] reopens it. */
     private var suspended = false
@@ -231,8 +235,54 @@ internal class BitPerfectAudioSink(
                     markInexact()
                 }
                 submittedFrames += (buffer.position() - before) / input.frameBytes
+                val blockEnd = buffer.position()
                 output.flip()
-                writeOutput()
+                try {
+                    writeOutput()
+                } catch (error: BitPerfectTransportException) {
+                    // A failed write is how a direct route dies, and the caller
+                    // answers it by falling back to the normal output with this
+                    // same buffer. The converter has already advanced the buffer
+                    // by a whole block, so whatever the device did not take has
+                    // to be handed back: otherwise the fallback silently drops
+                    // it [AUD-20].
+                    val taken = output.position()
+                    val blockFrames = (blockEnd - before) / input.frameBytes
+                    val blockOutputFrames = output.limit() / outputFrameBytes
+                    val rewoundTo = if (
+                        taken > 0 &&
+                        converter == null &&
+                        blockFrames == blockOutputFrames
+                    ) {
+                        // Frame in, frame out: the accepted prefix maps back to
+                        // a source frame boundary exactly, so only the remainder
+                        // is unconsumed and nothing is written twice.
+                        before + (taken / outputFrameBytes) * input.frameBytes
+                    } else {
+                        // Either nothing was taken, or a resampler makes the
+                        // accepted prefix unmappable to a source frame: the
+                        // filter's window means output frame k was produced from
+                        // input frames around k * ratio, and the transport
+                        // reports only a byte count for a block that no longer
+                        // exists. No exact source boundary can be derived, so
+                        // the whole block goes back and the stream is marked
+                        // inexact and reported: up to one block may be played a
+                        // second time on the fallback path, which is preferred
+                        // to a silent hole in the audio [AUD-20].
+                        if (converter != null) {
+                            markInexact()
+                            Log.w(
+                                TAG,
+                                "Direct route failed after a resampled block was partly accepted; " +
+                                    "replaying up to ${blockFrames} source frames on the fallback",
+                            )
+                        }
+                        before
+                    }
+                    submittedFrames -= (blockEnd - rewoundTo) / input.frameBytes
+                    buffer.position(rewoundTo)
+                    throw writeException(error)
+                }
                 if (output.hasRemaining()) return false
             }
         } catch (error: BitPerfectTransportException) {
@@ -245,6 +295,7 @@ internal class BitPerfectAudioSink(
     }
 
     override fun play() {
+        cancelScheduledIdleRelease()
         playing = true
         pausedAtMs = NOT_PAUSED
         startIfReady()
@@ -255,6 +306,7 @@ internal class BitPerfectAudioSink(
         transportStarted = false
         pausedAtMs = clock()
         runCatching { transport?.pause() }
+        scheduleIdleRelease()
     }
 
     override fun handleDiscontinuity() {
@@ -274,18 +326,31 @@ internal class BitPerfectAudioSink(
         }
         val active = transport ?: return
         try {
-            if (!flushOutput()) return
-            if (!stopped) {
-                active.stop()
-                stopped = true
-            }
+            finishEndOfStream(active)
         } catch (error: BitPerfectTransportException) {
             throw writeException(error)
         }
     }
 
-    override fun isEnded(): Boolean =
-        (transport == null && !suspended) || (endOfStream && stopped && !hasPendingData())
+    override fun isEnded(): Boolean {
+        // The transport is non-blocking. Media3 offers no further buffer after
+        // EOS, so if the final chunk did not fit, keep handing it over here as
+        // the device plays room free. Called on the playback thread, like every
+        // other sink method.
+        if (endOfStream && !stopped) {
+            transport?.let { active ->
+                runCatching { finishEndOfStream(active) }
+                    .onFailure { error ->
+                        if (error is BitPerfectTransportException) {
+                            pendingFailure = error
+                        } else {
+                            Log.w(TAG, "end-of-stream drain failed", error)
+                        }
+                    }
+            }
+        }
+        return (transport == null && !suspended) || (endOfStream && stopped && !hasPendingData())
+    }
 
     override fun hasPendingData(): Boolean {
         val held = output.hasRemaining() || resumeTail != null
@@ -403,6 +468,7 @@ internal class BitPerfectAudioSink(
     }
 
     private fun closeTransport() {
+        cancelScheduledIdleRelease()
         suspended = false
         suspendedWire = null
         resumeTail = null
@@ -426,6 +492,23 @@ internal class BitPerfectAudioSink(
         if (clock() - pausedAtMs >= IDLE_RELEASE_MS) suspend()
     }
 
+    private fun scheduleIdleRelease() {
+        cancelScheduledIdleRelease()
+        val active = transport ?: return
+        if (playing || !active.driver.releasesWhenIdle) return
+        val pausedAt = pausedAtMs.takeIf { it != NOT_PAUSED } ?: clock().also { pausedAtMs = it }
+        val remaining = (IDLE_RELEASE_MS - (clock() - pausedAt)).coerceAtLeast(0L)
+        cancelIdleRelease = idleScheduler.schedule(remaining + 1) {
+            cancelIdleRelease = null
+            if (!playing) releaseIfIdle()
+        }
+    }
+
+    private fun cancelScheduledIdleRelease() {
+        cancelIdleRelease?.invoke()
+        cancelIdleRelease = null
+    }
+
     /**
      * Hands the device back during a long pause: a USB DAC returns to
      * Android's driver and can power down, the native worker stops waking,
@@ -437,6 +520,7 @@ internal class BitPerfectAudioSink(
     private fun suspend() {
         val active = transport ?: return
         val history = recent ?: return
+        cancelScheduledIdleRelease()
         val played = runCatching { active.playedFrames() }.getOrDefault(0L).coerceIn(0L, transportFrames)
         val keptBytes = minOf((transportFrames - played) * outputFrameBytes, history.size.toLong()).toInt()
         // A tail not yet fully handed over to this device comes after what it holds.
@@ -494,7 +578,9 @@ internal class BitPerfectAudioSink(
     private fun writeResumeTail(): Boolean {
         val tail = resumeTail ?: return true
         val active = transport ?: return false
-        handOver(active, tail)
+        // These frames were already counted in writtenFrames before [suspend]
+        // took them; handing them to the new device must not add them again.
+        handOver(active, tail, countAsWritten = false)
         startIfReady()
         if (tail.hasRemaining()) return false
         resumeTail = null
@@ -503,6 +589,16 @@ internal class BitPerfectAudioSink(
 
     /** Stream frames played so far, on this device and the ones before it. */
     private fun playedFrames(active: BitPerfectTransport): Long = framesBase + active.playedFrames()
+
+    /** Hands the transport the final chunk once it has room, then ends it. */
+    private fun finishEndOfStream(active: BitPerfectTransport): Boolean {
+        if (!flushOutput()) return false
+        if (!stopped) {
+            active.stop()
+            stopped = true
+        }
+        return true
+    }
 
     /**
      * Plays out the stream the transport was opened for, so a new format can
@@ -538,18 +634,22 @@ internal class BitPerfectAudioSink(
 
     private fun writeOutput() {
         val active = transport ?: return
-        val taken = handOver(active, output)
-        if (taken > 0) writtenFrames += taken / outputFrameBytes
+        handOver(active, output)
         startIfReady()
     }
 
     /** Writes what [active] takes of [buffer], keeping a copy in [recent] for a later [suspend]. */
-    private fun handOver(active: BitPerfectTransport, buffer: ByteBuffer): Int {
+    private fun handOver(
+        active: BitPerfectTransport,
+        buffer: ByteBuffer,
+        countAsWritten: Boolean = true,
+    ): Int {
         val start = buffer.position()
         val taken = active.write(buffer)
         if (taken > 0) {
             recent?.record(buffer, start, taken)
             transportFrames += taken / outputFrameBytes
+            if (countAsWritten) writtenFrames += taken / outputFrameBytes
         }
         return taken
     }
@@ -603,10 +703,11 @@ internal class BitPerfectAudioSink(
                 driver = active.driver.label,
                 deviceName = active.deviceName,
                 sampleRateHz = active.sampleRate,
-                outputBits = if (converter != null) active.validBits else active.outputBits,
+                outputBits = active.validBits,
                 sourceBits = current?.sourceBits ?: 0,
                 sourceRateHz = current?.sampleRate ?: 0,
                 exact = exact && converter == null,
+                verified = driverIsIndependentlyVerified(active.driver),
                 dacLimited = converter != null,
             ),
         )

@@ -105,6 +105,8 @@ object PcmBoundary {
         outputBuffer: ByteBuffer,
         startFrame: Int = 0,
         framesToEncode: Int = sourceBlock.frameCount - startFrame,
+        /** TPDF dither is only correct where precision is actually reduced. */
+        dither: Boolean = false,
     ): Int {
         outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
         val channelCount = sourceBlock.channelCount
@@ -125,7 +127,7 @@ object PcmBoundary {
         when (encoding) {
             PcmEncoding.PCM_16BIT -> {
                 for (i in 0 until totalSamples) {
-                    outputBuffer.putShort(clamp16FromFloat(sourceBlock.samples[srcIdx++]))
+                    outputBuffer.putShort(clamp16FromFloat(sourceBlock.samples[srcIdx++], dither))
                 }
             }
             PcmEncoding.PCM_24BIT_PACKED -> {
@@ -154,9 +156,17 @@ object PcmBoundary {
     /**
      * Clamps and quantizes a normalized Float32 sample to a signed 16-bit Short.
      */
-    fun clamp16FromFloat(f: Float): Short {
+    fun clamp16FromFloat(
+        f: Float,
+        dither: Boolean = false,
+        noise: () -> Float = { java.util.concurrent.ThreadLocalRandom.current().nextFloat() },
+    ): Short {
         if (f.isNaN()) return 0
-        val scaled = f * 32768.0f
+        // Digital silence stays digital silence; dither is only for signals
+        // that actually carry sub-LSB precision.
+        if (f == 0f) return 0
+        val jitter = if (dither) noise() - noise() else 0f
+        val scaled = f * 32768.0f + jitter
         if (scaled <= -32768.0f) return Short.MIN_VALUE
         if (scaled >= 32767.0f) return Short.MAX_VALUE
         return Math.round(scaled).toShort()

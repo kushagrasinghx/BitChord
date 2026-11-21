@@ -43,9 +43,10 @@ class AudioTelemetryHardeningTest {
         // 2. Direct playback is rejected
         assertTrue(evaluated.directPlaybackRejected)
         assertFalse(evaluated.directPlaybackActual)
-        // 3. AudioFlinger Mixer is in the path at 48000 Hz with HAL format PCM24 packed
-        assertEquals(48000, evaluated.systemMixerRateHz)
-        assertEquals("PCM24 packed", evaluated.halFormat)
+        // 3. Mixer rate and HAL format are not exposed by Android; they must
+        // remain unknown rather than be fabricated as 48 kHz / PCM24.
+        assertNull(evaluated.systemMixerRateHz)
+        assertNull(evaluated.halFormat)
         // 4. AudioTrack requested is Float32 / 176400 Hz (not physical Float32)
         assertEquals(AudioFormat.ENCODING_PCM_FLOAT, evaluated.actualEncoding)
         assertEquals(176400, evaluated.actualSampleRateHz)
@@ -75,9 +76,9 @@ class AudioTelemetryHardeningTest {
         // 2. Direct playback is rejected (AudioFlinger is still in the path)
         assertTrue(evaluated.directPlaybackRejected)
         assertFalse(evaluated.directPlaybackActual)
-        // 3. AudioFlinger mixer and HAL format
-        assertEquals(48000, evaluated.systemMixerRateHz)
-        assertEquals("PCM24 packed", evaluated.halFormat)
+        // 3. Mixer rate and HAL format are not measurable through public APIs.
+        assertNull(evaluated.systemMixerRateHz)
+        assertNull(evaluated.halFormat)
         // 4. Client format remains Float32
         assertEquals(AudioFormat.ENCODING_PCM_FLOAT, evaluated.actualEncoding)
         assertEquals(176400, evaluated.actualSampleRateHz)
@@ -114,7 +115,7 @@ class AudioTelemetryHardeningTest {
     }
 
     @Test
-    fun phoneSpeakerAlwaysSetsHalFormatAndNullUsbEndpoint() {
+    fun phoneSpeakerLeavesUnmeasurableMixerFieldsUnknown() {
         val speakerSnapshot = AudioOutputStatus.Snapshot(
             deviceName = "Built-in Speaker",
             routeKind = AudioRouting.Kind.PHONE,
@@ -128,8 +129,8 @@ class AudioTelemetryHardeningTest {
 
         assertFalse(evaluated.directPlaybackActual)
         assertFalse(evaluated.directPlaybackRejected)
-        assertEquals(48000, evaluated.systemMixerRateHz)
-        assertEquals("PCM24 packed", evaluated.halFormat)
+        assertNull(evaluated.systemMixerRateHz)
+        assertNull(evaluated.halFormat)
         assertNull(evaluated.usbEndpointFormat)
     }
 

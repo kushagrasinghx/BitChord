@@ -26,7 +26,11 @@ import java.nio.ByteOrder
 @androidx.annotation.OptIn(UnstableApi::class)
 class PrecisionAudioSinkTest {
 
-    private class FakeAudioSink : AudioSink {
+    /**
+     * Internal rather than private: the routing sink's handover tests drive the
+     * same fake, and a second copy would drift from this one.
+     */
+    internal class FakeAudioSink : AudioSink {
         var configuredConfig: AudioSink.AudioSinkConfig? = null
         private var sinkListener: AudioSink.Listener? = null
         var flushed: Boolean = false
@@ -38,6 +42,9 @@ class PrecisionAudioSinkTest {
 
         var bytesToConsumePerCall: Int = Int.MAX_VALUE
         var lastHandledBuffer: ByteBuffer? = null
+
+        /** Bytes still unread in the buffer this sink was last handed. */
+        var lastHandledRemaining: Int = -1
         var handleBufferCallCount: Int = 0
         var lastPresentationTimeUs: Long = C.TIME_UNSET
         var lastEncodedAccessUnitCount: Int = 0
@@ -88,6 +95,7 @@ class PrecisionAudioSinkTest {
             lastEncodedAccessUnitCount = encodedAccessUnitCount
 
             val remaining = buffer.remaining()
+            lastHandledRemaining = remaining
             val consume = minOf(remaining, bytesToConsumePerCall)
             buffer.position(buffer.position() + consume)
 
@@ -727,8 +735,9 @@ class PrecisionAudioSinkTest {
         delegateBuffer.position(0)
         val leftSample = delegateBuffer.getShort()
         val rightSample = delegateBuffer.getShort()
-        assertEquals(16384, leftSample.toInt())
-        assertEquals(-16384, rightSample.toInt())
+        // 24-bit source reduced to 16-bit is dithered.
+        assertTrue(kotlin.math.abs(leftSample.toInt() - 16384) <= 1)
+        assertTrue(kotlin.math.abs(rightSample.toInt() + 16384) <= 1)
     }
 
     @Test
@@ -762,8 +771,10 @@ class PrecisionAudioSinkTest {
         delegateBuffer.position(0)
         val leftSample = delegateBuffer.getShort()
         val rightSample = delegateBuffer.getShort()
-        assertEquals(16384, leftSample.toInt())
-        assertEquals(-16384, rightSample.toInt())
+        // 32-bit source reduced to 16-bit is dithered, so the result may be
+        // one LSB either side of the exact quantisation point.
+        assertTrue(kotlin.math.abs(leftSample.toInt() - 16384) <= 1)
+        assertTrue(kotlin.math.abs(rightSample.toInt() + 16384) <= 1)
     }
 
     @Test
@@ -796,8 +807,9 @@ class PrecisionAudioSinkTest {
         delegateBuffer.position(0)
         val leftSample = delegateBuffer.getShort()
         val rightSample = delegateBuffer.getShort()
-        assertEquals(16384, leftSample.toInt())
-        assertEquals(-16384, rightSample.toInt())
+        // Float32 source reduced to 16-bit is dithered.
+        assertTrue(kotlin.math.abs(leftSample.toInt() - 16384) <= 1)
+        assertTrue(kotlin.math.abs(rightSample.toInt() + 16384) <= 1)
     }
 
     @Test

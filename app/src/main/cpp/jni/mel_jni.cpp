@@ -45,6 +45,11 @@ Java_com_music_bitchord_playback_smart_MelSpectrogram_nativeResample(
     jfloatArray samples,
     jdouble input_rate,
     jdouble output_rate) {
+  // Guarded like nativeCompute above: GetArrayLength on a null array is
+  // undefined behaviour, and "Kotlin says it is non-null" is a promise about
+  // Kotlin callers, not about a reflective or JNI-side one. A null here used to
+  // crash the process rather than return an empty conversion.
+  if (samples == nullptr) return nullptr;
   const jsize count = env->GetArrayLength(samples);
   std::vector<float> input(static_cast<size_t>(count));
   if (count > 0) {

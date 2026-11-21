@@ -28,6 +28,14 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 
+#include "iso_packet_policy.h"
+
+using bitchord::usb::IsoPacketView;
+using bitchord::usb::packetCompleted;
+using bitchord::usb::packetShort;
+using bitchord::usb::packetUnsentLength;
+using bitchord::usb::packetUnsentOffset;
+
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -133,12 +141,54 @@ struct Slot {
 
     bool success() const {
         if (transfer->status != LIBUSB_TRANSFER_COMPLETED) return false;
+        const bool outbound = (transfer->endpoint & 0x80) == 0;
         for (int i = 0; i < transfer->num_iso_packets; ++i) {
             const auto &packet = transfer->iso_packet_desc[i];
-            if (packet.status != LIBUSB_TRANSFER_COMPLETED) return false;
-            if ((transfer->endpoint & 0x80) == 0 && packet.actual_length != packet.length) return false;
+            if (!packetCompleted({
+                    packet.status == LIBUSB_TRANSFER_COMPLETED,
+                    outbound,
+                    packet.length,
+                    packet.actual_length,
+                })) {
+                return false;
+            }
         }
         return true;
+    }
+
+    // A short isochronous completion is a recoverable underrun, not a route
+    // loss. The bytes the device did not accept are zeroed before this buffer
+    // is submitted again, so stale audio is never mistaken for new samples.
+    void padShortPackets() {
+        const bool outbound = (transfer->endpoint & 0x80) == 0;
+        std::size_t start = 0;
+        for (int i = 0; i < transfer->num_iso_packets; ++i) {
+            const auto &packet = transfer->iso_packet_desc[i];
+            const IsoPacketView view{
+                packet.status == LIBUSB_TRANSFER_COMPLETED,
+                outbound,
+                packet.length,
+                packet.actual_length,
+            };
+            if (packetShort(view)) {
+                const std::size_t from = packetUnsentOffset(view, start);
+                const std::size_t count = packetUnsentLength(view);
+                if (from + count <= bytes.size()) {
+                    std::fill(bytes.begin() + static_cast<long>(from),
+                              bytes.begin() + static_cast<long>(from + count), 0);
+                }
+            }
+            start += packet.length;
+        }
+    }
+
+    std::size_t actualFrames(std::size_t frameBytes) const {
+        if (frameBytes == 0) return 0;
+        std::size_t actual = 0;
+        for (int i = 0; i < transfer->num_iso_packets; ++i) {
+            actual += transfer->iso_packet_desc[i].actual_length;
+        }
+        return actual / frameBytes;
     }
 
     size_t actual() const { return transfer->iso_packet_desc[0].actual_length; }
@@ -323,6 +373,8 @@ public:
             for (auto &slot : slots) {
                 if (slot->pending || !slot->submitted) continue;
                 require(slot->success(), "USB audio transfer failed");
+                slot->padShortPackets();
+                slot->musicFrames = slot->actualFrames(frame);
                 state.frames += slot->musicFrames;
                 slot->musicFrames = 0;
                 slot->submitted = false;
@@ -557,6 +609,7 @@ std::vector<Candidate> decode(const jint *v, jsize length) {
 extern "C" {
 JNIEXPORT jlong JNICALL JNI_USB(open)(JNIEnv *env, jobject, jint fd, jintArray candidates) {
     try {
+        require(candidates != nullptr, "USB candidate list is null");
         const jsize length = env->GetArrayLength(candidates);
         std::vector<jint> values(static_cast<size_t>(length));
         env->GetIntArrayRegion(candidates, 0, length, values.data());
@@ -599,6 +652,7 @@ JNIEXPORT jlong JNICALL JNI_USB(frames)(JNIEnv *env, jobject, jlong handle) {
 JNIEXPORT jbyteArray JNICALL JNI_USB(control)(JNIEnv *env, jobject, jlong handle, jboolean input, jint request,
                                               jint value, jint index, jbyteArray data) {
     try {
+        require(data != nullptr, "USB control buffer is null");
         const jsize length = env->GetArrayLength(data);
         require(length >= 0 && length <= 1024, "Invalid USB control length");
         std::vector<uint8_t> bytes(static_cast<size_t>(length));

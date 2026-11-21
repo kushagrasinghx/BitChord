@@ -23,6 +23,7 @@ class BitPerfectAudioSinkTest {
         override val sampleRate: Int,
         override val channelCount: Int,
         override val outputBits: Int,
+        override val validBits: Int = outputBits,
         private val capacityFrames: Int = 8192,
         override val driver: BitPerfectDriver = BitPerfectDriver.ANDROID_MIXER,
     ) : BitPerfectTransport {
@@ -37,8 +38,21 @@ class BitPerfectAudioSinkTest {
         var released = false
         var failOnWrite = false
 
+        /**
+         * Accept this many bytes, then fail in the same call: a device that
+         * takes a prefix of a block and is gone before the rest.
+         */
+        var acceptBytesThenFail = -1
+
         override fun write(buffer: ByteBuffer): Int {
             if (failOnWrite) throw BitPerfectTransportException("route_changed")
+            if (acceptBytesThenFail >= 0) {
+                val count = minOf(acceptBytesThenFail, buffer.remaining()) / frameBytes * frameBytes
+                repeat(count) { bytes.write(buffer.get().toInt()) }
+                written += count / frameBytes
+                acceptBytesThenFail = -1
+                throw BitPerfectTransportException("route_changed")
+            }
             val room = ((capacityFrames - (written - played)) * frameBytes).toInt()
             val count = minOf(room, buffer.remaining()) / frameBytes * frameBytes
             repeat(count) { bytes.write(buffer.get().toInt()) }
@@ -68,6 +82,7 @@ class BitPerfectAudioSinkTest {
         /** A DAC that stops here, as one on a capped USB-C dongle does. */
         var dacRate: Int? = null
         var dacBits: Int? = null
+        var dacValidBits: Int? = null
         var driver = BitPerfectDriver.ANDROID_MIXER
         var releases = 0
 
@@ -75,8 +90,14 @@ class BitPerfectAudioSinkTest {
 
         override fun open(sampleRate: Int, channels: Int, sourceBits: Int, requester: Any): BitPerfectTransport {
             if (failOpen) throw BitPerfectTransportException("unsupported")
-            return FakeTransport(dacRate ?: sampleRate, channels, dacBits ?: maxOf(sourceBits, 24), driver = driver)
-                .also(opened::add)
+            val bits = dacBits ?: maxOf(sourceBits, 24)
+            return FakeTransport(
+                sampleRate = dacRate ?: sampleRate,
+                channelCount = channels,
+                outputBits = bits,
+                validBits = dacValidBits ?: bits,
+                driver = driver,
+            ).also(opened::add)
         }
 
         override fun release(requester: Any) { releases++ }
@@ -85,6 +106,22 @@ class BitPerfectAudioSinkTest {
         override fun publishIdle() = Unit
         var pendingNormal = false
         override fun normalOutputPending() = pendingNormal
+    }
+
+    internal class FakeIdleScheduler : IdleReleaseScheduler {
+        var scheduledDelayMs = -1L
+        var cancelled = false
+        private var task: (() -> Unit)? = null
+
+        override fun schedule(delayMs: Long, task: () -> Unit): () -> Unit {
+            scheduledDelayMs = delayMs
+            this.task = task
+            return { cancelled = true }
+        }
+
+        fun fire() {
+            task?.invoke()
+        }
     }
 
     private fun format(rate: Int = 44100, encoding: Int = C.ENCODING_PCM_16BIT, delay: Int = 0): Format =
@@ -286,6 +323,23 @@ class BitPerfectAudioSinkTest {
     }
 
     @Test
+    fun reportedDepthIsTheDacsValidBitsNotTheContainerWidth() {
+        val outputs = FakeOutputs().apply { dacBits = 32; dacValidBits = 24 }
+        val sink = BitPerfectAudioSink(outputs)
+        sink.play()
+        sink.configure(config(format(encoding = C.ENCODING_PCM_24BIT)))
+        val frames = 64
+        val buffer = ByteBuffer.allocateDirect(frames * 6).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(ByteArray(frames * 6))
+        buffer.flip()
+        assertTrue(sink.handleBuffer(buffer, 0, 1))
+
+        val status = outputs.statuses.last()
+        assertEquals(24, status.outputBits)
+        assertTrue(status.exact)
+    }
+
+    @Test
     fun failedOpenIsRecordedAndRaisedAsRecoverable() {
         val outputs = FakeOutputs().apply { failOpen = true }
         val sink = BitPerfectAudioSink(outputs)
@@ -358,6 +412,68 @@ class BitPerfectAudioSinkTest {
         assertTrue(sink.handleBuffer(more, 100_000, 1))
         assertEquals(8192L + 208, second.written)
         assertEquals(75_000, sink.getCurrentPositionUs(false))
+        second.advance(6000)
+        assertFalse("the resumed tail must not be counted as new frames", sink.hasPendingData())
+        sink.playToEndOfStream()
+        assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun endOfStreamDrainRetriesAsTheTransportPlays() {
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val sink = BitPerfectAudioSink(outputs) { 0L }
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+
+        // More than the fake DAC's 8192-frame queue: the tail stays in the sink.
+        assertFalse(sink.handleBuffer(pcm16(10_000), 0, 1))
+        val transport = outputs.opened.single()
+        assertEquals(8192L, transport.written)
+
+        sink.playToEndOfStream()
+        assertFalse(sink.isEnded())
+        assertFalse(transport.stopped)
+
+        transport.advance(8192)
+        assertFalse(sink.isEnded())
+        assertTrue("the tail is accepted once the queue has room", transport.stopped)
+
+        transport.advance(1808)
+        assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun idleReleaseDoesNotWaitForAnotherBuffer() {
+        var now = 0L
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val scheduler = FakeIdleScheduler()
+        val sink = BitPerfectAudioSink(outputs, idleScheduler = scheduler, clock = { now })
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+        assertTrue(sink.handleBuffer(pcm16(4800), 0, 1))
+        val transport = outputs.opened.single()
+        sink.pause()
+
+        now = BitPerfectAudioSink.IDLE_RELEASE_MS
+        scheduler.fire()
+
+        assertTrue("the DAC is handed back without a later buffer", transport.released)
+        assertTrue(sink.hasPendingData())
+    }
+
+    @Test
+    fun playCancelsTheScheduledIdleRelease() {
+        val outputs = FakeOutputs().apply { driver = BitPerfectDriver.USB_DIRECT }
+        val scheduler = FakeIdleScheduler()
+        val sink = BitPerfectAudioSink(outputs, idleScheduler = scheduler, clock = { 0L })
+        sink.configure(config(format(rate = 48000)))
+        sink.play()
+        sink.handleBuffer(pcm16(4800), 0, 1)
+        sink.pause()
+        assertTrue(scheduler.scheduledDelayMs >= 0)
+
+        sink.play()
+        assertTrue(scheduler.cancelled)
     }
 
     @Test

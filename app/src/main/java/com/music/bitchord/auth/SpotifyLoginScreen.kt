@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.music.bitchord.data.web.QuietWebChromeClient
 
 private const val LOGIN_URL =
     "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
@@ -104,6 +105,7 @@ fun SpotifyLoginScreen(
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
+                webChromeClient = QuietWebChromeClient()
                 var sent = false
                 webViewClient = object : WebViewClient() {
                     // Spotify's own pages and the identity providers its sign-in

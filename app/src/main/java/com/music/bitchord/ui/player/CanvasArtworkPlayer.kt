@@ -414,7 +414,6 @@ internal fun AndroidCanvasArtworkPlayer(
             return@LaunchedEffect
         }
         if (still != null) gate.holdingStill = true
-        Log.d(TAG, "still captured: ${still?.let { "${it.width}x${it.height}" }} at $position")
         report(still?.asImageBitmap(), position)
     }
 
@@ -450,13 +449,8 @@ internal fun AndroidCanvasArtworkPlayer(
         if (frameCapturePx <= 0) return@LaunchedEffect
         withFrameMillis { }
         val view = textureView ?: return@LaunchedEffect
-        val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
-        if (bitmap != null) {
-            Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
-            reportFrame(bitmap.asImageBitmap())
-        } else {
-            Log.w(TAG, "frame capture returned null after rendered=true")
-        }
+        view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+            ?.let { reportFrame(it.asImageBitmap()) }
     }
 
     // The opt-in follow-up to the capture above, for a caller that asked for
@@ -471,18 +465,12 @@ internal fun AndroidCanvasArtworkPlayer(
     ) {
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
         if (frameCapturePx <= 0) return@LaunchedEffect
-        Log.d(TAG, "periodic frame refresh started, interval=$interval")
         if (!rendered || !isPlaying || pausedForTransition) return@LaunchedEffect
         while (isActive) {
             delay(interval)
             val view = textureView ?: continue
-            val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
-            if (bitmap != null) {
-                Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
-                reportFrame(bitmap.asImageBitmap())
-            } else {
-                Log.w(TAG, "periodic frame capture returned null")
-            }
+            view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+                ?.let { reportFrame(it.asImageBitmap()) }
         }
     }
 
@@ -556,7 +544,6 @@ internal fun AndroidCanvasArtworkPlayer(
                         // The first surface needs nothing: prepare() paints it.
                         if (!replacing) return
                         replacing = false
-                        Log.d(TAG, "surface recreated (gen $surfaceGeneration), waiting for frame")
                         surfaceGeneration++
                     }
 
@@ -573,7 +560,6 @@ internal fun AndroidCanvasArtworkPlayer(
 
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                         replacing = true
-                        Log.d(TAG, "surface destroyed, rendered=$rendered")
                         // The old buffer is gone now, not when/if ExoPlayer
                         // later reports another first frame. Restore the still
                         // artwork immediately so an empty replacement surface

@@ -51,6 +51,13 @@ import kotlin.concurrent.thread
 
 class BitChordApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
 
+    init {
+        // SLF4J (through Ktor) has no provider here and says so on System.err, which
+        // R8's Log stripping cannot reach. Only errors from its own setup in a release
+        // build. In the constructor, ahead of the content providers that can reach it first.
+        if (!BuildConfig.DEBUG) System.setProperty("slf4j.internal.verbosity", "ERROR")
+    }
+
     /** Asked for on first use rather than at launch; see [PlaylistSync.init]. */
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().build()

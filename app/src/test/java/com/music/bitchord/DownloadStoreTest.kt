@@ -138,6 +138,27 @@ class DownloadStoreTest {
         assertEquals("xyz789.m4a", DownloadStore.fileNameFor(song("", "", "xyz789"), "m4a"))
     }
 
+    /**
+     * 120 characters fit the 255-byte filename limit only in Latin script: in
+     * Japanese, Hangul or Telugu each is three bytes, and the download's
+     * `.part` file could not even be created.
+     */
+    @Test
+    fun `a long name in a three-byte script still fits the filename limit`() {
+        val name = DownloadStore.fileNameFor(song("あ".repeat(60), "テ".repeat(50)), "flac")
+        assertTrue(".$name.part".toByteArray(Charsets.UTF_8).size <= 255)
+        assertTrue(name.endsWith(".flac"))
+        assertTrue(name.startsWith("テテテ"))
+    }
+
+    @Test
+    fun `the cut never splits an emoji in half`() {
+        val name = DownloadStore.fileNameFor(song("a".repeat(108) + "🎵".repeat(10), "Artist"), "m4a")
+        val stem = name.removeSuffix(".m4a")
+        assertEquals(stem, String(stem.toByteArray(Charsets.UTF_8), Charsets.UTF_8))
+        assertFalse(stem.last().isHighSurrogate())
+    }
+
     // ---- What quality is kept ----------------------------------------------
 
     /**

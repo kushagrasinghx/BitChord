@@ -87,6 +87,7 @@ fun LibraryScreen(
     onShelfItemLongPress: (ShelfItem) -> Unit,
     onNewPlaylist: () -> Unit,
     onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onImportCsvPlaylist: (() -> Unit)? = null,
     /**
      * A shelf's "Show all" — every shelf's row here stops at five cards (see
      * [LibraryGridShelf]), so this is the only way to reach whatever didn't
@@ -166,6 +167,7 @@ fun LibraryScreen(
                         onItemLongPress = onShelfItemLongPress,
                         onNewPlaylist = onNewPlaylist,
                         onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                        onImportCsvPlaylist = onImportCsvPlaylist,
                         onShowAll = { onShowAll(emptyPlaylists) },
                     )
                 }
@@ -198,6 +200,7 @@ fun LibraryScreen(
                                 onItemLongPress = onShelfItemLongPress,
                                 onNewPlaylist = onNewPlaylist,
                                 onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onImportCsvPlaylist = onImportCsvPlaylist,
                                 onShowAll = { onShowAll(emptyPlaylists) },
                             )
                         }
@@ -212,6 +215,7 @@ fun LibraryScreen(
                                     onItemLongPress = onShelfItemLongPress,
                                     onNewPlaylist = onNewPlaylist,
                                     onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                    onImportCsvPlaylist = onImportCsvPlaylist,
                                     onShowAll = { onShowAll(pinnedFirst) },
                                     pinnedPlaylists = pinnedPlaylists,
                                 )
@@ -311,6 +315,7 @@ private fun PlaylistShelf(
     onItemLongPress: (ShelfItem) -> Unit,
     onNewPlaylist: () -> Unit,
     onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onImportCsvPlaylist: (() -> Unit)? = null,
     onShowAll: () -> Unit,
     pinnedPlaylists: List<String> = emptyList(),
 ) {
@@ -329,6 +334,14 @@ private fun PlaylistShelf(
                     subtitle = stringResource(Res.string.import_spotify_subtitle),
                     onClick = onImportSpotifyPlaylist,
                     logo = Res.drawable.spotify_logo,
+                )
+            }
+            if (onImportCsvPlaylist != null) {
+                NewShelfCard(
+                    icon = BitChordIcons.Download,
+                    label = "Import CSV",
+                    subtitle = "From a CSV file",
+                    onClick = onImportCsvPlaylist,
                 )
             }
         }

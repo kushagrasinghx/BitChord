@@ -13,7 +13,7 @@ import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { useHasVideo } from '@/state/video';
 import { albumPageFor, artistPageFor } from './nowPlayingLinks';
-import { MixWindowHighlight } from './NerdStats';
+import { MixWindowHighlight, StreamBadge, describeStream } from './NerdStats';
 import { useScrubber } from './useScrubber';
 
 // The title and each artist: plain until hovered, then underlined on their own.
@@ -95,6 +95,7 @@ const titleClass = 'min-w-0 max-w-full self-start truncate type-body-emphasized'
 /** The now-playing tile inside the pill (report §1, "LCD"). */
 export function Lcd() {
   const nowPlaying = usePlayer((s) => s.nowPlaying);
+  const showNerdStats = usePlayer((s) => s.showNerdStats);
   const status = usePlayer((s) => s.status);
   const error = usePlayer((s) => s.error);
   const openFullScreen = useUi((s) => s.setFullScreen);
@@ -168,8 +169,18 @@ export function Lcd() {
         {status === 'error' ? (
           <span className="truncate type-callout-medium text-key">{error}</span>
         ) : (
-          <span className="truncate type-callout-medium text-secondary">
-            {artist ? <Credits videoId={videoId} line={artist} artists={track?.artists ?? []} /> : status === 'loading' ? 'Loading…' : ''}
+          <span
+            className="flex min-w-0 items-center truncate type-callout-medium text-secondary"
+            title={showNerdStats && nowPlaying ? describeStream(nowPlaying) ?? undefined : undefined}
+          >
+            <span className="truncate">
+              {artist ? <Credits videoId={videoId} line={artist} artists={track?.artists ?? []} /> : status === 'loading' ? 'Loading…' : ''}
+            </span>
+            {showNerdStats && nowPlaying && (
+              <span className="ml-2 flex-none">
+                <StreamBadge nowPlaying={nowPlaying} />
+              </span>
+            )}
           </span>
         )}
       </div>

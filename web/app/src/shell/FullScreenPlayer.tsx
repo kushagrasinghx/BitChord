@@ -30,6 +30,7 @@ import { MeshBackdrop } from './MeshBackdrop';
 import { albumPageFor } from './nowPlayingLinks';
 import { UpNext } from './UpNext';
 import { MixWindowHighlight, NerdStats } from './NerdStats';
+import { AudioQualityBadge } from './AudioQualityBadge';
 import { useScrubber } from './useScrubber';
 import { VideoQuality } from './VideoQuality';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
@@ -62,11 +63,16 @@ function Scrubber() {
           />
         </div>
       </div>
-      <div className="relative mt-0.5 flex justify-between type-[500_11px/14px] tabular-nums text-tertiary">
+      <div className="relative mt-1 flex items-center justify-between type-[500_11px/14px] tabular-nums text-tertiary">
         <span ref={elapsed} />
-        <span ref={mixLabel} className="pointer-events-none absolute inset-x-0 text-center text-secondary opacity-0" aria-hidden="true">
-          Mixing
-        </span>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span ref={mixLabel} className="absolute text-center text-secondary opacity-0 transition-opacity" aria-hidden="true">
+            Mixing
+          </span>
+          <span className="pointer-events-auto">
+            <AudioQualityBadge />
+          </span>
+        </div>
         <span ref={remaining} />
       </div>
     </div>

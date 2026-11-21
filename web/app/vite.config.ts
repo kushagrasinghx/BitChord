@@ -24,10 +24,69 @@ function requirePartyServer(mode: string): void {
   }
 }
 
+/**
+ * Streaming proxy middleware for audio streams from CDNs that serve .flac files
+ * with misconfigured Content-Type headers (e.g. audio/mpeg). Rewrites the Content-Type
+ * header to audio/flac so Chrome's HTMLMediaElement decodes it natively.
+ */
+function audioProxyPlugin() {
+  return {
+    name: 'audio-proxy-plugin',
+    configureServer(server: any) {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        if (!req.url?.includes('/api/stream-audio')) return next();
+        try {
+          const reqUrl = new URL(req.url, 'http://localhost:5173');
+          const targetUrl = reqUrl.searchParams.get('url');
+          const forcedType = reqUrl.searchParams.get('type') || 'audio/flac';
+          if (!targetUrl) {
+            res.statusCode = 400;
+            res.end('Missing url parameter');
+            return;
+          }
+
+          const headers: Record<string, string> = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+          };
+          if (req.headers.range) {
+            headers['Range'] = req.headers.range;
+          }
+
+          const upstream = await fetch(targetUrl, { headers });
+          const responseHeaders: Record<string, string> = {
+            'Content-Type': forcedType,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': '*',
+            'Accept-Ranges': 'bytes',
+          };
+          const contentRange = upstream.headers.get('content-range');
+          if (contentRange) responseHeaders['Content-Range'] = contentRange;
+          const contentLength = upstream.headers.get('content-length');
+          if (contentLength) responseHeaders['Content-Length'] = contentLength;
+
+          res.writeHead(upstream.status, responseHeaders);
+
+          if (upstream.body) {
+            const { Readable } = await import('node:stream');
+            Readable.fromWeb(upstream.body as any).pipe(res);
+          } else {
+            res.end();
+          }
+        } catch (err) {
+          if (!res.headersSent) {
+            res.statusCode = 502;
+            res.end(String(err));
+          }
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command, mode }) => {
   if (command === 'build') requirePartyServer(mode);
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), audioProxyPlugin()],
     define: {
       DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),
     },

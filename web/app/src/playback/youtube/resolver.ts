@@ -126,12 +126,11 @@ function clientOrder(): readonly PlayerClientName[] {
 }
 
 /**
- * Signed in, the web clients go first: they are the ones YouTube accepts the
- * SAPISIDHASH session on, and the phone plays age-restricted tracks the same
- * way (WEB_REMIX with cookies, InnerTubeX). VISIONOS follows in case the
- * session is honoured there too.
+ * Signed in, VISIONOS direct URLs are preferred for stable playback (no 60s
+ * WebPO token cutoff), falling back to the signed-in web clients (YTMUSIC, WEB)
+ * for age-restricted tracks that require cookie authentication.
  */
-const SIGNED_ORDER: readonly PlayerClientName[] = ['YTMUSIC', 'WEB', 'VISIONOS'];
+const SIGNED_ORDER: readonly PlayerClientName[] = ['VISIONOS', 'YTMUSIC', 'WEB'];
 
 export function clientsFor(videoId: string, signed = false): PlayerClientName[] {
   const entries = excluded.get(keyOf(videoId, signed));

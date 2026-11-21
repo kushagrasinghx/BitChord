@@ -321,16 +321,52 @@ export function mapSearch(search: { contents?: readonly unknown[] | null }): Sea
       if (id) {
         const subtitle = text(card.subtitle);
         const kind = kindOf(/^Artist/i.test(subtitle) ? 'artist' : /^Album|^Single|^EP/i.test(subtitle) ? 'album' : /^Playlist/i.test(subtitle) ? 'playlist' : videoId ? (/^Video/i.test(subtitle) ? 'video' : 'song') : undefined, id);
+
+        const artists: ArtistRef[] = [];
+        const runs = (card.subtitle as { runs?: Array<{ text?: string; endpoint?: unknown }> } | undefined)?.runs ?? [];
+        for (const r of runs) {
+          const ep = r.endpoint as { payload?: { browseId?: string; browseEndpointContextSupportedConfigs?: { browseEndpointContextMusicConfig?: { pageType?: string } } } } | undefined;
+          const browseId = ep?.payload?.browseId;
+          const pageType = ep?.payload?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType;
+          if ((browseId && browseId.startsWith('UC')) || pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
+            const name = (r.text ?? '').trim();
+            if (name && !artists.some((a) => a.name === name)) {
+              artists.push({ name, id: browseId ?? null });
+            }
+          }
+        }
+        if (artists.length === 0 && subtitle) {
+          const parts = subtitle.split('•').map((p) => p.trim());
+          if (parts.length > 1) {
+            const artistPart = /^song|^video/i.test(parts[0]!) ? parts[1] : parts[0];
+            if (artistPart) {
+              const names = artistPart.split(/\s*(?:&|,)\s*/);
+              for (const n of names) {
+                const clean = n.trim();
+                if (clean && !artists.some((a) => a.name === clean)) {
+                  artists.push({ name: clean, id: null });
+                }
+              }
+            }
+          }
+        }
+
+        let durationSec: number | null = null;
+        const durMatch = subtitle.match(/(\d+):(\d{2})(?:\s*$|\s*•)/);
+        if (durMatch) {
+          durationSec = parseInt(durMatch[1]!, 10) * 60 + parseInt(durMatch[2]!, 10);
+        }
+
         const item: MusicItem = {
           kind,
           id,
           title: text(card.title),
           subtitle,
-          artists: [],
+          artists,
           album: null,
           thumbnail: thumbnailOf(card),
           wide: false,
-          durationSec: null,
+          durationSec,
           explicit: explicitOf(card.subtitle_badges),
         };
         results.top.push(item);

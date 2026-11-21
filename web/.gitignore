@@ -3,7 +3,12 @@ dist/
 .output/
 .wxt/
 *.tsbuildinfo
-.env.local
+.env
+.env.*
+!.env.example
+*.local
+credentials*.json
+token*.json
 
 # Built extension zips (web/extension: pnpm package)
 app/public/downloads/

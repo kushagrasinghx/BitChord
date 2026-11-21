@@ -27,6 +27,7 @@ import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
+import com.music.bitchord.data.model.PLAYER_ART_MEMORY_CACHE_KEY_EXTRA
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import kotlin.math.abs
@@ -92,8 +93,17 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     return canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
 }
 
+/**
+ * The full-size cover request, shared by the player and the AutoMix prepared cover so
+ * a prepared decode is the entry the player then reads. Coil leaves size out of the
+ * memory-cache key, and the blur and palette reads load the same URL at thumbnail
+ * sizes; under a URL-only key their small decode could replace the full one, and the
+ * next track's hold-over placeholder came up pixelated. The extra keeps the full-size
+ * decode in its own slot; same-size widget requests use the same extra.
+ */
 internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): ImageRequest.Builder =
     ImageRequest.Builder(context).data(artworkUrl).size(ART_PX)
+        .memoryCacheKeyExtra(PLAYER_ART_MEMORY_CACHE_KEY_EXTRA, ART_PX.toString())
 
 /**
  * The player's cover: the one request every surface draws it from, whether it
@@ -178,13 +188,12 @@ internal class PlayerArtwork(
     val request: ImageRequest by derivedStateOf {
         val attempt = attempt
         playerCoverRequest(context, url)
-            // Not part of the cache key, so the mesh and the palette still share it.
+            // Not part of the cache key, so the AutoMix prepared cover still shares it.
             .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
-            // request stays byte-identical to the one the mesh and the palette
-            // make of the same cover and goes on sharing their memory-cache
-            // entry. The disk key is unaffected either way.
+            // request keeps the memory-cache identity of the AutoMix prepared cover
+            // and of a same-size widget request. The disk key is unaffected either way.
             .apply { if (attempt > 0) memoryCacheKeyExtra("attempt", attempt.toString()) }
             .build()
     }

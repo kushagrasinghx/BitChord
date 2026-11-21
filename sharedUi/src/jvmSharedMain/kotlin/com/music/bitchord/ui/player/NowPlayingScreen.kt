@@ -2818,6 +2818,7 @@ fun NowPlayingScreen(
                     val standbyClip = pair?.incomingClip?.takeIf { !(lyricsOpen || queueOpen) || !collapseDone }
                     val matchedLiveHero = pair?.liveOutgoing == true && pair.liveIncoming &&
                         sharesHeroRevealFootprint(clipFullscreen, incomingFullWindow, canvasAspect, pair.incomingAspect)
+                    val liveHeroReveal = pair?.matchedHeroReveal(matchedLiveHero, !stillMoving && gesturePair == null)
                     if (staticHeroUnderlay != null && pair != null) {
                         val frame = if (heroMode) Modifier.fillMaxWidth().height(heroHeight) else Modifier.layout { measurable, constraints ->
                             val rect = expandedSquare
@@ -2937,7 +2938,11 @@ fun NowPlayingScreen(
                             },
                             nowPlaying = true,
                             organicReveal = if (standby) {
-                                pair?.standbyReveal(staticHeroUnderlay != null || (matchedLiveHero && !stillMoving))
+                                liveHeroReveal?.incoming ?: pair?.standbyReveal(
+                                    staticHeroUnderlay != null || (matchedLiveHero && !stillMoving),
+                                )
+                            } else if (liveHeroReveal != null) {
+                                liveHeroReveal.outgoingLiveHeroReveal(clipTransitionAlpha)
                             } else if (fullBleedArt && heroIncomingStill != null && !stillMoving && gesturePair == null) {
                                 pair?.outgoingStillBannerReveal(
                                     autoMixFrames,

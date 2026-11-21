@@ -229,9 +229,9 @@ internal class LiveAutoMixMask {
     }
 }
 
-/** Retires the outgoing video through the same field as the incoming still. */
+/** Retires the outgoing video through the same field as the incoming artwork. */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-internal class OutgoingStillRevealMask {
+internal class OutgoingFeatherRevealMask {
     private val shader = RuntimeShader("""
         uniform shader content;
         uniform shader bottomFade;
@@ -240,7 +240,7 @@ internal class OutgoingStillRevealMask {
         half4 main(float2 xy) {
             float feather = stillFade.eval(xy).a;
             float remaining = 1.0;
-            // Source-over already removes the outgoing video behind the opaque still.
+            // Source-over already removes the outgoing video behind opaque incoming pixels.
             // Correct only the excess elsewhere: (1 - reveal * feather) * remaining = 1 - reveal.
             if (feather < 1.0) {
                 float reveal = revealCoverage(xy);

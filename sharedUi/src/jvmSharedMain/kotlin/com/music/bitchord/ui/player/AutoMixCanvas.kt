@@ -154,9 +154,13 @@ internal class AutoMixCanvasTracks(
     private val standbyProgress = ::standbyOpacity
     private val spatialStandby = CanvasOrganicReveal(generation, standbyProgress, allowSpatialMask = true)
     private val opacityStandby = CanvasOrganicReveal(generation, standbyProgress, allowSpatialMask = false)
+    private val liveHeroReveal = CanvasLiveRevealPair(generation, standbyProgress)
 
     fun standbyReveal(allowSpatialMask: Boolean): CanvasOrganicReveal =
         if (allowSpatialMask) spatialStandby else opacityStandby
+
+    fun matchedHeroReveal(matchesFootprint: Boolean, stationary: Boolean): CanvasLiveRevealPair? =
+        liveHeroReveal.takeIf { matchesFootprint && stationary && liveOutgoing && liveIncoming && !sharesClip }
 
     fun outgoingStillBannerReveal(
         frames: AutoMixCoverFrames?,

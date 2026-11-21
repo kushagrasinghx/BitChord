@@ -286,11 +286,25 @@ interface PlayerSettingsSource {
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
 
+    /** Whether this platform provides beat-reactive Music Haptics (Android phones). */
+    val musicHapticsSupported: Boolean get() = false
+
+    /** Live on/off state of beat-reactive Music Haptics. */
+    val musicHapticsEnabled: StateFlow<Boolean> get() = DefaultMusicHapticsOff
+
+    /** Whether the Music Haptics toggle pill is shown on the Now Playing screen. */
+    val showMusicHapticsButton: StateFlow<Boolean> get() = DefaultShowMusicHapticsButton
+
+    fun setMusicHapticsEnabled(value: Boolean) = Unit
+
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
     /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
     fun setMixViewOpen(open: Boolean)
 }
+
+private val DefaultMusicHapticsOff = MutableStateFlow(false)
+private val DefaultShowMusicHapticsButton = MutableStateFlow(true)
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
 internal val PlayerSettings: PlayerSettingsSource

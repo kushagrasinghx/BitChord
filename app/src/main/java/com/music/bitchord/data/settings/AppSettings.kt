@@ -15,6 +15,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.haptics.MusicHapticsProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -407,6 +408,19 @@ object AppSettings {
      * makes the row say that preset's name again instead of "Custom" forever.
      */
     val equalizerPreset = MutableStateFlow(EqualizerPreset.FLAT)
+
+    /** Real-time beat-reactive tactile haptics driven from the Float32 DSP chain. */
+    val musicHapticsEnabled = MutableStateFlow(false)
+    val musicHapticsProfile = MutableStateFlow(MusicHapticsProfile.BALANCED)
+    val musicHapticsIntensity = MutableStateFlow(0.78f)
+    val musicHapticsSensitivity = MutableStateFlow(0.58f)
+    val musicHapticsSyncOffsetMs = MutableStateFlow(0)
+    val musicHapticsBassWeight = MutableStateFlow(1.0f)
+    val musicHapticsVocalWeight = MutableStateFlow(0.75f)
+    val musicHapticsPercussionWeight = MutableStateFlow(0.80f)
+    val showMusicHapticsButton = MutableStateFlow(true)
+    val musicHapticsHeadphonesOnly = MutableStateFlow(false)
+    val musicHapticsPauseScreenOff = MutableStateFlow(false)
 
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
@@ -1007,6 +1021,21 @@ object AppSettings {
         equalizerBalance.value = prefs.getFloat(KEY_EQ_BALANCE, 0f).coerceIn(-1f, 1f)
         equalizerBands.value = readEqualizerBands()
         equalizerPreset.value = EqualizerPreset.matching(equalizerBands.value)
+        musicHapticsEnabled.value = prefs.getBoolean(KEY_MUSIC_HAPTICS_ENABLED, false)
+        musicHapticsProfile.value = runCatching {
+            MusicHapticsProfile.valueOf(
+                prefs.getString(KEY_MUSIC_HAPTICS_PROFILE, null) ?: MusicHapticsProfile.BALANCED.name,
+            )
+        }.getOrDefault(MusicHapticsProfile.BALANCED)
+        musicHapticsIntensity.value = prefs.getFloat(KEY_MUSIC_HAPTICS_INTENSITY, 0.78f).coerceIn(0.15f, 1.0f)
+        musicHapticsSensitivity.value = prefs.getFloat(KEY_MUSIC_HAPTICS_SENSITIVITY, 0.58f).coerceIn(0.0f, 1.0f)
+        musicHapticsSyncOffsetMs.value = prefs.getInt(KEY_MUSIC_HAPTICS_SYNC_OFFSET_MS, 0).coerceIn(-150, 250)
+        musicHapticsBassWeight.value = prefs.getFloat(KEY_MUSIC_HAPTICS_BASS_WEIGHT, 1.0f).coerceIn(0.0f, 1.0f)
+        musicHapticsVocalWeight.value = prefs.getFloat(KEY_MUSIC_HAPTICS_VOCAL_WEIGHT, 0.75f).coerceIn(0.0f, 1.0f)
+        musicHapticsPercussionWeight.value = prefs.getFloat(KEY_MUSIC_HAPTICS_PERCUSSION_WEIGHT, 0.80f).coerceIn(0.0f, 1.0f)
+        showMusicHapticsButton.value = prefs.getBoolean(KEY_SHOW_MUSIC_HAPTICS_BUTTON, true)
+        musicHapticsHeadphonesOnly.value = prefs.getBoolean(KEY_MUSIC_HAPTICS_HEADPHONES_ONLY, false)
+        musicHapticsPauseScreenOff.value = prefs.getBoolean(KEY_MUSIC_HAPTICS_PAUSE_SCREEN_OFF, false)
         playbackSpeed.value = prefs.getFloat(KEY_SPEED, 1.0f)
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
@@ -1350,6 +1379,67 @@ object AppSettings {
         val clamped = value.coerceIn(-1f, 1f)
         equalizerBalance.value = clamped
         prefs.edit().putFloat(KEY_EQ_BALANCE, clamped).apply()
+    }
+
+    fun setMusicHapticsEnabled(value: Boolean) {
+        musicHapticsEnabled.value = value
+        prefs.edit().putBoolean(KEY_MUSIC_HAPTICS_ENABLED, value).apply()
+    }
+
+    fun setMusicHapticsProfile(value: MusicHapticsProfile) {
+        musicHapticsProfile.value = value
+        prefs.edit().putString(KEY_MUSIC_HAPTICS_PROFILE, value.name).apply()
+    }
+
+    fun setMusicHapticsIntensity(value: Float) {
+        val clamped = value.coerceIn(0.15f, 1.0f)
+        musicHapticsIntensity.value = clamped
+        prefs.edit().putFloat(KEY_MUSIC_HAPTICS_INTENSITY, clamped).apply()
+    }
+
+    fun setMusicHapticsSensitivity(value: Float) {
+        val clamped = value.coerceIn(0.0f, 1.0f)
+        musicHapticsSensitivity.value = clamped
+        prefs.edit().putFloat(KEY_MUSIC_HAPTICS_SENSITIVITY, clamped).apply()
+    }
+
+    fun setMusicHapticsSyncOffsetMs(value: Int) {
+        val clamped = value.coerceIn(-150, 250)
+        musicHapticsSyncOffsetMs.value = clamped
+        prefs.edit().putInt(KEY_MUSIC_HAPTICS_SYNC_OFFSET_MS, clamped).apply()
+    }
+
+    fun setMusicHapticsBassWeight(value: Float) {
+        val clamped = value.coerceIn(0.0f, 1.0f)
+        musicHapticsBassWeight.value = clamped
+        prefs.edit().putFloat(KEY_MUSIC_HAPTICS_BASS_WEIGHT, clamped).apply()
+    }
+
+    fun setMusicHapticsVocalWeight(value: Float) {
+        val clamped = value.coerceIn(0.0f, 1.0f)
+        musicHapticsVocalWeight.value = clamped
+        prefs.edit().putFloat(KEY_MUSIC_HAPTICS_VOCAL_WEIGHT, clamped).apply()
+    }
+
+    fun setMusicHapticsPercussionWeight(value: Float) {
+        val clamped = value.coerceIn(0.0f, 1.0f)
+        musicHapticsPercussionWeight.value = clamped
+        prefs.edit().putFloat(KEY_MUSIC_HAPTICS_PERCUSSION_WEIGHT, clamped).apply()
+    }
+
+    fun setShowMusicHapticsButton(value: Boolean) {
+        showMusicHapticsButton.value = value
+        prefs.edit().putBoolean(KEY_SHOW_MUSIC_HAPTICS_BUTTON, value).apply()
+    }
+
+    fun setMusicHapticsHeadphonesOnly(value: Boolean) {
+        musicHapticsHeadphonesOnly.value = value
+        prefs.edit().putBoolean(KEY_MUSIC_HAPTICS_HEADPHONES_ONLY, value).apply()
+    }
+
+    fun setMusicHapticsPauseScreenOff(value: Boolean) {
+        musicHapticsPauseScreenOff.value = value
+        prefs.edit().putBoolean(KEY_MUSIC_HAPTICS_PAUSE_SCREEN_OFF, value).apply()
     }
 
     /**
@@ -2270,6 +2360,17 @@ object AppSettings {
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
+    private const val KEY_MUSIC_HAPTICS_ENABLED = "music_haptics_enabled"
+    private const val KEY_MUSIC_HAPTICS_PROFILE = "music_haptics_profile"
+    private const val KEY_MUSIC_HAPTICS_INTENSITY = "music_haptics_intensity"
+    private const val KEY_MUSIC_HAPTICS_SENSITIVITY = "music_haptics_sensitivity"
+    private const val KEY_MUSIC_HAPTICS_SYNC_OFFSET_MS = "music_haptics_sync_offset_ms"
+    private const val KEY_MUSIC_HAPTICS_BASS_WEIGHT = "music_haptics_bass_weight"
+    private const val KEY_MUSIC_HAPTICS_VOCAL_WEIGHT = "music_haptics_vocal_weight"
+    private const val KEY_MUSIC_HAPTICS_PERCUSSION_WEIGHT = "music_haptics_percussion_weight"
+    private const val KEY_SHOW_MUSIC_HAPTICS_BUTTON = "show_music_haptics_button"
+    private const val KEY_MUSIC_HAPTICS_HEADPHONES_ONLY = "music_haptics_headphones_only"
+    private const val KEY_MUSIC_HAPTICS_PAUSE_SCREEN_OFF = "music_haptics_pause_screen_off"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"
     private const val KEY_EQ_TONE_Y = "equalizer_tone_y"

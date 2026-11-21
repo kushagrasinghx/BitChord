@@ -913,6 +913,8 @@ fun NowPlayingScreen(
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val musicHapticsEnabled by PlayerSettings.musicHapticsEnabled.collectAsStateWithLifecycle()
+    val showMusicHapticsButton by PlayerSettings.showMusicHapticsButton.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
@@ -2206,6 +2208,20 @@ fun NowPlayingScreen(
                                 null
                             },
                             scrubber = {
+                                if (PlayerSettings.musicHapticsSupported && showMusicHapticsButton) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 6.dp),
+                                        contentAlignment = Alignment.CenterEnd,
+                                    ) {
+                                        MusicHapticsTogglePill(
+                                            enabled = musicHapticsEnabled,
+                                            onToggle = { PlayerSettings.setMusicHapticsEnabled(!musicHapticsEnabled) },
+                                            compact = true,
+                                        )
+                                    }
+                                }
                                 PlayerScrubber(
                                     shown = shown,
                                     durationMs = durationMs,
@@ -4053,49 +4069,62 @@ fun NowPlayingScreen(
                     // loading, "not available", status and blank lines titleMedium's
                     // 24sp, taller again in Devanagari or Thai — so every track change
                     // (sung line → loading line) grew the deck and shrank the sleeve.
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(lyricSlotHeight),
-                        contentAlignment = Alignment.CenterStart,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                    if (!lyricsOpen && syncedLyricsEnabled) {
-                        CurrentLyricStrip(
-                            lines = lyricsTranslation.displayedLyrics,
-                            trackKey = song.videoId,
-                            playhead = lyricsPlayhead,
-                            isPlaying = isPlaying && position.advancing,
-                            durationMs = durationMs,
-                            lyricsUnavailable = lyricsUnavailable,
-                            loadingText = lyricsLoadingText,
-                            // Still visible over the queue, so still a valid way in:
-                            // opens the same full lyrics panel it always has, closing
-                            // the queue behind it the same way the "Up next" glyph
-                            // closes lyrics behind the queue.
-                            onClick = openLyrics,
-                        )
-                    }
-                    if (!lyricsOpen && !syncedLyricsEnabled) {
-                        Text(
-                            text = "\u00A0",
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = 6.dp)
-                                .padding(vertical = 4.dp),
-                        )
-                    }
-                    if (lyricsOpen) {
-                        LyricsStatusWithChange(
-                            status = lyricsTranslation.status,
-                            onStatusClick = { showLyricsProviders = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .offset(y = 6.dp)
-                                .padding(vertical = 4.dp),
-                        )
-                    }
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            if (!lyricsOpen && syncedLyricsEnabled) {
+                                CurrentLyricStrip(
+                                    lines = lyricsTranslation.displayedLyrics,
+                                    trackKey = song.videoId,
+                                    playhead = lyricsPlayhead,
+                                    isPlaying = isPlaying && position.advancing,
+                                    durationMs = durationMs,
+                                    lyricsUnavailable = lyricsUnavailable,
+                                    loadingText = lyricsLoadingText,
+                                    // Still visible over the queue, so still a valid way in:
+                                    // opens the same full lyrics panel it always has, closing
+                                    // the queue behind it the same way the "Up next" glyph
+                                    // closes lyrics behind the queue.
+                                    onClick = openLyrics,
+                                )
+                            }
+                            if (!lyricsOpen && !syncedLyricsEnabled) {
+                                Text(
+                                    text = "\u00A0",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .offset(y = 6.dp)
+                                        .padding(vertical = 4.dp),
+                                )
+                            }
+                            if (lyricsOpen) {
+                                LyricsStatusWithChange(
+                                    status = lyricsTranslation.status,
+                                    onStatusClick = { showLyricsProviders = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .offset(y = 6.dp)
+                                        .padding(vertical = 4.dp),
+                                )
+                            }
+                        }
+                        if (PlayerSettings.musicHapticsSupported && showMusicHapticsButton && !lyricsOpen && !queueOpen) {
+                            Spacer(Modifier.width(10.dp))
+                            MusicHapticsTogglePill(
+                                enabled = musicHapticsEnabled,
+                                onToggle = { PlayerSettings.setMusicHapticsEnabled(!musicHapticsEnabled) },
+                                compact = syncedLyricsEnabled,
+                            )
+                        }
                     }
                     val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
                     PlayerScrubber(

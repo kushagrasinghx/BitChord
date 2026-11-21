@@ -75,6 +75,11 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.guava.future
 import com.music.bitchord.playback.audio.DspChain
+import com.music.bitchord.playback.haptics.MusicHapticsCapability
+import com.music.bitchord.playback.haptics.MusicHapticsConfig
+import com.music.bitchord.playback.haptics.MusicHapticsEngine
+import com.music.bitchord.playback.haptics.MusicHapticsProcessor
+import com.music.bitchord.playback.haptics.MusicHapticsRuntime
 import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.playback.cast.CastPlayback
 import com.music.bitchord.playback.cast.CastSink
@@ -611,6 +616,23 @@ class PlaybackService : MediaLibraryService() {
      */
     private val loudnessA = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
     private val loudnessB = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
+    private val musicHapticsEngine: MusicHapticsEngine by lazy {
+        MusicHapticsEngine(applicationContext).also { MusicHapticsRuntime.attach(it) }
+    }
+    private val musicHapticsA: MusicHapticsProcessor by lazy {
+        MusicHapticsProcessor(
+            engine = musicHapticsEngine,
+            leadUsProvider = { transitionFilterA.leadUs },
+            isAudible = { transitionFilterA === activeFilter },
+        )
+    }
+    private val musicHapticsB: MusicHapticsProcessor by lazy {
+        MusicHapticsProcessor(
+            engine = musicHapticsEngine,
+            leadUsProvider = { transitionFilterB.leadUs },
+            isAudible = { transitionFilterB === activeFilter },
+        )
+    }
     private var loudnessRetryJob: Job? = null
 
     /** The platform audio session currently advertised to system audio tools. */
@@ -908,6 +930,7 @@ class PlaybackService : MediaLibraryService() {
             // ticks, and an unclosed one across a pause is an afternoon on the
             // lock screen arriving as an afternoon of listening.
             if (!isPlaying) ListeningRecorder.onStopped()
+            musicHapticsEngine.setPlaying(isPlaying)
 
             // ListenBrainz: "now playing" on play/resume too, not just on
             // transition — a track started from idle or resumed from pause
@@ -1762,6 +1785,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            musicHapticsA,
             ownsSession = true,
         )
         val sparePlayer = buildPlayer(
@@ -1769,6 +1793,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            musicHapticsB,
             ownsSession = false,
         )
         player = exoPlayer
@@ -3457,9 +3482,10 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         filter: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        musicHaptics: MusicHapticsProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
+        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness, musicHaptics))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -6796,6 +6822,7 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         transition: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        musicHaptics: MusicHapticsProcessor,
     ) = object : FfmpegFallbackRenderersFactory(this) {
         init {
             // Do not force PCM_FLOAT onto an OEM speaker mixer merely because
@@ -6876,7 +6903,7 @@ class PlaybackService : MediaLibraryService() {
             // them for the same reason: it belongs to the listener and
             // the whole session, while the transition filter belongs to
             // one handoff and has to have the last word on it.
-            val dspChain = DspChain(spatial, equalizer, transition, loudness)
+            val dspChain = DspChain(spatial, equalizer, transition, loudness, musicHaptics)
             val precision = PrecisionAudioSink(
                 delegate = defaultSink,
                 dspChain = dspChain,
@@ -7125,6 +7152,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            musicHapticsA,
             ownsSession = true,
         )
         val newSpare = buildPlayer(
@@ -7132,6 +7160,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            musicHapticsB,
             ownsSession = false,
         )
         player = newActive
@@ -7144,6 +7173,7 @@ class PlaybackService : MediaLibraryService() {
         newActive.shuffleModeEnabled = shuffleMode
         applyEqualizer()
         applySpatialAudioEnabled()
+        applyMusicHaptics()
         if (items.isNotEmpty()) {
             newActive.setMediaItems(items, index.coerceIn(items.indices), position)
             // By hand, because the listener is attached below this: the
@@ -7358,6 +7388,21 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.equalizerBands,
             ) { }.collect { applyEqualizer() }
         }
+        scope.launch {
+            combine<Any, Unit>(
+                AppSettings.musicHapticsEnabled,
+                AppSettings.musicHapticsProfile,
+                AppSettings.musicHapticsIntensity,
+                AppSettings.musicHapticsSensitivity,
+                AppSettings.musicHapticsSyncOffsetMs,
+                AppSettings.musicHapticsBassWeight,
+                AppSettings.musicHapticsVocalWeight,
+                AppSettings.musicHapticsPercussionWeight,
+                AppSettings.musicHapticsHeadphonesOnly,
+                AppSettings.musicHapticsPauseScreenOff,
+                AudioOutputStatus.current.map { it.routeKind == AudioRouting.Kind.PHONE }.distinctUntilChanged(),
+            ) { }.collect { applyMusicHaptics() }
+        }
     }
 
     /**
@@ -7399,6 +7444,28 @@ class PlaybackService : MediaLibraryService() {
         val enabled = AppSettings.spatialAudio.value && !activeTrackIsDolbyAtmos
         spatialAudioProcessorA.enabled = enabled
         spatialAudioProcessorB.enabled = enabled
+    }
+
+    private fun applyMusicHaptics() {
+        val headphonesOnly = AppSettings.musicHapticsHeadphonesOnly.value
+        val onPhoneSpeaker = AudioOutputStatus.current.value.routeKind == AudioRouting.Kind.PHONE
+        val hardwareSupported = MusicHapticsCapability.isSupported(applicationContext)
+        val effectiveEnabled = hardwareSupported && AppSettings.musicHapticsEnabled.value && !(headphonesOnly && onPhoneSpeaker)
+        val cfg = MusicHapticsConfig(
+            enabled = effectiveEnabled,
+            profile = AppSettings.musicHapticsProfile.value,
+            intensity = AppSettings.musicHapticsIntensity.value,
+            sensitivity = AppSettings.musicHapticsSensitivity.value,
+            syncOffsetMs = AppSettings.musicHapticsSyncOffsetMs.value,
+            bassWeight = AppSettings.musicHapticsBassWeight.value,
+            vocalWeight = AppSettings.musicHapticsVocalWeight.value,
+            percussionWeight = AppSettings.musicHapticsPercussionWeight.value,
+            headphonesOnly = headphonesOnly,
+            pauseWhenScreenOff = AppSettings.musicHapticsPauseScreenOff.value,
+        )
+        musicHapticsEngine.updateConfig(cfg)
+        musicHapticsA.config = cfg
+        musicHapticsB.config = cfg
     }
 
     /**
@@ -7848,6 +7915,8 @@ class PlaybackService : MediaLibraryService() {
         serviceLyrics = null
         cancelPrefetch()
         trackAnalyzer.release()
+        MusicHapticsRuntime.attach(null)
+        musicHapticsEngine.release()
         loudnessRetryJob?.cancel()
         // The YouTube Music history entry for whatever was playing, closed out
         // on the same terms as the ListenBrainz submit below: a swipe-away never

@@ -158,6 +158,7 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.haptics.MusicHapticsCapability
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.playback.AudioOutputStatus
@@ -195,6 +196,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
     onEqualizer: () -> Unit,
+    onMusicHaptics: () -> Unit = {},
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
     onTranslationLanguage: () -> Unit,
@@ -240,6 +242,8 @@ fun SettingsScreen(
     // which caches the codec-list walk for the life of the process.
     val dolbyAtmosSupported = DeviceCodecs.playsDolbyAtmos
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val musicHapticsEnabled by AppSettings.musicHapticsEnabled.collectAsStateWithLifecycle()
+    val musicHapticsProfile by AppSettings.musicHapticsProfile.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val listenTogetherButton by AppSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
@@ -592,6 +596,28 @@ fun SettingsScreen(
             // The categories, each a page of its own — until there is a query,
             // when their rows answer here instead (below).
             if (!searching) {
+                if (MusicHapticsCapability.isSupported(context)) {
+                    SettingsGroup {
+                        BypassedByBitPerfect(bitPerfectReady) {
+                            SettingsRow(
+                                icon = SfIcons.Waves,
+                                title = stringResource(R.string.music_haptics),
+                                subtitle = if (musicHapticsEnabled) {
+                                    stringResource(
+                                        R.string.music_haptics_active_subtitle,
+                                        musicHapticsProfile.titleString(),
+                                    )
+                                } else {
+                                    stringResource(R.string.music_haptics_subtitle)
+                                },
+                                value = stringResource(
+                                    if (musicHapticsEnabled) R.string.music_haptics_on else R.string.music_haptics_status_off,
+                                ),
+                                onClick = onMusicHaptics,
+                            )
+                        }
+                    }
+                }
                 SettingsCategoryList(onOpen = onOpenSection)
                 if (watchAvailable) {
                     SettingsGroup {
@@ -904,6 +930,26 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.equalizer_subtitle),
                         onClick = onEqualizer,
                     )
+                }
+            }
+            if (MusicHapticsCapability.isSupported(context)) {
+                val musicHapticsTitle = stringResource(R.string.music_haptics)
+                row(musicHapticsTitle, "vibration", "beat", "bass", "tactile", "pulse", "haptic") {
+                    BypassedByBitPerfect(bitPerfectReady) {
+                        SettingsRow(
+                            icon = SfIcons.Waves,
+                            title = musicHapticsTitle,
+                            subtitle = if (musicHapticsEnabled) {
+                                stringResource(
+                                    R.string.music_haptics_active_subtitle,
+                                    musicHapticsProfile.titleString(),
+                                )
+                            } else {
+                                stringResource(R.string.music_haptics_subtitle)
+                            },
+                            onClick = onMusicHaptics,
+                        )
+                    }
                 }
             }
         }

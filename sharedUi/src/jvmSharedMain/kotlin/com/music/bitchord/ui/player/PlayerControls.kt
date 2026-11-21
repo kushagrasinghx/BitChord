@@ -1977,3 +1977,144 @@ private fun TrackAnalysisState.localizedLabel(): String = when (this) {
     TrackAnalysisState.WAITING -> stringResource(Res.string.waiting)
     TrackAnalysisState.FAILED -> stringResource(Res.string.failed)
 }
+
+
+
+/**
+ * Borderless frosted-chrome toggle pill matching BitChord's native [CircleGlyph]
+ * and [LocalPlayerChrome] aesthetic. Blends the album artwork's own colour through
+ * the pill via [vibrantChrome] instead of drawing a flat bordered box.
+ */
+@Composable
+internal fun MusicHapticsTogglePill(
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    compact: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val chrome = LocalPlayerChrome.current
+    val discAlpha by animateFloatAsState(
+        targetValue = if (enabled) 0.34f else 0.16f,
+        animationSpec = tween(200),
+        label = "musicHapticsChromeAlpha",
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (enabled) 1f else 0.72f,
+        animationSpec = tween(200),
+        label = "musicHapticsContentAlpha",
+    )
+    val shape = CircleShape
+
+    Box(
+        modifier = modifier
+            .height(30.dp)
+            .clip(shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(if (enabled) Haptic.ToggleOff else Haptic.ToggleOn)
+                onToggle()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Native BitChord colour-dodge translucent surface — identical to ☆ and ⋯
+        Box(
+            Modifier
+                .matchParentSize()
+                .vibrantChrome(chrome)
+                .background(
+                    if (chrome) {
+                        VibrantChromeInk.copy(alpha = (discAlpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+                    } else {
+                        Color.White.copy(alpha = discAlpha)
+                    },
+                ),
+        )
+        Row(
+            modifier = Modifier.padding(horizontal = if (compact) 11.dp else 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            MusicHapticsGlyph(
+                color = Color.White.copy(alpha = contentAlpha),
+                active = enabled,
+                modifier = Modifier.size(width = 20.dp, height = 15.dp),
+            )
+            Text(
+                text = stringResource(if (compact) Res.string.music_haptics_short else Res.string.music_haptics),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                ),
+                color = Color.White.copy(alpha = contentAlpha),
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
+ * Refined concentric haptic ripples + eighth note drawn with crisp SF-Symbol-matched strokes.
+ */
+@Composable
+private fun MusicHapticsGlyph(
+    color: Color,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val ringR = h * 0.34f
+        val ringCy = h * 0.48f
+        val strokePx = (h * 0.085f).coerceAtLeast(1.1f)
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokePx)
+
+        // Subtle stepped opacity across the three tactile wave rings
+        drawCircle(
+            color = color.copy(alpha = color.alpha * if (active) 0.45f else 0.35f),
+            radius = ringR,
+            center = Offset(w * 0.20f, ringCy),
+            style = stroke,
+        )
+        drawCircle(
+            color = color.copy(alpha = color.alpha * if (active) 0.72f else 0.58f),
+            radius = ringR,
+            center = Offset(w * 0.33f, ringCy),
+            style = stroke,
+        )
+        drawCircle(
+            color = color,
+            radius = ringR,
+            center = Offset(w * 0.46f, ringCy),
+            style = stroke,
+        )
+
+        // Clean eighth note positioned symmetrically on the right
+        val stemX = w * 0.78f
+        val stemTop = h * 0.22f
+        val stemBottom = h * 0.76f
+        val noteStroke = (h * 0.115f).coerceAtLeast(1.5f)
+
+        drawLine(
+            color = color,
+            start = Offset(stemX, stemTop),
+            end = Offset(stemX, stemBottom),
+            strokeWidth = noteStroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(stemX, stemTop),
+            end = Offset(w * 0.94f, h * 0.33f),
+            strokeWidth = noteStroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+        )
+        drawCircle(
+            color = color,
+            radius = h * 0.145f,
+            center = Offset(stemX - h * 0.105f, stemBottom),
+        )
+    }
+}

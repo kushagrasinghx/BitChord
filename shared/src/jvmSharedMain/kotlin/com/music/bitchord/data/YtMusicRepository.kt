@@ -221,7 +221,7 @@ object YtMusicRepository {
                 Song(
                     videoId = vid,
                     title = item.title,
-                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                    artist = InnertubeParser.artistOf(item),
                     thumbnailUrl = item.thumbnailUrl,
                 )
             }
@@ -243,7 +243,7 @@ object YtMusicRepository {
                     Song(
                         videoId = vid,
                         title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        artist = InnertubeParser.artistOf(item),
                         thumbnailUrl = item.thumbnailUrl,
                     )
                 }
@@ -259,7 +259,7 @@ object YtMusicRepository {
                     Song(
                         videoId = vid,
                         title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        artist = InnertubeParser.artistOf(item),
                         thumbnailUrl = item.thumbnailUrl,
                     )
                 }
@@ -277,7 +277,7 @@ object YtMusicRepository {
                     Song(
                         videoId = vid,
                         title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        artist = InnertubeParser.artistOf(item),
                         thumbnailUrl = item.thumbnailUrl,
                     )
                 }

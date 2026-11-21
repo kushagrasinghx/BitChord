@@ -410,6 +410,13 @@ data class ShelfItem(
      * picture the player can show. Drawn as a 16:9 card, as the web player does.
      */
     val isVideo: Boolean = false,
+    /**
+     * Who the card is credited to, read off the subtitle's linked artist or
+     * channel names, so it holds in every language: the type word in front
+     * ("Song", "Композиция") is never a link. Null when nothing is linked;
+     * read it through [InnertubeParser.artistOf].
+     */
+    val artist: String? = null,
 )
 
 /** How a shelf's items are laid out — the web player's `ShelfLayout`, by the same rules. */

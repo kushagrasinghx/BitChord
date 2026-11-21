@@ -94,6 +94,23 @@ export function userQueueInsertionIndex(timeline: readonly QueueEntry[], current
   return timeline.length;
 }
 
+/**
+ * Whether a crossfade that loaded [entryId] for [plannedIndex] may still hand
+ * off to it.
+ *
+ * The next track is loaded seconds before it plays, from a snapshot of the
+ * queue. A shuffle, a "Play Next", a removal or a party edit in that window
+ * leaves the snapshot pointing at a row that is no longer the one after the
+ * playing track — or no longer in the queue at all — and applying it would
+ * write the old order back over the live one.
+ *
+ * Only meaningful for a straight step: a repeat wrap plans a shorter queue,
+ * whose index 0 is not a row of [queue].
+ */
+export function crossfadeIsStillNext(queue: readonly QueueEntry[], plannedIndex: number, entryId: string): boolean {
+  return queue[plannedIndex]?.entryId === entryId;
+}
+
 export interface JumpPlan {
   isPureSeek: boolean;
   /** The new timeline, as indices into the old one; indices left out are dropped. */

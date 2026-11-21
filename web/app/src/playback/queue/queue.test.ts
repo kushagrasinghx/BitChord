@@ -7,6 +7,7 @@ import {
   autoplaySectionStart,
   buildContextQueue,
   computeJumpOrder,
+  crossfadeIsStillNext,
   playedUserQueueIndices,
   shuffledStartingOrder,
   shuffledUpcomingOrder,
@@ -171,5 +172,31 @@ describe('QueueTimeline', () => {
     const identity = () => 0.999999; // Fisher-Yates with j = i keeps the order
     const result = shuffledUpcomingOrder(['context', 'context', 'context'], identity);
     expect(result).not.toEqual([0, 1, 2]);
+  });
+});
+
+describe('crossfade handoff (player.maybeCrossfade)', () => {
+  it('keeps a load whose row is still next', () => {
+    expect(crossfadeIsStillNext(timeline('ccccc'), 2, 'c2')).toBe(true);
+  });
+
+  it('keeps a load when AutoPlay was only appended behind it', () => {
+    expect(crossfadeIsStillNext([...timeline('ccc'), ...timeline('aaa')], 1, 'c1')).toBe(true);
+  });
+
+  it('drops a load a shuffle moved away from the next slot', () => {
+    const t = timeline('ccc');
+    expect(crossfadeIsStillNext([t[0]!, t[2]!, t[1]!], 1, 'c1')).toBe(false);
+  });
+
+  it('drops a load a Play Next pushed back', () => {
+    const t = timeline('ccc');
+    const next = asEntry(track('u9'), 'user', null, 'u9');
+    expect(crossfadeIsStillNext([t[0]!, next, t[1]!, t[2]!], 1, 'c1')).toBe(false);
+  });
+
+  it('drops a load whose row was removed', () => {
+    const t = timeline('ccc');
+    expect(crossfadeIsStillNext([t[0]!, t[2]!], 1, 'c1')).toBe(false);
   });
 });

@@ -1388,6 +1388,8 @@
     <string name="offline_liked_empty">このデバイスで高く評価した曲がここに表示されます</string>
     <string name="saved_on_this_device">このデバイスに保存</string>
     <string name="direct_source_stream_in_party">Listen Together パーティー中はオフ</string>
+    <string name="prefetch_next_track">次の曲を事前に準備</string>
+    <string name="prefetch_next_track_subtitle">現在の曲の再生中に次の曲のロスレスストリームを解決して全曲キャッシュします。</string>
     <string name="direct_source_stream">ソースから直接ストリーミング</string>
     <string name="find_your_mood">気分で探す</string>
     <string name="progressive_blur">段階的なぼかし</string>

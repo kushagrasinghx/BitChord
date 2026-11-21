@@ -117,6 +117,8 @@
     <string name="source">Sources</string>
     <string name="direct_source_stream">Direct Source Stream</string>
     <string name="direct_source_stream_in_party">Off while you\'re in a Listen Together party</string>
+    <string name="prefetch_next_track">Hold next track ready</string>
+    <string name="prefetch_next_track_subtitle">Resolves and caches the next song\'s lossless stream while the current one plays.</string>
     <string name="lossless_audio">Lossless audio</string>
     <string name="prefer_lossless">Prefer lossless</string>
     <string name="lossless_source_subtitle">FLAC and ALAC straight from the source</string>

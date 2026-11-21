@@ -1232,6 +1232,8 @@
     <string name="signed_by">%1$s 서명</string>
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
+    <string name="prefetch_next_track">다음 곡 미리 준비</string>
+    <string name="prefetch_next_track_subtitle">현재 곡이 재생되는 동안 다음 곡의 무손실 스트림을 확인해 전체를 캐시합니다.</string>
     <string name="progressive_blur">점진적 흐림</string>
     <string name="glass_performance">유리 효과 성능 향상</string>
     <string name="opened_file">열린 파일</string>

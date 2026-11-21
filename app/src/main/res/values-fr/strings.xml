@@ -1411,6 +1411,8 @@
     <string name="offline_liked_empty">Les titres que vous aimez sur cet appareil apparaissent ici</string>
     <string name="saved_on_this_device">Enregistrée sur cet appareil</string>
     <string name="direct_source_stream_in_party">Désactivé pendant une fête Listen Together</string>
+    <string name="prefetch_next_track">Préparer le morceau suivant</string>
+    <string name="prefetch_next_track_subtitle">Résout et met en cache le flux lossless du morceau suivant pendant que le morceau courant joue.</string>
     <string name="direct_source_stream">Flux direct depuis la source</string>
     <string name="find_your_mood">Trouvez votre humeur</string>
     <string name="progressive_blur">Flou progressif</string>

@@ -1387,6 +1387,8 @@
     <string name="offline_liked_empty">你在這部裝置上喜歡的歌曲會顯示在這裡</string>
     <string name="saved_on_this_device">已儲存在這部裝置上</string>
     <string name="direct_source_stream_in_party">在 Listen Together 派對中時關閉</string>
+    <string name="prefetch_next_track">提前備好下一首</string>
+    <string name="prefetch_next_track_subtitle">在播放目前歌曲時預先解析並完整快取下一首的無損串流。</string>
     <string name="direct_source_stream">直接從來源串流</string>
     <string name="find_your_mood">尋找你的心情</string>
     <string name="progressive_blur">漸進模糊</string>

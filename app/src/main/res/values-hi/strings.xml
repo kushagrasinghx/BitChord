@@ -1410,6 +1410,8 @@
     <string name="offline_liked_empty">इस डिवाइस पर पसंद किए गए गाने यहाँ दिखेंगे</string>
     <string name="saved_on_this_device">इस डिवाइस पर सेव किया गया</string>
     <string name="direct_source_stream_in_party">Listen Together पार्टी के दौरान बंद</string>
+    <string name="prefetch_next_track">अगला गाना तैयार रखें</string>
+    <string name="prefetch_next_track_subtitle">मौजूदा गाना चलते समय अगले गाने का लॉसलेस स्ट्रीम सुलझाकर पूरा कैश कर देता है।</string>
     <string name="direct_source_stream">स्रोत से सीधी स्ट्रीम</string>
     <string name="find_your_mood">अपना मूड खोजें</string>
     <string name="progressive_blur">क्रमिक ब्लर</string>

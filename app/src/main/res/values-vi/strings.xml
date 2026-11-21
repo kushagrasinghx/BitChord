@@ -1327,6 +1327,8 @@
     <string name="offline_liked_empty">Các bài hát bạn thích trên thiết bị này sẽ hiện ở đây</string>
     <string name="saved_on_this_device">Đã lưu trên thiết bị này</string>
     <string name="direct_source_stream_in_party">Tắt khi bạn đang trong bữa tiệc Listen Together</string>
+    <string name="prefetch_next_track">Chuẩn bị sẵn bài tiếp theo</string>
+    <string name="prefetch_next_track_subtitle">Giải quyết và lưu trữ đầy đủ luồng không mất dữ của bài tiếp theo trong khi bài hiện tại đang phát.</string>
     <string name="direct_source_stream">Phát trực tiếp từ nguồn</string>
     <string name="find_your_mood">Tìm tâm trạng của bạn</string>
     <string name="progressive_blur">Làm mờ dần</string>

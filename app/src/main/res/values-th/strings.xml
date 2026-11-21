@@ -1393,6 +1393,8 @@
     <string name="offline_liked_empty">เพลงที่คุณถูกใจในอุปกรณ์นี้จะแสดงที่นี่</string>
     <string name="saved_on_this_device">บันทึกไว้ในอุปกรณ์นี้</string>
     <string name="direct_source_stream_in_party">ปิดอยู่ขณะอยู่ในปาร์ตี้ Listen Together</string>
+    <string name="prefetch_next_track">เตรียมเพลงถัดไป</string>
+    <string name="prefetch_next_track_subtitle">ค้นหาและแคชสตรีมแบบไม่สูญเสียของเพลงถัดไปทั้งเพลงระหว่างที่เพลงปัจจุบันกำลังเล่น</string>
     <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
     <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>

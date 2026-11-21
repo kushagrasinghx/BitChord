@@ -13,6 +13,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.ByteArrayDataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
@@ -21,7 +22,9 @@ import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.ContentMetadataMutations
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import java.io.IOException
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -32,6 +35,7 @@ import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.OfflineDash
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -104,6 +108,12 @@ object AudioCache {
      * second on this connection, against seventy seconds streamed.
      */
     private const val CHUNK_BYTES = 2L * 1024 * 1024
+
+    /** How many times a lost lock race is re-asked before it is believed. */
+    private const val LOSS_RETRY_COUNT = 3
+
+    /** Spacing between those re-asks, so the holder has time to let go. */
+    private const val LOSS_RETRY_DELAY_MS = 1_500L
 
     /**
      * What [cacheWholeOnce] risks before committing to a whole [CHUNK_BYTES].
@@ -438,7 +448,13 @@ object AudioCache {
     }
 
     private fun phoneKey(spec: androidx.media3.datasource.DataSpec): String =
-        spec.uri.getQueryParameter("v")
+        // Scoped to the app's own virtual URIs on purpose. A CDN segment URL
+        // that happens to carry a `v` query parameter must not be read as a
+        // YouTube id — the DASH segments cache-ahead warms key on their URL
+        // (see [warmDashSegment]), and the player's read of those same URLs
+        // has to land on the same entries.
+        spec.uri.takeIf { it.scheme == "bitchord" }
+            ?.getQueryParameter("v")
             // A YouTube id can name several different recordings on disk: the
             // Opus rendition YouTube serves, whatever a source ranked above it
             // hands over instead — see [SourceResolver.substituteForYouTube] —
@@ -741,6 +757,29 @@ object AudioCache {
                     ContentMetadataMutations().set(META_PLAYED, "1"),
                 )
             }
+            // A DASH set warmed by cache-ahead plays without ever reaching
+            // [recordServed] — the manifest and every segment are already on
+            // disk, so nothing resolves. The played mark on the parts is what
+            // folds their bytes into the track's Cached songs row and lifts
+            // them out of [dropForeignEntries]'s reach the same way a resolve
+            // would have.
+            markDashSetPlayed(song.videoId)
+        }
+    }
+
+    /** Sets [META_PLAYED] on every warmed DASH segment of [mediaId] — see [notePlayed]. */
+    private suspend fun markDashSetPlayed(mediaId: String) {
+        cache.keys.toList().forEach { key ->
+            runCatching {
+                val meta = cache.getContentMetadata(key)
+                if (meta.get(META_MEDIA_ID, null as String?) != mediaId) return@runCatching
+                if (meta.get(META_DASH_SEGMENT, null as String?) == null) return@runCatching
+                if (meta.get(META_PLAYED, null as String?) != null) return@runCatching
+                cache.applyContentMetadataMutations(
+                    key,
+                    ContentMetadataMutations().set(META_PLAYED, "1"),
+                )
+            }
         }
     }
 
@@ -867,7 +906,16 @@ object AudioCache {
             if (bytes <= 0L) continue
             val touched = spans.maxOf { it.lastTouchTimestamp }
             val length = ContentMetadata.getContentLength(meta)
-            val complete = length > 0 && bytes >= length && cache.isCached(key, 0, length)
+            // A warmed DASH part proves itself the way [wholeResponse] says:
+            // from the content length when the server sent one, from a
+            // span-contiguous run when it did not — which is the case for
+            // every segment [warmDashSegment] pulled, read to an unknown end
+            // and recorded no length for. Judging those on the length alone
+            // marked every fully-warmed set "Partial" in the listing.
+            val dashPart = meta.get(META_DASH_SEGMENT, null as String?) != null ||
+                meta.get(META_DASH_MANIFEST, null as String?) != null
+            val complete = if (dashPart) runCatching { wholeResponse(key) }.getOrDefault(false)
+            else length > 0 && bytes >= length && cache.isCached(key, 0, length)
             byTrack.getOrPut(mediaId) { mutableListOf() } += Entry(origin, meta, bytes, touched, complete)
         }
         byTrack.map { (mediaId, entries) ->
@@ -876,7 +924,18 @@ object AudioCache {
             val bytes = entries.sumOf { it.bytes }
             val lastUsed = entries.maxOf { it.touched }
             val origin = entries.maxBy { it.bytes }.origin
-            val complete = entries.any { it.complete }
+            // A DASH set warmed by cache-ahead is one rendition spread over
+            // several entries — the manifest and its segments — and it is
+            // whole only when every part is: the row says complete so a
+            // listener can trust it offline, and one evicted segment means
+            // it is not that.
+            val dashManifest = entries.any { it.meta.get(META_DASH_MANIFEST, null as String?) != null }
+            val complete = if (dashManifest) {
+                entries.first { it.meta.get(META_DASH_MANIFEST, null as String?) != null }.complete &&
+                    entries.filter { it.meta.get(META_DASH_SEGMENT, null as String?) != null }.all { it.complete }
+            } else {
+                entries.any { it.complete }
+            }
             val noted = notedSongs[mediaId]
             val art = field(META_ART) ?: noted?.thumbnailUrl
                 ?: mediaId.takeIf { SourceRegistry.parseTrackKey(it) == null }
@@ -925,6 +984,20 @@ object AudioCache {
     fun holds(mediaId: String): Boolean {
         if (!::cache.isInitialized || mediaId.isBlank()) return false
         return keysOf(mediaId).any { key -> cache.getCachedSpans(key).any { it.isCached } }
+    }
+
+    /**
+     * Whether [mediaId] has a complete rendition on disk.
+     *
+     * Cache-ahead spends the network for the next item only after the item
+     * currently playing has itself made it safely into the cache. A few head
+     * bytes are not enough: they are normal streaming buffer and must not
+     * unlock a whole-file fetch for another track.
+     */
+    fun hasCompleteCopy(mediaId: String): Boolean {
+        if (!::cache.isInitialized || mediaId.isBlank()) return false
+        val keys = keysOf(mediaId)
+        return keys.any(::isComplete)
     }
 
     /**
@@ -1126,7 +1199,20 @@ object AudioCache {
      *    song. WebM, MP4 and FLAC pass, as [cachedContainerOf] reads them.
      */
     private fun keepsAddonCopy(key: String): Boolean =
-        !key.contains("#hifi") && isComplete(key) && containerOf(key) != null
+        !key.contains("#hifi") && !isDashPart(key) && isComplete(key) && containerOf(key) != null
+
+    /**
+     * Whether [key] is one of a warmed DASH set's parts — the trimmed manifest
+     * or one of its segments — rather than a standalone file. These are kept
+     * and dropped as one: a manifest whose segments went is an index of dead
+     * URLs, and segments without their manifest are bytes nothing addresses.
+     * See [warmWholeManifest] and [keepsAddonCopy]'s callers.
+     */
+    private fun isDashPart(key: String): Boolean = runCatching {
+        val meta = cache.getContentMetadata(key)
+        meta.get(META_DASH_MANIFEST, null as String?) != null ||
+            meta.get(META_DASH_SEGMENT, null as String?) != null
+    }.getOrDefault(false)
 
     /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
     private fun cacheKeyBaseOf(mediaId: String): String =
@@ -1151,6 +1237,22 @@ object AudioCache {
     private const val META_ALBUM = "bc_album"
     private const val META_DURATION = "bc_duration"
     private const val META_ART = "bc_art"
+
+    /**
+     * Marks the entry holding a DASH manifest cache-ahead warmed for a track —
+     * the index its playback reads first — and marks every segment entry
+     * [META_DASH_SEGMENT] warms beside it.
+     *
+     * The segments live under keys of their own (the CDN URLs they were
+     * fetched from — see [warmWholeManifest]), so nothing else in this file
+     * would ever associate them with the track. The two markers are what do:
+     * [cachedSongs] folds the segment bytes into the track's row and judges
+     * its completeness across the whole set, [keepsAddonCopy] keeps the parts
+     * dropping and being kept together, and [keysOf] already reaches them
+     * through [META_MEDIA_ID] for the removal menu.
+     */
+    private const val META_DASH_MANIFEST = "bc_dash_manifest"
+    private const val META_DASH_SEGMENT = "bc_dash_segment"
 
     /** Set once a non-analysis request — the player or its read-ahead — has read this entry. */
     private const val META_PLAYBACK = "bc_playback"
@@ -1657,9 +1759,326 @@ object AudioCache {
         return "$key holds ${total / 1024}kB in ${spans.size} spans: $ranges"
     }
 
+    /**
+     * Whether the entry [key] holds every byte of one whole upstream response.
+     *
+     * [CacheDataSource] records the response's content length when the server
+     * sent one; against that the spans are the whole answer. Without a length
+     * — a chunked response — a span-contiguous run from zero through at least
+     * one byte is all this cache can attest, the same certificate
+     * [wholeBySpans] carries.
+     */
+    private fun wholeResponse(key: String): Boolean {
+        val length = runCatching { ContentMetadata.getContentLength(cache.getContentMetadata(key)) }
+            .getOrDefault(C.LENGTH_UNSET.toLong())
+        return when {
+            length > 0L -> cache.isCached(key, 0, length)
+            else -> wholeBySpans(key, 1L)
+        }
+    }
+
+    /**
+     * Warms a DASH manifest answer onto disk in full, for cache-ahead — the
+     * manifest *and* every segment of the lossless rendition it names.
+     *
+     * Where [warmWholeRendition] pulls one file, this warms a *set*: the
+     * manifest is an index, and warming only it is what produced the 1.8kB
+     * entry and the 128-second stall that had manifests refused outright (see
+     * [SourceResolver.cacheAheadStream]). The player will read the manifest
+     * back through the track's own rendition key and then fetch segments by
+     * the URLs it carries, so both halves land where playback looks:
+     *
+     *  - the manifest, **trimmed to its lossless rendition**, written under
+     *    [markedUri]'s own key — the same key the player's read will ask for —
+     *    with that rendition's `SegmentTemplate` rewritten to name its
+     *    segments absolutely. The trimming is what stops adaptive selection
+     *    from wandering onto a rendition whose segments were never warmed;
+     *    the absolutising is what keeps the segment fetches addressable when
+     *    the manifest is read back under a `bitchord://` URI.
+     *  - each segment, under a key of its own — the absolute URL it was
+     *    fetched from, exactly the string the stored manifest names. Because
+     *    the manifest itself is cached, its URLs survive their tokens
+     *    expiring: a later read serves the manifest from disk, and every
+     *    segment fetch it names hits an entry the warm already filled. The
+     *    URL is never touched for playback again, expiry and all — the same
+     *    guarantee the single-file path gets from the rendition key, reached
+     *    by way of the manifest-as-index.
+     *
+     * Every entry is tagged with the track's identity as it is written — see
+     * [META_DASH_MANIFEST] — so the listing, the removal menu and
+     * [dropForeignEntries] treat the parts as one track.
+     *
+     * @return true only when the manifest and **every** segment are fully on
+     *   disk — the caller marks the queued item on that alone, and anything
+     *   short of it leaves the track to resolve and stream the ordinary way.
+     */
+    suspend fun warmWholeManifest(markedUri: Uri, stream: SourceStream): Boolean =
+        withContext(Dispatchers.IO) {
+            val manifestUrl = stream.url.substringBefore('?')
+            if (!::cache.isInitialized) {
+                TrackLog.d(TAG, "cache-ahead DASH warm skipped: cache not ready ($manifestUrl)")
+                return@withContext false
+            }
+            // The track's own id, read straight off the marked URI. Not
+            // [mediaIdIn] — that helper answers for the player's view of a
+            // queue item, and for the upgraded virtual URIs cache-ahead marks
+            // with it comes back null, which ended the warm silently before
+            // its first log line could speak. [warmWholeRendition] has the
+            // same URI in hand and trusts only [keyFactory]'s derivation of
+            // it; this reads the id the same derivation is built on.
+            val mediaId = markedUri.getQueryParameter("v")?.takeIf { it.isNotBlank() }
+            if (mediaId == null) {
+                TrackLog.d(TAG, "cache-ahead DASH warm skipped: no track id in $markedUri ($manifestUrl)")
+                return@withContext false
+            }
+            val key = keyFactory.buildCacheKey(DataSpec(markedUri))
+            val startedAt = SystemClock.elapsedRealtime()
+            TrackLog.d(TAG, "cache-ahead DASH warm starting: $mediaId from $manifestUrl", about = mediaId)
+
+            // The manifest text, straight from the addon with the stream's own
+            // headers. Nothing is cached from this read: the trimmed rewrite
+            // below is what gets stored.
+            val manifest = runCatching {
+                val request = okhttp3.Request.Builder()
+                    .url(stream.url)
+                    .apply { stream.headers.forEach { (name, value) -> header(name, value) } }
+                    .build()
+                Http.client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) error("HTTP ${response.code}")
+                    response.body?.string() ?: error("empty manifest body")
+                }
+            }.onFailure { TrackLog.d(TAG, "cache-ahead DASH manifest fetch failed: ${it.message}", about = mediaId) }
+                .getOrNull()
+                ?: return@withContext false
+            val trimmed = runCatching { OfflineDash.trimmedForCache(manifest, stream.url) }
+                .onFailure { TrackLog.d(TAG, "cache-ahead DASH manifest unusable: ${it.message}", about = mediaId) }
+                .getOrNull()
+                ?: run {
+                    // [trimmedForCache] refuses without throwing too — a
+                    // manifest carrying no lossless rendition, say. That is a
+                    // decision rather than an error, but it used to end the
+                    // warm silently, so it is said out loud here.
+                    TrackLog.d(
+                        TAG,
+                        "cache-ahead DASH manifest refused (${manifest.length}B from $manifestUrl)",
+                        about = mediaId,
+                    )
+                    return@withContext false
+                }
+
+            // The manifest itself, under the key the player's read will use.
+            // Written from the bytes in hand rather than through the resolving
+            // chain — that chain would fetch the *original*, untrimmed manifest
+            // the parked URL serves, and the whole point is to store the one
+            // rendition playback must stay on.
+            val manifestBytes = trimmed.text.toByteArray(Charsets.UTF_8)
+            val wroteManifest = runCatching {
+                val source = CacheDataSource.Factory()
+                    .setCache(cache)
+                    .setUpstreamDataSourceFactory(DataSource.Factory { ByteArrayDataSource(manifestBytes) })
+                    .setCacheKeyFactory { _ -> key }
+                    .createDataSource()
+                CacheWriter(
+                    source,
+                    DataSpec.Builder()
+                        .setUri(markedUri)
+                        .setPosition(0)
+                        .setLength(manifestBytes.size.toLong())
+                        .build(),
+                    /* temporaryBuffer = */ null,
+                    /* listener = */ null,
+                ).cache()
+            }.isSuccess && cache.isCached(key, 0, manifestBytes.size.toLong())
+            if (!wroteManifest) {
+                TrackLog.d(TAG, "cache-ahead DASH manifest write failed", about = mediaId)
+                return@withContext false
+            }
+            tagDashEntry(key, mediaId, manifest = true)
+
+            // Every segment, init first, each read to its own end and verified
+            // whole before the next is begun. The first failure stops the walk:
+            // the mark is all-or-nothing, and partial sets are left for the
+            // retry cadence rather than trusted.
+            val segments = listOf(trimmed.initialization) + trimmed.media
+            var warmed = 0
+            var stopped: String? = null
+            for (url in segments) {
+                ensureActive()
+                if (!warmDashSegment(url, stream.headers, mediaId)) {
+                    stopped = "stopped at segment $warmed of ${segments.size}"
+                    break
+                }
+                warmed++
+            }
+            val elapsed = SystemClock.elapsedRealtime() - startedAt
+            if (warmed < segments.size) {
+                TrackLog.d(
+                    TAG,
+                    "cache-ahead DASH warm $stopped (${warmed}/${segments.size}, ${elapsed}ms)",
+                    about = mediaId,
+                )
+                return@withContext false
+            }
+            TrackLog.d(
+                TAG,
+                "cache-ahead DASH warm complete: manifest + ${segments.size} segments " +
+                    "(${elapsed}ms, ${manifestBytes.size / 1024}kB manifest)",
+                about = mediaId,
+            )
+            true
+        }
+
+    /**
+     * Pulls one DASH segment onto disk under its own URL key, and reports
+     * whether it is there in full.
+     *
+     * The key is the URL, deliberately — the very string the cached manifest
+     * hands the player — and it is pinned explicitly rather than left to
+     * [phoneKey], whose `v=` branch exists for the app's virtual URIs and
+     * must never meet a CDN URL that happens to carry a `v` query parameter.
+     *
+     * The read runs to the upstream's end of stream — a segment's length is
+     * not known before it is served — and [wholeResponse] then says whether
+     * the entry really holds it, from the content length the server recorded
+     * or from the spans when it did not.
+     */
+    private suspend fun warmDashSegment(url: String, headers: Map<String, String>, mediaId: String): Boolean {
+        val wrote = runCatching {
+            val upstream = OkHttpDataSource.Factory(Http.client)
+                // The stream's own headers ride every segment request, the
+                // way the player's http data source would have carried them.
+                .apply { if (headers.isNotEmpty()) setDefaultRequestProperties(headers) }
+            val source = CacheDataSource.Factory()
+                .setCache(cache)
+                .setUpstreamDataSourceFactory(upstream)
+                .setCacheKeyFactory { _ -> url }
+                .createDataSource()
+            val spec = DataSpec.Builder()
+                .setUri(Uri.parse(url))
+                .setPosition(0)
+                .setLength(C.LENGTH_UNSET.toLong())
+                .build()
+            val writer = CacheWriter(source, spec, /* temporaryBuffer = */ null, /* listener = */ null)
+            withContext(Dispatchers.IO) {
+                val handle = coroutineContext.job.invokeOnCompletion { writer.cancel() }
+                try {
+                    writer.cache()
+                } finally {
+                    handle.dispose()
+                }
+            }
+        }
+        if (wrote.isFailure) {
+            TrackLog.d(TAG, "cache-ahead DASH segment fetch failed: ${wrote.exceptionOrNull()?.message}", about = mediaId)
+            return false
+        }
+        val full = runCatching { wholeResponse(url) }.getOrDefault(false)
+        if (!full) {
+            TrackLog.d(TAG, "cache-ahead DASH segment landed short: $url", about = mediaId)
+            return false
+        }
+        tagDashEntry(url, mediaId, manifest = false)
+        return true
+    }
+
+    /** Tags one warmed DASH part with the track it belongs to — see [META_DASH_MANIFEST]. */
+    private fun tagDashEntry(key: String, mediaId: String, manifest: Boolean) {
+        runCatching {
+            val mutations = ContentMetadataMutations()
+            mutations.set(META_ORIGIN, Origin.OTHER.name)
+            mutations.set(META_MEDIA_ID, mediaId)
+            if (manifest) mutations.set(META_DASH_MANIFEST, "1") else mutations.set(META_DASH_SEGMENT, "1")
+            notedSongs[mediaId]?.let { describe(mutations, it, null) }
+            cache.applyContentMetadataMutations(key, mutations)
+        }
+    }
+
     suspend fun warmRange(uri: Uri, position: Long, length: Long) {
         val key = keyFactory.buildCacheKey(DataSpec(uri))
         fetch(key, uri, position, length)
+    }
+
+    /**
+     * Warms [uri]'s whole rendition onto disk, for cache-ahead's fetch — the
+     * next track pulled onto disk in full before it is ever opened, so its
+     * open serves every byte out of the cache and the addon URL it was
+     * resolved from is never touched again, expiry and all. See
+     * [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
+     * cache-ahead, which marks the queued item only when this returns true.
+     *
+     * Two ways in, because the rendition's size is only known once Media3 has
+     * recorded it from an upstream response — and a freshly resolved track
+     * has usually been opened by nothing at all, which records nothing:
+     *
+     *  - **Length recorded.** A chunk walk over the known size, so a caller
+     *    that cancels between chunks (the queue moved on) stops having paid
+     *    for a whole unbounded read. Each chunk's fetch serves its cached
+     *    spans from disk and takes only its holes to the network, so warming
+     *    a half-full entry costs just the missing tail.
+     *  - **Length unknown.** One open-ended read to the upstream's own end of
+     *    stream — no size needed of the caller, and the bytes land in the
+     *    same entry either way. The entry's single-writer lock is the safety
+     *    net underneath both paths: a fetch that loses it writes nothing, so
+     *    racing the player that just opened the track costs bandwidth, not
+     *    correctness.
+     *
+     * @return whether the rendition is fully cached when this returns. The
+     *   caller marks the queued item on true and nothing otherwise — a false
+     *   from a stopped read is a retry, not a mark.
+     */
+    suspend fun warmWholeRendition(uri: Uri): Boolean {
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        val total = contentLengthOf(uri)
+        if (total > 0L) {
+            var position = 0L
+            while (position < total) {
+                val length = minOf(CHUNK_BYTES, total - position)
+                var fetched = false
+                // A chunk can be lost without being undownloadable: the
+                // entry's single-writer lock is exactly what the queue's own
+                // warmer holds while it fills the same rendition — measured
+                // here as a whole walk losing every probe for seconds while
+                // the other writer filled the same bytes. A few short re-asks
+                // cover the overlap; giving up on fetching is *not* giving up
+                // on the entry, because the spans below say who won.
+                repeat(LOSS_RETRY_COUNT) {
+                    if (fetched) return@repeat
+                    fetch(key, uri, position, length)
+                    fetched = cache.getCachedBytes(key, position, length) >= length
+                    if (!fetched) delay(LOSS_RETRY_DELAY_MS)
+                }
+                if (!fetched) break
+                position += length
+            }
+            return wholeBySpans(key, total)
+        }
+        // One read with no end — and, critically, one whose *outcome is
+        // believed*. [pull] stops quietly on a network error because its
+        // callers never need to know; here a read that stopped early must not
+        // be read as a full one, or the mark would point the queued item at a
+        // rendition with a hole for a tail. [pullToEnd] reports the read's own
+        // verdict instead, and the spans below confirm the bytes actually
+        // landed — [CacheWriter] records no content metadata, so a
+        // span-contiguous run from zero is the only certificate this entry
+        // can carry.
+        val completed = pullToEnd(key, uri)
+        return completed && wholeBySpans(key, 1L)
+    }
+
+    /**
+     * Whether [key]'s entry is cached as one unbroken run from byte zero
+     * through at least [atLeast] bytes, read from the spans rather than from
+     * content metadata — the thing a CacheWriter-filled entry has plenty of
+     * and no length to show for.
+     */
+    private fun wholeBySpans(key: String, atLeast: Long): Boolean {
+        val spans = cache.getCachedSpans(key).filter { it.isCached }.sortedBy { it.position }
+        var reached = 0L
+        for (span in spans) {
+            if (span.position > reached) return false
+            reached = maxOf(reached, span.position + span.length)
+        }
+        return reached >= atLeast
     }
 
     /**
@@ -2418,6 +2837,65 @@ object AudioCache {
                     "${SystemClock.elapsedRealtime() - fetchStart}ms",
                 about = about,
             )
+        }
+    }
+
+    /**
+     * Reads [key]'s rendition to the upstream's own end of stream, writing
+     * every byte to the cache, and reports whether the read actually got
+     * there.
+     *
+     * A twin of [pull] that differs in the two ways a completeness verdict
+     * needs: the read's end is the *upstream's end of input* rather than a
+     * caller-supplied length, and a failure is reported rather than swallowed
+     * — [pull] stops quietly on a skip because its callers never need to
+     * know, while a cache-ahead read that stopped early must not be read as a
+     * full one, or the mark would point the queued item at a rendition with a
+     * hole for a tail. Losing the entry's single-writer lock counts as a
+     * failure here, as it does in [fetch]: a lock the player holds means the
+     * track has opened, and the mark is better retried after that settles
+     * than believed over bytes that were never written.
+     *
+     * The length is left unset on the spec rather than bounded at "a very big
+     * number": the evictor reads a bounded spec's length as space to
+     * *reserve* before the write starts —
+     * [DynamicLruCacheEvictor.onStartFile] — so a bounded "everything" spec
+     * would have it evicting the whole cache to make room for sixty-four
+     * gigabytes, head spans and all. An unset length is the one value it
+     * exempts, and the read stops at the upstream's own end of stream anyway.
+     */
+    private suspend fun pullToEnd(key: String, uri: Uri): Boolean {
+        val upstream = upstreamFactory ?: return false
+        val about = mediaIdIn(uri)
+        val fetchStart = SystemClock.elapsedRealtime()
+        TrackLog.d(TAG, "read-ahead fetching $key [0, end)", about = about)
+        val source = readAheadCacheFactory(upstream).createDataSource()
+        val spec = DataSpec.Builder()
+            .setUri(uri)
+            .setPosition(0)
+            .setLength(C.LENGTH_UNSET.toLong())
+            .build()
+        val writer = CacheWriter(source, spec, /* temporaryBuffer = */ null, /* listener = */ null)
+        return withContext(Dispatchers.IO) {
+            // CacheWriter blocks in a read loop and checks this flag between
+            // reads; cancelling the coroutine alone would leave it running.
+            val handle = coroutineContext.job.invokeOnCompletion { writer.cancel() }
+            try {
+                writer.cache()
+                TrackLog.d(
+                    TAG,
+                    "read-ahead fetched $key [0, end) in ${SystemClock.elapsedRealtime() - fetchStart}ms",
+                    about = about,
+                )
+                true
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TrackLog.d(TAG, "read-ahead stopped for $key: ${e.message}", about = about)
+                false
+            } finally {
+                handle.dispose()
+            }
         }
     }
 }

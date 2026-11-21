@@ -217,6 +217,9 @@ android {
             // The three BouncyCastle jars (bcprov, bcutil, bcpkix) ship one licence between them.
             pickFirsts += setOf("META-INF/LICENSE.md", "META-INF/LICENSE.txt", "META-INF/NOTICE.md")
         }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
     buildFeatures {
         compose = true
@@ -445,6 +448,11 @@ dependencies {
     }
     implementation("org.conscrypt:conscrypt-android:2.5.3")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
+
+    // ---- yt-dlp & FFmpeg integration for MP3 downloads ----
+    val youtubedlAndroidVersion = "0.18.1"
+    implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroidVersion")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroidVersion")
 
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely

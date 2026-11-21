@@ -120,9 +120,9 @@ class DownloadStoreTest {
     // ---- What the file is called -------------------------------------------
 
     @Test
-    fun `the name is artist then title, and carries the extension asked for`() {
+    fun `the name is title, and carries the extension asked for`() {
         assertEquals(
-            "Arijit Singh - Kesariya.flac",
+            "Kesariya.flac",
             DownloadStore.fileNameFor(song("Kesariya", "Arijit Singh"), "flac"),
         )
     }
@@ -130,11 +130,12 @@ class DownloadStoreTest {
     @Test
     fun `characters a volume or a shell would object to are replaced`() {
         val name = DownloadStore.fileNameFor(song("A/B: C?", "D|E"), "m4a")
-        assertEquals("D E - A B C.m4a", name)
+        assertEquals("A B C.m4a", name)
     }
 
     @Test
-    fun `a row with nothing to name it falls back to the video id`() {
+    fun `a row with no title falls back to artist then video id`() {
+        assertEquals("D E.m4a", DownloadStore.fileNameFor(song("", "D|E", "xyz789"), "m4a"))
         assertEquals("xyz789.m4a", DownloadStore.fileNameFor(song("", "", "xyz789"), "m4a"))
     }
 

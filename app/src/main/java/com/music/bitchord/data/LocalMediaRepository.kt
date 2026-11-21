@@ -325,11 +325,16 @@ object LocalMediaRepository {
             } else {
                 null
             }
+            val videoId = videoIdByUri[contentUri]
+            val mediaArtUri = if (artId > 0) ContentUris.withAppendedId(ALBUM_ART_URI, artId).toString() else null
+            val resolvedThumbnail = mediaArtUri
+                ?: videoId?.let { Downloads.savedMetadata.value[it]?.thumbnailUrl }
+                ?: videoId?.let { findThumbnailForId(it) }
             return Song(
-                videoId = videoIdByUri[contentUri] ?: contentUri,
+                videoId = videoId ?: contentUri,
                 title = songTitle,
                 artist = cursor.getString(artist).cleanTag() ?: "Unknown Artist",
-                thumbnailUrl = if (artId > 0) ContentUris.withAppendedId(ALBUM_ART_URI, artId).toString() else null,
+                thumbnailUrl = resolvedThumbnail,
                 durationText = durationMs.takeIf { it > 0 }?.let { formatDuration(it) },
                 albumName = cursor.getString(album).cleanTag(),
                 localUri = contentUri,
@@ -551,11 +556,17 @@ object LocalMediaRepository {
             }
         }
 
+        val videoIdByUri = Downloads.saved.value.entries.associate { (id, saved) -> saved to id }
+        val videoId = videoIdByUri[uriStr]
+        val resolvedThumbnail = scanned?.artworkUrl
+            ?: videoId?.let { Downloads.savedMetadata.value[it]?.thumbnailUrl }
+            ?: videoId?.let { findThumbnailForId(it) }
+
         return Song(
-            videoId = uriStr,
+            videoId = videoId ?: uriStr,
             title = title,
             artist = artist,
-            thumbnailUrl = scanned?.artworkUrl,
+            thumbnailUrl = resolvedThumbnail,
             durationText = durationText,
             albumName = albumName ?: scanned?.albumName,
             localUri = uriStr,
@@ -564,6 +575,14 @@ object LocalMediaRepository {
             trackNumber = trackNumber,
         )
     }
+
+    private fun findThumbnailForId(id: String): String? = runCatching {
+        val musicDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)
+        val thumbDir = File(musicDir, ".thumbnails")
+        listOf("jpg", "jpeg", "png", "webp").firstNotNullOfOrNull { ext ->
+            File(thumbDir, "$id.$ext").takeIf { it.isFile && it.length() > 0 }?.let { Uri.fromFile(it).toString() }
+        }
+    }.getOrNull()
 
     /**
      * MediaStore packs the disc into the same int (`disc * 1000 + track`), so

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Environment
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.model.Song
@@ -40,7 +41,7 @@ object MediaTagger {
     private const val TAG = "BitChord"
 
     /** Long side of the embedded cover — plenty for a lock screen or a car head unit, without ballooning the file. */
-    private const val COVER_MAX_SIDE = 1000
+    private const val COVER_MAX_SIDE = 1400
 
     /**
      * How much of a FLAC has to be read to be sure the whole metadata chain is
@@ -66,7 +67,7 @@ object MediaTagger {
      * a half-written one: a WAV's metadata lives in RIFF chunks that a good
      * number of players ignore outright.
      */
-    private val TAGGABLE = setOf("m4a", "webm", "flac")
+    private val TAGGABLE = setOf("m4a", "webm", "flac", "mp3")
 
     /**
      * Whether a file of [extension] gets tags at all.
@@ -84,18 +85,19 @@ object MediaTagger {
     internal fun artworkFor(context: Context, track: Song): Artwork? {
         val thumbnailUrl = track.thumbnailUrl
         if (thumbnailUrl.isNullOrBlank()) {
-            // Said out loud rather than returned as a quiet null. An album's own
-            // track rows carry no artwork — the release is billed once in the
-            // header — so a row that gets this far without having the release's
-            // cover filled in on the way (`MainViewModel.withArtwork`, and again
-            // at the tap in `MainActivity.startDownload`) saves a file with no
-            // cover in it, permanently and without complaint. This line is how
-            // that gets noticed.
             Log.d(TAG, "no artwork url for ${track.videoId}; saving it without a cover")
             return null
         }
-        cachedArtwork(context, thumbnailUrl)?.let { return it }
-        return fetchCover(track)
+        cachedMusicThumbnail(track)?.let { return it }
+        cachedArtwork(context, thumbnailUrl)?.let {
+            persistToMusicThumbnails(track, it)
+            return it
+        }
+        val cover = fetchCover(track)
+        if (cover != null) {
+            persistToMusicThumbnails(track, cover)
+        }
+        return cover
     }
 
     /**
@@ -170,7 +172,7 @@ object MediaTagger {
         artworkFile(context, sourceUrl).takeIf { it.isFile }
             ?.readBytes()
             ?.takeIf { it.isNotEmpty() }
-            ?.let { Artwork(it, "image/jpeg") }
+            ?.let { Artwork(it, sniffImageMime(it, null)) }
     }.getOrNull()
 
     private fun artworkFile(context: Context, sourceUrl: String?, artwork: Artwork? = null): File {
@@ -245,6 +247,17 @@ object MediaTagger {
                     artwork?.bytes,
                     artwork?.mime ?: "image/jpeg",
                     wordLyrics = words,
+                )
+                "mp3" -> Id3Tagger.tag(
+                    original,
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.albumName,
+                    lyrics = plain,
+                    cover = artwork?.bytes,
+                    coverMime = artwork?.mime ?: "image/jpeg",
+                    albumArtist = track.artists.firstOrNull()?.name,
+                    trackNumber = track.trackNumber,
                 )
                 else -> WebmTagger.tag(
                     original,
@@ -405,7 +418,7 @@ object MediaTagger {
     }
 
     private fun fetchCover(track: Song): Artwork? {
-        val url = track.artworkAt(1200) ?: return null
+        val url = track.artworkAt(1400) ?: track.artworkAt(1200) ?: track.thumbnailUrl ?: return null
         return fetchCover(url, track.videoId)
     }
 
@@ -414,26 +427,106 @@ object MediaTagger {
             val request = okhttp3.Request.Builder().url(url).build()
             Http.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                val raw = response.body?.bytes() ?: return@runCatching null
-                val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@runCatching null
-                val scaled = downscale(bitmap, COVER_MAX_SIDE)
-                val out = ByteArrayOutputStream()
-                scaled.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                Artwork(out.toByteArray(), "image/jpeg")
+                val raw = response.body.bytes()
+                if (raw.isEmpty()) return@runCatching null
+                val mime = sniffImageMime(raw, response.header("Content-Type"))
+                Artwork(raw, mime)
             }
         }.onFailure { Log.d(TAG, "no cover saved for $logId: ${it.message}") }.getOrNull()
     }
 
-    private fun downscale(bitmap: Bitmap, maxSide: Int): Bitmap {
-        val longest = max(bitmap.width, bitmap.height)
-        if (longest <= maxSide) return bitmap
-        val scale = maxSide.toFloat() / longest
-        return Bitmap.createScaledBitmap(
-            bitmap,
-            (bitmap.width * scale).toInt().coerceAtLeast(1),
-            (bitmap.height * scale).toInt().coerceAtLeast(1),
-            true,
-        )
+    private fun musicThumbnailsDir(): File {
+        val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+        val thumbDir = File(musicDir, ".thumbnails")
+        if (!thumbDir.exists()) {
+            thumbDir.mkdirs()
+        }
+        val noMedia = File(thumbDir, ".nomedia")
+        if (!noMedia.exists()) {
+            runCatching { noMedia.createNewFile() }
+        }
+        return thumbDir
+    }
+
+    private fun persistToMusicThumbnails(track: Song, artwork: Artwork) {
+        runCatching {
+            val thumbDir = musicThumbnailsDir()
+            val ext = when (artwork.mime) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                else -> "jpg"
+            }
+            val fileById = File(thumbDir, "${track.videoId}.$ext")
+            fileById.writeBytes(artwork.bytes)
+
+            track.thumbnailUrl?.let { url ->
+                val hashName = MessageDigest.getInstance("SHA-256")
+                    .digest(url.toByteArray(Charsets.UTF_8))
+                    .joinToString("") { "%02x".format(it.toInt() and 0xFF) } + ".$ext"
+                val fileByHash = File(thumbDir, hashName)
+                if (!fileByHash.exists()) {
+                    fileByHash.writeBytes(artwork.bytes)
+                }
+            }
+        }.onFailure {
+            Log.w(TAG, "could not persist to Music/.thumbnails: ${it.message}")
+        }
+    }
+
+    private fun cachedMusicThumbnail(track: Song): Artwork? = runCatching {
+        val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+        val thumbDir = File(musicDir, ".thumbnails")
+        if (!thumbDir.exists()) return@runCatching null
+
+        for (ext in listOf("jpg", "jpeg", "png", "webp")) {
+            val file = File(thumbDir, "${track.videoId}.$ext")
+            if (file.isFile && file.length() > 0) {
+                val bytes = file.readBytes()
+                val mime = sniffImageMime(bytes, null)
+                return@runCatching Artwork(bytes, mime)
+            }
+        }
+
+        track.thumbnailUrl?.let { url ->
+            val hash = MessageDigest.getInstance("SHA-256")
+                .digest(url.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+            for (ext in listOf("jpg", "jpeg", "png", "webp")) {
+                val file = File(thumbDir, "$hash.$ext")
+                if (file.isFile && file.length() > 0) {
+                    val bytes = file.readBytes()
+                    val mime = sniffImageMime(bytes, null)
+                    return@runCatching Artwork(bytes, mime)
+                }
+            }
+        }
+        null
+    }.getOrNull()
+
+    internal fun sniffImageMime(bytes: ByteArray, headerMime: String?): String {
+        if (bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() && bytes[2] == 0xFF.toByte()) {
+            return "image/jpeg"
+        }
+        if (bytes.size >= 8 &&
+            bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() && bytes[2] == 0x4E.toByte() && bytes[3] == 0x47.toByte()
+        ) {
+            return "image/png"
+        }
+        if (bytes.size >= 12 &&
+            bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
+            bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte() &&
+            bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() &&
+            bytes[10] == 'B'.code.toByte() && bytes[11] == 'P'.code.toByte()
+        ) {
+            return "image/webp"
+        }
+        val cleanHeader = headerMime?.substringBefore(';')?.trim()?.lowercase(java.util.Locale.ROOT)
+        return when (cleanHeader) {
+            "image/jpeg", "image/jpg" -> "image/jpeg"
+            "image/png" -> "image/png"
+            "image/webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
     }
 
     private fun readAll(context: Context, uri: Uri): ByteArray? = runCatching {

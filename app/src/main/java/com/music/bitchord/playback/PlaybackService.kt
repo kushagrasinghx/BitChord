@@ -8006,7 +8006,6 @@ class PlaybackService : MediaLibraryService() {
 
     private fun observeSettings() {
         scope.launch {
-        scope.launch {
             AppSettings.autoMixArtwork.collect {
                 if (autoMixArtworkGeneration?.let { !allowsAnyAutoMixArtwork(it) } == true) {
                     autoMixArtworkJob?.cancel()

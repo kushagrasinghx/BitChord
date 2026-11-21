@@ -59,7 +59,12 @@ class Member:
         self.code = code
         self.token = token
         self.you = you
-        self.ws_url = base.replace("https://", "wss://").replace("http://", "ws://")
+        if base.startswith("https://"):
+            self.ws_url = base.replace("https://", "wss://", 1)
+        elif base.startswith("http://localhost") or base.startswith("http://127.0.0.1"):
+            self.ws_url = base.replace("http://", "ws://", 1)
+        else:
+            self.ws_url = base.replace("http://", "wss://", 1)
         self.ws = None
         self.state = None
         self.queue = None

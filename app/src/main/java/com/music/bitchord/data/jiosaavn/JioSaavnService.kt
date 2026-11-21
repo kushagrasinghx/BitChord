@@ -54,6 +54,25 @@ data class RawMoreInfo(
 data class SaavnStream(val url: String, val kbps: Int?)
 
 /**
+ * Strict destination host and scheme verification for decrypted JioSaavn CDN media URLs.
+ * Prevents SSRF or malicious redirection via untrusted media endpoints.
+ */
+internal fun isValidSaavnCdnUrl(url: String): Boolean {
+    if (url.isBlank()) return false
+    return try {
+        val uri = java.net.URI(url)
+        val scheme = uri.scheme?.lowercase()
+        val host = uri.host?.lowercase()
+        if (scheme != "http" && scheme != "https") return false
+        if (host == null) return false
+        host == "saavncdn.com" || host.endsWith(".saavncdn.com") ||
+            host == "jiosaavn.com" || host.endsWith(".jiosaavn.com")
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/**
  * Select the highest JioSaavn CDN rendition without losing URL parameters.
  *
  * The encrypted URL normally names the 96 kbps file and the catalogue states
@@ -154,11 +173,19 @@ object JioSaavnService {
         return try {
             val key = "38346591" // DES 8-byte key
             val secretKey = SecretKeySpec(key.toByteArray(Charsets.UTF_8), "DES")
+            // Required by JioSaavn CDN media encryption specification. Output is strictly validated by isValidSaavnCdnUrl.
+            // nosemgrep: kotlin.lang.security.ecb-cipher, java.lang.security.audit.crypto.des-is-deprecated
             val cipher = Cipher.getInstance("DES/ECB/PKCS5Padding")
             cipher.init(Cipher.DECRYPT_MODE, secretKey)
             val decodedBytes = Base64.decode(encryptedUrl, Base64.DEFAULT)
             val decryptedBytes = cipher.doFinal(decodedBytes)
-            String(decryptedBytes, Charsets.UTF_8).trim()
+            val decrypted = String(decryptedBytes, Charsets.UTF_8).trim()
+            if (isValidSaavnCdnUrl(decrypted)) {
+                decrypted
+            } else {
+                TrackLog.w(TAG, "Decrypted JioSaavn URL rejected: untrusted host or scheme ($decrypted)")
+                ""
+            }
         } catch (e: Exception) {
             TrackLog.e(TAG, "JioSaavn URL decryption failed", e)
             ""

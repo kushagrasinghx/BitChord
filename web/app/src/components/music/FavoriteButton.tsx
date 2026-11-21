@@ -1,5 +1,6 @@
 import { StarFilledIcon, StarIcon } from '@/components/icons/Transport';
 import { useLikeStatus, useSetLiked, useSignedIn } from '@/data/music/queries';
+import { toastResult } from '@/state/toasts';
 
 interface FavoriteButtonProps {
   videoId: string | null;
@@ -26,7 +27,7 @@ export function FavoriteButton({ videoId, className, size = 18 }: FavoriteButton
       disabled={status.isPending}
       onClick={(event) => {
         event.stopPropagation();
-        setLiked.mutate({ videoId, liked: !liked });
+        toastResult(setLiked.mutateAsync({ videoId, liked: !liked }), liked ? 'Removed from Favorites' : 'Added to Favorites', 'Couldn’t update Favorites');
       }}
     >
       {liked ? <StarFilledIcon size={size} /> : <StarIcon size={size} />}

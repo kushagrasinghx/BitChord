@@ -5,7 +5,7 @@ import { Artwork } from './Artwork';
 import { ExplicitBadge } from './ExplicitBadge';
 import { artistHref, hrefFor } from './links';
 import { playTrack, toTrack } from './play';
-import { TrackMenu } from './TrackMenu';
+import { TrackMenu, useTrackContextMenu } from './TrackMenu';
 
 const isPlayable = (item: MusicItem) => item.kind === 'song' || item.kind === 'video';
 
@@ -60,8 +60,10 @@ function PlayPlatter({ item }: { item: MusicItem }) {
 /** The artwork with its hover scrim, linking to the item or playing it. */
 function LockupArtwork({ item, width, aspect }: { item: MusicItem; width: number; aspect: number }) {
   const href = hrefFor(item);
+  const context = useTrackContextMenu(isPlayable(item) ? toTrack(item) : null);
   return (
-    <div className="group/art relative rounded-artwork-md">
+    <div className="group/art relative rounded-artwork-md" onContextMenu={context.onContextMenu}>
+      {context.menu}
       <Artwork src={item.thumbnail} displayWidth={width} aspect={aspect} radius="var(--radius-artwork-medium)" />
       {href ? (
         <PrefetchLink to={href} className={overlayLink} aria-label={item.title} />
@@ -137,9 +139,14 @@ export function CircleLockup({ item, width = 160 }: { item: MusicItem; width?: n
 /** A song row inside a shelf (report §2, track lockup): 40px art, title, byline. */
 export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => void }) {
   const play = onPlay ?? (() => playTrack(item));
+  const context = useTrackContextMenu(isPlayable(item) ? toTrack(item) : null);
   return (
     // 52px art column (40 + 12 gap), content, menu; 55px tall.
-    <div className="group/track grid h-[55px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-3 py-[7.5px] pr-3.5 pl-0">
+    <div
+      className="group/track grid h-[55px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-3 py-[7.5px] pr-3.5 pl-0"
+      onContextMenu={context.onContextMenu}
+    >
+      {context.menu}
       <button className="group/art relative w-10 rounded-artwork-sm" aria-label={`Play ${item.title}`} onClick={play}>
         <Artwork src={item.thumbnail} displayWidth={40} radius="var(--radius-artwork-small)" />
         <span

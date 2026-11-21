@@ -14,6 +14,7 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
 import { PlayerBar } from './PlayerBar';
+import { ToastHost } from './ToastHost';
 import { SidePanel } from './SidePanel';
 import { Sidebar } from './Sidebar';
 
@@ -88,6 +89,7 @@ export function AppShell() {
           </div>
         </main>
         <PlayerBar />
+        <ToastHost />
         <SidePanel />
       </div>
       {banner}

@@ -157,8 +157,8 @@ object SpotifyImporter {
 
     /**
      * The YouTube Music song that is [track], or null if there is none: the
-     * best candidate by title, artist, length and album, and failing that the
-     * search's first hit.
+     * best candidate by title, artist, length and album, or null if no valid
+     * match exists.
      */
     suspend fun matchTrack(track: SpotifyTrack): Song? {
         val query = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
@@ -174,7 +174,7 @@ object SpotifyImporter {
                 durationSec = track.durationMs.takeIf { it > 0 }?.div(1000),
                 album = track.album,
             ),
-        ) ?: candidates.firstOrNull()
+        )
     }
 
     /** Tracks the embed page lists before it cuts off. */
@@ -272,7 +272,7 @@ object SpotifyImporter {
                         title = track.title,
                         artist = track.artist,
                     )
-                    val bestMatch = TrackMatcher.best(candidates, target) ?: candidates.firstOrNull()
+                    val bestMatch = TrackMatcher.best(candidates, target)
 
                     val matchedSong = if (cleanLang != null && candidates.isNotEmpty()) {
                         val conflictingLangs = knownLanguages.filter { !it.equals(cleanLang, ignoreCase = true) }
@@ -285,7 +285,6 @@ object SpotifyImporter {
                             }
                         }
                         TrackMatcher.best(nonConflictingCandidates, target)
-                            ?: nonConflictingCandidates.firstOrNull()
                             ?: bestMatch
                     } else {
                         bestMatch

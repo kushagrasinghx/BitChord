@@ -85,6 +85,9 @@ import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.sources.SourceConfig
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvPinThrottle
 import com.music.bitchord.data.settings.TvSettings
@@ -114,6 +117,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
@@ -1346,5 +1350,387 @@ fun TvLyricsSourcesDialog(onDismiss: () -> Unit) {
         TvDialogButton(text = "Reset to Default", onClick = AppSettings::resetLyricsSourceSettings)
         Spacer(modifier = Modifier.height(6.dp))
         TvDialogButton(text = "Done", onClick = onDismiss)
+    }
+}
+
+/**
+ * Audio sources and custom stream addons on TV.
+ * Allows toggling active audio sources and entering custom addon manifest URLs.
+ */
+@Composable
+fun TvSourcesDialog(onDismiss: () -> Unit) {
+    val configs by SourceRegistry.configs.collectAsState()
+    var urlText by remember { mutableStateOf("") }
+    var statusText by remember { mutableStateOf<String?>(null) }
+    var showManualInput by remember { mutableStateOf(false) }
+    var selectedAddon by remember { mutableStateOf<SourceConfig?>(null) }
+    var editingUrl by remember { mutableStateOf(false) }
+    var editUrlValue by remember { mutableStateOf("") }
+    var editUrlStatus by remember { mutableStateOf<String?>(null) }
+    var isBusyUrl by remember { mutableStateOf(false) }
+    var isBusy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var serverUrl by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        scope.launch {
+            TvAuthServer.start()?.let { (port, ip) ->
+                serverUrl = "http://$ip:$port/addons"
+            }
+        }
+        onDispose { TvAuthServer.stop() }
+    }
+
+    val currentSelected = configs.firstOrNull { it.id == selectedAddon?.id } ?: selectedAddon
+    TvDialog(
+        title = if (currentSelected != null) currentSelected.displayName else "Audio Sources & Addons",
+        width = 576.dp,
+        onDismissRequest = {
+            if (editingUrl) editingUrl = false
+            else if (selectedAddon != null) selectedAddon = null
+            else if (showManualInput) showManualInput = false
+            else onDismiss()
+        },
+    ) {
+        if (currentSelected != null) {
+            val addon = currentSelected
+            Text(
+                text = addon.baseUrl,
+                style = TvType.Caption,
+                color = TvGlass.TextSecondary,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
+
+            // Priority reordering row (if multiple addons exist)
+            val userAddons = configs.filter { it.kind.isUserAdded }
+            val addonIndex = userAddons.indexOfFirst { it.id == addon.id }
+            if (userAddons.size > 1 && addonIndex >= 0) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Priority: #${addonIndex + 1} of ${userAddons.size}",
+                        style = TvType.Callout,
+                        color = TvGlass.TextSecondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TvDialogButton(
+                        text = "▲ Up",
+                        enabled = addonIndex > 0,
+                        onClick = {
+                            if (addonIndex > 0) {
+                                val reordered = userAddons.map { it.id }.toMutableList()
+                                val tmp = reordered[addonIndex]
+                                reordered[addonIndex] = reordered[addonIndex - 1]
+                                reordered[addonIndex - 1] = tmp
+                                SourceRegistry.reorderAddons(reordered)
+                            }
+                        },
+                        modifier = Modifier.width(90.dp),
+                    )
+                    TvDialogButton(
+                        text = "▼ Down",
+                        enabled = addonIndex < userAddons.size - 1,
+                        onClick = {
+                            if (addonIndex < userAddons.size - 1) {
+                                val reordered = userAddons.map { it.id }.toMutableList()
+                                val tmp = reordered[addonIndex]
+                                reordered[addonIndex] = reordered[addonIndex + 1]
+                                reordered[addonIndex + 1] = tmp
+                                SourceRegistry.reorderAddons(reordered)
+                            }
+                        },
+                        modifier = Modifier.width(90.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // Edit URL Section
+            if (!editingUrl) {
+                TvListRow(
+                    title = "Addon Manifest URL",
+                    value = "Edit ›",
+                    onClick = {
+                        editUrlValue = addon.baseUrl
+                        editUrlStatus = null
+                        editingUrl = true
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            } else {
+                Text(
+                    text = "Edit Addon Manifest URL:",
+                    style = TvType.Caption,
+                    color = TvGlass.TextSecondary,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                TvTextField(
+                    value = editUrlValue,
+                    onValueChange = {
+                        editUrlValue = it
+                        editUrlStatus = null
+                    },
+                    placeholder = "https://example.com/manifest.json",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                editUrlStatus?.let { msg ->
+                    Text(
+                        text = msg,
+                        style = TvType.Caption,
+                        color = if (msg.startsWith("Updated")) Color(0xFF00E5FF) else TvGlass.TextSecondary,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    TvDialogButton(
+                        text = if (isBusyUrl) "Saving..." else "Save URL",
+                        enabled = editUrlValue.isNotBlank() && !isBusyUrl,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val trimmed = editUrlValue.trim()
+                            if (trimmed.isNotBlank()) {
+                                isBusyUrl = true
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching {
+                                            val updated = SourceRegistry.identify(trimmed, addon).getOrThrow()
+                                            SourceRegistry.update(updated)
+                                            updated
+                                        }
+                                    }
+                                    isBusyUrl = false
+                                    if (result.isSuccess) {
+                                        selectedAddon = result.getOrNull()
+                                        editingUrl = false
+                                    } else {
+                                        editUrlStatus = "Failed: ${result.exceptionOrNull()?.message ?: "Check URL"}"
+                                    }
+                                }
+                            }
+                        },
+                    )
+                    TvDialogButton(
+                        text = "Cancel",
+                        modifier = Modifier.weight(1f),
+                        initialFocus = true,
+                        onClick = { editingUrl = false },
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            TvListRow(
+                title = "Status",
+                value = if (addon.enabled) "Active" else "Disabled",
+                onClick = {
+                    val updated = !addon.enabled
+                    SourceRegistry.setEnabled(addon.id, updated)
+                    selectedAddon = addon.copy(enabled = updated)
+                },
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            if (addon.qualityOptions.isNotEmpty()) {
+                val currentQuality = addon.activeQuality
+                TvListRow(
+                    title = "Audio Quality",
+                    value = currentQuality?.label ?: "Default",
+                    onClick = {
+                        val options = addon.qualityOptions
+                        val curIdx = options.indexOfFirst { it.value == currentQuality?.value }
+                        val nextOption = options[(curIdx + 1) % options.size]
+                        val updated = addon.copy(pickedQuality = nextOption.value)
+                        SourceRegistry.update(updated)
+                        selectedAddon = updated
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = "Delete Addon",
+                    onClick = {
+                        SourceRegistry.remove(addon.id)
+                        selectedAddon = null
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Back",
+                    onClick = { selectedAddon = null },
+                    initialFocus = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else if (!showManualInput) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val link = serverUrl
+                    if (link != null) {
+                        TvQrCodeView(content = link, size = 128.dp)
+                    } else {
+                        TvActivityIndicator(color = Color.Black)
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    TvStep(1, "Scan the QR code or visit ${serverUrl ?: "http://<tv-ip>:8765/addons"} on your phone.")
+                    TvStep(2, "Paste your Addon Manifest URL to add, edit or reorder sources.")
+                    TvStep(3, "The TV pairs and connects the audio stream automatically.")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            if (configs.isNotEmpty()) {
+                val sortedConfigs = remember(configs) { configs.sortedBy { it.kind.rank } }
+                Text(
+                    text = "Configured Sources",
+                    style = TvType.Callout,
+                    color = TvGlass.TextSecondary,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 140.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    itemsIndexed(sortedConfigs, key = { _, config -> config.id }) { _, config ->
+                        val itemTitle = if (config.kind == SourceKind.ADDON) {
+                            val userAddons = sortedConfigs.filter { it.kind.isUserAdded }
+                            val addonIdx = userAddons.indexOfFirst { it.id == config.id }
+                            if (addonIdx >= 0) "#${addonIdx + 1}  ${config.displayName}" else config.displayName
+                        } else {
+                            config.displayName
+                        }
+                        TvListRow(
+                            title = itemTitle,
+                            value = if (config.kind == SourceKind.ADDON) {
+                                (if (config.enabled) "Active" else "Disabled") + " ›"
+                            } else {
+                                if (config.enabled) "Active" else "Disabled"
+                            },
+                            onClick = {
+                                if (config.kind == SourceKind.ADDON) {
+                                    selectedAddon = config
+                                } else {
+                                    SourceRegistry.setEnabled(config.id, !config.enabled)
+                                }
+                            },
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = "Type URL with Remote",
+                    onClick = { showManualInput = true },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Done",
+                    onClick = onDismiss,
+                    initialFocus = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Text(
+                text = "Enter Addon Manifest URL:",
+                style = TvType.Callout,
+                color = TvGlass.TextSecondary,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+
+            TvTextField(
+                value = urlText,
+                onValueChange = { 
+                    urlText = it
+                    statusText = null 
+                },
+                placeholder = "https://example.com/manifest.json",
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            statusText?.let { msg ->
+                Text(
+                    text = msg,
+                    style = TvType.Caption,
+                    color = if (msg.startsWith("Added")) Color(0xFF00E5FF) else TvGlass.TextSecondary,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TvDialogButton(
+                    text = if (isBusy) "Checking..." else "Add Addon URL",
+                    enabled = urlText.isNotBlank() && !isBusy,
+                    onClick = {
+                        val trimmed = urlText.trim()
+                        if (trimmed.isNotBlank()) {
+                            isBusy = true
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val found = SourceRegistry.identify(trimmed).getOrThrow()
+                                        SourceRegistry.add(found)
+                                        found
+                                    }
+                                }
+                                isBusy = false
+                                if (result.isSuccess) {
+                                    statusText = "Added ${result.getOrNull()?.displayName}!"
+                                    urlText = ""
+                                    showManualInput = false
+                                } else {
+                                    statusText = "Failed: ${result.exceptionOrNull()?.message ?: "Unreachable"}"
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Back",
+                    onClick = { showManualInput = false },
+                    initialFocus = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }

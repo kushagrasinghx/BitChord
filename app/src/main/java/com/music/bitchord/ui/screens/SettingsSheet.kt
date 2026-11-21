@@ -250,6 +250,7 @@ fun SettingsScreen(
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val bestPart by AppSettings.showBestPart.collectAsStateWithLifecycle()
     val listenTogetherButton by AppSettings.showListenTogetherButton.collectAsStateWithLifecycle()
+    val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val disableBlendEffects by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
@@ -1769,6 +1770,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setShowListenTogetherButton(!listenTogetherButton) },
+                )
+            }
+            val keepScreenOnTitle = stringResource(R.string.keep_screen_on)
+            row(keepScreenOnTitle, "screen", "awake", "display", "timeout", "player") {
+                SettingsRow(
+                    icon = SfIcons.Brightness,
+                    title = keepScreenOnTitle,
+                    subtitle = stringResource(R.string.keep_screen_on_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = keepScreenOn,
+                            onCheckedChange = AppSettings::setKeepScreenOn,
+                        )
+                    },
+                    onClick = { AppSettings.setKeepScreenOn(!keepScreenOn) },
                 )
             }
             val hideStatusBarTitle = stringResource(R.string.hide_status_bar_in_player)

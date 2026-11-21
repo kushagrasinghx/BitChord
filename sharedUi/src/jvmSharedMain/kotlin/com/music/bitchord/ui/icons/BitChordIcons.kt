@@ -82,6 +82,41 @@ object BitChordIcons {
         }.build()
     }
 
+    /** Bluetooth audio output with the two radio arcs either side. */
+    val BluetoothBroadcast: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_bluetooth_broadcast",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(7f, 8f)
+                lineTo(17f, 16f)
+                lineTo(12f, 21f)
+                lineTo(12f, 3f)
+                lineTo(17f, 8f)
+                lineTo(7f, 16f)
+            }
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                moveTo(4f, 8f)
+                curveTo(1.2f, 10f, 1.2f, 14f, 4f, 16f)
+                moveTo(20f, 8f)
+                curveTo(22.8f, 10f, 22.8f, 14f, 20f, 16f)
+            }
+        }.build()
+    }
+
     val Play: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_play",

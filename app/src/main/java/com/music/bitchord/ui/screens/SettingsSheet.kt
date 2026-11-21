@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.icons.SfIcons
 import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
@@ -286,6 +287,7 @@ fun SettingsScreen(
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
+    val autoPlayOnBluetoothConnection by AppSettings.autoPlayOnBluetoothConnection.collectAsStateWithLifecycle()
     val showQueueHistory by AppSettings.showQueueHistory.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
@@ -861,6 +863,21 @@ fun SettingsScreen(
                         onClick = { AppSettings.setSkipSilence(!skipSilence) },
                     )
                 }
+            }
+            val autoPlayOnBluetoothConnectionTitle = stringResource(R.string.auto_play_on_bluetooth_connection)
+            row(autoPlayOnBluetoothConnectionTitle, "bluetooth", "auto", "play") {
+                SettingsRow(
+                    icon = BitChordIcons.BluetoothBroadcast,
+                    title = autoPlayOnBluetoothConnectionTitle,
+                    subtitle = stringResource(R.string.auto_play_on_bluetooth_connection_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = autoPlayOnBluetoothConnection,
+                            onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
+                        )
+                    },
+                    onClick = { AppSettings.setAutoPlayOnBluetoothConnection(!autoPlayOnBluetoothConnection) },
+                )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
             row(spatialAudioTitle, "surround", "3d") {

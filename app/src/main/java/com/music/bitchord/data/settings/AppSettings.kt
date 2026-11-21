@@ -415,6 +415,9 @@ object AppSettings {
     /** Keep playing similar music once the queue runs out. */
     val autoplay = MutableStateFlow(true)
 
+    /** Automatically resume playback when a Bluetooth audio device connects. */
+    val autoPlayOnBluetoothConnection = MutableStateFlow(false)
+
     /** Whether the queue is held in shuffled order (Mix button). */
     val shuffleEnabled = MutableStateFlow(false)
 
@@ -1015,6 +1018,7 @@ object AppSettings {
             AppFont.valueOf(prefs.getString(KEY_APP_FONT, null) ?: AppFont.DEFAULT.name)
         }.getOrDefault(AppFont.DEFAULT)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
+        autoPlayOnBluetoothConnection.value = prefs.getBoolean(KEY_AUTO_PLAY_ON_BLUETOOTH_CONNECTION, false)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
@@ -1246,6 +1250,11 @@ object AppSettings {
     fun setAutoplay(value: Boolean) {
         autoplay.value = value
         prefs.edit().putBoolean(KEY_AUTOPLAY, value).apply()
+    }
+
+    fun setAutoPlayOnBluetoothConnection(value: Boolean) {
+        autoPlayOnBluetoothConnection.value = value
+        prefs.edit().putBoolean(KEY_AUTO_PLAY_ON_BLUETOOTH_CONNECTION, value).apply()
     }
 
     fun setShuffleEnabled(value: Boolean) {
@@ -2280,6 +2289,7 @@ object AppSettings {
     private const val KEY_THEME = "theme_mode"
     private const val KEY_APP_FONT = "app_font"
     private const val KEY_AUTOPLAY = "autoplay"
+    private const val KEY_AUTO_PLAY_ON_BLUETOOTH_CONNECTION = "auto_play_on_bluetooth_connection"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
     private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"

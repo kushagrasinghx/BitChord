@@ -30,6 +30,11 @@ export async function fetchSpotifyPlaylists(): Promise<SpotifyPlaylist[]> {
   return out;
 }
 
+/** Public playlists on Spotify for [query]. */
+export function searchSpotifyPlaylists(query: string): Promise<SpotifyPlaylist[]> {
+  return bridge().call('spotify.searchPlaylists', { query }, { timeoutMs: 20_000 });
+}
+
 export function fetchSpotifyPlaylistInfo(playlistId: string) {
   return bridge().call('spotify.playlist', { playlistId }, { timeoutMs: 30_000 });
 }

@@ -212,6 +212,8 @@ export interface BridgeMethods {
     result: { name: string; owner: string | null; imageUrl: string | null; total: number };
   };
   'spotify.searchTracks': { params: { query: string }; result: SpotifyTrack[] };
+  /** Public playlists matching the query, from Spotify's search. */
+  'spotify.searchPlaylists': { params: { query: string }; result: SpotifyPlaylist[] };
   /** The track's looping canvas video, or null when it has none. */
   'spotify.canvas': { params: { trackId: string }; result: { url: string | null } };
   'discord.state': { params: Record<string, never>; result: DiscordState };

@@ -126,6 +126,11 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
           request.id,
           await spotify.searchTracks((request as BridgeRequest<'spotify.searchTracks'>).params.query),
         );
+      case 'spotify.searchPlaylists':
+        return okResponse<'spotify.searchPlaylists'>(
+          request.id,
+          await spotify.searchPlaylists((request as BridgeRequest<'spotify.searchPlaylists'>).params.query),
+        );
       case 'spotify.canvas':
         return okResponse<'spotify.canvas'>(request.id, {
           url: await spotify.canvas((request as BridgeRequest<'spotify.canvas'>).params.trackId),

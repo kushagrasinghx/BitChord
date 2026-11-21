@@ -299,6 +299,13 @@
     <string name="hide_home_moods">Hide Find Your Mood</string>
     <string name="square_video_thumbnails">Square video thumbnails</string>
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="album_title_logos" translatable="false">Album title logos</string>
+    <string name="album_title_logos_subtitle" translatable="false">Display stylized album logos and custom title logos instead of plain text</string>
+    <string name="set_title_logo" translatable="false">Set title logo</string>
+    <string name="remove_title_logo" translatable="false">Remove title logo</string>
+    <string name="title_logo_updated" translatable="false">Title logo updated</string>
+    <string name="title_logo_removed" translatable="false">Title logo removed</string>
+    <string name="title_logo_menu_title" translatable="false">Album Title Logo</string>
     <string name="prefer_music_only">Prefer music-only version</string>
     <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Smart audio alignment</string>

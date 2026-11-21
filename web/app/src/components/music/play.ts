@@ -1,4 +1,5 @@
 import type { ArtistRef, MusicItem, Track } from '@/data/music/types';
+import { extendStation } from '@/playback/queue/builder';
 import type { QueueSource } from '@/playback/queue/timeline';
 import { usePlayer } from '@/state/player';
 
@@ -50,4 +51,19 @@ export function shuffleList(tracks: Track[], context: ListContext) {
   const player = usePlayer.getState();
   if (!player.shuffle) player.toggleShuffle();
   player.playTracks(prepared(tracks, context), Math.floor(Math.random() * tracks.length), context.source);
+}
+
+/** How many songs Start Radio queues after the seed; AutoPlay carries on beyond them. */
+export const RADIO_LENGTH = 25;
+
+/**
+ * Start Radio: the song, then its YouTube Music station, as the new queue.
+ * Resolves once the station is playing; rejects if it couldn't be loaded,
+ * leaving what was playing alone.
+ */
+export async function startRadio(track: Track): Promise<void> {
+  const { fetchRadio } = await import('@/data/music/api');
+  const { candidates, seedIsVideo } = await fetchRadio(track.videoId);
+  const station = extendStation([track], candidates, RADIO_LENGTH, seedIsVideo);
+  usePlayer.getState().playTracks([track, ...station], 0, { title: `${track.title} Radio`, type: 'radio', id: `RDAMVM${track.videoId}` });
 }

@@ -90,8 +90,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 39
-        versionName = "1.9.1"
+        versionCode = 42
+        versionName = "1.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -464,6 +464,11 @@ dependencies {
     // turn into a real stream — see [com.music.bitchord.playback.cast.CastPlayback].
     implementation("com.google.android.gms:play-services-cast-framework:22.2.0")
     implementation("androidx.mediarouter:mediarouter:1.8.1")
+
+    // ---- Google Drive backup ----
+    // The TV compiles the phone's sources, which include
+    // com.music.bitchord.data.backup.DriveAuth; same dependency as the phone.
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely

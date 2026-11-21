@@ -427,6 +427,8 @@
     <string name="hide_volume_bar_subtitle">Removes the volume slider from the main player</string>
     <string name="hide_status_bar_in_player">Hide status bar in player</string>
     <string name="hide_status_bar_in_player_subtitle">Hides the clock, battery and notification icons while the main player is open</string>
+    <string name="hide_status_bar_app_wide" translatable="false">Hide status bar across app</string>
+    <string name="hide_status_bar_app_wide_subtitle" translatable="false">Keep the device status bar hidden throughout the entire app</string>
     <string name="hide_song_status">Hide Song Status</string>
     <string name="show_queue_history">Show queue history</string>
     <string name="show_queue_history_subtitle">Show up to 25 previously played songs above Now playing in the queue</string>

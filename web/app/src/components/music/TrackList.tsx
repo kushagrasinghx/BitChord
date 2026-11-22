@@ -9,6 +9,7 @@ import { ExplicitBadge } from './ExplicitBadge';
 import { albumHref, artistHref, formatDuration } from './links';
 import { playList, playTrack, type ListContext } from './play';
 import { TrackMenu } from './TrackMenu';
+import { contextMenu } from './actionMenu';
 
 type Variant = 'album' | 'playlist';
 
@@ -107,6 +108,7 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
       onDoubleClick={onPlay}
+      onContextMenu={contextMenu(unavailable ? null : { kind: 'track', track })}
     >
       <div className={`${cell} gap-3`}>
         <div className={`relative grid w-10 shrink-0 place-items-center${variant === 'playlist' ? ' ms-[7px]' : ''}`}>

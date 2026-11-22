@@ -7,6 +7,7 @@ import {
   ShuffleIcon,
   UpNextIcon,
 } from '@/components/icons/Transport';
+import { ActionMenuHost } from '@/components/music/ActionMenuHost';
 import { FavoriteButton } from '@/components/music/FavoriteButton';
 import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
@@ -49,6 +50,8 @@ export function PlayerBar() {
       className="pointer-events-none absolute right-0 bottom-(--player-bottom-offset) left-(--web-navigation-width) z-[calc(var(--z-web-chrome)-1)] flex justify-center px-5 transition-[padding-inline-end] duration-(--duration-panel) ease-panel data-[panel-open=true]:pe-[calc(var(--side-panel-width)+20px)] max-sm:hidden"
       data-panel-open={sidePanel !== null}
     >
+      {/* The app's one song and release menu, here because the bar is up for the life of the shell. */}
+      <ActionMenuHost />
       <div
         className="glass-pill group/pill pointer-events-auto relative grid h-(--player-pill-height) w-[min(668px,100%)] grid-cols-[184px_minmax(180px,427px)_minmax(57px,auto)] items-center rounded-pill px-4"
         role="region"
@@ -108,7 +111,7 @@ export function PlayerBar() {
           }}
         >
           <FavoriteButton videoId={videoId} className={fading} />
-          {track && <TrackMenu track={track} className={fading} placement="above-end" />}
+          {track && <TrackMenu track={track} className={fading} placement="above-end" player />}
           {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
           <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
             {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}

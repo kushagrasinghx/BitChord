@@ -1,112 +1,213 @@
-import { Info, ListEnd, ListPlus, ListStart, MoreHorizontal, Star } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Menu, MenuItem, MenuSeparator, type MenuPlacement } from '@/components/Menu';
-import { useLikeStatus, useSetLiked, useSignedIn } from '@/data/music/queries';
+import {
+  AudioLines,
+  Disc3,
+  HeartCrack,
+  Info,
+  ListEnd,
+  ListPlus,
+  ListStart,
+  MicVocal,
+  MoreHorizontal,
+  Radio,
+  Share,
+  Star,
+} from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { MenuItem, MenuQuickAction, MenuQuickActions, MenuSeparator, type MenuPlacement } from '@/components/Menu';
+import { fetchRadio } from '@/data/music/api';
+import { useLikeStatus, useSetDisliked, useSetLiked, useSignedIn } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
+import { extendStation } from '@/playback/queue/builder';
+import { albumPageFor, artistPageFor } from '@/shell/nowPlayingLinks';
+import { SleepTimerItems, SleepTimerRow } from '@/shell/SleepTimerMenu';
 import { usePlayer } from '@/state/player';
-import { PlaylistPicker } from './PlaylistPicker';
-import { SongCredits } from './SongCredits';
+import { useUi } from '@/state/ui';
+import { shareLink, useActionMenu, useMenuOwned } from './actionMenu';
 
-/** What a menu item opens once the menu itself has closed. */
-type MenuDialog = 'playlists' | 'credits';
+/** How many songs a started radio queues behind its seed. */
+const RADIO_LENGTH = 50;
 
-/** Favorite and Add to Playlist: the account's actions, signed in only. */
-function AccountItems({ track, onClose, onPlaylists }: { track: Track; onClose: () => void; onPlaylists: () => void }) {
-  const status = useLikeStatus(track.videoId);
+/**
+ * Start radio: the song, then YouTube Music's station for it, as AutoPlay
+ * builds one (fetchRadio, extendStation). If the station won't load, the
+ * song plays on its own and AutoPlay carries on from it.
+ */
+async function startRadio(track: Track) {
+  const source = { title: `${track.title} Radio`, type: 'radio' as const, id: `RDAMVM${track.videoId}` };
+  const station = await fetchRadio(track.videoId).then(
+    ({ candidates, seedIsVideo }) => extendStation([track], candidates, RADIO_LENGTH, seedIsVideo),
+    () => [],
+  );
+  usePlayer.getState().playTracks([track, ...station], 0, source);
+}
+
+/** Like, Dislike and Share as tiles: kept up after a rating, so the new state shows in place. */
+function QuickTiles({ track, signedIn, onShared }: { track: Track; signedIn: boolean; onShared: () => void }) {
+  const status = useLikeStatus(signedIn ? track.videoId : null);
   const setLiked = useSetLiked();
+  const setDisliked = useSetDisliked();
+  const [copied, setCopied] = useState(false);
   const liked = status.data === 'LIKE';
+  const disliked = status.data === 'DISLIKE';
   return (
-    <>
-      <MenuSeparator />
-      <MenuItem
-        icon={<Star size={15} fill={liked ? 'currentColor' : 'none'} />}
-        disabled={status.isPending}
-        onSelect={() => {
-          setLiked.mutate({ videoId: track.videoId, liked: !liked });
-          onClose();
-        }}
-      >
-        {liked ? 'Unfavorite' : 'Favorite'}
-      </MenuItem>
-      <MenuItem icon={<ListPlus size={15} />} onSelect={onPlaylists}>
-        Add to Playlist…
-      </MenuItem>
-    </>
+    <MenuQuickActions>
+      {signedIn && (
+        <>
+          <MenuQuickAction
+            icon={<Star fill={liked ? 'currentColor' : 'none'} />}
+            label="Like"
+            active={liked}
+            disabled={status.isPending}
+            onSelect={() => setLiked.mutate({ videoId: track.videoId, liked: !liked })}
+          />
+          <MenuQuickAction
+            icon={<HeartCrack fill={disliked ? 'currentColor' : 'none'} />}
+            label="Dislike"
+            active={disliked}
+            disabled={status.isPending}
+            onSelect={() => setDisliked.mutate({ videoId: track.videoId, disliked: !disliked })}
+          />
+        </>
+      )}
+      <MenuQuickAction
+        icon={<Share />}
+        label={copied ? 'Copied' : 'Share'}
+        onSelect={() =>
+          void shareLink(track.title, `https://music.youtube.com/watch?v=${track.videoId}`).then((how) =>
+            how === 'copied' ? setCopied(true) : onShared(),
+          )
+        }
+      />
+    </MenuQuickActions>
   );
 }
 
-function TrackMenuItems({ track, onClose, onDialog }: { track: Track; onClose: () => void; onDialog: (dialog: MenuDialog) => void }) {
+/**
+ * A song's menu (SongActionsMenu.kt), in the phone's order: the rating and
+ * Share as tiles; Add to playlist; Start radio, Play next, Add to queue;
+ * Go to album, Go to artist, Song info; and in the player's own menu the
+ * sleep timer and AutoMix. Account rows only signed in. The phone's lyrics
+ * offset and single-song download have no web counterpart yet, so aren't here.
+ */
+export function TrackMenuItems({ track, player }: { track: Track; player?: boolean }) {
   const signedIn = useSignedIn();
-  const { playNext, addToQueue } = usePlayer.getState();
+  const navigate = useNavigate();
+  const automix = usePlayer((s) => s.automix);
+  const { close, openDialog } = useActionMenu.getState();
+  const { playNext, addToQueue, setAutomix } = usePlayer.getState();
+  const [sleepPage, setSleepPage] = useState(false);
+  const artist = track.artists[0];
+  const go = (to: Promise<string>) => {
+    close();
+    void to.then((href) => {
+      // The page opens behind the full-screen player otherwise.
+      if (player) useUi.getState().setFullScreen(false);
+      navigate(href);
+    });
+  };
+
+  // The player's menu swaps its rows for the timer's in place, as the phone's does.
+  if (sleepPage) return <SleepTimerItems onBack={() => setSleepPage(false)} onDone={close} />;
   return (
     <>
-      <MenuItem icon={<ListStart size={15} />} onSelect={() => (onClose(), playNext([track]))}>
-        Play Next
-      </MenuItem>
-      <MenuItem icon={<ListEnd size={15} />} onSelect={() => (onClose(), addToQueue([track]))}>
-        Add to Queue
-      </MenuItem>
-      {signedIn && <AccountItems track={track} onClose={onClose} onPlaylists={() => onDialog('playlists')} />}
+      <QuickTiles track={track} signedIn={signedIn} onShared={close} />
+      {signedIn && (
+        <>
+          <MenuSeparator />
+          <MenuItem icon={<ListPlus />} onSelect={() => openDialog({ kind: 'playlists', tracks: [track] })}>
+            Add to playlist
+          </MenuItem>
+        </>
+      )}
       <MenuSeparator />
-      <MenuItem icon={<Info size={15} />} onSelect={() => onDialog('credits')}>
-        View Credits
+      <MenuItem icon={<Radio />} onSelect={() => (close(), void startRadio(track))}>
+        Start radio
       </MenuItem>
+      <MenuItem icon={<ListStart />} onSelect={() => (close(), playNext([track]))}>
+        Play next
+      </MenuItem>
+      <MenuItem icon={<ListEnd />} onSelect={() => (close(), addToQueue([track]))}>
+        Add to queue
+      </MenuItem>
+      <MenuSeparator />
+      {(track.album || player) && (
+        <MenuItem
+          icon={<Disc3 />}
+          description={track.album?.name}
+          onSelect={() => go(albumPageFor(track.videoId, track.album, [track.title, artist?.name].filter(Boolean).join(' ')))}
+        >
+          Go to album
+        </MenuItem>
+      )}
+      {artist && (
+        <MenuItem
+          icon={<MicVocal />}
+          description={track.artists.map((a) => a.name).join(', ')}
+          onSelect={() => go(artistPageFor(track.videoId, artist))}
+        >
+          Go to artist
+        </MenuItem>
+      )}
+      <MenuItem icon={<Info />} onSelect={() => openDialog({ kind: 'info', track })}>
+        Song info
+      </MenuItem>
+      {player && (
+        <>
+          <MenuSeparator />
+          <SleepTimerRow onOpen={() => setSleepPage(true)} />
+          <MenuItem icon={<AudioLines />} trailing={automix ? 'On' : 'Off'} onSelect={() => (close(), setAutomix(!automix))}>
+            AutoMix
+          </MenuItem>
+        </>
+      )}
     </>
   );
 }
 
 /**
- * The ⋯ button at the end of a track row (report §14): Play Next, Add to
- * Queue and View Credits for everyone; Favorite and Add to Playlist signed in.
+ * The ⋯ that opens a song's menu, hung off the button (IosMenuPopover).
+ * ActionMenuHost draws the menu; the button only asks for it and shows
+ * while it's up.
  */
 export function TrackMenu({
   track,
   className,
   placement,
+  player,
   onOpenChange,
 }: {
   track: Track;
   className?: string;
   /** Where the menu opens from the button; the player's sit at the bottom of the window. */
   placement?: MenuPlacement;
+  /** The player's own ⋯: adds the sleep timer and AutoMix. */
+  player?: boolean;
   /** Told when the menu, or a dialog it opened, opens and closes; most mounts don't need to know. */
   onOpenChange?: (open: boolean) => void;
 }) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<MenuDialog | null>(null);
-  const button = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => setAnchor(null), []);
-  const openDialog = useCallback((next: MenuDialog) => (setAnchor(null), setDialog(next)), []);
-  const closeDialog = useCallback(() => (setDialog(null), button.current?.focus()), []);
+  const owner = useId();
+  const open = useMenuOwned(owner);
+  const menuUp = useActionMenu((s) => s.menu?.owner === owner);
   // A dialog counts as the menu still open: the search suggestions holding
   // this button stay up under it rather than taking it (and the dialog) away.
-  useEffect(() => {
-    onOpenChange?.(anchor !== null || dialog !== null);
-  }, [anchor, dialog, onOpenChange]);
+  useEffect(() => onOpenChange?.(open), [open, onOpenChange]);
   return (
-    <>
-      <button
-        ref={button}
-        className={className}
-        aria-label={`More options for ${track.title}`}
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        data-open={anchor !== null || undefined}
-        onClick={(event) => {
-          event.stopPropagation();
-          setAnchor(anchor ? null : event.currentTarget);
-        }}
-        onDoubleClick={(event) => event.stopPropagation()}
-      >
-        <MoreHorizontal size={18} strokeWidth={2} />
-      </button>
-      {anchor && (
-        <Menu anchor={anchor} placement={placement} onClose={close} label={track.title}>
-          <TrackMenuItems track={track} onClose={close} onDialog={openDialog} />
-        </Menu>
-      )}
-      {dialog === 'playlists' && <PlaylistPicker tracks={[track]} onClose={closeDialog} />}
-      {dialog === 'credits' && <SongCredits track={track} onClose={closeDialog} />}
-    </>
+    <button
+      className={className}
+      aria-label={`More options for ${track.title}`}
+      aria-haspopup="menu"
+      aria-expanded={menuUp}
+      data-open={open || undefined}
+      onClick={(event) => {
+        event.stopPropagation();
+        const { open: openMenu, close } = useActionMenu.getState();
+        if (menuUp) close();
+        else openMenu({ target: { kind: 'track', track, player }, anchor: event.currentTarget, placement, owner });
+      }}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <MoreHorizontal size={18} strokeWidth={2} />
+    </button>
   );
 }

@@ -374,6 +374,7 @@ export function FullScreenPlayer() {
                 track={track}
                 className="grid size-8 flex-none place-items-center rounded-full bg-quinary text-primary hover:bg-quaternary"
                 placement="above-end"
+                player
               />
             )}
           </div>

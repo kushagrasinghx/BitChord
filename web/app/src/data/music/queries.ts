@@ -27,6 +27,7 @@ import {
   fetchSearch,
   fetchSuggestions,
   setListSaved,
+  setTrackDisliked,
   setTrackLiked,
   type LikeStatus,
   type Paged,
@@ -211,11 +212,26 @@ export function useLikeStatus(videoId: string | null) {
 
 /** Like or unlike, shown at once and put back if YouTube refuses. */
 export function useSetLiked() {
+  return useRating(
+    ({ videoId, liked }: { videoId: string; liked: boolean }) => setTrackLiked(videoId, liked),
+    ({ liked }) => (liked ? 'LIKE' : 'INDIFFERENT'),
+  );
+}
+
+/** Dislike or take it back, the same way. */
+export function useSetDisliked() {
+  return useRating(
+    ({ videoId, disliked }: { videoId: string; disliked: boolean }) => setTrackDisliked(videoId, disliked),
+    ({ disliked }) => (disliked ? 'DISLIKE' : 'INDIFFERENT'),
+  );
+}
+
+function useRating<V extends { videoId: string }>(rate: (vars: V) => Promise<void>, status: (vars: V) => LikeStatus) {
   return useMutation({
-    mutationFn: ({ videoId, liked }: { videoId: string; liked: boolean }) => setTrackLiked(videoId, liked),
-    onMutate: ({ videoId, liked }) => {
-      const previous = queryClient.getQueryData<LikeStatus>(likeKey(videoId));
-      queryClient.setQueryData<LikeStatus>(likeKey(videoId), liked ? 'LIKE' : 'INDIFFERENT');
+    mutationFn: rate,
+    onMutate: (vars) => {
+      const previous = queryClient.getQueryData<LikeStatus>(likeKey(vars.videoId));
+      queryClient.setQueryData<LikeStatus>(likeKey(vars.videoId), status(vars));
       return { previous };
     },
     onError: (_error, { videoId }, context) => queryClient.setQueryData(likeKey(videoId), context?.previous),

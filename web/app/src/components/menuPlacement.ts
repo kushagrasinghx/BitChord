@@ -35,12 +35,16 @@ export function placeMenu(
     const below = row ? anchor.bottom + GAP : point.y;
     const above = row ? anchor.top - GAP : point.y;
     const right = point.x + size.width > viewport.width - MENU_MARGIN;
-    const up = below + size.height > viewport.height - MENU_MARGIN;
-    const height = Math.min(size.height, viewport.height - 2 * MENU_MARGIN);
+    const roomBelow = viewport.height - MENU_MARGIN - below;
+    const roomAbove = Math.min(above, viewport.height - MENU_MARGIN) - MENU_MARGIN;
+    // Below if it fits, else above if it fits, else the roomier side, scrolling there: never over the row.
+    const up = size.height > roomBelow && (size.height <= roomAbove || roomAbove > roomBelow);
+    const maxHeight = Math.max(0, up ? roomAbove : roomBelow);
+    const height = Math.min(size.height, maxHeight);
     return {
       left: clampX(right ? point.x - size.width : point.x),
-      top: Math.max(MENU_MARGIN, up ? Math.min(above, viewport.height - MENU_MARGIN) - height : below),
-      maxHeight: viewport.height - 2 * MENU_MARGIN,
+      top: Math.max(MENU_MARGIN, up ? MENU_MARGIN + roomAbove - height : below),
+      maxHeight,
       origin: `${right ? 'right' : 'left'} ${up ? 'bottom' : 'top'}`,
     };
   }

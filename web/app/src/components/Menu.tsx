@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MENU_MARGIN as MARGIN, placeMenu, type MenuPlacement } from './menuPlacement';
 
@@ -22,6 +22,15 @@ interface MenuProps {
 
 /** IosMenu.kt IosMenuWidth: wide enough for a long label on one line or two. */
 const MENU_WIDTH = 256;
+/** A desktop menu's width, at the compact rows' 14px labels. */
+const COMPACT_WIDTH = 240;
+
+/**
+ * A wide window driven by a mouse gets a desktop menu's density (32px rows,
+ * 14px labels, the quick actions as a row of small buttons); a phone, a
+ * tablet or a narrow window keeps the phone's 44px rows for a finger.
+ */
+const COMPACT_QUERY = '(min-width: 1000px) and (pointer: fine)';
 
 /** IosMenu.kt's spring(DampingRatioNoBouncy, stiffness 600): critically damped, settled by ~320ms. */
 const OPEN_EASE =
@@ -49,6 +58,10 @@ const menuColours = {
 } as CSSProperties;
 // IosMenuPopover's scrim: black at 30% over a dark page, 14% over a light one.
 const scrimColour = 'light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.3))';
+// A desktop menu barely dims the window: the menu, not the page, is what changed.
+const compactScrimColour = 'light-dark(rgb(0 0 0 / 0.05), rgb(0 0 0 / 0.12))';
+/** How long typed letters keep adding to one type-ahead search, as a native menu's do. */
+const TYPE_AHEAD_MS = 600;
 
 /**
  * The phone's iOS-style menu (IosMenu.kt IosMenuPopover): a 256px frosted
@@ -62,6 +75,9 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
   const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const cutout = useRef<HTMLDivElement>(null);
+  // Settled as it opens, like its position: a menu doesn't change density under the pointer.
+  const [compact] = useState(() => window.matchMedia(COMPACT_QUERY).matches);
+  const scrim = compact ? compactScrimColour : scrimColour;
 
   useLayoutEffect(() => {
     const node = panel.current!;
@@ -69,7 +85,8 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
     const veils = [...rootNode.querySelectorAll<HTMLElement>('[data-veil]')];
     const reduce = reducedMotion();
     const rect = anchor.getBoundingClientRect();
-    node.style.width = `${Math.min(matchWidth ? Math.max(MENU_WIDTH, rect.width) : MENU_WIDTH, window.innerWidth - 2 * MARGIN)}px`;
+    const width = compact ? COMPACT_WIDTH : MENU_WIDTH;
+    node.style.width = `${Math.min(matchWidth ? Math.max(width, rect.width) : width, window.innerWidth - 2 * MARGIN)}px`;
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const place = placeMenu(rect, { width: node.offsetWidth, height: node.scrollHeight }, viewport, placement, point);
     // Pinned by the edge it grows from, so a page of different rows (the sleep timer) keeps it there.
@@ -89,7 +106,8 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
     let scale = 1;
     if (lift && cutout.current) {
       const box = lift.getBoundingClientRect();
-      scale = 1 + Math.min(0.04, 12 / Math.max(box.width, 1));
+      // A desktop row barely lifts: a full-width row grown 4% would push past the page's edges.
+      scale = 1 + (compact ? Math.min(0.01, 4 / Math.max(box.width, 1)) : Math.min(0.04, 12 / Math.max(box.width, 1)));
       const radius = getComputedStyle(lift).borderRadius;
       Object.assign(cutout.current.style, {
         left: `${box.left - ((scale - 1) * box.width) / 2}px`,
@@ -137,18 +155,46 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
   useEffect(() => {
     // The panel takes focus with nothing lit, as the phone's opens; the arrows go into the rows.
     panel.current?.focus({ preventScroll: true });
+    let typed = '';
+    let typedAt = 0;
     const onKey = (event: KeyboardEvent) => {
+      const items = () => [...(panel.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
       if (event.key === 'Escape') {
         event.stopPropagation();
         onClose();
         anchor.focus();
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
-        const items = [...(panel.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
-        const index = items.indexOf(document.activeElement as HTMLElement);
+        const all = items();
+        const index = all.indexOf(document.activeElement as HTMLElement);
         const down = event.key === 'ArrowDown';
         const next = index < 0 ? (down ? 0 : -1) : down ? index + 1 : index - 1;
-        items[(next + items.length) % items.length]?.focus();
+        all[(next + all.length) % all.length]?.focus();
+      } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        const all = items();
+        all[event.key === 'Home' ? 0 : all.length - 1]?.focus();
+      } else if (
+        event.key.length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !(event.target instanceof HTMLInputElement) &&
+        panel.current?.contains(event.target as Node)
+      ) {
+        // Type-ahead: letters typed in quick succession go to the first row whose label starts with them.
+        typed = event.timeStamp - typedAt < TYPE_AHEAD_MS ? typed + event.key.toLowerCase() : event.key.toLowerCase();
+        typedAt = event.timeStamp;
+        if (typed.trim() === '') return;
+        event.preventDefault();
+        const all = items();
+        const from = all.indexOf(document.activeElement as HTMLElement);
+        // One letter again and again steps through the rows starting with it, as a native menu does.
+        const step = [...typed].every((c) => c === typed[0]) ? 1 : 0;
+        const search = step ? typed.charAt(0) : typed;
+        const start = Math.max(0, from + step);
+        const order = [...all.slice(start), ...all.slice(0, start)];
+        order.find((item) => menuLabel(item).startsWith(search))?.focus();
       }
     };
     const onScroll = (event: Event) => {
@@ -168,7 +214,7 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
     <div ref={root} className="contents">
       <div
         className="fixed inset-0 z-[calc(var(--z-contextual-menus)-1)]"
-        style={lift ? undefined : { background: scrimColour }}
+        style={lift ? undefined : { background: scrim }}
         data-veil={lift ? undefined : true}
         onPointerDown={onClose}
         onContextMenu={(event) => (event.preventDefault(), onClose())}
@@ -179,18 +225,19 @@ export function Menu({ anchor, placement = 'below-end', point, lift, onClose, la
         <div
           ref={cutout}
           className="pointer-events-none fixed z-[calc(var(--z-contextual-menus)-1)]"
-          style={{ boxShadow: `0 0 0 200vmax ${scrimColour}` }}
+          style={{ boxShadow: `0 0 0 200vmax ${scrim}` }}
           data-veil
           aria-hidden="true"
         />
       )}
       <div
         ref={panel}
-        className="invisible fixed z-(--z-contextual-menus) overflow-y-auto overscroll-contain rounded-menu bg-(--menu-fill) py-2 text-(--menu-label) shadow-[inset_0_0_0_0.5px_var(--menu-rim),0_8px_24px_rgb(0_0_0/0.3)] [backdrop-filter:saturate(1.8)_blur(24px)]"
+        className="invisible fixed z-(--z-contextual-menus) overflow-y-auto overscroll-contain rounded-menu bg-(--menu-fill) py-2 text-(--menu-label) data-compact:py-1.5 shadow-[inset_0_0_0_0.5px_var(--menu-rim),0_8px_24px_rgb(0_0_0/0.3)] [backdrop-filter:saturate(1.8)_blur(24px)]"
         style={menuColours}
         tabIndex={-1}
         role="menu"
         aria-label={label}
+        data-compact={compact || undefined}
         onContextMenu={(event) => event.preventDefault()}
       >
         {children}
@@ -214,28 +261,32 @@ interface MenuItemProps {
   children: ReactNode;
 }
 
+/** A row's label for type-ahead: a quick action's name, or the row's own words. */
+const menuLabel = (item: HTMLElement) => (item.title || item.textContent || '').trim().toLowerCase();
+
 /**
  * One row (IosMenu.kt IosMenuRow): 44px, a 28px glyph column with a 21px
  * glyph, then the label at 17/21. Pointing at it, or pressing it, fills a
- * tile with a 14px corner inset 8 from the panel's sides.
+ * tile with a 14px corner inset 8 from the panel's sides. In a compact
+ * (desktop) menu: 32px, a 17px glyph and the label at 14/18, inset 6.
  */
 export function MenuItem({ onSelect, icon, checked, destructive, disabled, description, trailing, children }: MenuItemProps) {
   const glyph = checked ? <Check size={19} strokeWidth={2.4} /> : icon;
   return (
     <button
-      className="mx-2 flex min-h-11 w-[calc(100%-16px)] items-center gap-2.5 rounded-[14px] py-[11px] ps-3 pe-3.5 text-start enabled:hover:bg-(--menu-pressed) enabled:active:bg-(--menu-pressed) focus-visible:bg-(--menu-pressed) disabled:opacity-40 data-destructive:text-destructive [&_svg]:size-[21px]"
+      className="mx-2 flex min-h-11 w-[calc(100%-16px)] items-center gap-2.5 rounded-[14px] py-[11px] ps-3 pe-3.5 text-start enabled:hover:bg-(--menu-pressed) enabled:active:bg-(--menu-pressed) focus-visible:bg-(--menu-pressed) disabled:opacity-40 data-destructive:text-destructive in-data-compact:mx-1.5 in-data-compact:min-h-8 in-data-compact:w-[calc(100%-12px)] in-data-compact:gap-2 in-data-compact:rounded-[10px] in-data-compact:py-1.5 in-data-compact:ps-2 in-data-compact:pe-2.5 [&_svg]:size-[21px] in-data-compact:[&_svg]:size-[17px]"
       role={checked === undefined ? 'menuitem' : 'menuitemradio'}
       aria-checked={checked === undefined ? undefined : !!checked}
       data-destructive={destructive || undefined}
       disabled={disabled}
       onClick={onSelect}
     >
-      {(glyph || checked !== undefined) && <span className="grid w-7 flex-none place-items-center">{glyph}</span>}
+      {(glyph || checked !== undefined) && <span className="grid w-7 flex-none place-items-center in-data-compact:w-5">{glyph}</span>}
       <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className="line-clamp-2 type-[400_17px/21px] tracking-[-0.3px]">{children}</span>
-        {description && <span className="truncate type-[400_14px/17px] text-(--menu-secondary)">{description}</span>}
+        <span className="line-clamp-2 type-[400_17px/21px] tracking-[-0.3px] in-data-compact:type-[400_14px/18px] in-data-compact:tracking-[-0.1px]">{children}</span>
+        {description && <span className="truncate type-[400_14px/17px] text-(--menu-secondary) in-data-compact:type-[400_12px/15px]">{description}</span>}
       </span>
-      {trailing && <span className="flex-none type-[400_15px/18px] text-(--menu-secondary) [&_svg]:size-4">{trailing}</span>}
+      {trailing && <span className="flex-none type-[400_15px/18px] text-(--menu-secondary) in-data-compact:type-[400_13px/16px] [&_svg]:size-4 in-data-compact:[&_svg]:size-3.5">{trailing}</span>}
     </button>
   );
 }
@@ -243,7 +294,7 @@ export function MenuItem({ onSelect, icon, checked, destructive, disabled, descr
 /** IosMenuSeparator: a 1px rule inset 18px, with air either side (17px in all). */
 export function MenuSeparator() {
   return (
-    <div className="grid h-[17px] place-items-center px-[18px]" role="separator">
+    <div className="grid h-[17px] place-items-center px-[18px] in-data-compact:h-[9px] in-data-compact:px-3" role="separator">
       <div className="h-px w-full bg-(--menu-separator)" />
     </div>
   );
@@ -251,15 +302,22 @@ export function MenuSeparator() {
 
 /** A non-interactive heading inside a menu. */
 export function MenuHeader({ children }: { children: ReactNode }) {
-  return <div className="px-5 pt-1.5 pb-1 type-[600_14px/17px] text-(--menu-secondary)">{children}</div>;
+  return <div className="px-5 pt-1.5 pb-1 type-[600_14px/17px] text-(--menu-secondary) in-data-compact:px-4 in-data-compact:type-[600_12px/15px]">{children}</div>;
 }
 
-/** IosMenuQuickActions: the actions reached for most, as tiles across the top, 66px tall. */
+/**
+ * IosMenuQuickActions: the actions reached for most, as tiles across the top,
+ * 66px tall; in a compact menu, one 32px row of small icon buttons.
+ */
 export function MenuQuickActions({ children }: { children: ReactNode }) {
-  return <div className="flex h-[66px] gap-1 px-2.5">{children}</div>;
+  return <div className="flex h-[66px] gap-1 px-2.5 in-data-compact:h-8 in-data-compact:gap-0.5 in-data-compact:px-1.5">{children}</div>;
 }
 
-/** One tile (IosMenuQuickAction): a 23px glyph over a 12px label, a 16px-cornered press fill. */
+/**
+ * One tile (IosMenuQuickAction): a 23px glyph over a 12px label, a
+ * 16px-cornered press fill. Compact, the 17px glyph alone: the label stays
+ * for screen readers and shows as the pointer's tooltip.
+ */
 export function MenuQuickAction({
   icon,
   label,
@@ -276,14 +334,15 @@ export function MenuQuickAction({
 }) {
   return (
     <button
-      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl px-1 py-2 enabled:hover:bg-(--menu-pressed) enabled:active:bg-(--menu-pressed) focus-visible:bg-(--menu-pressed) disabled:text-(--menu-secondary) [&_svg]:size-[23px]"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl px-1 py-2 enabled:hover:bg-(--menu-pressed) enabled:active:bg-(--menu-pressed) focus-visible:bg-(--menu-pressed) disabled:text-(--menu-secondary) in-data-compact:rounded-[10px] in-data-compact:py-0 [&_svg]:size-[23px] in-data-compact:[&_svg]:size-[17px]"
       role="menuitem"
+      title={label}
       aria-pressed={active}
       disabled={disabled}
       onClick={onSelect}
     >
       {icon}
-      <span className="max-w-full truncate type-[500_12px/15px]">{label}</span>
+      <span className="max-w-full truncate type-[500_12px/15px] in-data-compact:sr-only">{label}</span>
     </button>
   );
 }

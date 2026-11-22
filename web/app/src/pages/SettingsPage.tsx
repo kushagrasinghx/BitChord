@@ -12,6 +12,7 @@ import { useHistorySettings } from '@/playback/historyReporting';
 import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
+import { DataSettings, PremiumAudioToggle } from './DataSettings';
 import { PlayerSettings } from './PlayerSettings';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
 import { QueueSettings } from './QueueSettings';
@@ -117,6 +118,7 @@ export default function SettingsPage() {
             onChange={setShareHistory}
           />
           <CanvasToggle />
+          <PremiumAudioToggle />
         </section>
 
         <h2 className={settingsUi.sectionHeader}>Apple Music</h2>
@@ -203,6 +205,7 @@ export default function SettingsPage() {
             {present ? <LyricSourcesAccess /> : <span className={settingsUi.value}>Needs the extension</span>}
           </div>
         </section>
+        <DataSettings />
       </div>
       {lyrics && (
         <Suspense fallback={null}>

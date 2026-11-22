@@ -5,6 +5,7 @@ import { Constants, Utils, YT, type Innertube } from 'youtubei.js/web';
 import { timed, trackLog } from '../trackLog';
 import { botguard } from './botguard';
 import { ytAuthSnapshot } from '@/extension/useYtAuth';
+import { offlineCopy, type OfflineTrack } from '../offline/store';
 import { getInnertube, getSignedInnertube } from './innertube';
 import {
   CLIENT_ATTEMPTS,
@@ -17,6 +18,7 @@ import {
   type ResolvedPlayer,
 } from './resolver';
 import { ShakaPlayerAdapter } from './ShakaPlayerAdapter';
+import { usePremiumAudio } from './premiumAudio';
 
 /** What the engine knows about the track it loaded. */
 export interface LoadedTrack {
@@ -26,7 +28,8 @@ export interface LoadedTrack {
   durationSec: number;
   /** Largest first. */
   thumbnails: { url: string; width: number; height: number }[];
-  client: PlayerClientName;
+  /** OFFLINE: played from the downloaded copy (playback/offline). */
+  client: PlayerClientName | 'OFFLINE';
   /** The audio format actually selected, e.g. "251 opus 140kbps". */
   format: string;
   /** The same, field by field, for stats for nerds. */
@@ -42,8 +45,8 @@ export interface StreamStats {
   bitrateKbps: number | null;
   sampleRateHz: number | null;
   channels: number | null;
-  /** "direct" (googlevideo URLs, by range) or "SABR". */
-  mode: 'direct' | 'SABR';
+  /** "direct" (googlevideo URLs, by range), "SABR", or "file" (the downloaded copy). */
+  mode: 'direct' | 'SABR' | 'file';
 }
 
 /** A music video's picture: a video-only DASH manifest over the same response's direct URLs. */
@@ -93,6 +96,8 @@ export class YouTubeEngine {
   /** The response the playing track streams from, when it has direct URLs; the video picture comes from it too. */
   private direct: ResolvedPlayer | null = null;
   private preferredCodecs: string[];
+  /** The object URL a downloaded copy is playing from, released when anything else loads. */
+  private offlineUrl: string | null = null;
 
   /** Raised when a track can't be played at all, after every fallback. */
   onFatal: (videoId: string, message: string, permanent: boolean) => void = () => {};
@@ -163,18 +168,47 @@ export class YouTubeEngine {
     trackLog.i(`loading at ${startSec.toFixed(1)}s`, videoId);
     try {
       const player = await this.ensurePlayer();
+      // A downloaded copy plays first, online or not: no session, no request, no stream to lose.
+      const offline = await offlineCopy(videoId).catch(() => null);
+      this.checkCurrent(generation);
+      if (offline) return await this.startOffline(player, offline, startSec, autoplay, generation);
       this.yt ??= await timed('InnerTube session', videoId, getInnertube);
       void botguard.init().catch((error: unknown) => trackLog.w(`BotGuard init failed: ${String(error)}`, videoId));
 
       const skip = new Set<PlayerClientName>();
       let lastError: unknown = null;
-      let yt = this.yt;
+      const anonymous = this.yt;
+      let yt = anonymous;
       let signed = false;
+      // Premium audio: ask as the signed-in account first, the only identity
+      // offered itag 774. A preference, not a requirement: anything going
+      // wrong signed in goes back to the usual anonymous walk.
+      let premium = usePremiumAudio.getState().on && ytAuthSnapshot().signedIn;
+      const playAsUsual = (why: string) => {
+        trackLog.i(`premium audio: ${why}; playing as usual`, videoId);
+        premium = false;
+        signed = false;
+        yt = anonymous;
+        skip.clear();
+      };
+      if (premium) {
+        try {
+          yt = await timed('signed-in InnerTube session', videoId, getSignedInnertube);
+          signed = true;
+        } catch (error) {
+          playAsUsual(`no signed-in session (${describe(error)})`);
+        }
+      }
       for (let attempt = 0; attempt < CLIENT_ATTEMPTS; attempt++) {
         let resolved: ResolvedPlayer;
         try {
           resolved = await timed('player request', videoId, () => resolvePlayer(yt, videoId, skip, signed));
         } catch (error) {
+          if (premium) {
+            playAsUsual(`signed-in request failed (${describe(error)})`);
+            attempt = -1;
+            continue;
+          }
           // An age gate is a verdict on the visitor, not the track: ask again
           // as the signed-in user, through the extension (prompt §5.3).
           if (!(error instanceof UnplayableError && error.ageGated) || signed || !ytAuthSnapshot().signedIn) throw error;
@@ -196,8 +230,13 @@ export class YouTubeEngine {
         } catch (error) {
           if (error instanceof SupersededError) throw error;
           lastError = error;
-          skip.add(resolved.client);
           excludeClient(videoId, resolved.client, `streaming failed: ${describe(error)}`, resolved.signed);
+          if (premium) {
+            playAsUsual(`signed-in stream failed (${describe(error)})`);
+            attempt = -1;
+            continue;
+          }
+          skip.add(resolved.client);
         }
       }
       throw lastError instanceof Error ? lastError : new Error('No YouTube client could stream this track');
@@ -224,6 +263,7 @@ export class YouTubeEngine {
   ): Promise<LoadedTrack> {
     const { videoId, client, info, signed } = resolved;
     await player.unload();
+    this.releaseOffline();
     this.adapter?.dispose();
     this.adapter = null;
     this.current = { videoId, client, signed };
@@ -267,6 +307,54 @@ export class YouTubeEngine {
       stream: { ...selected.stats, mode },
       loudnessDb: info.player_config?.audio_config?.loudness_db ?? null,
     };
+  }
+
+  /**
+   * Plays the downloaded file itself (Shaka's src= mode, the element reading a
+   * blob URL). Nothing to recover to another client if it fails: a broken copy
+   * fails the load like any other, and the queue moves on.
+   */
+  private async startOffline(
+    player: shaka.Player,
+    { track, blob }: { track: OfflineTrack; blob: Blob },
+    startSec: number,
+    autoplay: boolean,
+    generation: number,
+  ): Promise<LoadedTrack> {
+    await player.unload();
+    this.releaseOffline();
+    this.adapter?.dispose();
+    this.adapter = null;
+    this.current = null;
+    this.direct = null;
+    const url = URL.createObjectURL(blob);
+    this.offlineUrl = url;
+    await timed('offline load', track.videoId, () => player.load(url, startSec, track.mimeType));
+    this.checkCurrent(generation);
+    if (autoplay) {
+      await this.audio.play().catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'NotAllowedError')) throw error;
+      });
+    }
+    await this.firstAudio(generation);
+    const codec = track.mimeType === 'audio/webm' ? 'Opus' : 'AAC';
+    trackLog.i(`playing the downloaded copy (${codec}, ${Math.round(track.sizeBytes / 1024)} KB)`, track.videoId);
+    return {
+      videoId: track.videoId,
+      title: track.title,
+      author: track.author,
+      durationSec: track.durationSec || Math.round(this.audio.duration) || 0,
+      thumbnails: track.thumbnail ? [{ url: track.thumbnail, width: 0, height: 0 }] : [],
+      client: 'OFFLINE',
+      format: `${codec} file`,
+      stream: { codec, itag: null, bitrateKbps: null, sampleRateHz: null, channels: null, mode: 'file' },
+      loudnessDb: null,
+    };
+  }
+
+  private releaseOffline() {
+    if (this.offlineUrl) URL.revokeObjectURL(this.offlineUrl);
+    this.offlineUrl = null;
   }
 
   /**
@@ -469,6 +557,7 @@ export class YouTubeEngine {
     this.current = null;
     this.direct = null;
     await this.player?.unload();
+    this.releaseOffline();
     this.adapter?.dispose();
     this.adapter = null;
   }

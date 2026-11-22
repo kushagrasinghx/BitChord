@@ -15,3 +15,5 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+void import('@/data/backup/autostart').then((m) => m.autostart());

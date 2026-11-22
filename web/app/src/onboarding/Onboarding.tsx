@@ -96,9 +96,8 @@ function OnboardingScreen({ onDone }: { onDone: () => void }) {
   }, [view]);
 
   const next = () => {
-    const chosen = name.trim();
-    if (!chosen) return;
-    savePartySettings({ nickname: chosen });
+    // A blank name is allowed: Listen Together then goes by the YouTube account's name (listenTogether.ts identity).
+    savePartySettings({ nickname: name.trim() });
     if (signedIn) finish();
     else go('connect');
   };
@@ -151,18 +150,37 @@ function useCyclingPalette(sets: Rgb[][], still: boolean): Rgb[] {
   return sets[(still ? 0 : step) % sets.length]!;
 }
 
-/** Each page's column: the whole window to slide, the content capped at 520px with 28px sides. */
+/**
+ * Each page's column: the whole window to slide, the content capped at 520px
+ * with 28px sides, the page's words up top and its controls at the foot, as
+ * the phone lays it out. A desktop window (1000px and up) has the width the
+ * phone hasn't: the words take the left half and the controls sit beside
+ * them, centred in the window, rather than a phone's column with a tall gap.
+ */
 function PageColumn({ className, inert, dir, children }: { className: string; inert?: boolean; dir: number; children: ReactNode }) {
   return (
     <div className={`absolute inset-0 flex justify-center ${className}`} inert={inert} style={{ '--ob-dir': dir } as CSSProperties}>
-      <div className="flex h-full w-full max-w-[520px] flex-col px-7 pt-4 pb-6">{children}</div>
+      <div className="flex h-full w-full max-w-[520px] flex-col px-7 pt-4 pb-6 lg:max-w-[1080px] lg:flex-row lg:items-center lg:gap-20 lg:px-16 lg:py-12">
+        {children}
+      </div>
     </div>
   );
 }
 
-/** Replay's heading, scaled up: the one line each page exists to say. */
+/** A page's two parts: what it says, a spacer the phone pushes the controls down with, and the controls. */
+function PageParts({ words, controls }: { words: ReactNode; controls: ReactNode }) {
+  return (
+    <>
+      <div className="flex flex-none flex-col lg:flex-1">{words}</div>
+      <div className="flex-1 lg:hidden" />
+      <div className="flex flex-none flex-col lg:w-[400px]">{controls}</div>
+    </>
+  );
+}
+
+/** Replay's heading, scaled up (and again for a desktop window): the one line each page exists to say. */
 function Title({ children }: { children: ReactNode }) {
-  return <h1 className="type-[800_40px/44px] tracking-[-1.2px] text-white">{children}</h1>;
+  return <h1 className="type-[800_40px/44px] tracking-[-1.2px] text-balance text-white lg:type-[800_60px/62px] lg:tracking-[-2.2px]">{children}</h1>;
 }
 
 /**
@@ -183,69 +201,83 @@ function Pill({ primary, className = '', ...button }: { primary: boolean } & But
 
 function NamePage({ name, onName, onNext }: { name: string; onName: (name: string) => void; onNext: () => void }) {
   return (
-    <>
-      <LogoMark size={46} className="mt-14 flex-none text-white" />
-      <div className="mt-6">
-        <Title>Millions of songs, stream on BitChord</Title>
-      </div>
-      <div className="flex-1" />
-      <label htmlFor="onboarding-name" className="ps-1 type-[600_17px/22px] text-white/78">
-        What should we call you?
-      </label>
-      {/* The name in the heading's own face and weight, so it reads as part of the page, not a form on top of it. */}
-      <input
-        id="onboarding-name"
-        className="mt-3 h-16 w-full flex-none rounded-pill border-0 bg-white/14 px-6 type-[800_26px/30px] tracking-[-0.6px] text-white caret-white outline-none placeholder:text-white/38 focus-visible:ring-2 focus-visible:ring-white/60"
-        placeholder="Your name"
-        value={name}
-        maxLength={NAME_LIMIT}
-        autoFocus
-        autoComplete="nickname"
-        autoCapitalize="words"
-        spellCheck={false}
-        onChange={(e) => onName(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          if (e.key !== 'Enter') return;
-          // Or the same Enter goes on to press whatever the next page focuses.
-          e.preventDefault();
-          onNext();
-        }}
-      />
-      <p className="mt-2.5 px-1 type-callout text-white/55">
-        Friends see this when you Listen Together. You can change it later in Settings.
-      </p>
-      <Pill primary className="mt-7" disabled={!name.trim()} onClick={onNext}>
-        Next
-      </Pill>
-    </>
+    <PageParts
+      words={
+        <>
+          <LogoMark size={46} className="mt-14 flex-none text-white lg:mt-0" />
+          <div className="mt-6">
+            <Title>Millions of songs, stream on BitChord</Title>
+          </div>
+        </>
+      }
+      controls={
+        <>
+          <label htmlFor="onboarding-name" className="ps-1 type-[600_17px/22px] text-white/78">
+            What should we call you?
+          </label>
+          {/* The name in the heading's own face and weight, so it reads as part of the page, not a form on top of it. */}
+          <input
+            id="onboarding-name"
+            className="mt-3 h-16 w-full flex-none rounded-pill border-0 bg-white/14 px-6 type-[800_26px/30px] tracking-[-0.6px] text-white caret-white outline-none placeholder:text-white/38 focus-visible:bg-white/20"
+            placeholder="Your name"
+            value={name}
+            maxLength={NAME_LIMIT}
+            autoFocus
+            autoComplete="nickname"
+            autoCapitalize="words"
+            spellCheck={false}
+            onChange={(e) => onName(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              // Or the same Enter goes on to press whatever the next page focuses.
+              e.preventDefault();
+              onNext();
+            }}
+          />
+          <p className="mt-2.5 px-1 type-callout text-white/55">
+            Friends see this when you Listen Together; leave it blank to go by your YouTube name. You can change it later in Settings.
+          </p>
+          <Pill primary className="mt-7" onClick={onNext}>
+            Next
+          </Pill>
+        </>
+      }
+    />
   );
 }
 
 function ConnectPage({ onBack, onSignIn, onSkip }: { onBack: () => void; onSignIn: () => void; onSkip: () => void }) {
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Back"
-        className="grid size-10 flex-none place-items-center rounded-full bg-white/16 text-white"
-        onClick={onBack}
-      >
-        <ChevronLeft size={20} strokeWidth={2.6} />
-      </button>
-      <div className="mt-5">
-        <Title>Connect your YouTube account</Title>
-      </div>
-      <p className="mt-3.5 type-[400_17px/23px] text-white/72">
-        Bring your library, playlists and mixes with you, and start a Listen Together party with friends.
-      </p>
-      <div className="flex-1" />
-      <Pill primary onClick={onSignIn}>
-        <FcGoogle size={20} aria-hidden />
-        Sign in with Google
-      </Pill>
-      <Pill primary={false} className="mt-3" onClick={onSkip}>
-        Skip sign in
-      </Pill>
-    </>
+    <PageParts
+      words={
+        <>
+          <button
+            type="button"
+            aria-label="Back"
+            className="grid size-10 flex-none place-items-center self-start rounded-full bg-white/16 text-white transition-colors hover:bg-white/24 focus-visible:bg-white/28"
+            onClick={onBack}
+          >
+            <ChevronLeft size={20} strokeWidth={2.6} />
+          </button>
+          <div className="mt-5">
+            <Title>Connect your YouTube account</Title>
+          </div>
+          <p className="mt-3.5 type-[400_17px/23px] text-white/72 lg:max-w-[40ch]">
+            Bring your library, playlists and mixes with you, and start a Listen Together party with friends.
+          </p>
+        </>
+      }
+      controls={
+        <>
+          <Pill primary onClick={onSignIn}>
+            <FcGoogle size={20} aria-hidden />
+            Sign in with Google
+          </Pill>
+          <Pill primary={false} className="mt-3" onClick={onSkip}>
+            Skip sign in
+          </Pill>
+        </>
+      }
+    />
   );
 }

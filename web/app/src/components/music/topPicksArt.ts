@@ -285,8 +285,14 @@ export function drawMood(
 ) {
   ctx.fillStyle = mood.background;
   ctx.fillRect(0, 0, w, h);
-  const side = square ? w * 0.7 : Math.min(w * 0.84, h * 0.62);
-  const f: Frame = square ? { left: (w - side) / 2, top: (h - side) / 2, side } : { left: (w - side) / 2, top: h * 0.37 - side / 2, side };
+  // A landscape card (Top Picks on a wide window) keeps the emblem to the right, clear of the caption at the start.
+  const landscape = !square && w > h * 1.1;
+  const side = square ? w * 0.7 : landscape ? h * 0.66 : Math.min(w * 0.84, h * 0.62);
+  const f: Frame = square
+    ? { left: (w - side) / 2, top: (h - side) / 2, side }
+    : landscape
+      ? { left: w * 0.72 - side / 2, top: (h - side) / 2, side }
+      : { left: (w - side) / 2, top: h * 0.37 - side / 2, side };
   ctx.strokeStyle = mood.stroke;
   ctx.fillStyle = mood.stroke;
   ctx.lineWidth = square ? 2 : 2.5;

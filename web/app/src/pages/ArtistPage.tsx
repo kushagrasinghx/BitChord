@@ -33,7 +33,7 @@ function ArtistName({ name, apple }: { name: string; apple: AppleArtistArt | nul
   const logoShown = !!logo && shown === logo;
   return (
     // displayLarge, 34/800, two lines at most; no shadow: the wash under it is what keeps it legible.
-    <h1 className="line-clamp-2 type-header-emphasized text-primary data-logo:w-full" data-logo={logoShown || undefined}>
+    <h1 className="line-clamp-2 type-header-emphasized text-primary data-logo:w-full lg:max-w-[min(70%,820px)]" data-logo={logoShown || undefined}>
       {!logoShown && name}
       {logo && (
         <img
@@ -41,7 +41,8 @@ function ArtistName({ name, apple }: { name: string; apple: AppleArtistArt | nul
           // Apple's title logo in place of the name: at most 82% of the page's width and 30% of the
           // photo's height (ARTIST_LOGO_WIDTH, ARTIST_LOGO_MAX_HEIGHT; the photo is the column's width
           // over 0.95, and never taller than 60vh), sitting 13px higher than the name, as its 20px foot does.
-          className="mx-auto mt-0 mb-[13px] block h-auto max-h-[min(calc((100vw-var(--web-navigation-width))/0.95*0.3),18vh)] w-auto max-w-[min(82%,640px)]"
+          // On the desktop's banner the logo sits at the start with the actions, and keeps to a third of the banner's height.
+          className="mx-auto mt-0 mb-[13px] block h-auto max-h-[min(calc((100vw-var(--web-navigation-width))/0.95*0.3),18vh)] w-auto max-w-[min(82%,640px)] lg:ms-0 lg:max-h-[min(14vh,120px)] lg:max-w-[min(100%,520px)]"
           src={logo}
           alt={logoShown ? name : ''}
           hidden={!logoShown}
@@ -161,16 +162,17 @@ export default function ArtistPage() {
   return (
     <>
       <header>
-        {/* ARTIST_PHOTO_RATIO .95, and never more than 60% of the window's height. */}
-        <div className="relative aspect-[0.95] max-h-[60vh] w-full overflow-hidden">
+        {/* ARTIST_PHOTO_RATIO .95, and never more than 60% of the window's height. From 1000px a wide banner
+            instead, the photo cropped landscape and no taller than 42% of the window, as a desktop player heads an artist. */}
+        <div className="relative aspect-[0.95] max-h-[60vh] w-full overflow-hidden lg:aspect-[1165/604] lg:max-h-[42vh] lg:min-h-[320px]">
           <div className="absolute inset-0 [&>div]:h-full">
             <Artwork src={data.heroImage} displayWidth={1200} aspect={1165 / 604} eager />
           </div>
-          {/* Apple's photograph fades in over YouTube's once it arrives. */}
+          {/* Apple's photograph fades in over YouTube's once it arrives; on the banner its upper part, where the face is. */}
           {apple && (
             <img
               key={apple.heroUrl}
-              className="absolute inset-0 size-full object-cover opacity-0 transition-opacity duration-400 ease-in data-loaded:opacity-100"
+              className="absolute inset-0 size-full object-cover opacity-0 transition-opacity duration-400 ease-in data-loaded:opacity-100 lg:object-[50%_28%]"
               src={apple.heroUrl}
               alt=""
               decoding="async"
@@ -190,14 +192,22 @@ export default function ArtistPage() {
             }}
             aria-hidden="true"
           />
-          {/* The name hangs 20px up into the photo's foot (HEADER_DROP less ARTIST_HEADER_LIFT), 7px over the actions. */}
-          <div className="absolute inset-x-0 bottom-[27px] flex flex-col items-center px-(--body-gutter) text-center">
+          {/* On the banner the name and actions stand at the start, over more of the photo than on a phone:
+              the page's colour leans in from that side too, so they read on a bright picture. */}
+          <div
+            className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,color-mix(in_srgb,var(--page-tint,var(--pageBG))_62%,transparent),transparent_58%)] lg:block"
+            aria-hidden="true"
+          />
+          {/* The name hangs 20px up into the photo's foot (HEADER_DROP less ARTIST_HEADER_LIFT), 7px over the actions.
+              On the banner it sits at the start, over the actions, both on the photo's washed foot. */}
+          <div className="absolute inset-x-0 bottom-[27px] flex flex-col items-center px-(--body-gutter) text-center lg:bottom-[98px] lg:items-start lg:text-start">
             <ArtistName name={data.name} apple={apple} />
           </div>
         </div>
-        {/* Shuffle 52 · Play 70 · Subscribe 52, 24 apart (ARTIST_SIDE_BUTTON, ARTIST_PLAY_BUTTON, ARTIST_ACTION_GAP), 22 below. */}
-        <div className="relative -mt-5 mb-[22px] flex flex-col items-center gap-3 px-(--body-gutter)">
-          <div className="flex items-center gap-6">
+        {/* Shuffle 52 · Play 70 · Subscribe 52, 24 apart (ARTIST_SIDE_BUTTON, ARTIST_PLAY_BUTTON, ARTIST_ACTION_GAP), 22 below.
+            On the banner the row starts on the gutter, 20px above the photo's foot. */}
+        <div className="relative -mt-5 mb-[22px] flex flex-col items-center gap-3 px-(--body-gutter) lg:-mt-[90px] lg:mb-8 lg:items-start">
+          <div className="flex items-center gap-6 lg:gap-4">
             <button
               className={`grid size-[52px] flex-none place-items-center rounded-full ${veil} ${pressable} [&_svg]:size-[23px]`}
               aria-label="Shuffle"

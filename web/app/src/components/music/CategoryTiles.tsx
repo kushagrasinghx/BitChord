@@ -77,7 +77,7 @@ export function moodTone(color: string, title: string) {
 /**
  * A mood or genre as the phone's MoodGenreSleeve: aspect 1.72, radius 18, a
  * solid stripe down the left 28% and the category's cover filling the rest as
- * a duotone of the stripe's colour, a soft shade from the top so pale stripes
+ * a duotone of the stripe's colour, a shade from the top so pale stripes
  * still carry the white title, top-left, 16 bold. A slight lift on hover.
  */
 function CategoryTile({ category }: { category: Category }) {
@@ -110,7 +110,9 @@ function CategoryTile({ category }: { category: Category }) {
               decoding="async"
               draggable={false}
               onLoad={() => setLoaded(true)}
-              className="size-full object-cover transition-opacity duration-300"
+              // A square cover is shown whole, the tile's height and held to the right, its left edge fading into
+              // the duotone, so the title printed on most covers isn't cut through; a wide still fills the space.
+              className={`transition-opacity duration-300 ${borrowed?.wide ? 'size-full object-cover' : 'absolute inset-y-0 right-0 aspect-square h-full object-cover [mask-image:linear-gradient(90deg,transparent,#000_22%)]'}`}
               style={{ filter: `url(#${tone.id})`, opacity: loaded ? 1 : 0 }}
             />
           )}
@@ -120,7 +122,13 @@ function CategoryTile({ category }: { category: Category }) {
             <feColorMatrix type="matrix" values={tone.matrix} />
           </filter>
         </svg>
-        <span aria-hidden="true" className="absolute inset-0 -z-1 bg-[linear-gradient(rgb(0_0_0/0.24),transparent_62%)]" />
+        {/* The shade under the title: deep enough (55% black through the title's two lines on a desktop tile) that
+            white holds 4.5:1 on the palest stripe and the duotone's brightest highlight, then eased away over
+            several stops so it reads as shade, not a band, and the colour still leads below. */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 -z-1 bg-[linear-gradient(rgb(0_0_0/0.55),rgb(0_0_0/0.55)_40%,rgb(0_0_0/0.4)_54%,rgb(0_0_0/0.2)_68%,rgb(0_0_0/0.06)_84%,transparent)]"
+        />
         <span className="line-clamp-2 px-3.5 py-3 type-[700_16px/19px] [text-shadow:0_1px_6px_rgb(0_0_0/0.35)]">{category.title}</span>
       </PrefetchLink>
     </li>

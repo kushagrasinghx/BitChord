@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { LogoMark } from '@/components/icons/LogoMark';
-import { shelfSection } from '@/components/shelf';
+import { shelfKinds, shelfList, shelfSection } from '@/components/shelf';
 import { useAlbumMotion } from '@/data/apple/motionArt';
 import { MOODS, moodById, type Mood } from '@/data/music/moods';
 import { moodQueue, topPickQueue, type TopPick } from '@/data/music/topPicks';
@@ -24,6 +24,13 @@ import { drawDiscoveryStation, drawMood, drawPersonalStation, STATION_PERIOD_MS,
 const pending = 'aria-busy:opacity-70 aria-busy:cursor-progress';
 // 3:4, radius 12, the artwork's 1px rim, white captions.
 const cardFrame = `relative isolate block aspect-[3/4] w-full overflow-hidden rounded-card bg-surface-variant text-start text-white artwork-stroke transition-[scale,opacity] duration-150 ease-out active:scale-[.98] ${pending}`;
+/**
+ * One or two picks on a wide window (a guest gets one mood) would leave a
+ * 280px card and a row of black: from 1000px they share the row instead, as
+ * landscape cards a set height, their art laid out for the wider shape.
+ */
+const wideFrame = 'lg:aspect-auto lg:h-[clamp(280px,28vw,400px)]';
+const FEW = 2;
 
 /**
  * A drawn picture on a loop of [periodMs] (loopPhase): the canvas repaints
@@ -73,16 +80,17 @@ function Img({ src, className = '', style }: { src: string; className?: string; 
  * the caption so white reads on any cover. A motion cover, when Apple has one,
  * plays muted over the square and dissolves into the blur the same way.
  */
-function ReleaseArt({ url, motion }: { url: string | undefined; motion: { album: string; artist: string } | null }) {
+function ReleaseArt({ url, motion, wide }: { url: string | undefined; motion: { album: string; artist: string } | null; wide: boolean }) {
   const clip = useAlbumMotion(motion?.album, motion?.artist);
-  const fade: CSSProperties = { maskImage: 'linear-gradient(black 78%, transparent)' };
+  // Landscape, the cover stands whole at the end, the full height, and dissolves leftward into its blur.
+  const square = `absolute inset-x-0 top-0 aspect-square w-full [mask-image:linear-gradient(black_78%,transparent)] ${wide ? 'lg:inset-x-auto lg:right-0 lg:h-full lg:w-auto lg:[mask-image:linear-gradient(to_left,black_70%,transparent)]' : ''}`;
   return (
     <div className="absolute inset-0 -z-1 bg-black">
-      {url && <Img src={croppedAt(url, 96)} className="absolute inset-x-0 bottom-0 h-[42%] w-full scale-125 blur-[18px]" />}
+      {url && <Img src={croppedAt(url, 96)} className={`absolute inset-x-0 bottom-0 h-[42%] w-full scale-125 blur-[18px] ${wide ? 'lg:h-full' : ''}`} />}
       <div className="absolute inset-0 bg-[linear-gradient(transparent_0%,rgb(0_0_0/0.08)_60%,rgb(0_0_0/0.38)_100%)]" />
-      {url && <Img src={croppedAt(url, 600)} className="absolute inset-x-0 top-0 aspect-square w-full" style={fade} />}
+      {url && <Img src={croppedAt(url, 600)} className={square} />}
       {clip && (
-        <div className="absolute inset-x-0 top-0 aspect-square w-full" style={fade}>
+        <div className={square}>
           <MotionArtwork motion={clip} className="size-full object-cover opacity-0 transition-opacity duration-500 data-ready:opacity-100" />
         </div>
       )}
@@ -112,7 +120,7 @@ const collageOf = (name: string) => COLLAGE[Math.abs(javaHash(name)) % COLLAGE.l
  * beneath, on a colour that brightens toward the caption. Still: an artist's
  * clip cut down to a circle among other faces reads as a small moving tile.
  */
-function CollageArt({ images, colors }: { images: string[]; colors: [string, string, string] }) {
+function CollageArt({ images, colors, wide }: { images: string[]; colors: [string, string, string]; wide: boolean }) {
   // Centre x, centre y (shares of the card) and diameter (of its width).
   const slots =
     images.length === 1
@@ -122,18 +130,21 @@ function CollageArt({ images, colors }: { images: string[]; colors: [string, str
         : [[0.37, 0.257, 0.594], [0.76, 0.48, 0.333], [0.457, 0.608, 0.29]];
   return (
     <div className="absolute inset-0 -z-1" style={{ background: `linear-gradient(${colors[0]}, ${colors[1]})` }}>
-      {images.slice(0, 3).map((url, i) => {
-        const [x, y, d] = slots[i]!;
-        return (
-          <Img
-            key={url}
-            src={croppedAt(url, d! > 0.5 ? 400 : 240)}
-            className="absolute aspect-square rounded-full bg-[rgb(0_0_0/0.18)]"
-            // The card is 3:4, so a share of its height is 4/3 that share of its width.
-            style={{ width: `${d! * 100}%`, left: `${(x! - d! / 2) * 100}%`, top: `${(y! - (d! * 3) / 8) * 100}%` }}
-          />
-        );
-      })}
+      {/* The circles are placed on a 3:4 card; a landscape one keeps that 3:4 at its end for them. */}
+      <div className={`absolute inset-0 ${wide ? 'lg:left-auto lg:aspect-[3/4]' : ''}`}>
+        {images.slice(0, 3).map((url, i) => {
+          const [x, y, d] = slots[i]!;
+          return (
+            <Img
+              key={url}
+              src={croppedAt(url, d! > 0.5 ? 400 : 240)}
+              className="absolute aspect-square rounded-full bg-[rgb(0_0_0/0.18)]"
+              // The card is 3:4, so a share of its height is 4/3 that share of its width.
+              style={{ width: `${d! * 100}%`, left: `${(x! - d! / 2) * 100}%`, top: `${(y! - (d! * 3) / 8) * 100}%` }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -171,20 +182,45 @@ function cardText(target: TopPick, listenerName: string | null): CardText {
 /** The line above the title on a photo card: white, let through. */
 const PHOTO_EYEBROW = 'rgb(255 255 255 / 0.62)';
 
-/** The caption: a 13px coloured line, the title 17 semibold, and an optional 13px line, 16px in from the edges. */
-function Caption({ text, eyebrow }: { text: CardText; eyebrow: string }) {
+/**
+ * The caption: a 13px coloured line, the title 17 semibold, and an optional
+ * 13px line, 16px in from the edges; on a landscape card a size up, kept to the
+ * start, clear of the art at the end.
+ */
+function Caption({ text, eyebrow, wide }: { text: CardText; eyebrow: string; wide: boolean }) {
   return (
-    <span className="absolute inset-x-0 bottom-0 flex flex-col px-4 pb-4">
-      <span className="truncate type-[400_13px/16px]" style={{ color: eyebrow }}>
+    <span className={`absolute inset-x-0 bottom-0 flex flex-col px-4 pb-4 ${wide ? 'lg:max-w-[min(62%,560px)] lg:px-6 lg:pb-6' : ''}`}>
+      <span className={`truncate type-[400_13px/16px] ${wide ? 'lg:type-[500_15px/19px]' : ''}`} style={{ color: eyebrow }}>
         {text.eyebrow}
       </span>
-      <span className="line-clamp-2 type-[600_17px/21px]">{text.title}</span>
-      {text.subtitle && <span className="line-clamp-2 type-[400_13px/16px] text-white/86">{text.subtitle}</span>}
+      <span className={`line-clamp-2 type-[600_17px/21px] ${wide ? 'lg:type-[700_28px/32px] lg:tracking-[-0.3px]' : ''}`}>{text.title}</span>
+      {text.subtitle && <span className={`line-clamp-2 type-[400_13px/16px] text-white/86 ${wide ? 'lg:mt-1 lg:type-[400_15px/19px]' : ''}`}>{text.subtitle}</span>}
     </span>
   );
 }
 
-function TopPickCard({ target, listenerName, lead, onPlay }: { target: TopPick; listenerName: string | null; lead: boolean; onPlay: (target: TopPick, title: string) => Promise<void> }) {
+/**
+ * Under every caption, a shade the art's own colour can't wash out: by the
+ * caption's first line it is half black, which keeps white, the pale eyebrows
+ * and the 86% subtitle at 4.5:1 or better on the brightest mood (Feel Good's
+ * #F2A900) and station colours.
+ */
+const captionShade = 'pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-[linear-gradient(transparent,rgb(0_0_0/0.1)_14%,rgb(0_0_0/0.3)_30%,rgb(0_0_0/0.5)_48%,rgb(0_0_0/0.6))]';
+
+function TopPickCard({
+  target,
+  listenerName,
+  lead,
+  wide,
+  onPlay,
+}: {
+  target: TopPick;
+  listenerName: string | null;
+  lead: boolean;
+  /** One of only one or two picks: landscape from 1000px. */
+  wide: boolean;
+  onPlay: (target: TopPick, title: string) => Promise<void>;
+}) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const text = cardText(target, listenerName);
@@ -208,20 +244,23 @@ function TopPickCard({ target, listenerName, lead, onPlay }: { target: TopPick; 
     }
     case 'artist-and-similar': {
       const colors = collageOf(target.artistName ?? '');
-      art = <CollageArt images={target.images} colors={colors} />;
+      art = <CollageArt images={target.images} colors={colors} wide={wide} />;
       eyebrow = colors[2];
       break;
     }
     case 'latest-release':
     case 'new-release-mix':
       // Only the row's lead, a real release, looks for a motion cover: one clip playing at a time.
-      art = <ReleaseArt url={target.images[0]} motion={lead && target.kind === 'latest-release' ? { album: target.title, artist: target.artistName ?? '' } : null} />;
+      art = <ReleaseArt url={target.images[0]} wide={wide} motion={lead && target.kind === 'latest-release' ? { album: target.title, artist: target.artistName ?? '' } : null} />;
       branded = false;
       break;
     case 'featured-artist':
       art = (
         <div className="absolute inset-0 -z-1">
-          {target.images[0] && <Img src={croppedAt(target.images[0], 420, 560)} className="size-full" />}
+          {/* A landscape card asks for a square, which crops to either shape around the subject's face. */}
+          {target.images[0] && (
+            <Img src={wide ? croppedAt(target.images[0], 1000) : croppedAt(target.images[0], 420, 560)} className="size-full object-[50%_30%]" />
+          )}
           {/* The caption sits on the photo's own darkened foot, not on a band of black. */}
           <div className="absolute inset-0 bg-[linear-gradient(transparent_45%,rgb(0_0_0/0.45)_72%,rgb(0_0_0/0.82)_100%)]" />
         </div>
@@ -242,10 +281,17 @@ function TopPickCard({ target, listenerName, lead, onPlay }: { target: TopPick; 
     }
   };
   return (
-    <button type="button" className={cardFrame} aria-busy={busy || undefined} aria-label={`${text.eyebrow}: ${text.title}`} onClick={() => void open()}>
+    <button
+      type="button"
+      className={`${cardFrame} ${wide ? wideFrame : ''}`}
+      aria-busy={busy || undefined}
+      aria-label={`${text.eyebrow}: ${text.title}`}
+      onClick={() => void open()}
+    >
       {art}
+      <span className={captionShade} aria-hidden="true" />
       {branded && <Brand size="card" />}
-      <Caption text={text} eyebrow={eyebrow} />
+      <Caption text={text} eyebrow={eyebrow} wide={wide} />
     </button>
   );
 }
@@ -260,7 +306,10 @@ async function startQueue(load: () => Promise<Track[]>, title: string) {
   }
 }
 
-/** The row: cards min(60% of the row, 280px) wide, 14px apart, snapping. */
+/**
+ * The row: cards min(60% of the row, 280px) wide, 14px apart, snapping. One
+ * or two picks share the row as landscape cards from 1000px (wideFrame).
+ */
 export function TopPicksShelf({
   picks,
   listenerName,
@@ -273,16 +322,23 @@ export function TopPicksShelf({
   artist: (id: string) => Promise<ArtistPage>;
 }) {
   const play = (target: TopPick, title: string) => startQueue(() => topPickQueue(target, history, artist), title);
+  const few = picks.length <= FEW;
+  const cards = picks.map((target, i) => (
+    <li key={`${i}:${target.kind}:${target.title}`}>
+      <TopPickCard target={target} listenerName={listenerName} lead={i === 0} wide={few} onPlay={play} />
+    </li>
+  ));
   return (
     <section className={shelfSection} aria-label="Top Picks for You">
       <ShelfTitle title="Top Picks for You" />
-      <ShelfScroller kind="top-picks">
-        {picks.map((target, i) => (
-          <li key={`${i}:${target.kind}:${target.title}`}>
-            <TopPickCard target={target} listenerName={listenerName} lead={i === 0} onPlay={play} />
-          </li>
-        ))}
-      </ShelfScroller>
+      {few ? (
+        // The shelf's own row below 1000px; a grid of one or two columns from there.
+        <ul className={`${shelfList} ${shelfKinds['top-picks']} lg:grid-flow-row lg:auto-cols-auto ${picks.length > 1 ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+          {cards}
+        </ul>
+      ) : (
+        <ShelfScroller kind="top-picks">{cards}</ShelfScroller>
+      )}
     </section>
   );
 }

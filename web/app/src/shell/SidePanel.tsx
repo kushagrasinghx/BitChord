@@ -14,7 +14,8 @@ export function SidePanel() {
 
   return (
     <aside
-      className="absolute inset-y-0 right-0 z-(--z-web-chrome) flex w-(--side-panel-width) animate-slide-in flex-col glass-material shadow-glass max-sm:w-full"
+      // From 1440px the page narrows beside it (AppShell), so it is a column like the sidebar, not a sheet over the page.
+      className="absolute inset-y-0 right-0 z-(--z-web-chrome) flex w-(--side-panel-width) animate-slide-in flex-col glass-material shadow-glass max-sm:w-full min-[1440px]:shadow-none"
       aria-label={panel === 'up-next' ? 'Up Next' : 'Lyrics'}
     >
       {panel === 'up-next' ? (

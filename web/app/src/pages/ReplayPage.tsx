@@ -90,8 +90,8 @@ export default function ReplayPage() {
 
   return (
     <div className="relative isolate pb-10">
-      {/* The mesh holds still behind the page as it scrolls, a window's height of it. */}
-      <div aria-hidden="true" className="sticky top-0 -z-1 -mb-[100dvh] h-dvh overflow-hidden">
+      {/* The mesh holds still behind the page as it scrolls, a window's height of it, running up under the top bar. */}
+      <div aria-hidden="true" className="sticky top-0 -z-1 -mt-(--top-bar-clearance,0px) mb-[calc(var(--top-bar-clearance,0px)-100dvh)] h-dvh overflow-hidden">
         <PaletteMesh palette={palette} />
         <div className="replay-scrim absolute inset-0" />
       </div>

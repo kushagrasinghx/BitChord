@@ -1,5 +1,5 @@
 import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { useLocation, type NavLinkProps } from 'react-router';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
@@ -14,14 +14,15 @@ import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
 import { useUi } from '@/state/ui';
 import { pillFrames, SPRING_MS } from './tabSpring';
-import { SEARCH_RESET_EVENT, tabOf, TABS } from './tabs';
+import { originTab, SEARCH_RESET_EVENT, tabOf, TABS } from './tabs';
 
 // A sidebar row; NavLink sets aria-current on the page's own row.
 const item =
-  'group flex h-9 items-center gap-2 mb-0.5 p-1 rounded-nav type-body-reduced text-primary hover:bg-quinary aria-[current=page]:bg-nav-selected';
+  'group flex h-9 items-center gap-2 mb-0.5 p-1 rounded-nav type-body-reduced text-primary hover:bg-quinary aria-[current=page]:bg-nav-selected rail:justify-center';
 // Apple's glyphs, drawn at 24px (their 24-unit box), which the user preferred to Apple's own 28px.
 const icon = 'inline-grid size-6 flex-none place-items-center text-primary group-aria-[current=page]:text-key';
-const navLabel = 'min-w-0 truncate';
+// On the rail the names stay for assistive tech; sighted users get the tooltip.
+const navLabel = 'min-w-0 truncate rail:sr-only';
 // "Library", "Playlists" (report §1: 12px/15px 600, secondary, padding 4px 8px).
 const sectionHeader = 'mt-4 px-2 py-1 type-callout-emphasized text-secondary';
 const list = 'flex flex-col';
@@ -49,12 +50,28 @@ function SidebarLink({ onClick, ...props }: NavLinkProps) {
   return (
     <PrefetchNavLink
       viewTransition={tabOf(String(props.to)) < 0}
+      // Its own row lights for what it opens, so no tab should as well (originTab).
+      state={tabOf(String(props.to)) < 0 ? { sidebar: true } : undefined}
       {...props}
       onClick={(event) => {
         if (pathname === props.to) scrollPageToTop();
         onClick?.(event);
       }}
     />
+  );
+}
+
+const RAIL = '(min-width: 484px) and (max-width: 899.98px)';
+
+/** Whether the sidebar is folded to its rail, which names its glyphs in tooltips. */
+function useRail(): boolean {
+  return useSyncExternalStore(
+    (changed) => {
+      const query = matchMedia(RAIL);
+      query.addEventListener('change', changed);
+      return () => query.removeEventListener('change', changed);
+    },
+    () => matchMedia(RAIL).matches,
   );
 }
 
@@ -69,13 +86,14 @@ const SPRING_EASE =
  * one in the key colour, the rest onSurfaceVariant, tints crossing over 200ms,
  * and one pill of the key colour at 14% that travels between them on the
  * glass spring rather than a highlight per row. A page pushed over a tab keeps
- * that tab lit, as the phone's bar does under a pushed page.
+ * the tab it was pushed from lit, as the phone's bar does under a pushed page,
+ * and pages of no tab (Settings, the Replay) light none.
  */
 function TabList({ onNavigate }: { onNavigate: () => void }) {
-  const { pathname } = useLocation();
-  const current = tabOf(pathname);
-  const [shown, setShown] = useState(current);
-  if (current >= 0 && current !== shown) setShown(current);
+  const location = useLocation();
+  const { pathname } = location;
+  const shown = originTab(location);
+  const rail = useRail();
   const pill = useRef<HTMLLIElement>(null);
   const settled = useRef(shown);
 
@@ -108,7 +126,8 @@ function TabList({ onNavigate }: { onNavigate: () => void }) {
           <li key={to}>
             <SidebarLink
               to={to}
-              className={`relative flex h-9 items-center gap-2 mb-0.5 p-1 rounded-nav type-body-reduced transition-colors duration-200 hover:bg-quinary ${selected ? 'text-key' : 'text-on-surface-variant'}`}
+              title={rail ? label : undefined}
+              className={`relative flex h-9 items-center gap-2 mb-0.5 p-1 rounded-nav type-body-reduced transition-colors duration-200 hover:bg-quinary rail:justify-center ${selected ? 'text-key' : 'text-on-surface-variant'}`}
               onClick={() => {
                 // Search tapped on Search starts a new search (MainActivity onTabSelected).
                 if (to === '/search' && pathname === '/search') window.dispatchEvent(new Event(SEARCH_RESET_EVENT));
@@ -189,6 +208,7 @@ export function Sidebar() {
   const signedIn = useSignedIn();
   const spotifySignedIn = useSpotifySignedIn();
   const close = () => setDrawerOpen(false);
+  const rail = useRail();
 
   return (
     <>
@@ -198,37 +218,41 @@ export function Sidebar() {
         data-open={drawerOpen}
         aria-label="Main"
       >
-        <div className="mt-2 ml-2 flex h-18 items-center px-5">
+        <div className="mt-2 ml-2 flex h-18 items-center px-5 rail:ml-0 rail:justify-center rail:px-0">
           <PrefetchLink to="/home" className="inline-flex items-center gap-2 rounded-[6px]" aria-label="BitChord, Home" onClick={close}>
             {/* White on dark, as Apple's own wordmark; it follows the label colour so it stays visible in light. */}
             <LogoMark size={22} className="text-primary" />
-            <span className="type-[700_19px/24px] tracking-[-0.01em]">BitChord</span>
+            <span className="type-[700_19px/24px] tracking-[-0.01em] rail:sr-only">BitChord</span>
           </PrefetchLink>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none]">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none] rail:px-3">
           <TabList onNavigate={close} />
-          {signedIn && <LibraryNav onNavigate={close} />}
-          {spotifySignedIn && <SpotifyNav onNavigate={close} />}
+          {/* Rows of playlist names have no glyph worth a rail; Library and its own pages still reach them. */}
+          <div className="rail:hidden">
+            {signedIn && <LibraryNav onNavigate={close} />}
+            {spotifySignedIn && <SpotifyNav onNavigate={close} />}
+          </div>
         </div>
-        <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5">
-          <SidebarLink to="/extension" className={item} onClick={close}>
+        <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5 rail:items-center rail:px-3">
+          <SidebarLink to="/extension" className={`${item} relative rail:w-full`} title={rail ? 'BitChord Extension' : undefined} onClick={close}>
             {/* Chrome's own toolbar glyph for extensions (Material "extension"). */}
             <span className={icon}>
               <MdOutlineExtension size={18} />
             </span>
             <span className={navLabel}>BitChord Extension</span>
             {update.state === 'available' && (
-              <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-on-key" title={`Version ${update.latest.version} is available`}>
+              // On the rail the badge shrinks to a dot on the glyph's corner; its text stays for assistive tech.
+              <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-on-key rail:absolute rail:top-1 rail:right-1.5 rail:size-2 rail:overflow-hidden rail:p-0 rail:text-transparent" title={`Version ${update.latest.version} is available`}>
                 Update
               </span>
             )}
           </SidebarLink>
-          <div className="flex items-center justify-between">
-            <a className="inline-flex items-center gap-1 ps-1 type-callout text-primary hover:underline" href={config.androidAppUrl} target="_blank" rel="noreferrer">
+          <div className="flex items-center justify-between rail:justify-center">
+            <a className="inline-flex items-center gap-1 ps-1 rail:hidden type-callout text-primary hover:underline" href={config.androidAppUrl} target="_blank" rel="noreferrer">
               <span>Get the Android app</span>
               <ArrowUpRight size={14} strokeWidth={2} />
             </a>
-            <SidebarLink to="/settings" className="grid size-7 place-items-center rounded-nav text-secondary hover:bg-quinary hover:text-primary aria-[current=page]:bg-quinary aria-[current=page]:text-primary" aria-label="Settings" title="Settings" onClick={close}>
+            <SidebarLink to="/settings" className="grid size-7 place-items-center rounded-nav text-secondary hover:bg-quinary hover:text-primary aria-[current=page]:bg-nav-selected aria-[current=page]:text-key" aria-label="Settings" title="Settings" onClick={close}>
               <Settings size={17} strokeWidth={1.9} />
             </SidebarLink>
           </div>

@@ -1594,4 +1594,6 @@
     <string name="drive_backup_row_subtitle">Копирование и синхронизация Replay между устройствами</string>
     <string name="drive_over_cellular">Синхронизировать по мобильной сети</string>
     <string name="drive_over_cellular_subtitle">Если выключено, автосинхронизация ждёт Wi-Fi</string>
+    <string name="hide_trending">Скрыть рекомендации в тренде</string>
+    <string name="hide_trending_subtitle">Удаляет популярные треки и плейлисты сообщества с главной</string>
 </resources>

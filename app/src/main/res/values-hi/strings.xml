@@ -1560,4 +1560,6 @@
     <string name="drive_backup_row_subtitle">अपने सभी डिवाइस पर Replay का बैकअप और सिंक करें</string>
     <string name="drive_over_cellular">मोबाइल डेटा पर सिंक करें</string>
     <string name="drive_over_cellular_subtitle">बंद होने पर, ऑटो सिंक Wi-Fi का इंतज़ार करते हैं</string>
+    <string name="hide_trending">ट्रेंडिंग सुझाव छिपाएं</string>
+    <string name="hide_trending_subtitle">होम से ट्रेंडिंग गाने और कम्युनिटी प्लेलिस्ट हटाता है</string>
 </resources>

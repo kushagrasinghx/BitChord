@@ -1499,4 +1499,6 @@
     <string name="drive_backup_row_subtitle">Backup e sincronizzazione di Replay tra i tuoi dispositivi</string>
     <string name="drive_over_cellular">Sincronizza con dati mobili</string>
     <string name="drive_over_cellular_subtitle">Se disattivato, le sincronizzazioni automatiche attendono il Wi-Fi</string>
+    <string name="hide_trending">Nascondi i consigli di tendenza</string>
+    <string name="hide_trending_subtitle">Rimuove i brani di tendenza e le playlist della community dalla Home</string>
 </resources>

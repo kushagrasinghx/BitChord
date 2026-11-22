@@ -1536,4 +1536,6 @@
     <string name="drive_backup_row_subtitle">Cadangkan dan sinkronkan Replay di semua perangkat Anda</string>
     <string name="drive_over_cellular">Sinkronkan lewat data seluler</string>
     <string name="drive_over_cellular_subtitle">Jika nonaktif, sinkronisasi otomatis menunggu Wi-Fi</string>
+    <string name="hide_trending">Sembunyikan rekomendasi tren</string>
+    <string name="hide_trending_subtitle">Menghapus lagu yang sedang tren dan playlist komunitas dari Beranda</string>
 </resources>

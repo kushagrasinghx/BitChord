@@ -1542,4 +1542,6 @@
     <string name="drive_backup_row_subtitle">สำรองและซิงค์ Replay ในทุกอุปกรณ์ของคุณ</string>
     <string name="drive_over_cellular">ซิงค์ผ่านอินเทอร์เน็ตมือถือ</string>
     <string name="drive_over_cellular_subtitle">เมื่อปิด การซิงค์อัตโนมัติจะรอ Wi-Fi</string>
+    <string name="hide_trending">ซ่อนการแนะนำที่กำลังเป็นกระแส</string>
+    <string name="hide_trending_subtitle">ลบเพลงที่กำลังมาแรงและเพลย์利สต์ของชุมชนออกจากหน้าแรก</string>
 </resources>

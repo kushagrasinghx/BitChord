@@ -1501,4 +1501,6 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="hide_trending">Hide Trending recommendations</string>
+    <string name="hide_trending_subtitle">Removes trending songs and community shelves from Home</string>
 </resources>

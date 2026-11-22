@@ -1561,4 +1561,6 @@
     <string name="drive_backup_row_subtitle">Sauvegarder et synchroniser Replay entre vos appareils</string>
     <string name="drive_over_cellular">Synchroniser via les données mobiles</string>
     <string name="drive_over_cellular_subtitle">Désactivé, les synchronisations automatiques attendent le Wi-Fi</string>
+    <string name="hide_trending">Masquer les tendances</string>
+    <string name="hide_trending_subtitle">Supprime les titres tendances et les playlists communautaires de l’accueil</string>
 </resources>

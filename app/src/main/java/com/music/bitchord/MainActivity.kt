@@ -152,6 +152,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.withoutVideos
+import com.music.bitchord.data.model.withoutTrending
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
@@ -883,13 +884,15 @@ private fun BitChordApp(
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
     val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
     val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
+    val hideTrending by AppSettings.hideTrending.collectAsStateWithLifecycle()
     // Only what Home draws: Top Picks reads the unfiltered feed from the view model.
-    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents) {
+    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents, hideTrending) {
         val loaded = homeState as? UiState.Success
-        if (loaded != null && (hideHomeVideos || hideRecents)) {
+        if (loaded != null && (hideHomeVideos || hideRecents || hideTrending)) {
             var shelves = loaded.data
             if (hideRecents) shelves = shelves.filterNot { it.title == YtMusicRepository.RECENT_TITLE }
             if (hideHomeVideos) shelves = shelves.withoutVideos()
+            if (hideTrending) shelves = shelves.withoutTrending()
             UiState.Success(shelves)
         } else {
             homeState

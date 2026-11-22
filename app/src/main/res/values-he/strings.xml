@@ -1565,4 +1565,6 @@
     <string name="drive_backup_row_subtitle">גיבוי וסנכרון של Replay בין המכשירים שלך</string>
     <string name="drive_over_cellular">סנכרון בחבילת גלישה</string>
     <string name="drive_over_cellular_subtitle">כשכבוי, סנכרונים אוטומטיים ממתינים ל-Wi-Fi</string>
+    <string name="hide_trending">הסתר המלצות פופולריות</string>
+    <string name="hide_trending_subtitle">מסיר שירים פופולריים ופלייליסטים קהילתיים מדף הבית</string>
 </resources>

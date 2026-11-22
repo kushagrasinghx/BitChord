@@ -18,6 +18,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.DebugLog
+import com.music.bitchord.data.LocalHistoryRepository
 import com.music.bitchord.data.YouTubeThumbnailFallback
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import androidx.appcompat.app.AppCompatDelegate
@@ -165,6 +166,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // the next connect, which is the only way to be sure they are current.
         ListenTogether.init(this)
         SearchHistory.init(this)
+        LocalHistoryRepository.init(this, authStore::listenerKey)
         LastPlayed.init(this)
         BoundedContextPersistence.init(this)
         com.music.bitchord.playback.PartyPersonalQueueStash.init(this)

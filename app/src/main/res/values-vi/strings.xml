@@ -383,6 +383,7 @@
     <string name="library_empty">Chưa có gì trong thư viện của bạn</string>
     <string name="history_sign_in_required">Đăng nhập để xem những gì bạn đã nghe gần đây</string>
     <string name="history_empty">Chưa phát bài nào</string>
+    <string name="clear_listening_history">Xóa lịch sử trên thiết bị</string>
     <string name="no_results">Không có kết quả</string>
     <string name="downloaded_playlist_empty">Không còn nội dung nào từ danh sách phát này trên thiết bị</string>
     <string name="no_local_audio_found">Không tìm thấy tệp âm thanh nào trên thiết bị</string>

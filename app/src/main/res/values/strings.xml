@@ -583,6 +583,7 @@
     <string name="library_empty">Nothing in your library yet</string>
     <string name="history_sign_in_required">Sign in to see what you have been listening to</string>
     <string name="history_empty">Nothing played yet</string>
+    <string name="clear_listening_history">Clear on-device history</string>
     <string name="no_results">No results</string>
     <string name="downloaded_playlist_empty">Nothing from this playlist remains on this device</string>
     <string name="no_local_audio_found">No audio files found on this device</string>

@@ -21,6 +21,7 @@ import {
 } from '@/extension/useSpotifyAuth';
 import { settingsUi } from './settingsStyles';
 import { Select } from '@/components/Select';
+import { Switch } from '@/components/ui/Switch';
 
 /** Allowed, or an Allow button that opens the extension's permission page. */
 function HostAccessValue({ access, request }: ReturnType<typeof useHostAccess>) {
@@ -147,7 +148,7 @@ export function Toggle({ label, detail, checked, onChange }: { label: string; de
         <span>{label}</span>
         {detail && <span className={settingsUi.rowDetail}>{detail}</span>}
       </span>
-      <input type="checkbox" className={settingsUi.switch} checked={checked} onChange={(e) => onChange(e.currentTarget.checked)} />
+      <Switch checked={checked} onChange={onChange} />
     </label>
   );
 }

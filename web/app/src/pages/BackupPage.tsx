@@ -26,7 +26,7 @@ import { formatBytes } from './DataSettings';
 import { settingsUi } from './settingsStyles';
 
 const error = 'mx-4 mt-2 type-callout text-red';
-const primary = 'mx-4 mt-4 rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-white disabled:opacity-45';
+const primary = 'mx-4 mt-4 rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-on-key disabled:opacity-45';
 
 const FREQUENCIES: { value: BackupFrequency; label: string }[] = [
   { value: 'OFF', label: 'Off' },

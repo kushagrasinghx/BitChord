@@ -56,7 +56,7 @@ export function PlaylistPicker({ tracks, onClose }: { tracks: Track[]; onClose: 
         <>
           {save.isError && <span className="mr-auto type-callout text-destructive">Couldn’t add to every playlist.</span>}
           <button
-            className="rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-white disabled:opacity-40"
+            className="rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-on-key disabled:opacity-40"
             disabled={selected.size === 0 || save.isPending}
             onClick={() => save.mutate()}
           >

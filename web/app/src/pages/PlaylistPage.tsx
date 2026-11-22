@@ -61,7 +61,7 @@ function RenameForm({ id, title, onDone }: { id: string; title: string; onDone: 
         </button>
         <button
           type="submit"
-          className="rounded-[6px] bg-key-bg px-2.5 py-1 type-body-emphasized text-white disabled:opacity-40"
+          className="rounded-[6px] bg-key-bg px-2.5 py-1 type-body-emphasized text-on-key disabled:opacity-40"
           disabled={!trimmed || trimmed === title || rename.isPending}
         >
           {rename.isPending ? 'Saving…' : 'Save'}

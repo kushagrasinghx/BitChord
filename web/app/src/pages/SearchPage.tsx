@@ -10,6 +10,7 @@ import { SearchField } from '@/components/music/SearchField';
 import { Shelves } from '@/components/music/ShelfView';
 import { TrackList } from '@/components/music/TrackList';
 import { TrackMenu } from '@/components/music/TrackMenu';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { EmptyState, LoadError, NeedsExtension } from '@/components/music/States';
 import { useCategories, useSearch, useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import type { MusicItem, SearchResults, Shelf } from '@/data/music/types';
@@ -189,21 +190,7 @@ function Landing() {
  * control): one kind of result, or the account's library.
  */
 function FilterBar({ filters, selected, onSelect }: { filters: SearchFilterOption[]; selected: SearchFilterOption; onSelect: (filter: SearchFilterOption) => void }) {
-  return (
-    <div className="flex max-w-full overflow-x-auto rounded-[9px] bg-segmented p-0.5" role="radiogroup" aria-label="Search filter">
-      {filters.map((filter) => (
-        <button
-          key={filter.id}
-          className="h-6 flex-none rounded-[7px] px-3 type-callout text-primary aria-checked:bg-segmented-selected aria-checked:shadow-[0_3px_8px_#0000001f,0_3px_1px_#0000000a]"
-          role="radio"
-          aria-checked={filter === selected}
-          onClick={() => onSelect(filter)}
-        >
-          {filter.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedControl label="Search filter" options={filters.map((f) => ({ value: f, label: f.label }))} value={selected} onChange={onSelect} />;
 }
 
 /** Search (report §6): a sticky bar with the field and filters, then categories or results. */

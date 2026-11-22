@@ -44,7 +44,7 @@ function Byline({ item }: { item: MusicItem }) {
 function PlayPlatter({ item }: { item: MusicItem }) {
   return (
     <button
-      className="pointer-events-auto absolute bottom-2.5 left-2.5 grid size-[30px] place-items-center rounded-full bg-thin-material text-white [backdrop-filter:saturate(180%)_blur(60px)] hover:bg-key-bg"
+      className="pointer-events-auto absolute bottom-2.5 left-2.5 grid size-[30px] place-items-center rounded-full bg-thin-material text-white [backdrop-filter:saturate(180%)_blur(60px)] hover:bg-key-bg hover:text-on-key"
       aria-label={`Play ${item.title}`}
       onClick={(e) => {
         e.preventDefault();
@@ -76,7 +76,7 @@ function LockupArtwork({ item, width, aspect }: { item: MusicItem; width: number
       {isPlayable(item) && (
         <TrackMenu
           track={toTrack(item)}
-          className="absolute top-2 right-2 z-3 grid size-7 place-items-center rounded-full bg-thin-material text-white opacity-0 transition-opacity duration-100 ease-in [backdrop-filter:saturate(180%)_blur(60px)] group-hover/art:opacity-100 focus-visible:opacity-100 hover:bg-key-bg data-open:opacity-100"
+          className="absolute top-2 right-2 z-3 grid size-7 place-items-center rounded-full bg-thin-material text-white opacity-0 transition-opacity duration-100 ease-in [backdrop-filter:saturate(180%)_blur(60px)] group-hover/art:opacity-100 focus-visible:opacity-100 hover:bg-key-bg hover:text-on-key data-open:opacity-100"
         />
       )}
     </div>

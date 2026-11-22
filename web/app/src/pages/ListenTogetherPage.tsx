@@ -25,7 +25,7 @@ import { settingsUi } from './settingsStyles';
 
 const lede = 'mx-4 mb-4 type-body-tall text-secondary';
 const error = 'mx-4 mt-3 type-callout text-red';
-const primary = 'flex-none rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-white disabled:opacity-45';
+const primary = 'flex-none rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-on-key disabled:opacity-45';
 // The code, large, as the phone shows it.
 const invite = 'flex flex-col items-center gap-2.5 rounded-[10px] bg-quinary px-4 py-7 text-center';
 const inviteCode = 'type-[700_40px/48px] tracking-[0.18em]';
@@ -175,7 +175,7 @@ function InviteCard({ code, server, signedIn }: { code: string; server: string |
       )}
       {!signedIn && <SignInFirst />}
       <button
-        className="mt-1.5 flex-none rounded-pill bg-key-bg px-7 py-2.5 type-title-3-emphasized text-white disabled:opacity-45"
+        className="mt-1.5 flex-none rounded-pill bg-key-bg px-7 py-2.5 type-title-3-emphasized text-on-key disabled:opacity-45"
         disabled={!signedIn || join.isPending || data?.isFull || preview.isError}
         onClick={() => join.mutate()}
       >

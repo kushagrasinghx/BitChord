@@ -1,38 +1,77 @@
 /*
- * Design tokens, taken from the measurements in web/docs/apple-music-dom.md.
+ * Design tokens. The values are the Android app's (app/src/main/java/com/
+ * music/bitchord/ui/theme/Theme.kt and the components named beside each),
+ * so the web player looks like the phone's: monochrome, black and white,
+ * set in SF Pro Display.
  *
- * The names follow Apple's own token names, so a value can be checked against
- * the report by name. Light first, then dark under prefers-color-scheme.
+ * The names are Apple Music web's (web/docs/apple-music-dom.md), kept from
+ * when the player was modelled on that site: every component already reads
+ * them, and the Windows app draws its sign-in sheet and scrollbars from them
+ * too. A name therefore says what a token is for, not where its value came
+ * from. Where the phone needs something Apple's set has no name for, the new
+ * token takes the phone's own name (--surface, --surfaceVariant, --outline).
  *
- * Apple serves higher-contrast text alphas and a deeper key colour to browsers
- * without the system SF font. BitChord renders DM Sans everywhere, so those
- * variants are the ones used here (report §9).
+ * Light first, then dark. The theme setting (state/theme.ts) puts
+ * data-theme="light" or "dark" on <html>; with no attribute ("System") the
+ * operating system's appearance decides.
  */
 
 :root {
   /* ---- Type ------------------------------------------------------------ */
-  --font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* The face is bundled (global.css); the rest catch scripts it has no glyphs for. */
+  --font-family: 'BitChord SF Pro', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
-  /* font: <weight> <size>/<line-height> (report §10) */
-  --header-emphasized: 700 34px / 40px var(--font-family);
-  --large-title: 400 26px / 32px var(--font-family);
-  --large-title-emphasized: 700 26px / 32px var(--font-family);
-  --title-1-emphasized: 700 22px / 26px var(--font-family);
-  --title-2: 400 17px / 22px var(--font-family);
-  --title-2-emphasized: 700 17px / 22px var(--font-family);
-  --title-3: 400 15px / 20px var(--font-family);
-  --title-3-emphasized: 600 15px / 20px var(--font-family);
-  --body: 400 13px / 16px var(--font-family);
-  --body-emphasized: 600 13px / 16px var(--font-family);
-  --body-tall: 400 13px / 18px var(--font-family);
-  --headline: 700 13px / 16px var(--font-family);
-  --body-reduced: 400 14px / 20px var(--font-family);
-  --callout: 400 12px / 15px var(--font-family);
-  --callout-medium: 500 12px / 15px var(--font-family);
-  --callout-emphasized: 600 12px / 15px var(--font-family);
-  --subhead-emphasized: 600 11px / 14px var(--font-family);
-  --caption-2: 500 10px / 13px var(--font-family);
-  --footnote: 400 11px / 14px var(--font-family);
+  /*
+   * font: <weight> <size>/<line-height>, and each style's letter spacing.
+   * The phone's type scale (Theme.kt BitChordTypography), each Apple name on
+   * the phone style that does its job: rows and cards 16 over 14, shelf
+   * headers 16 medium, page titles 34. The weights are the phone's own
+   * numbers; the face draws each one a cut lighter, as Theme.kt's
+   * SFProDisplay does (global.css). Line heights are the face's natural
+   * 1.19, as Compose sets text with none given.
+   */
+  --header-emphasized: 800 34px / 41px var(--font-family); /* displayLarge */
+  --header-emphasized-tracking: -0.5px;
+  --large-title: 400 30px / 36px var(--font-family);
+  --large-title-tracking: -0.4px;
+  --large-title-emphasized: 800 30px / 36px var(--font-family); /* headlineLarge */
+  --large-title-emphasized-tracking: -0.4px;
+  --title-1-emphasized: 700 22px / 26px var(--font-family); /* headlineMedium */
+  --title-1-emphasized-tracking: -0.25px;
+  --title-large: 700 20px / 24px var(--font-family); /* titleLarge */
+  --title-large-tracking: -0.2px;
+  --title-2: 400 16px / 19px var(--font-family);
+  --title-2-tracking: 0.2px;
+  --title-2-emphasized: 600 16px / 19px var(--font-family); /* titleMedium: shelf headers */
+  --title-2-emphasized-tracking: 0.05px;
+  --title-3: 400 16px / 19px var(--font-family);
+  --title-3-tracking: 0.2px;
+  --title-3-emphasized: 600 16px / 19px var(--font-family);
+  --title-3-emphasized-tracking: 0.05px;
+  --body: 400 16px / 19px var(--font-family); /* bodyLarge: a row's title */
+  --body-tracking: 0.2px;
+  --body-emphasized: 600 16px / 19px var(--font-family);
+  --body-emphasized-tracking: 0.05px;
+  --body-tall: 400 16px / 22px var(--font-family);
+  --body-tall-tracking: 0.2px;
+  --headline: 700 16px / 19px var(--font-family);
+  --headline-tracking: 0.05px;
+  --body-reduced: 400 14px / 17px var(--font-family); /* bodyMedium */
+  --body-reduced-tracking: 0.3px;
+  --callout: 400 14px / 17px var(--font-family); /* bodyMedium: a row's second line */
+  --callout-tracking: 0.3px;
+  --callout-medium: 500 14px / 17px var(--font-family);
+  --callout-medium-tracking: 0.3px;
+  --callout-emphasized: 600 14px / 17px var(--font-family);
+  --callout-emphasized-tracking: 0.3px;
+  --label-medium: 600 12px / 14px var(--font-family); /* labelMedium */
+  --label-medium-tracking: 0.25px;
+  --subhead-emphasized: 600 11px / 13px var(--font-family); /* labelSmall */
+  --subhead-emphasized-tracking: 0.3px;
+  --caption-2: 500 10px / 12px var(--font-family);
+  --caption-2-tracking: 0.3px;
+  --footnote: 400 12px / 14px var(--font-family);
+  --footnote-tracking: 0.25px;
 
   /* ---- Layout ------------------------------------------------------------ */
   --web-navigation-width: 260px;
@@ -43,13 +82,19 @@
   --mobile-top-bar-height: 52px;
   --mini-player-height: 52px;
 
-  /* ---- Radii ------------------------------------------------------------- */
-  --radius-artwork-small: 5px; /* 40px track rows, horizontal lockups */
-  --radius-artwork-medium: 7px; /* square lockups */
-  --radius-artwork-large: 10px; /* album header, editorial cards */
+  /* ---- Radii (the phone's, by component) --------------------------------- */
+  --radius-artwork-small: 7px; /* CompactTrackRow's 48px art */
+  --radius-artwork-medium: 12px; /* ShelfCard */
+  --radius-artwork-large: 12px; /* DetailScreen's release sleeve */
   --radius-nav-item: 8px;
-  --radius-track-row: 6px;
+  --radius-track-row: 8px; /* SongRow */
   --radius-pill: 1000px;
+  --radius-player-sleeve: 10px; /* the player's sleeve, TopResultCard */
+  --radius-search-field: 11px; /* the search field, PillTextField */
+  --radius-settings-group: 14px; /* settings groups, feature cards, alerts */
+  --radius-mood-tile: 18px; /* MoodGenreSleeve */
+  --radius-signin: 22px; /* SignInBanner */
+  --radius-context-menu: 30px; /* IosMenu */
 
   /* ---- Motion ------------------------------------------------------------ */
   --ease-out-panel: cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -65,14 +110,18 @@
   --z-contextual-menus: 9951;
   --z-modal: 10001;
 
-  /* ---- Colour: light ----------------------------------------------------- */
+  /* ---- Colour: light (Theme.kt LightColors) ------------------------------ */
   color-scheme: light;
 
-  --pageBG: #ffffff;
+  --pageBG: #ffffff; /* background */
   --pageBG-rgb: 255, 255, 255;
+  --surface: #f7f7f9;
+  --surfaceVariant: #f2f2f7;
+  --onSurfaceVariant: #6e6e73;
+  --outline: #e5e5ea;
 
-  --systemPrimary: #000000e0;
-  --systemSecondary: #0000008f;
+  --systemPrimary: #000000; /* onBackground */
+  --systemSecondary: #6e6e73; /* onSurfaceVariant */
   --systemTertiary: #0000007a;
   --systemQuaternary: #0000001a;
   --systemQuinary: #0000000d;
@@ -81,13 +130,18 @@
   --systemSecondary-onDark: #ffffffa3;
   --systemTertiary-onDark: #ffffff66;
 
-  --keyColor: #d60017;
-  --keyColor-rgb: 214, 0, 23;
-  --keyColor-rollover: #a20000;
-  --keyColor-pressed: #bb0000;
-  --keyColorBG: #d60017;
-  --selectionColor: #d60017;
+  /* The key colour is the phone's primary: black here, white in dark. */
+  --keyColor: #000000;
+  --keyColor-rgb: 0, 0, 0;
+  --keyColor-rollover: #2c2c2e;
+  --keyColor-pressed: #3a3a3c;
+  --keyColorBG: #000000;
+  --keyColor-contrast: #ffffff; /* onPrimary: text and glyphs on the key colour */
+  --selectionColor: #000000;
   --keyColor-focus-color: rgba(var(--keyColor-rgb), 0.6);
+
+  /* Theme.kt AccentRed: Apple Music's red, kept for Replay's rank badge only. */
+  --accentRed: #fa2d48;
 
   --systemRed: #ff3b30;
   --systemGreen: #28cd41;
@@ -99,10 +153,15 @@
   --systemGray5: #e5e5ea;
   --systemGray6: #f2f2f7;
 
-  --labelDivider: #00000026;
+  /* IosSwitch.kt: iOS green on, #8E8E93 at 22% off. */
+  --switchTrackOn: #34c759;
+  --switchTrackOff: #8e8e9338;
+
+  --labelDivider: #e5e5ea; /* outline */
   --vibrantDivider: #3c3c434a;
 
-  --glassMaterialBackground: #f5f5f78c;
+  /* Frosted chrome: the phone's surface under its blur (FrostedTopBar.kt). */
+  --glassMaterialBackground: #f7f7f9cc;
   --glassMaterialShadowColor: #0000001a;
   --glassMaterialInnerStroke: #000000;
   --glassMaterialInnerStrokeAlpha: 0.05;
@@ -115,24 +174,25 @@
   --navSidebarSelectedState: #3c3c431a;
   --tracklistHoverColor: #0000000f;
   --shelfBG: #0000000d;
-  --opaqueShelfBG: #f2f2f2;
-  --footerBg: #fbfbfb;
+  --opaqueShelfBG: #f2f2f7; /* surfaceVariant */
+  --footerBg: #f7f7f9; /* surface */
   --lockupHoverBGColor: #3333334d;
-  --genericJoeColor: #ebebeb;
+  --genericJoeColor: #f2f2f7; /* surfaceVariant: artwork placeholders */
   --modalScrimColor: #00000073;
   --searchBarBorderColor: #00000026;
+  /* PillSegmentedControl.kt: #767680 at 12%, a white pill. */
   --segmentedControlBG: #7676801f;
   --segmentedControlSelectedBG: #ffffff;
   --button-pill-color: #ffffff;
   --button-pill-background-color: #000000;
   --radiosityShadowColor: #0000001a;
   --dialogShadowColor: #00000040;
-  --contextMenuOverrideTextColor: #ff3b30;
+  --contextMenuOverrideTextColor: #ff3b30; /* destructive */
   --nowPlayingBackdropBG: #878787;
 
-  /* Artwork's 0.5px inner stroke (report §1, "Inner stroke"). */
+  /* Artwork's 1px border at 15% (SongText.kt thumbnailBorder). */
   --containerInnerStroke: #000000;
-  --containerInnerStrokeAlpha: 0.1;
+  --containerInnerStrokeAlpha: 0.15;
 
   /* Skeleton fill and shimmer highlight. */
   --skeleton-fill: #0000000f;
@@ -151,25 +211,106 @@
   }
 }
 
+/*
+ * Dark (Theme.kt DarkColors), the phone's default. Written twice, once for
+ * the Dark setting and once for System on a dark OS, because a selector can't
+ * test a media query. tokens.test.ts holds the two blocks in step.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --pageBG: #000000;
+  --pageBG-rgb: 0, 0, 0;
+  --surface: #0d0d0f;
+  --surfaceVariant: #1c1c1e;
+  --onSurfaceVariant: #8e8e93;
+  --outline: #2c2c2e;
+
+  --systemPrimary: #ffffff;
+  --systemSecondary: #8e8e93;
+  --systemTertiary: #ffffff66;
+  --systemQuaternary: #ffffff1a;
+  --systemQuinary: #ffffff0d;
+
+  --keyColor: #ffffff;
+  --keyColor-rgb: 255, 255, 255;
+  --keyColor-rollover: #e5e5ea;
+  --keyColor-pressed: #d1d1d6;
+  --keyColorBG: #ffffff;
+  --keyColor-contrast: #000000;
+  --selectionColor: #ffffff;
+
+  --systemRed: #ff453a;
+  --systemGreen: #32d74b;
+  --systemBlue: #0a84ff;
+  --systemGray: #98989d;
+  --systemGray2: #636366;
+  --systemGray3: #48484a;
+  --systemGray4: #3a3a3c;
+  --systemGray5: #2c2c2e;
+  --systemGray6: #1c1c1e;
+
+  --switchTrackOn: #30d158;
+  --switchTrackOff: #8e8e935c;
+
+  --labelDivider: #2c2c2e;
+  --vibrantDivider: #ebebf530;
+
+  /* LiquidGlass.kt GLASS_EDGE: a 10% white hairline. */
+  --glassMaterialBackground: #0d0d0fcc;
+  --glassMaterialShadowColor: #00000033;
+  --glassMaterialInnerStroke: #ffffff;
+  --glassMaterialInnerStrokeAlpha: 0.1;
+
+  --systemStandardThinMaterialSover: #28282880;
+  --systemStandardThickMaterialSover: #282828b3;
+  --systemHeaderMaterialSover: #1e1e1ecc;
+
+  --navSidebarSelectedState: #ffffff0d;
+  --tracklistHoverColor: #ffffff0f;
+  --shelfBG: #ffffff0d;
+  --opaqueShelfBG: #1c1c1e;
+  --footerBg: #0d0d0f;
+  --genericJoeColor: #1c1c1e;
+  --searchBarBorderColor: #ffffff26;
+  --segmentedControlBG: #7676803d;
+  --segmentedControlSelectedBG: #636366;
+  --button-pill-color: #000000;
+  --button-pill-background-color: #ffffff;
+  --radiosityShadowColor: #0000004d;
+  --dialogShadowColor: #0000008c;
+
+  --containerInnerStroke: #ffffff;
+  --containerInnerStrokeAlpha: 0.15;
+
+  --skeleton-fill: #ffffff12;
+  --skeleton-shimmer: #ffffff14;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --pageBG: #1f1f1f;
-    --pageBG-rgb: 31, 31, 31;
+    --pageBG: #000000;
+    --pageBG-rgb: 0, 0, 0;
+    --surface: #0d0d0f;
+    --surfaceVariant: #1c1c1e;
+    --onSurfaceVariant: #8e8e93;
+    --outline: #2c2c2e;
 
-    --systemPrimary: #ffffffeb;
-    --systemSecondary: #ffffffa3;
+    --systemPrimary: #ffffff;
+    --systemSecondary: #8e8e93;
     --systemTertiary: #ffffff66;
     --systemQuaternary: #ffffff1a;
     --systemQuinary: #ffffff0d;
 
-    --keyColor: #fa586a;
-    --keyColor-rgb: 250, 88, 106;
-    --keyColor-rollover: #ff5f7a;
-    --keyColor-pressed: #ff4661;
-    --keyColorBG: #fa233b;
-    --selectionColor: #c11b2e;
+    --keyColor: #ffffff;
+    --keyColor-rgb: 255, 255, 255;
+    --keyColor-rollover: #e5e5ea;
+    --keyColor-pressed: #d1d1d6;
+    --keyColorBG: #ffffff;
+    --keyColor-contrast: #000000;
+    --selectionColor: #ffffff;
 
     --systemRed: #ff453a;
     --systemGreen: #32d74b;
@@ -181,13 +322,16 @@
     --systemGray5: #2c2c2e;
     --systemGray6: #1c1c1e;
 
-    --labelDivider: #ffffff1a;
+    --switchTrackOn: #30d158;
+    --switchTrackOff: #8e8e935c;
+
+    --labelDivider: #2c2c2e;
     --vibrantDivider: #ebebf530;
 
-    --glassMaterialBackground: #26262899;
+    --glassMaterialBackground: #0d0d0fcc;
     --glassMaterialShadowColor: #00000033;
     --glassMaterialInnerStroke: #ffffff;
-    --glassMaterialInnerStrokeAlpha: 0.25;
+    --glassMaterialInnerStrokeAlpha: 0.1;
 
     --systemStandardThinMaterialSover: #28282880;
     --systemStandardThickMaterialSover: #282828b3;
@@ -196,9 +340,9 @@
     --navSidebarSelectedState: #ffffff0d;
     --tracklistHoverColor: #ffffff0f;
     --shelfBG: #ffffff0d;
-    --opaqueShelfBG: #2b2b2b;
-    --footerBg: #323232;
-    --genericJoeColor: #323232;
+    --opaqueShelfBG: #1c1c1e;
+    --footerBg: #0d0d0f;
+    --genericJoeColor: #1c1c1e;
     --searchBarBorderColor: #ffffff26;
     --segmentedControlBG: #7676803d;
     --segmentedControlSelectedBG: #636366;
@@ -208,7 +352,7 @@
     --dialogShadowColor: #0000008c;
 
     --containerInnerStroke: #ffffff;
-    --containerInnerStrokeAlpha: 0.25;
+    --containerInnerStrokeAlpha: 0.15;
 
     --skeleton-fill: #ffffff12;
     --skeleton-shimmer: #ffffff14;
@@ -223,10 +367,16 @@
     --systemSecondary: #000000c2;
     --labelDivider: #0000004d;
   }
+
+  :root[data-theme='dark'] {
+    --glassMaterialBackground: #0e0e0e;
+    --systemSecondary: #ffffffb3;
+    --labelDivider: #ffffff4d;
+  }
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --glassMaterialBackground: #0e0e0e;
     --systemSecondary: #ffffffb3;
     --labelDivider: #ffffff4d;
@@ -248,6 +398,10 @@
   --button-pill-color: #000000;
   --button-pill-background-color: #ffffff;
   --genericJoeColor: color-mix(in srgb, #ffffff 10%, var(--page-tint));
+  --keyColor: #ffffff;
+  --keyColor-rgb: 255, 255, 255;
+  --keyColorBG: #ffffff;
+  --keyColor-contrast: #000000;
 }
 
 [data-tint='light'] {
@@ -261,6 +415,10 @@
   --button-pill-color: #ffffff;
   --button-pill-background-color: #000000;
   --genericJoeColor: color-mix(in srgb, #000000 8%, var(--page-tint));
+  --keyColor: #000000;
+  --keyColor-rgb: 0, 0, 0;
+  --keyColorBG: #000000;
+  --keyColor-contrast: #ffffff;
   color: var(--systemPrimary);
 }
 
@@ -275,4 +433,8 @@
   --systemTertiary: var(--systemTertiary-onDark);
   --systemQuaternary: #ffffff2e;
   --systemQuinary: #ffffff1a;
+  --keyColor: #ffffff;
+  --keyColor-rgb: 255, 255, 255;
+  --keyColorBG: #ffffff;
+  --keyColor-contrast: #000000;
 }

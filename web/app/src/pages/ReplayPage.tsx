@@ -1,19 +1,21 @@
 import type { ReplayCharts, ReplayRow, ReplaySong } from '@bitchord/shared-kotlin';
-import { Clock, Play, Share } from 'lucide-react';
+import '@/replay/replay.css';
+import { ChevronRight, Clock, Play, Share, type LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { Artwork } from '@/components/music/Artwork';
 import { albumHref, artistHref } from '@/components/music/links';
 import { playTrack } from '@/components/music/play';
-import { LoadError, stateStyles } from '@/components/music/States';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { LoadError } from '@/components/music/States';
 import type { Track } from '@/data/music/types';
-import { useArtworkColor } from '@/lib/artworkColor';
-import { usePageTint } from '@/lib/usePageTint';
+import { useYtAuth } from '@/extension/useYtAuth';
+import { partySettings } from '@/party/listenTogether';
 import { count, formatDay, formatHour, formatListening, formatMinutes, grouped } from '@/replay/format';
+import { PaletteMesh, useArtworkMesh } from '@/replay/PaletteMesh';
 import { PERIODS, periodLabel, yearShown, type ReplayPeriod } from '@/replay/periods';
 import { useReplay, useReplayYear } from '@/replay/queries';
+import { ReplayCard } from '@/replay/ReplayCard';
 import { PlainSkeleton } from '@/skeletons/PageSkeletons';
 
 // The story carries its own soundtrack player and canvas cards; loaded the first time it opens.
@@ -32,9 +34,10 @@ const EMPTY_DETAIL: Record<ReplayPeriod, string> = {
   all: 'Listen a little more and BitChord will turn your history into a Replay.',
 };
 
-const action = 'inline-flex h-9 items-center gap-2 rounded-pill px-[18px] type-title-3-emphasized transition-[filter] hover:brightness-110';
-const primaryAction = `${action} bg-key-bg text-on-key`;
-const secondaryAction = `${action} bg-quaternary text-primary disabled:opacity-50`;
+/** Charts and notes keep to a readable measure in a wide window. */
+const column = 'mx-(--body-gutter) max-w-[720px]';
+/** headlineMedium at W800: each section's title (ReplayScreen.kt SectionTitle). */
+const sectionTitle = 'pt-2 pb-2.5 type-[800_22px/26px] tracking-[-0.25px]';
 
 /**
  * The Replay (ReplayScreen.kt): the stretch of listening picked at the top,
@@ -42,8 +45,9 @@ const secondaryAction = `${action} bg-quaternary text-primary disabled:opacity-5
  * of the listening, all counted on this browser (replay/recorder.ts) and on
  * any device synced to it. In December it also opens the year's story.
  *
- * The page takes the top song's colour, as the phone's takes its mesh: a page
- * about one stretch of listening, in the colours of the record that defined it.
+ * The page is washed in the top song's colours, a still mesh held back under
+ * the theme's ink, as the phone's is: a page about one stretch of listening,
+ * in the colours of the record that defined it.
  */
 export default function ReplayPage() {
   // Lifetime first, as the phone opens it.
@@ -53,7 +57,9 @@ export default function ReplayPage() {
   const story = useReplayYear(year).data ?? null;
   const [storyOpen, setStoryOpen] = useState(false);
   const charts = replay.data?.charts ?? null;
-  usePageTint(useArtworkColor(charts?.songs[0]?.art));
+  const label = periodLabel(period, new Date());
+  const holder = useHolder();
+  const palette = useArtworkMesh(charts?.songs[0]?.art);
 
   let body: ReactNode;
   if (replay.isError) {
@@ -62,36 +68,35 @@ export default function ReplayPage() {
     body = <PlainSkeleton />;
   } else if (!charts || charts.songs.length === 0) {
     body = (
-      <div className={stateStyles.state}>
-        <Clock size={44} strokeWidth={1.6} className="mb-2 text-tertiary" />
-        <p className={stateStyles.title}>Not enough listening yet</p>
-        <p className={stateStyles.detail}>{EMPTY_DETAIL[period]}</p>
+      <div className="mx-auto flex max-w-[420px] flex-col items-center px-9 py-12 text-center">
+        <Clock size={44} strokeWidth={1.6} className="text-primary/40" />
+        <p className="mt-4 type-title-large">Not enough listening yet</p>
+        <p className="mt-2 type-callout text-primary/60">{EMPTY_DETAIL[period]}</p>
       </div>
     );
   } else {
     body = (
       <>
-        <HeroCards charts={charts} label={periodLabel(period, new Date())} />
-        <div className="mx-(--body-gutter) mt-6 flex flex-wrap gap-3">
-          {story && year !== null && (
-            <button className={primaryAction} onClick={() => setStoryOpen(true)}>
-              <Play size={16} fill="currentColor" strokeWidth={0} />
-              Open your Replay {year}
-            </button>
-          )}
-          <ShareButton charts={charts} label={periodLabel(period, new Date())} />
-        </div>
+        <HeroCards charts={charts} label={label} holder={holder} memberSince={replay.data.memberSince} />
+        {story && year !== null && <ActionRow icon={Play} label="Play your Replay" onClick={() => setStoryOpen(true)} />}
         <Chart id="replay-songs" title="Top songs" rows={charts.songs.slice(0, CHART_LENGTH).map(songRow)} />
         <Chart id="replay-artists" title="Top artists" circular rows={charts.artists.slice(0, CHART_LENGTH).map(artistRow)} />
         <Chart id="replay-albums" title="Top albums" rows={charts.albums.slice(0, CHART_LENGTH).map(albumRow)} />
         <Habits charts={charts} />
+        <ShareRow charts={charts} label={label} />
       </>
     );
   }
 
   return (
-    <div className="pb-10">
+    <div className="relative isolate pb-10">
+      {/* The mesh holds still behind the page as it scrolls, a window's height of it. */}
+      <div aria-hidden="true" className="sticky top-0 -z-1 -mb-[100dvh] h-dvh overflow-hidden">
+        <PaletteMesh palette={palette} />
+        <div className="replay-scrim absolute inset-0" />
+      </div>
       <PageHeader title="Replay" />
+      <p className="mx-(--body-gutter) type-title-2-emphasized text-primary/60">{label}</p>
       <PeriodPicker value={period} onChange={setPeriod} />
       {body}
       {storyOpen && story && year !== null && (
@@ -103,19 +108,55 @@ export default function ReplayPage() {
   );
 }
 
+/** Whose card it is: the signed-in account, else the Listen Together name, else the phone's stand-in. */
+function useHolder(): string {
+  const yt = useYtAuth();
+  const account = yt.state === 'ready' && yt.auth.signedIn ? yt.auth.active?.name : null;
+  return account || partySettings().nickname.trim() || 'BitChord listener';
+}
+
 /**
  * The four stretches a Replay covers: weeks and months rather than a date
- * range, because that is the granularity the listening is kept at.
+ * range, because that is the granularity the listening is kept at. The
+ * phone's chips (ReplayScreen.kt PeriodPicker): four equal shares of a 12px
+ * track in the text colour at 10%, the picked one filled with it at 92% and
+ * its label inverted, eased over 160ms.
  */
 function PeriodPicker({ value, onChange }: { value: ReplayPeriod; onChange: (period: ReplayPeriod) => void }) {
   return (
-    <SegmentedControl
-      label="Period"
-      options={PERIODS.map((p) => ({ value: p.id, label: p.tab }))}
-      value={value}
-      onChange={onChange}
-      className="mx-(--body-gutter) mt-4 max-w-[440px]"
-    />
+    <div role="radiogroup" aria-label="Period" className="mx-(--body-gutter) mt-3.5 mb-[18px] flex max-w-[440px] gap-0.5 rounded-[12px] bg-primary/10 p-[3px]">
+      {PERIODS.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          role="radio"
+          aria-checked={p.id === value}
+          onClick={() => onChange(p.id)}
+          className="min-w-0 flex-1 truncate rounded-[10px] px-1.5 py-2 type-[700_12px/14px] tracking-[0.25px] text-primary/75 transition-colors duration-160 aria-checked:bg-primary/92 aria-checked:text-page motion-reduce:transition-none"
+        >
+          {p.tab}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The page's two acts, drawn alike (ReplayScreen.kt ReplayActionRow): a 14px
+ * slab of the text colour at 12%, an 18px glyph, the label and a chevron.
+ */
+function ActionRow({ icon: Icon, label, disabled, onClick }: { icon: LucideIcon; label: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`${column} my-[18px] flex w-[calc(100%-2*var(--body-gutter))] items-center gap-3 rounded-group bg-primary/12 px-4 py-3.5 text-start hover:bg-primary/16 disabled:opacity-50`}
+    >
+      <Icon size={18} strokeWidth={2.2} className="flex-none" />
+      <span className="flex-1 type-title-2-emphasized">{label}</span>
+      <ChevronRight size={16} strokeWidth={2.4} className="flex-none text-primary/50" />
+    </button>
   );
 }
 
@@ -158,24 +199,21 @@ function heroCards(charts: ReplayCharts, label: string): HeroCard[] {
   ];
 }
 
-function HeroCards({ charts, label }: { charts: ReplayCharts; label: string }) {
+/** The wallet (ReplayScreen.kt ReplayCardRow): 300px cards 12px apart, snapping as they scroll. */
+function HeroCards({ charts, label, holder, memberSince }: { charts: ReplayCharts; label: string; holder: string; memberSince: string | null }) {
   return (
-    <div className="mx-(--body-gutter) mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+    <div className="flex snap-x snap-mandatory scroll-px-(--body-gutter) gap-3 overflow-x-auto px-(--body-gutter) py-5 [scrollbar-width:thin]">
       {heroCards(charts, label).map((card) => (
-        <button
+        <ReplayCard
           key={card.label}
-          className="group relative isolate flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-artwork-lg p-4 text-start text-white"
-          disabled={!card.target}
-          onClick={() => card.target && document.getElementById(card.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        >
-          <div className="absolute inset-0 -z-1 transition-transform duration-500 group-enabled:group-hover:scale-105">
-            <Artwork src={card.art ?? null} displayWidth={280} className="size-full" />
-          </div>
-          <div className="absolute inset-0 -z-1 bg-linear-to-t from-black/85 via-black/45 to-black/10" />
-          <span className="type-caption-2 tracking-wide text-white/70 uppercase">{card.label}</span>
-          <span className="mt-0.5 line-clamp-2 type-title-1-emphasized">{card.value}</span>
-          <span className="mt-1 truncate type-callout text-white/75">{card.detail}</span>
-        </button>
+          label={card.label}
+          value={card.value}
+          detail={card.detail}
+          art={card.art}
+          holder={holder}
+          memberSince={memberSince}
+          onClick={card.target ? () => document.getElementById(card.target!)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) : undefined}
+        />
       ))}
     </div>
   );
@@ -239,30 +277,46 @@ const albumRow = (album: ReplayRow, i: number): ChartRow => ({
   href: albumHref(album.browseId ?? null),
 });
 
+/**
+ * A rank badge (ReplayCard.kt RankBadge): number one in the accent red; the
+ * rest quiet, because a chart where every position shouts has no first place.
+ */
+function Rank({ rank }: { rank: number }) {
+  return (
+    <span className={`w-7 flex-none ${rank === 1 ? 'type-[800_20px/24px] text-accent-red' : 'type-[800_16px/19px] text-primary/45'}`}>
+      {rank}
+    </span>
+  );
+}
+
+/** One chart (ReplayScreen.kt ReplayChartRow): rank, 48px artwork, the title over its subtitle and time, the plays. */
 function Chart({ id, title, rows, circular = false }: { id: string; title: string; rows: ChartRow[]; circular?: boolean }) {
   if (rows.length === 0) return null;
   return (
-    <section id={id} className="mx-(--body-gutter) mt-10 scroll-mt-6">
-      <h2 className="mb-2 type-title-2-emphasized">{title}</h2>
+    <section id={id} className={`${column} mt-2 mb-5 scroll-mt-6`}>
+      <h2 className={sectionTitle}>{title}</h2>
       <ol>
         {rows.map((row, i) => {
           const inner = (
             <>
-              <span className="w-6 flex-none text-center type-title-3-emphasized text-secondary">{i + 1}</span>
+              <Rank rank={i + 1} />
               <span className="w-12 flex-none">
                 <Artwork src={row.art ?? null} displayWidth={48} radius={circular ? '50%' : 6} />
               </span>
-              <span className="min-w-0 flex-1">
+              <span className="ms-1 min-w-0 flex-1">
                 <span className="block truncate type-body-emphasized">{row.title}</span>
-                {row.subtitle && <span className="block truncate type-callout text-secondary">{row.subtitle}</span>}
+                <span className="block truncate type-callout text-primary/55">
+                  {[row.subtitle, formatListening(row.ms)].filter(Boolean).join(' · ')}
+                </span>
               </span>
-              <span className="flex-none text-end type-callout text-secondary">
-                {formatListening(row.ms)}
-                <span className="block type-caption-2">{count(row.plays, 'play')}</span>
-              </span>
+              {row.plays > 0 && (
+                <span className="flex-none type-label-medium text-primary/45" title={count(row.plays, 'play')}>
+                  {grouped(row.plays)}
+                </span>
+              )}
             </>
           );
-          const rowClass = 'flex w-full items-center gap-3 rounded-row px-2 py-2 text-start hover:bg-tracklist-hover';
+          const rowClass = 'flex w-full items-center gap-2 rounded-row px-1 py-[7px] text-start hover:bg-primary/8';
           return (
             <li key={row.key}>
               {row.href ? (
@@ -286,6 +340,7 @@ function Chart({ id, title, rows, circular = false }: { id: string; title: strin
 
 // ---- The tail ------------------------------------------------------------------------
 
+/** The shape of the listening (ReplayScreen.kt Habits): three counts, then when and the biggest day. */
 function Habits({ charts }: { charts: ReplayCharts }) {
   const peak = charts.hours.reduce((best, ms, hour) => (ms > 0 && ms > (charts.hours[best] ?? 0) ? hour : best), -1);
   const tiles = [
@@ -294,19 +349,19 @@ function Habits({ charts }: { charts: ReplayCharts }) {
     ['Albums', charts.albums.length],
   ] as const;
   return (
-    <section className="mx-(--body-gutter) mt-10">
-      <h2 className="mb-3 type-title-2-emphasized">Your listening pattern</h2>
-      <div className="grid max-w-[560px] grid-cols-3 gap-2.5">
+    <section className={`${column} mt-2`}>
+      <h2 className={sectionTitle}>Your listening pattern</h2>
+      <div className="mt-1 grid max-w-[560px] grid-cols-3 gap-2.5">
         {tiles.map(([label, value]) => (
-          <div key={label} className="flex flex-col items-center rounded-[14px] bg-quinary py-3.5">
-            <span className="type-title-1-emphasized">{grouped(value)}</span>
-            <span className="type-caption-2 tracking-wide text-secondary uppercase">{label}</span>
+          <div key={label} className="flex flex-col items-center rounded-group bg-primary/9 py-3.5">
+            <span className="type-[800_22px/26px] tracking-[-0.25px]">{grouped(value)}</span>
+            <span className="type-subhead-emphasized tracking-[1px] text-primary/55">{label}</span>
           </div>
         ))}
       </div>
-      {peak >= 0 && <p className="mt-3 type-body text-secondary">You listen most around {formatHour(peak)}.</p>}
+      {peak >= 0 && <p className="mt-2.5 type-callout text-primary/60">You listen most around {formatHour(peak)}.</p>}
       {charts.busiestDay && (
-        <p className="mt-1.5 type-body text-secondary">
+        <p className="mt-1.5 type-callout text-primary/60">
           Your biggest day was {formatDay(charts.busiestDay)} with {formatListening(charts.busiestDayMs)} of listening.
         </p>
       )}
@@ -315,11 +370,12 @@ function Habits({ charts }: { charts: ReplayCharts }) {
 }
 
 /** Draws the Replay as one picture and hands it to the system's share sheet, or saves it. */
-function ShareButton({ charts, label }: { charts: ReplayCharts; label: string }) {
+function ShareRow({ charts, label }: { charts: ReplayCharts; label: string }) {
   const [busy, setBusy] = useState(false);
   return (
-    <button
-      className={secondaryAction}
+    <ActionRow
+      icon={Share}
+      label="Share my Replay"
       disabled={busy}
       onClick={() => {
         setBusy(true);
@@ -329,9 +385,6 @@ function ShareButton({ charts, label }: { charts: ReplayCharts; label: string })
           )
           .finally(() => setBusy(false));
       }}
-    >
-      <Share size={16} strokeWidth={2.2} />
-      Share my Replay
-    </button>
+    />
   );
 }

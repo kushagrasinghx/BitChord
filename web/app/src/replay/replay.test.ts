@@ -119,7 +119,7 @@ describe('formatting', () => {
 
 // The phone's palette mesh (MeshGradient.kt): four colours, tuned for white type.
 describe('the palette mesh', () => {
-  it('takes each quarter of the artwork, in the blobs’ order', () => {
+  it('takes each quarter’s most colourful cell, in the blobs’ order', () => {
     // A 4×4 sleeve: red top left, green top right, blue bottom right, white bottom left.
     const cells = Array.from({ length: 16 }, (_, i) => {
       const top = i < 8;

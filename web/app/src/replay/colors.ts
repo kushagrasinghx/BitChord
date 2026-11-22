@@ -32,28 +32,37 @@ export function meshDimmed(rgb: Rgb): string {
 }
 
 /**
- * The artwork's GRID² cells as the mesh's four colours: each quarter of the
- * sleeve averaged, in the blobs' order (top left, top right, bottom right,
- * bottom left), so each colour sits roughly where it is on the cover.
+ * The artwork's GRID² cells as the mesh's four colours, in the blobs' order
+ * (top left, top right, bottom right, bottom left): from each quarter of the
+ * sleeve its most colourful cell, so each colour sits roughly where it is on
+ * the cover and a letterboxed thumbnail's black bars don't wash it out. The
+ * phone picks palette swatches (rememberArtworkColors); this is the nearest
+ * a 4×4 reading gets.
  */
 export function meshSlots(cells: Rgb[]): Rgb[] {
   const half = GRID / 2;
+  const colourful = (rgb: Rgb) => {
+    const [, s, l] = toHsl(rgb);
+    return s * (1 - Math.abs(l - 0.5));
+  };
   return [
     [0, 0],
     [0, half],
     [half, half],
     [half, 0],
   ].map(([row, col]) => {
-    const sum: Rgb = [0, 0, 0];
+    let best: Rgb = [0, 0, 0];
+    let score = -1;
     for (let r = row!; r < row! + half; r++) {
       for (let c = col!; c < col! + half; c++) {
         const cell = cells[r * GRID + c] ?? [0, 0, 0];
-        sum[0] += cell[0];
-        sum[1] += cell[1];
-        sum[2] += cell[2];
+        if (colourful(cell) > score) {
+          score = colourful(cell);
+          best = cell;
+        }
       }
     }
-    return sum.map((v) => v / (half * half)) as Rgb;
+    return best;
   });
 }
 

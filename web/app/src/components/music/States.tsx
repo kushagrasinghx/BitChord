@@ -1,11 +1,16 @@
 import { PrefetchLink } from '@/components/PrefetchLink';
 
-/** A page-sized message, centred: also the Spotify page's sign-in invitation. */
+/**
+ * A page-sized message, centred, as the phone's MessageState
+ * (sharedUi/.../components/Common.kt): 16 bodyLarge in onSurfaceVariant, 48px
+ * above and below, and 16px under it the theme's plain filled button, white in
+ * dark, black in light. Also the Spotify page's sign-in invitation.
+ */
 export const stateStyles = {
-  state: 'mx-auto my-20 flex max-w-[420px] flex-col items-center gap-2 px-(--body-gutter) text-center',
-  title: 'type-title-2-emphasized',
-  detail: 'type-body-tall text-secondary',
-  button: 'mt-3 inline-flex h-8 items-center rounded-pill bg-key-bg px-4 type-body-emphasized text-on-key',
+  state: 'mx-auto flex max-w-[420px] flex-col items-center gap-1 px-[22px] py-12 text-center',
+  title: 'type-body-emphasized text-on-surface-variant',
+  detail: 'type-body-tall text-on-surface-variant',
+  button: 'mt-3 inline-flex h-10 items-center rounded-pill bg-key px-6 type-[500_14px/20px] text-on-key active:opacity-80',
 };
 
 /** In place of a YouTube page when the extension isn't installed (prompt §1): an invitation, not an error. */

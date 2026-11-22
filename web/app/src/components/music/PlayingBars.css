@@ -1,0 +1,29 @@
+/*
+ * The three bars of SearchPlayingBars (sharedUi/.../components/Common.kt
+ * playingBarHeight): bar i rises from its minimum to full over 260 + 50i ms,
+ * falls back by 520 + 130i ms, then runs the same in reverse, so the three
+ * drift in and out of step rather than marching. Linear, as there.
+ */
+@keyframes playing-bar-0 {
+  0%, 50%, 100% { transform: scaleY(0.38); }
+  25%, 75% { transform: scaleY(1); }
+}
+@keyframes playing-bar-1 {
+  0%, 50%, 100% { transform: scaleY(0.78); }
+  23.85%, 76.15% { transform: scaleY(1); }
+}
+@keyframes playing-bar-2 {
+  0%, 50%, 100% { transform: scaleY(0.52); }
+  23.08%, 76.92% { transform: scaleY(1); }
+}
+
+.playing-bar {
+  transform-origin: bottom;
+  animation: var(--bar) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playing-bar {
+    animation: none;
+  }
+}

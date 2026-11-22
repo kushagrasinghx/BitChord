@@ -5,6 +5,7 @@ import { Artwork } from './Artwork';
 import { ExplicitBadge } from './ExplicitBadge';
 import { artistHref, hrefFor } from './links';
 import { playTrack, toTrack } from './play';
+import { PlayingBars, useIsPlaying } from './PlayingBars';
 import { TrackMenu } from './TrackMenu';
 
 const isPlayable = (item: MusicItem) => item.kind === 'song' || item.kind === 'video';
@@ -60,9 +61,11 @@ function PlayPlatter({ item }: { item: MusicItem }) {
 /** The artwork with its hover scrim, linking to the item or playing it. */
 function LockupArtwork({ item, width, aspect }: { item: MusicItem; width: number; aspect: number }) {
   const href = hrefFor(item);
+  const playing = useIsPlaying(isPlayable(item) ? item.id : null);
   return (
     <div className="group/art relative rounded-artwork-md">
       <Artwork src={item.thumbnail} displayWidth={width} aspect={aspect} radius="var(--radius-artwork-medium)" />
+      {playing && <PlayingBars className="absolute top-1/2 left-1/2 z-1 -translate-1/2" />}
       {href ? (
         <PrefetchLink to={href} className={overlayLink} aria-label={item.title} />
       ) : (
@@ -129,19 +132,25 @@ export function CircleLockup({ item, width = 160 }: { item: MusicItem; width?: n
   return (
     <PrefetchLink to={hrefFor(item) ?? '#'} className="group/circle flex min-w-0 flex-col items-center gap-2.5">
       <Artwork src={item.thumbnail} displayWidth={width} radius="50%" />
-      <span className="max-w-full truncate text-center type-body group-hover/circle:underline">{item.title}</span>
+      <span className="max-w-full truncate text-center type-title-2-emphasized group-hover/circle:underline">{item.title}</span>
     </PrefetchLink>
   );
 }
 
-/** A song row inside a shelf (report §2, track lockup): 40px art, title, byline. */
+/**
+ * A song row inside a shelf, as the phone's CompactTrackRow (HomeScreen.kt):
+ * 48px art at radius 7, 12px to the text, title 16 titleMedium over a 14
+ * credit, 4px above and below.
+ */
 export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => void }) {
   const play = onPlay ?? (() => playTrack(item));
+  const playing = useIsPlaying(item.id);
   return (
-    // 52px art column (40 + 12 gap), content, menu; 55px tall.
-    <div className="group/track grid h-[55px] grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-3 py-[7.5px] pr-3.5 pl-0">
-      <button className="group/art relative w-10 rounded-artwork-sm" aria-label={`Play ${item.title}`} onClick={play}>
-        <Artwork src={item.thumbnail} displayWidth={40} radius="var(--radius-artwork-small)" />
+    // 48px art column, 12px gap, content, menu; 56px tall.
+    <div className="group/track grid h-14 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-x-3 py-1 pr-1 pl-0">
+      <button className="group/art relative w-12 rounded-artwork-sm" aria-label={`Play ${item.title}`} onClick={play}>
+        <Artwork src={item.thumbnail} displayWidth={48} radius="var(--radius-artwork-small)" />
+        {playing && <PlayingBars className="absolute top-1/2 left-1/2 -translate-1/2" />}
         <span
           className="absolute inset-0 grid place-items-center rounded-[inherit] bg-lockup-hover text-white opacity-0 transition-opacity duration-100 ease-in group-hover/track:opacity-100 group-focus-visible/art:opacity-100"
           aria-hidden="true"
@@ -149,14 +158,14 @@ export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => 
           <PlayIcon size={16} />
         </span>
       </button>
-      <div className="flex min-w-0 flex-col gap-px px-1">
-        <div className="flex min-w-0 items-center type-body">
+      <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 items-center type-title-2-emphasized">
           <button className="min-w-0 truncate text-left" onClick={play}>
             {item.title}
           </button>
           {item.explicit && <ExplicitBadge />}
         </div>
-        <div className="truncate type-callout text-secondary">
+        <div className="truncate type-callout text-on-surface-variant">
           <Byline item={item} />
         </div>
       </div>

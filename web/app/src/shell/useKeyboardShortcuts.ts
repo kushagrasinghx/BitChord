@@ -1,13 +1,38 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { usePlayer } from '@/state/player';
+import { getAudio, getPlayhead, usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
+import { useShortcutsSheet } from './ShortcutsSheet';
 
 /** Typing in a field shouldn't trigger the player. */
 function typing(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   if (!element) return false;
   return element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName);
+}
+
+/** Seconds ← and → move the playhead, as YouTube Music's own web player steps. */
+export const SEEK_STEP = 10;
+
+/**
+ * Whether a bare arrow or letter belongs to what has focus rather than to the
+ * player: a field, or a widget that steps with the arrows (a slider, a menu,
+ * a list box, tabs), or a dialog over the app (the player's own sheet aside).
+ */
+export function keyBelongsToFocus(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (typing(element)) return true;
+  return !!element?.closest?.(
+    '[role="slider"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])',
+  );
+}
+
+function seekBy(seconds: number) {
+  const audio = getAudio();
+  if (!audio || !Number.isFinite(audio.duration)) return;
+  // A loop mix plays from its decks with the element paused: its own playhead is the position.
+  const now = getPlayhead()?.sec ?? audio.currentTime;
+  usePlayer.getState().seek(Math.min(audio.duration, Math.max(0, now + seconds)));
 }
 
 function focusSearch(navigate: ReturnType<typeof useNavigate>) {
@@ -28,6 +53,11 @@ function focusSearch(navigate: ReturnType<typeof useNavigate>) {
  * The web player's shortcuts, which BitChord matches (report §8): Space
  * play/pause; ⌘/Ctrl+→ / ← next/previous; ⌘/Ctrl+↑ / ↓ volume; ⌘/Ctrl+F or
  * "/" focuses search; Esc closes the full-screen player, else the side panel.
+ *
+ * And a desktop app's: ← / → back and forward 10 seconds, Shift+← / → the
+ * previous and next song, M mute, L lyrics, Q the queue (the full-screen
+ * player takes L and Q for its own panes while it is up), and ? the sheet
+ * listing all of them (ShortcutsSheet.tsx).
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate();
@@ -61,7 +91,24 @@ export function useKeyboardShortcuts() {
         else if (ui.sidePanel) ui.closeSidePanel();
         return;
       }
-      if (!command) return;
+      if (!command) {
+        if (keyBelongsToFocus(event.target)) return;
+        const ui = useUi.getState();
+        const run: (() => void) | undefined = {
+          ArrowLeft: () => (event.shiftKey ? player.previous() : seekBy(-SEEK_STEP)),
+          ArrowRight: () => (event.shiftKey ? player.next() : seekBy(SEEK_STEP)),
+          m: player.toggleMute,
+          M: player.toggleMute,
+          l: ui.fullScreen ? undefined : () => ui.toggleSidePanel('lyrics'),
+          L: ui.fullScreen ? undefined : () => ui.toggleSidePanel('lyrics'),
+          q: ui.fullScreen ? undefined : () => ui.toggleSidePanel('up-next'),
+          Q: ui.fullScreen ? undefined : () => ui.toggleSidePanel('up-next'),
+          '?': () => useShortcutsSheet.getState().toggle(),
+        }[event.key];
+        if (!run) return;
+        event.preventDefault();
+        return run();
+      }
       switch (event.key) {
         case 'ArrowRight':
           event.preventDefault();

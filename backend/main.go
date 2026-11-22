@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"html/template"
 	"io"
 	"log"
@@ -812,7 +811,7 @@ func handleInviteLanding(w http.ResponseWriter, r *http.Request) {
 	if len(code) != codes.CodeLength {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = inviteTemplate.Execute(w, invitePageData{
-			Code:     html.EscapeString(r.PathValue("code")),
+			Code:     r.PathValue("code"), // the template escapes it
 			IsActive: false,
 		})
 		return

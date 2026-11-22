@@ -550,3 +550,19 @@ func TestWebSocketTokenAsSubprotocol(t *testing.T) {
 		t.Fatalf("expected 401 for a wrong subprotocol token, got %v", err)
 	}
 }
+
+func TestInviteBadCodeIsEscapedOnce(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+	res, err := http.Get(ts.URL + "/invite/a%26b")
+	if err != nil {
+		t.Fatalf("GET bad invite: %v", err)
+	}
+	defer res.Body.Close()
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(res.Body)
+	body := buf.String()
+	if strings.Contains(body, "&amp;amp;") || !strings.Contains(body, "a&amp;b") {
+		t.Fatalf("the code must be escaped exactly once; page shows it as %q", body[strings.LastIndex(body, "code-val"):][:80])
+	}
+}

@@ -10,6 +10,7 @@ import { playList, playTrack, type ListContext } from './play';
 import { PlayingBars } from './PlayingBars';
 import { currentRowFill, RowArtwork, rowMoreButton, RowTitle, useRowPlayback } from './SongRows';
 import { TrackMenu } from './TrackMenu';
+import { contextMenu } from './actionMenu';
 
 type Variant = 'album' | 'playlist';
 
@@ -142,6 +143,7 @@ function Row({ track, variant, position, onPlayRow }: RowProps) {
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
       onClick={playback.onClick}
+      onContextMenu={contextMenu(unavailable ? null : { kind: 'track', track })}
     >
       <div className={`${cell} ${album ? 'gap-4' : 'gap-3 max-md:gap-3.5'}`}>
         {album ? (

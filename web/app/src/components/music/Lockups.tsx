@@ -7,6 +7,7 @@ import { artistHref, hrefFor } from './links';
 import { playTrack, toTrack } from './play';
 import { PlayingBars, useIsPlaying } from './PlayingBars';
 import { TrackMenu } from './TrackMenu';
+import { itemContextMenu } from './actionMenu';
 
 const isPlayable = (item: MusicItem) => item.kind === 'song' || item.kind === 'video';
 
@@ -90,7 +91,7 @@ function LockupArtwork({ item, width, aspect }: { item: MusicItem; width: number
 export function SquareLockup({ item, width = 220 }: { item: MusicItem; width?: number }) {
   const href = hrefFor(item);
   return (
-    <div className={lockup}>
+    <div className={lockup} onContextMenu={itemContextMenu(item)}>
       <LockupArtwork item={item} width={width} aspect={1} />
       <div className={caption}>
         <div className={title}>
@@ -114,7 +115,7 @@ export function SquareLockup({ item, width = 220 }: { item: MusicItem; width?: n
 /** 16:9 video lockup (report §2, type C). */
 export function VideoLockup({ item, width = 300 }: { item: MusicItem; width?: number }) {
   return (
-    <div className={lockup}>
+    <div className={lockup} onContextMenu={itemContextMenu(item)}>
       <LockupArtwork item={item} width={width} aspect={16 / 9} />
       <div className={caption}>
         <div className={title}>
@@ -147,7 +148,7 @@ export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => 
   const playing = useIsPlaying(item.id);
   return (
     // 48px art column, 12px gap, content, menu; 56px tall.
-    <div className="group/track grid h-14 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-x-3 py-1 pr-1 pl-0">
+    <div onContextMenu={itemContextMenu(item)} className="group/track grid h-14 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-x-3 py-1 pr-1 pl-0">
       <button className="group/art relative w-12 rounded-artwork-sm" aria-label={`Play ${item.title}`} onClick={play}>
         <Artwork src={item.thumbnail} displayWidth={48} radius="var(--radius-artwork-small)" />
         {playing && <PlayingBars className="absolute top-1/2 left-1/2 -translate-1/2" />}

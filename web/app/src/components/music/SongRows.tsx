@@ -5,6 +5,7 @@ import type { Track } from '@/data/music/types';
 import { usePlayer } from '@/state/player';
 import { Artwork } from './Artwork';
 import { ExplicitBadge } from './ExplicitBadge';
+import { contextMenu } from './actionMenu';
 import { PlayingBars } from './PlayingBars';
 import { TrackMenu } from './TrackMenu';
 
@@ -102,6 +103,7 @@ export function CompactSongRow({ track, onPlayRow }: { track: Track; onPlayRow: 
       className={`group/row -mx-2 flex items-center gap-3 rounded-row px-2 py-1 hover:bg-tracklist-hover ${currentRowFill}`}
       data-current={playback.current || undefined}
       onClick={playback.onClick}
+      onContextMenu={contextMenu({ kind: 'track', track })}
     >
       <RowArtwork track={track} playback={playback} className="w-12" compact />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -135,6 +137,7 @@ export function SuggestedSongRow({
       className={`group/row flex h-[60px] items-center gap-3.5 rounded-row px-4 hover:bg-tracklist-hover ${currentRowFill}`}
       data-current={playback.current || undefined}
       onClick={playback.onClick}
+      onContextMenu={contextMenu({ kind: 'track', track })}
     >
       <RowArtwork track={track} playback={playback} className="w-[52px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

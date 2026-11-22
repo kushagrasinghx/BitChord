@@ -71,6 +71,31 @@ export async function putPeerMonth(peer: PeerMonth): Promise<void> {
   changed();
 }
 
+/** This browser's months, `YYYY-MM` → JSON (ListeningStats.exportAll): what backup and sync send. */
+export async function ownMonths(): Promise<Map<string, string>> {
+  const db = await getDb();
+  const [keys, values] = await Promise.all([db.getAllKeys('months'), db.getAll('months')]);
+  return new Map(keys.map((key, i) => [key, values[i]!]));
+}
+
+/** Replaces this browser's months with [months] (ListeningStats.importAll): a restore or an imported backup. */
+export async function replaceMonths(months: Map<string, string>): Promise<void> {
+  const tx = (await getDb()).transaction('months', 'readwrite');
+  await tx.store.clear();
+  await Promise.all([...months].map(([month, json]) => tx.store.put(json, month)));
+  await tx.done;
+  changed();
+}
+
+/** Every other device's months, exactly [peers]: a device dropped from sync takes its months with it. */
+export async function replacePeerMonths(peers: PeerMonth[]): Promise<void> {
+  const tx = (await getDb()).transaction('peers', 'readwrite');
+  await tx.store.clear();
+  await Promise.all(peers.map((peer) => tx.store.put(peer, `${peer.deviceId}/${peer.month}`)));
+  await tx.done;
+  changed();
+}
+
 /** Every month with listening here or on a synced device, oldest first (ListeningStats.allMonths). */
 export async function allMonths(): Promise<string[]> {
   const db = await getDb();

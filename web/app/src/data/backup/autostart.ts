@@ -11,7 +11,10 @@ export const DRIVE_STATE_KEY = 'bitchord:drive';
  * so a visitor who uses neither downloads neither.
  */
 export function autostart(): void {
-  if (driveAvailable() && hasDriveAccount()) void import('./driveBackup').then((m) => m.startDriveSync());
+  // The Replay is where this device's listening lives (replay/backupSource.ts); it is registered
+  // first, so a sync never runs against an empty source and uploads no months.
+  const replay = import('@/replay/backupSource').then((m) => m.connectReplayToBackup());
+  if (driveAvailable() && hasDriveAccount()) void replay.then(() => import('./driveBackup')).then((m) => m.startDriveSync());
   if (useOfflineSettings.getState().keepLiked) void import('@/playback/offline/likedSync').then((m) => m.startLikedSync());
 }
 

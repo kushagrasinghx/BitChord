@@ -484,13 +484,14 @@ internal class LyricsCardPainter internal constructor(
         val blurFilter = if (bloom) BlurMaskFilter(size * GLOW_RATIO, BlurMaskFilter.Blur.NORMAL) else null
         val centerY = placed.baseline + (paint.ascent() + paint.descent()) / 2f
 
+        val hasComplex = text.hasComplexScript()
         var cursor = 0
         timing.wordSpans.forEachIndexed { index, span ->
             val from = maxOf(span.first, rowStart) - rowStart
             val to = minOf(span.last + 1, rowEnd) - rowStart
             if (to <= from) return@forEachIndexed
 
-            val grow = timing.growingAt(index)
+            val grow = if (hasComplex) null else timing.growingAt(index)
             val isGrown = grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs
             val lift = timing.wordLift(index, positionMs)
 
@@ -538,18 +539,22 @@ internal class LyricsCardPainter internal constructor(
         val text = row.text
         val paint = row.paint
         val at = row.start + chars
+        val effectiveSpans = if (spans.isEmpty()) wordRangesOf(text) else spans
         // Within a timed piece the edge crosses its width at a steady pace.
-        val piece = spans.firstOrNull { at >= it.first && at < it.last + 1 }
+        val piece = effectiveSpans.firstOrNull { at >= it.first && at < it.last + 1 }
         if (piece != null && piece.first >= row.start && piece.last + 1 <= row.start + text.length) {
             val from = paint.measureText(text, 0, piece.first - row.start)
             val to = paint.measureText(text, 0, piece.last + 1 - row.start)
-            return from + (to - from) * (at - piece.first) / (piece.last + 1 - piece.first)
+            if (to >= from && piece.last + 1 > piece.first) {
+                return from + (to - from) * (at - piece.first) / (piece.last + 1 - piece.first)
+            }
         }
         // A space between words, or a piece broken over a wrap: letter by letter.
         val k = chars.toInt().coerceIn(0, text.length)
         val here = paint.measureText(text, 0, k)
         val next = paint.measureText(text, 0, (k + 1).coerceAtMost(text.length))
-        return here + (next - here) * (chars - k)
+        val step = maxOf(0f, next - here)
+        return here + step * (chars - k)
     }
 }
 
@@ -650,6 +655,13 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
     val subSize = (size * SUB_RATIO).coerceAtLeast(SUB_FLOOR)
     val secondary = type.heading(subSize, SUB_COLOR).apply { letterSpacing = SUB_TRACKING }
 
+    fun paintFor(base: Paint, text: String): Paint =
+        if (text.hasComplexScript() && base.letterSpacing != 0f) {
+            Paint(base).apply { letterSpacing = 0f }
+        } else {
+            base
+        }
+
     val rows = mutableListOf<Row>()
     lines.forEachIndexed { index, line ->
         if (line.isGap) {
@@ -680,17 +692,20 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
         // counts characters of the whole line — can be found within it.
         fun rows(source: String, paint: Paint, height: Float, isSub: Boolean) {
             val rtl = isRtl(source)
+            val effectivePaint = paintFor(paint, source)
             var cursor = 0
-            wrap(source, paint, width).forEach { piece ->
+            wrap(source, effectivePaint, width).forEach { piece ->
                 val at = source.indexOf(piece, cursor).takeIf { it >= 0 } ?: cursor
                 cursor = at + piece.length
-                add(piece, paint, height, at, isSub, rtl)
+                add(piece, effectivePaint, height, at, isSub, rtl)
             }
         }
-        rows(line.text, primary, size * LEAD, isSub = false)
+        val lead = if (line.text.hasComplexScript()) size * 1.30f else size * LEAD
+        rows(line.text, primary, lead, isSub = false)
         val sub = line.subText
         if (!sub.isNullOrBlank() && sub != line.text) {
-            rows(sub, secondary, subSize * SUB_LEAD, isSub = true)
+            val subLead = if (sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
+            rows(sub, secondary, subLead, isSub = true)
         }
     }
     return Plan(rows, -primary.ascent())
@@ -781,7 +796,31 @@ private const val FEATHER_RATIO = 30f / 34f
 private const val RISE_RATIO = 2f / 34f
 
 /** Room above a row for a lifted, swelling letter: GROW_HEADROOM rises and the swell. */
-private const val HEADROOM_RATIO = 0.35f
+private const val HEADROOM_RATIO = 0.45f
+
+/** Whether a character belongs to a complex or joined Indic / Southeast Asian / Middle Eastern script. */
+private fun Char.isComplexScript(): Boolean =
+    this in '֐'..'᯿' || this in '\uA8E0'..'\uA8FF'
+
+private fun String.hasComplexScript(): Boolean =
+    any { it.isComplexScript() }
+
+private fun wordRangesOf(text: String): List<IntRange> {
+    val ranges = mutableListOf<IntRange>()
+    var start = -1
+    for (i in text.indices) {
+        if (!text[i].isWhitespace()) {
+            if (start < 0) start = i
+        } else {
+            if (start >= 0) {
+                ranges += start until i
+                start = -1
+            }
+        }
+    }
+    if (start >= 0) ranges += start until text.length
+    return ranges
+}
 
 /** The bloom behind a held letter: GLOW_RADIUS, 6dp. */
 private const val GLOW_RATIO = 6f / 34f

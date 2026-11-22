@@ -1,24 +1,52 @@
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Clock, Languages, SunMoon } from 'lucide-react';
+import { lazy, Suspense, useState } from 'react';
+import { usePlayerOptions } from '@/playback/playerOptions';
 import { THEME_MODES, useTheme } from '@/state/theme';
-import { settingsUi } from './settingsStyles';
+import { AnimatedArtworkToggle, CanvasToggle, LyricSourcesAccess } from './IntegrationSettings';
+import { ButtonRow, ChoiceRow, Group, Toggle } from './SettingsRows';
+
+const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
 
 /**
- * Settings' Appearance group (SettingsSheet.kt APPEARANCE): Theme, with its
- * three choices in a segmented control under the row's title, as the phone
- * lays it out.
+ * Appearance (SettingsSheet.kt APPEARANCE): Theme, with its three choices in
+ * a segmented control under the row's title as the phone lays it out, then
+ * the player's look, the moving covers, and the lyrics.
  */
 export function AppearanceSettings() {
   const mode = useTheme((s) => s.mode);
   const setMode = useTheme((s) => s.setMode);
+  const showTotalDuration = usePlayerOptions((s) => s.showTotalDuration);
+  const [lyrics, setLyrics] = useState(false);
   return (
     <>
-      <h2 className={settingsUi.sectionHeader}>Appearance</h2>
-      <section className={settingsUi.group}>
-        <div className="flex flex-col gap-2.5 px-4 pt-[11px] pb-3.5 type-title-3">
-          <span>Theme</span>
-          <SegmentedControl label="Theme" options={THEME_MODES} value={mode} onChange={setMode} />
-        </div>
-      </section>
+      <Group header="Appearance">
+        <ChoiceRow icon={SunMoon} title="Theme" keywords={['dark mode', 'light mode']} options={THEME_MODES} value={mode} onChange={setMode} />
+        <Toggle
+          icon={Clock}
+          label="Show Total Duration"
+          detail="Shows the song’s full length instead of the time remaining."
+          keywords={['seek bar', 'remaining time', 'duration', 'song length']}
+          checked={showTotalDuration}
+          onChange={usePlayerOptions.getState().setShowTotalDuration}
+        />
+        <AnimatedArtworkToggle />
+        <CanvasToggle />
+      </Group>
+      <Group header="Lyrics">
+        <ButtonRow
+          icon={Languages}
+          title="Lyric Sources"
+          detail="Order, sources, syllable timing"
+          keywords={['lyrics', 'lrclib', 'musixmatch', 'synced', 'karaoke']}
+          onClick={() => setLyrics(true)}
+        />
+        <LyricSourcesAccess />
+      </Group>
+      {lyrics && (
+        <Suspense fallback={null}>
+          <LyricsSettings onClose={() => setLyrics(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

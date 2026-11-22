@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight } from 'lucide-react';
+import { ArchiveRestore, AudioLines, ChartColumn, CircleArrowDown, HardDrive } from 'lucide-react';
 import { useEffect } from 'react';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { driveAvailable } from '@/data/backup/auth';
 import { useSignedIn } from '@/data/music/queries';
 import { useOfflineSettings, useOfflineStatus } from '@/playback/offline/settings';
-import { offlineSupported, offlineTracks, removeAllOffline } from '@/playback/offline/store';
+import { offlineTracks, removeAllOffline } from '@/playback/offline/store';
 import { usePremiumAudio } from '@/playback/youtube/premiumAudio';
-import { Toggle } from './IntegrationSettings';
+import { Chevron, Group, RowGlyph, SettingsRow, Toggle, useMatches, type Glyph } from './SettingsRows';
 import { settingsUi } from './settingsStyles';
 
 /** "4.2 MB", "1.3 GB". */
@@ -18,46 +18,65 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * YouTube Premium Audio, with the account it is a claim about (the phone's
- * Account & Integrations): only shown signed in, since only a signed-in
- * Premium session is offered the higher Opus rung.
+ * YouTube Premium Audio, the Audio quality card's row (SettingsSheet.kt).
+ * Only a signed-in Premium session is offered the higher Opus rung, so signed
+ * out it is greyed with the reason rather than hidden, as the phone treats
+ * Dolby Atmos: a missing row reads as a feature BitChord doesn't have.
  */
 export function PremiumAudioToggle() {
   const signedIn = useSignedIn();
   const on = usePremiumAudio((s) => s.on);
   const setOn = usePremiumAudio((s) => s.setOn);
-  if (!signedIn) return null;
   return (
     <Toggle
+      icon={AudioLines}
       label="YouTube Premium Audio"
-      detail="I have Premium: stream the higher-quality ~256 kbps Opus instead of the standard 160 kbps."
-      checked={on}
+      detail={
+        signedIn
+          ? 'I have Premium: stream the higher-quality ~256 kbps Opus instead of the standard 160 kbps.'
+          : 'Sign in with a YouTube Premium account to stream the higher-quality ~256 kbps Opus.'
+      }
+      keywords={['quality', 'opus', 'bitrate', 'kbps', 'streaming']}
+      checked={on && signedIn}
+      disabled={!signedIn}
       onChange={setOn}
     />
   );
 }
 
-/** Settings' Backup & Restore row and Downloads section. */
-export function DataSettings() {
+/** Your Data (SettingsSheet.kt YOUR_DATA): the Replay, and Backup & Restore. */
+export function YourDataSettings() {
   return (
-    <>
-      <h2 className={settingsUi.sectionHeader}>Backup & Restore</h2>
-      <section className={settingsUi.group}>
-        <PrefetchLink to="/settings/backup" className={`${settingsUi.integrationPlain} ${settingsUi.linkRow}`}>
-          <span className={settingsUi.integrationName}>Backup & Restore</span>
-          <span className={settingsUi.value}>
-            {driveAvailable() ? 'Backup file, Google Drive' : 'Backup file'}
-            <ChevronRight size={16} />
-          </span>
-        </PrefetchLink>
-      </section>
-      {offlineSupported() && <Downloads />}
-    </>
+    <Group header="Your Data">
+      <LinkRow to="/replay" icon={ChartColumn} title="Replay" keywords={['stats', 'history', 'wrapped']} />
+      <LinkRow
+        to="/settings/backup"
+        icon={ArchiveRestore}
+        title="Backup & Restore"
+        value={driveAvailable() ? 'File, Google Drive' : 'Backup file'}
+        keywords={['backup', 'restore', 'export', 'import', 'google', 'drive', 'cloud', 'sync']}
+      />
+    </Group>
   );
 }
 
-/** Keep Liked Songs Downloaded (the phone's Downloads settings), what it takes up, and the way to take it back. */
-function Downloads() {
+/** A glyph row that opens a page of its own. */
+function LinkRow({ to, icon, title, value, keywords }: { to: string; icon: Glyph; title: string; value?: string; keywords?: string[] }) {
+  if (!useMatches(title, keywords)) return null;
+  return (
+    <PrefetchLink to={to} className={settingsUi.pressableRow}>
+      <RowGlyph icon={icon} />
+      <span className="min-w-0 flex-1">{title}</span>
+      <span className={settingsUi.value}>
+        {value}
+        <Chevron />
+      </span>
+    </PrefetchLink>
+  );
+}
+
+/** Downloads (SettingsSheet.kt DOWNLOADS): Keep Liked Songs Downloaded, what it takes up, and the way to take it back. */
+export function DownloadsSettings() {
   const signedIn = useSignedIn();
   const keepLiked = useOfflineSettings((s) => s.keepLiked);
   const setKeepLiked = useOfflineSettings((s) => s.setKeepLiked);
@@ -90,42 +109,40 @@ function Downloads() {
   ].filter(Boolean);
 
   return (
-    <>
-      <h2 className={settingsUi.sectionHeader}>Downloads</h2>
-      <section className={settingsUi.group}>
-        <Toggle
-          label="Keep Liked Songs Downloaded"
-          detail={
-            signedIn
-              ? 'Your Liked Music, saved in this browser to play without a connection. Checked every 12 hours while BitChord is open.'
-              : 'Sign in to YouTube Music in this browser to keep your liked songs downloaded.'
+    <Group
+      header="Downloads"
+      footer={[...notes, u?.quota ? `This browser lets BitChord keep up to ${formatBytes(u.quota)}.` : null].filter(Boolean).join(' ') || undefined}
+    >
+      <Toggle
+        icon={CircleArrowDown}
+        label="Keep Liked Songs Downloaded"
+        keywords={['liked', 'favorites', 'offline', 'automatic']}
+        detail={
+          signedIn
+            ? 'Your Liked Music, saved in this browser to play without a connection. Checked every 12 hours while BitChord is open.'
+            : 'Sign in to YouTube Music in this browser to keep your liked songs downloaded.'
+        }
+        checked={keepLiked}
+        onChange={(on) => {
+          setKeepLiked(on);
+          if (on) {
+            void import('@/playback/offline/likedSync').then((m) => {
+              m.startLikedSync();
+              void m.checkLiked();
+            });
           }
-          checked={keepLiked}
-          onChange={(on) => {
-            setKeepLiked(on);
-            if (on) {
-              void import('@/playback/offline/likedSync').then((m) => {
-                m.startLikedSync();
-                void m.checkLiked();
-              });
-            }
-          }}
-        />
-        <div className={settingsUi.row}>
-          <span>Downloaded</span>
-          <span className={settingsUi.value}>
-            {!u ? '…' : u.count === 0 ? 'None' : `${u.count} ${u.count === 1 ? 'song' : 'songs'} · ${formatBytes(u.bytes)}`}
-            {u && u.count > 0 && (
-              <button className={settingsUi.inlineButton} onClick={() => void remove()}>
-                Remove Downloads
-              </button>
-            )}
-          </span>
-        </div>
-      </section>
-      <p className={settingsUi.footer}>
-        {[...notes, u?.quota ? `This browser lets BitChord keep up to ${formatBytes(u.quota)}.` : null].filter(Boolean).join(' ')}
-      </p>
-    </>
+        }}
+      />
+      <SettingsRow icon={HardDrive} title="Downloaded" keywords={['storage', 'offline', 'remove', 'space']}>
+        <span className={settingsUi.value}>
+          {!u ? '…' : u.count === 0 ? 'None' : `${u.count} ${u.count === 1 ? 'song' : 'songs'} · ${formatBytes(u.bytes)}`}
+          {u && u.count > 0 && (
+            <button className={settingsUi.inlineButton} onClick={() => void remove()}>
+              Remove Downloads
+            </button>
+          )}
+        </span>
+      </SettingsRow>
+    </Group>
   );
 }

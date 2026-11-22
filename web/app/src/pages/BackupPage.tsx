@@ -1,6 +1,6 @@
+import { CalendarClock, Cloud, CloudUpload, FileDown, FileUp, History, Laptop, MonitorSmartphone, RefreshCw, User, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { Select } from '@/components/Select';
 import { driveAvailable } from '@/data/backup/auth';
 import { exportBackup, importBackup, suggestedName } from '@/data/backup/backupFile';
 import {
@@ -23,10 +23,11 @@ import {
 } from '@/data/backup/driveBackup';
 import type { RemoteDevice, Step } from '@/data/backup/replaySync';
 import { formatBytes } from './DataSettings';
+import { ChoiceRow, FieldRow, Group, RowGlyph } from './SettingsRows';
 import { settingsUi } from './settingsStyles';
 
-const error = 'mx-4 mt-2 type-callout text-red';
-const primary = 'mx-4 mt-4 rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-on-key disabled:opacity-45';
+const error = 'mx-1 mt-2 type-callout text-red';
+const primary = 'mt-4 rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-on-key disabled:opacity-45';
 
 const FREQUENCIES: { value: BackupFrequency; label: string }[] = [
   { value: 'OFF', label: 'Off' },
@@ -39,11 +40,12 @@ const formatWhen = (ms: number) => new Date(ms).toLocaleString(undefined, { date
 const months = (n: number) => `${n} ${n === 1 ? 'month' : 'months'}`;
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** A row with a title, an optional line under it, and whatever goes on the right. */
-function Row({ title, detail, children }: { title: ReactNode; detail?: ReactNode; children?: ReactNode }) {
+/** A row with its glyph, a title, an optional line under it, and whatever goes on the right. */
+function Row({ icon, title, detail, children }: { icon: LucideIcon; title: ReactNode; detail?: ReactNode; children?: ReactNode }) {
   return (
-    <div className={`${settingsUi.row} gap-4`}>
-      <span className={`${settingsUi.rowText} min-w-0`}>
+    <div className={settingsUi.glyphRow}>
+      <RowGlyph icon={icon} />
+      <span className={settingsUi.rowText}>
         <span>{title}</span>
         {detail && <span className={settingsUi.rowDetail}>{detail}</span>}
       </span>
@@ -108,14 +110,13 @@ function BackupFileSection() {
 
   return (
     <>
-      <h2 className={settingsUi.sectionHeader}>Backup File</h2>
-      <section className={settingsUi.group}>
-        <Row title="Export Backup" detail="Your settings and listening, as a file you keep.">
+      <Group header="Backup File">
+        <Row icon={FileUp} title="Export Backup" detail="Your settings and listening, as a file you keep.">
           <button className={settingsUi.inlineButton} disabled={busy} onClick={() => void save()}>
             Export
           </button>
         </Row>
-        <Row title="Import Backup" detail="From this browser or the BitChord app. Replaces what’s here.">
+        <Row icon={FileDown} title="Import Backup" detail="From this browser or the BitChord app. Replaces what’s here.">
           <button className={settingsUi.inlineButton} disabled={busy} onClick={() => picker.current?.click()}>
             Import
           </button>
@@ -131,7 +132,7 @@ function BackupFileSection() {
             }}
           />
         </Row>
-      </section>
+      </Group>
       {line ? (
         <p className={line.failed ? error : settingsUi.footer}>{line.text}</p>
       ) : (
@@ -206,12 +207,11 @@ function DriveSection() {
 
   return (
     <>
-      <h2 className={settingsUi.sectionHeader}>Google Drive</h2>
-      <section className={settingsUi.group}>
-        <Row title="Last Sync" detail={running ? stepText(s.progress!) : resultLine}>
+      <Group header="Google Drive">
+        <Row icon={History} title="Last Sync" detail={running ? stepText(s.progress!) : resultLine}>
           {s.lastSyncAt > 0 ? formatWhen(s.lastSyncAt) : 'Never'}
         </Row>
-      </section>
+      </Group>
       <button
         className={primary}
         disabled={!ready || running}
@@ -224,22 +224,21 @@ function DriveSection() {
         Sync Now
       </button>
 
-      <h2 className={settingsUi.sectionHeader}>Account</h2>
-      <section className={settingsUi.group}>
+      <Group header="Account">
         {!connected ? (
-          <Row title="Connect Google Drive" detail="Back up to a hidden folder only BitChord can see.">
+          <Row icon={Cloud} title="Connect Google Drive" detail="Back up to a hidden folder only BitChord can see.">
             <button className={settingsUi.inlineButton} onClick={() => connect()}>
               Connect
             </button>
           </Row>
         ) : s.needsSignIn ? (
-          <Row title={s.account} detail="Google’s sign-in lasts an hour in a browser. Sign in again to sync.">
+          <Row icon={User} title={s.account} detail="Google’s sign-in lasts an hour in a browser. Sign in again to sync.">
             <button className={settingsUi.inlineButton} onClick={() => connect()}>
               Sign In Again
             </button>
           </Row>
         ) : (
-          <Row title={s.accountName ?? s.account} detail={s.accountName ? s.account : undefined}>
+          <Row icon={User} title={s.accountName ?? s.account} detail={s.accountName ? s.account : undefined}>
             <button
               className={settingsUi.inlineButton}
               disabled={running}
@@ -249,22 +248,29 @@ function DriveSection() {
             </button>
           </Row>
         )}
-      </section>
+      </Group>
       {connectError && <p className={error}>Couldn’t connect: {connectError}</p>}
 
       {connected && (
         <>
-          <h2 className={settingsUi.sectionHeader}>This Browser</h2>
-          <section className={settingsUi.group}>
+          <Group
+            header="This Browser"
+            footer={
+              choosing
+                ? 'Your other devices’ listening adds to this one’s in Replay. Or restore as one of them, below.'
+                : s.forkedTo
+                  ? `Another device restored as this one, so this browser carried on as ${s.forkedTo}.`
+                  : 'How your other devices list this browser.'
+            }
+          >
             {choosing ? (
-              <Row title="Back Up as a New Device" detail={defaultDeviceName()}>
+              <Row icon={CloudUpload} title="Back Up as a New Device" detail={defaultDeviceName()}>
                 <button className={settingsUi.inlineButton} disabled={running} onClick={chooseNewDevice}>
                   Back Up
                 </button>
               </Row>
             ) : (
-              <label className={settingsUi.controlRow}>
-                <span>Name</span>
+              <FieldRow icon={Laptop} title="Name">
                 <input
                   className={settingsUi.input}
                   value={name}
@@ -275,50 +281,37 @@ function DriveSection() {
                   onBlur={() => (name.trim() ? rename(name) : setName(s.identity.deviceName))}
                   onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 />
-              </label>
+              </FieldRow>
             )}
-          </section>
-          <p className={settingsUi.footer}>
-            {choosing
-              ? 'Your other devices’ listening adds to this one’s in Replay. Or restore as one of them, below.'
-              : s.forkedTo
-                ? `Another device restored as this one, so this browser carried on as ${s.forkedTo}.`
-                : 'How your other devices list this browser.'}
-          </p>
+          </Group>
         </>
       )}
 
-      <h2 className={settingsUi.sectionHeader}>Auto Sync</h2>
-      <section className={settingsUi.group}>
-        <label className={settingsUi.controlRow}>
-          <span>Back Up</span>
-          <Select label="Back Up" value={s.frequency} options={FREQUENCIES} onChange={setFrequency} />
-        </label>
-      </section>
-      <p className={settingsUi.footer}>
-        While BitChord is open: when it opens, then on this schedule. Other devices’ listening comes down at least twice a day. A
-        browser can’t sync in the background.
-      </p>
+      <Group
+        header="Auto Sync"
+        footer="While BitChord is open: when it opens, then on this schedule. Other devices’ listening comes down at least twice a day. A browser can’t sync in the background."
+      >
+        <ChoiceRow icon={CalendarClock} title="Back Up" options={FREQUENCIES} value={s.frequency} onChange={setFrequency} />
+      </Group>
 
       {connected && !s.needsSignIn && (
         <>
-          <h2 className={settingsUi.sectionHeader}>Devices</h2>
-          <section className={settingsUi.group}>
+          <Group header="Devices" footer="Every device’s listening adds up in Replay. Each one writes only its own.">
             {s.devices.state === 'failed' ? (
-              <Row title={`Couldn’t list devices: ${s.devices.message}`}>
+              <Row icon={RefreshCw} title={`Couldn’t list devices: ${s.devices.message}`}>
                 <button className={settingsUi.inlineButton} onClick={() => void refreshDevices()}>
                   Try Again
                 </button>
               </Row>
             ) : s.devices.state !== 'loaded' ? (
-              <Row title="Checking…" />
+              <Row icon={MonitorSmartphone} title="Checking…" />
             ) : devices.length === 0 ? (
-              <Row title="No devices backed up yet" />
+              <Row icon={MonitorSmartphone} title="No devices backed up yet" />
             ) : (
               devices.map((device) => {
                 const mine = device.deviceId === s.identity.deviceId;
                 return (
-                  <Row key={device.deviceId} title={device.name} detail={describe(device)}>
+                  <Row key={device.deviceId} icon={MonitorSmartphone} title={device.name} detail={describe(device)}>
                     {mine && 'This browser'}
                     <button
                       className={settingsUi.inlineButton}
@@ -337,16 +330,17 @@ function DriveSection() {
                 );
               })
             )}
-          </section>
-          <p className={settingsUi.footer}>Every device’s listening adds up in Replay. Each one writes only its own.</p>
+          </Group>
 
-          <h2 className={settingsUi.sectionHeader}>Restore</h2>
-          <section className={settingsUi.group}>
+          <Group
+            header="Restore"
+            footer="Restoring makes this browser that device, as when you move to a new phone. Use it to pick up where a device left off."
+          >
             {others.length === 0 ? (
-              <Row title="No other devices to restore from" />
+              <Row icon={MonitorSmartphone} title="No other devices to restore from" />
             ) : (
               others.map((device) => (
-                <Row key={device.deviceId} title={device.name} detail={describe(device)}>
+                <Row key={device.deviceId} icon={MonitorSmartphone} title={device.name} detail={describe(device)}>
                   <button
                     className={settingsUi.inlineButton}
                     disabled={running}
@@ -361,10 +355,7 @@ function DriveSection() {
                 </Row>
               ))
             )}
-          </section>
-          <p className={settingsUi.footer}>
-            Restoring makes this browser that device, as when you move to a new phone. Use it to pick up where a device left off.
-          </p>
+          </Group>
         </>
       )}
     </>

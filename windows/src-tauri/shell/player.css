@@ -4,11 +4,15 @@
  */
 
 /*
- * The sidebar's "BitChord Extension" entry: the extension is built into this
- * app, so there is nothing to install or update there. Upstream's /extension
- * route is the hook; other links to it (Settings) stay.
+ * The "BitChord Extension" entries, in the sidebar and as the last row of
+ * Settings' integrations group: the extension is built into this app, so there
+ * is nothing to install or update there. Upstream's /extension route is the hook.
+ * The row is its group's last, and each row draws the divider above itself, so
+ * no stray line is left. The "Get the Extension" prompts stay: they only show if
+ * the extension is missing, which here would mean something is genuinely wrong.
  */
-nav a[href="/extension"] {
+nav a[href="/extension"],
+section > a[href="/extension"] {
   display: none;
 }
 

@@ -86,11 +86,20 @@ fn design_tokens_the_shell_draws_with_exist() {
 }
 
 #[test]
-fn sidebar_extension_entry_is_where_player_css_hides_it() {
-    // shell/player.css: `nav a[href="/extension"]`.
+fn extension_entries_are_where_player_css_hides_them() {
+    // shell/player.css: `nav a[href="/extension"]` and `section > a[href="/extension"]`.
     assert!(upstream("web/app/src/pageRegistry.tsx").contains("path: '/extension'"), "the /extension route moved");
     let sidebar = upstream("web/app/src/shell/Sidebar.tsx");
     assert!(sidebar.contains("<nav") && sidebar.contains("to=\"/extension\""), "the sidebar's extension entry moved");
+    // Settings: a LinkRow (a link at its root) straight inside the integrations <section>.
+    let settings = upstream("web/app/src/pages/SettingsPage.tsx");
+    let row = settings.find("to=\"/extension\"").expect("Settings' extension row moved");
+    let section = settings[..row].rfind("<section").expect("Settings' extension row is no longer in a <section>");
+    assert!(
+        !settings[section..row].contains("</section>") && settings[..row].rfind("<LinkRow") > Some(section),
+        "Settings' extension row is no longer a LinkRow directly in its <section>; update shell/player.css"
+    );
+    assert!(settings.contains("<PrefetchLink to={to}"), "LinkRow no longer renders a link at its root; update shell/player.css");
 }
 
 #[test]

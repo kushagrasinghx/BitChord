@@ -90,7 +90,7 @@ The window takes the web player's glass (the player pill, the sidebar):
 - **Scrollbars:** a floating capsule with the pill's glass fill and 0.5px inner stroke on a
   transparent track (`shell/player.css`), added to the page at load as a constructed
   stylesheet, so upstream's page is untouched. Its colours are upstream's tokens.
-- **Sidebar:** no "BitChord Extension" entry, since the extension is built in (same stylesheet).
+- **Sidebar and Settings:** no "BitChord Extension" entry, since the extension is built in (same stylesheet).
 
 ## Keeping it current
 
@@ -112,7 +112,7 @@ of failing the build, are checked against upstream's files by
 
 - Google's and Spotify's sign-in URLs still open in the sheet and hand back where it closes;
 - every design token the shell draws with is still defined;
-- the `/extension` route and sidebar entry `shell/player.css` hides are where it looks;
+- the `/extension` route, sidebar entry and Settings row `shell/player.css` hides are where it looks;
 - the player still reports through the Media Session (the media keys);
 - the update check reads the same releases as the phone's `AppUpdateChecker.kt`.
 

@@ -82,8 +82,9 @@ The window takes the web player's glass (the player pill, the sidebar):
   blur, which is what the player's `glass-pill` and `glass-material` draw in CSS. The bar stays
   native (snap layouts, resize, caption buttons) and follows the system's light/dark setting.
 - **Scrollbars:** a floating capsule with the pill's glass fill and 0.5px inner stroke on a
-  transparent track (`shell/scrollbars.css`), added to the page at load as a constructed
+  transparent track (`shell/player.css`), added to the page at load as a constructed
   stylesheet, so upstream's page is untouched. Its colours are upstream's tokens.
+- **Sidebar:** no "BitChord Extension" entry, since the extension is built in (same stylesheet).
 
 ## Keeping it current
 

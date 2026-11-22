@@ -1,9 +1,23 @@
 /*
- * The player's scrollbars in its glass (src/main.rs adds this sheet to the web
- * player at load). A floating capsule with the player pill's recipe (`glass-pill`
- * in web/app/src/styles/global.css): the glass fill and its 0.5px inner stroke,
- * on a transparent track with no arrow buttons. Every colour is one of upstream's
- * tokens, so it follows the player's light/dark appearance and any redesign.
+ * The shell's adjustments to the web player, which src/main.rs adds to the page
+ * at load as a constructed stylesheet, so upstream's page is untouched.
+ */
+
+/*
+ * The sidebar's "BitChord Extension" entry: the extension is built into this
+ * app, so there is nothing to install or update there. Upstream's /extension
+ * route is the hook; other links to it (Settings) stay.
+ */
+nav a[href="/extension"] {
+  display: none;
+}
+
+/*
+ * Scrollbars in the player's glass. A floating capsule with the player pill's
+ * recipe (`glass-pill` in web/app/src/styles/global.css): the glass fill and its
+ * 0.5px inner stroke, on a transparent track with no arrow buttons. Every colour
+ * is one of upstream's tokens, so it follows the player's light/dark appearance
+ * and any redesign.
  *
  * Elements upstream gives `scrollbar-width` (the sidebar, Up Next) keep their
  * standard scrollbars: Chromium ignores these rules on them.

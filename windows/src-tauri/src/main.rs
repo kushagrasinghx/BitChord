@@ -59,10 +59,10 @@ fn main() {
                 .extensions_path(extensions)
                 // Google's and Spotify's sign-in become a sheet over the player; other links open in the browser.
                 .on_new_window(move |url, _features| sign_in::on_new_window(&handle, url))
-                // Glass scrollbars (shell/scrollbars.css), as a constructed sheet so upstream's page is untouched.
+                // shell/player.css (glass scrollbars, no extension entry), as a constructed sheet so upstream's page is untouched.
                 .initialization_script(format!(
                     "{{ const s = new CSSStyleSheet(); s.replaceSync({:?}); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; }}",
-                    include_str!("../shell/scrollbars.css")
+                    include_str!("../shell/player.css")
                 ))
                 .initialization_script(include_str!("../shell/media-session.js"))
                 .build()?;

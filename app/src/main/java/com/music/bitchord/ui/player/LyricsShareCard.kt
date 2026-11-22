@@ -364,16 +364,16 @@ internal class LyricsCardPainter internal constructor(
             val sPrev = sungStarts[i - 1]
             val sCurr = sungStarts[i]
             val seg = (sCurr - sPrev).coerceAtLeast(1L)
-            val handover = minOf(LINE_CROSSFADE_MS, seg * 0.5f).coerceAtLeast(1f)
-            val half = handover / 2f
-            val hStart = sCurr - half
-            val hEnd = sCurr + half
+            // Handover leads into sCurr so line i is illuminated and focused ahead of vocal start
+            val handover = minOf(LINE_CROSSFADE_MS * 1.5f, seg * 0.5f).coerceAtLeast(1f)
+            val hStart = sCurr - handover * 0.75f
+            val hEnd = sCurr + handover * 0.25f
 
             if (positionMs < hStart) {
                 return (i - 1).toFloat()
             }
             if (positionMs <= hEnd) {
-                val p = ((positionMs - hStart) / handover).coerceIn(0f, 1f)
+                val p = ((positionMs - hStart) / (hEnd - hStart)).coerceIn(0f, 1f)
                 return (i - 1).toFloat() + smootherstep(p)
             }
         }
@@ -416,14 +416,8 @@ internal class LyricsCardPainter internal constructor(
                         UNSUNG_ALPHA
                     }
                 }
-                positionMs < lineEnd -> {
-                    val sinceStart = positionMs - start
-                    if (sinceStart < LINE_CROSSFADE_MS) {
-                        val p = (sinceStart.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
-                        UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(p)
-                    } else {
-                        1f
-                    }
+                positionMs <= lineEnd -> {
+                    1f
                 }
                 else -> {
                     val fadeOut = ((positionMs - lineEnd).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
@@ -457,11 +451,21 @@ internal class LyricsCardPainter internal constructor(
         val overlayFactor = if (sung) 1f - smootherstep(fadeOut) else 1f
         val lifts = !row.isSub
 
+        // In the lead-in to this line, smoothly raise its base brightness from UNSUNG_ALPHA
+        // so that the upcoming line illuminates ahead of the vocal, making line changes unmistakable.
+        val leadInProgress = if (positionMs < start) {
+            val before = start - positionMs
+            if (before <= LINE_CROSSFADE_MS) 1f - (before.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f) else 0f
+        } else {
+            1f
+        }
+        val baseAlphaFactor = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * 0.45f * smootherstep(leadInProgress)
+
         // If the row hasn't started revealing yet, or if it has finished singing and
         // the lit overlay has completely faded out: draw base dim pass directly and return.
         if (revealed <= 0f || (sung && overlayFactor <= 0.001f)) {
             scratch.set(row.paint)
-            scratch.alpha = (alpha * UNSUNG_ALPHA).roundToInt()
+            scratch.alpha = (alpha * baseAlphaFactor).roundToInt()
             drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
             return
         }
@@ -476,7 +480,7 @@ internal class LyricsCardPainter internal constructor(
 
         // 1. Draw the complete row at the base dim alpha (unclipped, unbroken native font anti-aliasing).
         scratch.set(row.paint)
-        scratch.alpha = (alpha * UNSUNG_ALPHA).roundToInt()
+        scratch.alpha = (alpha * baseAlphaFactor).roundToInt()
         drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
 
         // 2. Overlay the lit pass up to (edge + feather) on top.
@@ -983,10 +987,10 @@ private const val SUB_FLOOR = 24f
 private const val UNSUNG_ALPHA = 0.45f
 
 /** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA_PHONE. */
-private val LINE_FALLOFF = floatArrayOf(1f, 0.74f, 0.58f, 0.46f, 0.36f)
+private val LINE_FALLOFF = floatArrayOf(1f, 0.70f, 0.52f, 0.40f, 0.32f)
 
 /** How long a line change takes to hand over: crossfade window in milliseconds. */
-private const val LINE_CROSSFADE_MS = 400f
+private const val LINE_CROSSFADE_MS = 450f
 
 /** Quintic polynomial with zero 1st and 2nd derivatives at endpoints for zero jerk. */
 private fun smootherstep(t: Float): Float {

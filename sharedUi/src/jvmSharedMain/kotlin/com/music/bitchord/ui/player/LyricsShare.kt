@@ -263,20 +263,28 @@ internal fun rememberLyricsPicker(
         val synced = source.any { it.timeMs > 0L }
         val picked = buildList<LyricsShareLine> {
             chosen.forEachIndexed { position, index ->
-                // A jump over unchosen lines is marked on the card, so the
-                // picture says the verse was cut here rather than letting two
-                // distant halves read as if they ran on from each other.
-                if (position > 0 && index > chosen[position - 1] + 1) {
-                    val prevIndex = chosen[position - 1]
-                    val prevWindow = if (synced) singWindow(source, prevIndex, index) else null
-                    val gapStart: Long? = prevWindow?.second
-                    val currStart: Long? = source.getOrNull(index)?.timeMs?.coerceAtLeast(0L)
+                val prevIndex = if (position > 0) chosen[position - 1] else -1
+                val isSkipped = position > 0 && index > prevIndex + 1
+                val prevWindow = if (position > 0 && synced) singWindow(source, prevIndex, index) else null
+                val gapStart: Long? = prevWindow?.second
+                val currStart: Long? = source.getOrNull(index)?.timeMs?.coerceAtLeast(0L)
+                val hasInterlude = synced && gapStart != null && currStart != null && (currStart - gapStart) >= 3_500L
+
+                // A jump over unchosen lines or an instrumental interlude between verses is marked on the card
+                // with three counting dots and plays the instrumental audio continuously without jarring cuts.
+                if (isSkipped || hasInterlude) {
                     val gStart: Long?
                     val gEnd: Long?
                     if (synced && gapStart != null && currStart != null && currStart > gapStart) {
                         val dur = currStart - gapStart
-                        gStart = gapStart
-                        gEnd = gapStart + minOf(dur, MAX_GAP_SHARE_MS)
+                        if (dur <= MAX_GAP_SHARE_MS) {
+                            gStart = gapStart
+                            gEnd = currStart
+                        } else {
+                            // Capped long skip: play the lead-in to the next line so it transitions naturally
+                            gStart = currStart - MAX_GAP_SHARE_MS
+                            gEnd = currStart
+                        }
                     } else {
                         gStart = null
                         gEnd = null
@@ -445,10 +453,13 @@ internal fun singWindow(lines: List<LyricLine>, index: Int, nextPicked: Int?): P
     val line = lines.getOrNull(index) ?: return null
     val start = line.timeMs.coerceAtLeast(0L)
     val nextStamp = lines.getOrNull(index + 1)?.timeMs?.takeIf { it > start }
-    val end = if (nextPicked == index + 1 && nextStamp != null) {
+    val sungUntil = line.sungUntilMs?.takeIf { it > start }
+    val hasInterlude = sungUntil != null && nextStamp != null && (nextStamp - sungUntil) >= 3_500L
+
+    val end = if (nextPicked == index + 1 && nextStamp != null && !hasInterlude) {
         nextStamp
     } else {
-        val tail = line.sungUntilMs?.takeIf { it > start }?.plus(SHARE_TAIL_MS)
+        val tail = sungUntil?.plus(SHARE_TAIL_MS)
             ?: nextStamp
             ?: (start + SHARE_LINE_FALLBACK_MS)
         minOf(tail, nextStamp ?: Long.MAX_VALUE, start + SHARE_LINE_MAX_MS)
@@ -466,4 +477,4 @@ private const val SHARE_LINE_FALLBACK_MS = 5_000L
 private const val SHARE_LINE_MAX_MS = 9_000L
 
 /** Longest an instrumental gap between picked lines is held in the share clip. */
-private const val MAX_GAP_SHARE_MS = 10_000L
+private const val MAX_GAP_SHARE_MS = 20_000L

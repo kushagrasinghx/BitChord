@@ -187,6 +187,9 @@ async function innertube() {
     });
     const lyricsBrowseId = next && findValue(next.json(), 'browseId', (v) => v.startsWith('MPLYt'));
     if (lyricsBrowseId) await post('lyrics/youtube-music-lyrics-tab.json', 'browse', { browseId: lyricsBrowseId });
+    // The track's "View song credits" page (SongCredits.kt reads it).
+    const creditsBrowseId = next && findValue(next.json(), 'browseId', (v) => v.startsWith('MPTC'));
+    if (creditsBrowseId) await post('innertube/browse-credits.json', 'browse', { browseId: creditsBrowseId });
 
     // Anonymous WEB_REMIX player without a PO token: records what the server
     // answers before BotGuard is wired up (phase 3 needs this baseline).

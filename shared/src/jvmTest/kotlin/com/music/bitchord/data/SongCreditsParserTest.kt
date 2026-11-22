@@ -93,6 +93,17 @@ class SongCreditsParserTest {
         assertEquals("MPTC_x", (endpoint?.get("browseId") as? kotlinx.serialization.json.JsonPrimitive)?.content)
     }
 
+    /** A real credits page (web/fixtures, captured); the web player's test reads the same file. */
+    @Test
+    fun parsesACapturedCreditsPage() {
+        val page = Json.parseToJsonElement(java.io.File("../web/fixtures/innertube/browse-credits.json").readText())
+
+        val credits = SongInfoRepository.parseCreditsPage(page)
+
+        assertEquals(listOf("Performed by", "Written by", "Produced by", "Music metadata provided by"), credits.map { it.role })
+        assertEquals(listOf("Thom Yorke", "Colin Greenwood", "Ed O'Brien", "Jonny Greenwood", "Phil Selway"), credits[1].names)
+    }
+
     @Test
     fun parsesCreditsFromDismissableDialogSections() {
         val page = Json.parseToJsonElement(

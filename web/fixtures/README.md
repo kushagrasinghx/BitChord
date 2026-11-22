@@ -20,6 +20,7 @@ All captures are anonymous: no cookies, no account. The probe track is Radiohead
 | `search-all.json`, `search-songs.json`, `search-albums.json` | `search`, with no filter / with the `SearchFilter` params from `shared/.../model/Models.kt` |
 | `browse-artist.json`, `browse-album.json`, `browse-playlist.json` | `browse` with the first `UC…` / `MPREb_…` / `VL…` id found in the searches |
 | `next-radio.json` | `next` with `playlistId: RDAMVM<videoId>`, `isAudioOnly` |
+| `browse-credits.json` | `browse` with the `MPTC…` song-credits id that `next-radio.json` links to |
 | `player-web-remix-no-potoken.json` | `player` with **no PO token**: `UNPLAYABLE`, "The page needs to be reloaded." The baseline that phase 3 has to beat |
 
 ### How the browser must call youtubei

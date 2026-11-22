@@ -24,12 +24,8 @@ object LastPlayed {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    internal fun window(size: Int, index: Int): IntRange {
-        if (size <= 0) return IntRange.EMPTY
-        val safeIndex = index.coerceIn(0, size - 1)
-        val start = (safeIndex - MAX_QUEUE_HISTORY).coerceAtLeast(0)
-        return start until (safeIndex + 1 + KEEP_AHEAD).coerceAtMost(size)
-    }
+    /** In shared/commonMain (QueueHistoryWindow.kt), so the web player keeps the same snapshot. */
+    internal fun window(size: Int, index: Int): IntRange = lastPlayedWindow(size, index)
 
     /** Persist at most 25 previous entries, the current one, and 50 upcoming entries. */
     fun saveQueue(songs: List<Song>, index: Int) {
@@ -201,7 +197,6 @@ object LastPlayed {
         }
     }
 
-    private const val KEEP_AHEAD = 50
     private const val PREFS_NAME = "bitchord_last_played"
     private const val KEY_QUEUE = "queue"
     private const val KEY_INDEX = "index"

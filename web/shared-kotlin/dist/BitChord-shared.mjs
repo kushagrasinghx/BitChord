@@ -57,6 +57,11 @@ import {
   HashSet_init_$Create$2w31ptb4ree5i as HashSet_init_$Create$,
   getOrNull1go7ef9ldk0df as getOrNull,
   asReversed2y2qzr7vrqd5 as asReversed,
+  Companion_getInstancecdnyz9xt7b9r as Companion_getInstance,
+  coerceIn10f36k81le1mm as coerceIn_0,
+  coerceAtMost322komnqp70ag as coerceAtMost,
+  listOf1jh22dvmctj1r as listOf_0,
+  initMetadataForObject1cxne3s9w65el as initMetadataForObject,
   fromInt1lka3ktyu79a4 as fromInt,
   StringBuilder_init_$Create$3ds9zx2kx9u4d as StringBuilder_init_$Create$,
   isLetterOrDigit2kuxd9e198haf as isLetterOrDigit,
@@ -71,7 +76,6 @@ import {
   sortedWith2csnbbb21k0lg as sortedWith,
   sorted354mfsiv4s7x5 as sorted,
   roundToInt1ue8x8yshtznx as roundToInt,
-  coerceAtMost322komnqp70ag as coerceAtMost,
   numberRangeToNumber25vse2rgp6rs8 as numberRangeToNumber,
   NoSuchElementException_init_$Create$3vc5gjbsu98p9 as NoSuchElementException_init_$Create$,
   isBlank1dvkhjjvox3p0 as isBlank,
@@ -80,14 +84,13 @@ import {
   get_indices3txodfl5wuu5j as get_indices,
   abs22kdeprm0tm5i as abs,
   coerceAtMostmgknbongtqt as coerceAtMost_0,
-  initMetadataForObject1cxne3s9w65el as initMetadataForObject,
   Companion_instance1xjg859pd52fi as Companion_instance,
   _Result___init__impl__xyqfz823vatsdepqb9n as _Result___init__impl__xyqfz8,
   createFailure8paxfkfa5dc7 as createFailure,
   _Result___get_value__impl__bjfvqg316j9v81zgqwq as _Result___get_value__impl__bjfvqg,
   _Result___get_isFailure__impl__jpiriv2lptaeb4c2198 as _Result___get_isFailure__impl__jpiriv,
-  toList383f556t1dixk as toList,
   copyToArray2j022khrow2yi as copyToArray,
+  toList383f556t1dixk as toList,
 } from './kotlin-kotlin-stdlib.mjs';
 import {
   JsonObjectee06ihoeeiqj as JsonObject,
@@ -105,6 +108,7 @@ initMetadataForClass(LyricLine, 'LyricLine');
 initMetadataForClass(GrowingWord, 'GrowingWord');
 initMetadataForClass(SearchFilter, 'SearchFilter', VOID, Enum);
 initMetadataForClass(PlaylistMove, 'PlaylistMove');
+initMetadataForObject(SleepTimerSteps, 'SleepTimerSteps');
 initMetadataForClass(Heatmap, 'Heatmap');
 initMetadataForClass(Source, 'Source', VOID, Enum);
 initMetadataForClass(BestPartStart, 'BestPartStart');
@@ -113,6 +117,7 @@ initMetadataForClass(BestPart$chorusMs$$inlined$groupingBy$1);
 initMetadataForObject(BestPart, 'BestPart');
 initMetadataForClass(BestPartLine, 'BestPartLine');
 initMetadataForClass(BestPartPick, 'BestPartPick');
+initMetadataForClass(SleepTimerOptions, 'SleepTimerOptions');
 initMetadataForClass(PlaylistMove_0, 'PlaylistMove');
 initMetadataForClass(SearchFilterOption, 'SearchFilterOption');
 //endregion
@@ -775,22 +780,52 @@ function longestIncreasingRun(values) {
   }
   return asReversed(run);
 }
-function Heatmap(segmentMs, intensity) {
-  this.o12_1 = segmentMs;
-  this.p12_1 = intensity;
+function queueHistoryTrimCount(currentIndex) {
+  return coerceAtLeast_0(currentIndex - 25 | 0, 0);
 }
-protoOf(Heatmap).q12 = function () {
-  var tmp0 = this.o12_1;
+function lastPlayedWindow(size, index) {
+  if (size <= 0)
+    return Companion_getInstance().n_1;
+  var safeIndex = coerceIn_0(index, 0, size - 1 | 0);
+  var start = coerceAtLeast_0(safeIndex - 25 | 0, 0);
+  return until(start, coerceAtMost((safeIndex + 1 | 0) + 50 | 0, size));
+}
+function SleepTimerSteps() {
+  SleepTimerSteps_instance = this;
+  this.o12_1 = listOf_0([15, 30, 45, 60]);
+  this.p12_1 = 5;
+  this.q12_1 = 720;
+  this.r12_1 = new Long(30000, 0);
+}
+protoOf(SleepTimerSteps).s12 = function (remainingMs, fadeDurationMs, fadeOutEnabled) {
+  if (!fadeOutEnabled || compare(remainingMs, fadeDurationMs) >= 0)
+    return 1.0;
+  if (compare(remainingMs, new Long(0, 0)) <= 0 || compare(fadeDurationMs, new Long(0, 0)) <= 0)
+    return 0.0;
+  return coerceIn(toNumber(remainingMs) / toNumber(fadeDurationMs), 0.0, 1.0);
+};
+var SleepTimerSteps_instance;
+function SleepTimerSteps_getInstance() {
+  if (SleepTimerSteps_instance == null)
+    new SleepTimerSteps();
+  return SleepTimerSteps_instance;
+}
+function Heatmap(segmentMs, intensity) {
+  this.t12_1 = segmentMs;
+  this.u12_1 = intensity;
+}
+protoOf(Heatmap).v12 = function () {
+  var tmp0 = this.t12_1;
   // Inline function 'kotlin.Long.times' call
-  var other = this.p12_1.j();
+  var other = this.u12_1.j();
   return multiply(tmp0, fromInt(other));
 };
 protoOf(Heatmap).toString = function () {
-  return 'Heatmap(segmentMs=' + this.o12_1.toString() + ', intensity=' + toString(this.p12_1) + ')';
+  return 'Heatmap(segmentMs=' + this.t12_1.toString() + ', intensity=' + toString(this.u12_1) + ')';
 };
 protoOf(Heatmap).hashCode = function () {
-  var result = this.o12_1.hashCode();
-  result = imul(result, 31) + hashCode(this.p12_1) | 0;
+  var result = this.t12_1.hashCode();
+  result = imul(result, 31) + hashCode(this.u12_1) | 0;
   return result;
 };
 protoOf(Heatmap).equals = function (other) {
@@ -798,9 +833,9 @@ protoOf(Heatmap).equals = function (other) {
     return true;
   if (!(other instanceof Heatmap))
     return false;
-  if (!equalsLong(this.o12_1, other.o12_1))
+  if (!equalsLong(this.t12_1, other.t12_1))
     return false;
-  if (!equals(this.p12_1, other.p12_1))
+  if (!equals(this.u12_1, other.u12_1))
     return false;
   return true;
 };
@@ -832,15 +867,15 @@ function Source_FALLBACK_getInstance() {
   return Source_FALLBACK_instance;
 }
 function BestPartStart(startMs, source) {
-  this.r12_1 = startMs;
-  this.s12_1 = source;
+  this.w12_1 = startMs;
+  this.x12_1 = source;
 }
 protoOf(BestPartStart).toString = function () {
-  return 'BestPartStart(startMs=' + this.r12_1.toString() + ', source=' + this.s12_1.toString() + ')';
+  return 'BestPartStart(startMs=' + this.w12_1.toString() + ', source=' + this.x12_1.toString() + ')';
 };
 protoOf(BestPartStart).hashCode = function () {
-  var result = this.r12_1.hashCode();
-  result = imul(result, 31) + this.s12_1.hashCode() | 0;
+  var result = this.w12_1.hashCode();
+  result = imul(result, 31) + this.x12_1.hashCode() | 0;
   return result;
 };
 protoOf(BestPartStart).equals = function (other) {
@@ -848,9 +883,9 @@ protoOf(BestPartStart).equals = function (other) {
     return true;
   if (!(other instanceof BestPartStart))
     return false;
-  if (!equalsLong(this.r12_1, other.r12_1))
+  if (!equalsLong(this.w12_1, other.w12_1))
     return false;
-  if (!this.s12_1.equals(other.s12_1))
+  if (!this.x12_1.equals(other.x12_1))
     return false;
   return true;
 };
@@ -893,16 +928,16 @@ function str($this, $receiver, key) {
   return tmp0_safe_receiver == null ? null : get_contentOrNull(tmp0_safe_receiver);
 }
 function sam$kotlin_Comparator$0(function_0) {
-  this.t12_1 = function_0;
+  this.y12_1 = function_0;
 }
 protoOf(sam$kotlin_Comparator$0).za = function (a, b) {
-  return this.t12_1(a, b);
+  return this.y12_1(a, b);
 };
 protoOf(sam$kotlin_Comparator$0).compare = function (a, b) {
   return this.za(a, b);
 };
 protoOf(sam$kotlin_Comparator$0).e2 = function () {
-  return this.t12_1;
+  return this.y12_1;
 };
 protoOf(sam$kotlin_Comparator$0).equals = function (other) {
   var tmp;
@@ -932,16 +967,16 @@ function peakMs$rise(smooth, trend, i) {
   return smooth[i] / coerceAtLeast_1(trend[i], 0.05) - 1.0;
 }
 function BestPart$chorusMs$$inlined$groupingBy$1($this) {
-  this.u12_1 = $this;
+  this.z12_1 = $this;
 }
 protoOf(BestPart$chorusMs$$inlined$groupingBy$1).s2 = function () {
-  return this.u12_1.g();
+  return this.z12_1.g();
 };
-protoOf(BestPart$chorusMs$$inlined$groupingBy$1).v12 = function (element) {
+protoOf(BestPart$chorusMs$$inlined$groupingBy$1).a13 = function (element) {
   return element;
 };
 protoOf(BestPart$chorusMs$$inlined$groupingBy$1).t2 = function (element) {
-  return this.v12(element);
+  return this.a13(element);
 };
 function findAll$walk($key, $this_buildList, e) {
   if (e instanceof JsonObject) {
@@ -973,20 +1008,20 @@ function findAll$walk($key, $this_buildList, e) {
 }
 function BestPart() {
   BestPart_instance = this;
-  this.w12_1 = new Long(5000, 0);
-  this.x12_1 = new Long(30000, 0);
-  this.y12_1 = new Long(60000, 0);
-  this.z12_1 = 10;
-  this.a13_1 = 0.08;
-  this.b13_1 = 0.03;
-  this.c13_1 = 4500.0;
-  this.d13_1 = 45000.0;
-  this.e13_1 = 0.05;
-  this.f13_1 = 0.3;
-  this.g13_1 = new Long(20000, 0);
-  this.h13_1 = new Long(45000, 0);
+  this.b13_1 = new Long(5000, 0);
+  this.c13_1 = new Long(30000, 0);
+  this.d13_1 = new Long(60000, 0);
+  this.e13_1 = 10;
+  this.f13_1 = 0.08;
+  this.g13_1 = 0.03;
+  this.h13_1 = 4500.0;
+  this.i13_1 = 45000.0;
+  this.j13_1 = 0.05;
+  this.k13_1 = 0.3;
+  this.l13_1 = new Long(20000, 0);
+  this.m13_1 = new Long(45000, 0);
 }
-protoOf(BestPart).i13 = function (answer) {
+protoOf(BestPart).n13 = function (answer) {
   // Inline function 'kotlin.collections.filterIsInstance' call
   var tmp0 = findAll(this, answer, 'macroMarkersListEntity');
   // Inline function 'kotlin.collections.filterIsInstanceTo' call
@@ -1140,7 +1175,7 @@ protoOf(BestPart).i13 = function (answer) {
   }
   return new Heatmap(segment, destination_2);
 };
-protoOf(BestPart).j13 = function (heat, durationMs) {
+protoOf(BestPart).o13 = function (heat, durationMs) {
   // Inline function 'kotlin.takeIf' call
   var tmp;
   if (compare(durationMs, new Long(0, 0)) > 0) {
@@ -1149,11 +1184,11 @@ protoOf(BestPart).j13 = function (heat, durationMs) {
     tmp = null;
   }
   var tmp0_elvis_lhs = tmp;
-  var duration = tmp0_elvis_lhs == null ? heat.q12() : tmp0_elvis_lhs;
-  var n = heat.p12_1.j();
+  var duration = tmp0_elvis_lhs == null ? heat.v12() : tmp0_elvis_lhs;
+  var n = heat.u12_1.j();
   if (compare(duration, new Long(60000, 0)) < 0 || n < 10)
     return null;
-  var seg = heat.o12_1;
+  var seg = heat.t12_1;
   var half = coerceAtLeast_0(roundToInt(4500.0 / toNumber(seg)), 1);
   var tmp_0 = 0;
   var tmp_1 = new Float32Array(n);
@@ -1167,7 +1202,7 @@ protoOf(BestPart).j13 = function (heat, durationMs) {
       do {
         var j = inductionVariable;
         inductionVariable = inductionVariable + 1 | 0;
-        sum = sum + heat.p12_1.k(j);
+        sum = sum + heat.u12_1.k(j);
         count = count + 1 | 0;
       }
        while (!(j === last));
@@ -1262,7 +1297,7 @@ protoOf(BestPart).j13 = function (heat, durationMs) {
     $l$loop: do {
       var i_0 = inductionVariable_2;
       inductionVariable_2 = inductionVariable_2 + 1 | 0;
-      if (heat.p12_1.k(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
+      if (heat.u12_1.k(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
         jump = i_0;
         break $l$loop;
       }
@@ -1270,7 +1305,7 @@ protoOf(BestPart).j13 = function (heat, durationMs) {
      while (!(i_0 === peak));
   return multiply(numberToLong(jump), seg);
 };
-protoOf(BestPart).k13 = function (lines, durationMs) {
+protoOf(BestPart).p13 = function (lines, durationMs) {
   if (compare(new Long(1, 0), durationMs) <= 0 ? compare(durationMs, new Long(60000, 0)) < 0 : false)
     return null;
   // Inline function 'kotlin.collections.filter' call
@@ -1367,7 +1402,7 @@ protoOf(BestPart).k13 = function (lines, durationMs) {
   }
   return timed.k(start).a11_1;
 };
-protoOf(BestPart).l13 = function (targetMs, lineStarts) {
+protoOf(BestPart).q13 = function (targetMs, lineStarts) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
@@ -1433,7 +1468,7 @@ protoOf(BestPart).l13 = function (targetMs, lineStarts) {
   var tmp$ret$13 = subtract(targetMs, fromInt(1000));
   return coerceAtLeast(tmp$ret$13, new Long(0, 0));
 };
-protoOf(BestPart).m13 = function (durationMs) {
+protoOf(BestPart).r13 = function (durationMs) {
   var tmp;
   if (compare(durationMs, new Long(0, 0)) <= 0) {
     tmp = new Long(45000, 0);
@@ -1450,7 +1485,7 @@ protoOf(BestPart).m13 = function (durationMs) {
   }
   return tmp;
 };
-protoOf(BestPart).n13 = function (heat, lines, durationMs) {
+protoOf(BestPart).s13 = function (heat, lines, durationMs) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
@@ -1476,23 +1511,23 @@ protoOf(BestPart).n13 = function (heat, lines, durationMs) {
     tmp = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp = BestPart_getInstance().j13(heat, durationMs);
+    tmp = BestPart_getInstance().o13(heat, durationMs);
   }
   var tmp1_safe_receiver = tmp;
   if (tmp1_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().l13(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
+    return new BestPartStart(BestPart_getInstance().q13(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
   }
-  var tmp2_safe_receiver = this.k13(lines, durationMs);
+  var tmp2_safe_receiver = this.p13(lines, durationMs);
   if (tmp2_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().l13(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
+    return new BestPartStart(BestPart_getInstance().q13(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
   }
-  return new BestPartStart(this.m13(durationMs), Source_FALLBACK_getInstance());
+  return new BestPartStart(this.r13(durationMs), Source_FALLBACK_getInstance());
 };
 var BestPart_instance;
 function BestPart_getInstance() {
@@ -1504,17 +1539,17 @@ function BestPartLine(timeMs, text) {
   this.timeMs = timeMs;
   this.text = text;
 }
-protoOf(BestPartLine).o13 = function () {
+protoOf(BestPartLine).t13 = function () {
   return this.timeMs;
 };
-protoOf(BestPartLine).p13 = function () {
+protoOf(BestPartLine).u13 = function () {
   return this.text;
 };
 function BestPartPick(startMs, source) {
   this.startMs = startMs;
   this.source = source;
 }
-protoOf(BestPartPick).q13 = function () {
+protoOf(BestPartPick).v13 = function () {
   return this.startMs;
 };
 protoOf(BestPartPick).e10 = function () {
@@ -1554,7 +1589,7 @@ function bestPart(nextResponse, lines, durationMs) {
     tmp_3 = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp_3 = BestPart_getInstance().i13(tmp1_safe_receiver);
+    tmp_3 = BestPart_getInstance().n13(tmp1_safe_receiver);
   }
   var heat = tmp_3;
   var tmp_4 = BestPart_getInstance();
@@ -1569,8 +1604,55 @@ function bestPart(nextResponse, lines, durationMs) {
     var tmp$ret$11 = new LyricLine(numberToLong(item.timeMs), item.text);
     destination.e(tmp$ret$11);
   }
-  var pick = tmp_4.n13(heat, destination, numberToLong(durationMs));
-  return new BestPartPick(toNumber(pick.r12_1), pick.s12_1.u1_1);
+  var pick = tmp_4.s13(heat, destination, numberToLong(durationMs));
+  return new BestPartPick(toNumber(pick.w12_1), pick.x12_1.u1_1);
+}
+function queueHistoryTrimCount_0(currentIndex) {
+  return queueHistoryTrimCount(currentIndex);
+}
+function lastPlayedWindow_0(size, index) {
+  // Inline function 'kotlin.let' call
+  var it = lastPlayedWindow(size, index);
+  var tmp;
+  if (it.l()) {
+    // Inline function 'kotlin.arrayOf' call
+    // Inline function 'kotlin.js.unsafeCast' call
+    // Inline function 'kotlin.js.asDynamic' call
+    tmp = [0, 0];
+  } else {
+    // Inline function 'kotlin.arrayOf' call
+    // Inline function 'kotlin.js.unsafeCast' call
+    // Inline function 'kotlin.js.asDynamic' call
+    tmp = [it.o_1, it.p_1 + 1 | 0];
+  }
+  return tmp;
+}
+function SleepTimerOptions(presets, stepMinutes, maxMinutes, fadeOutMs) {
+  this.presets = presets;
+  this.stepMinutes = stepMinutes;
+  this.maxMinutes = maxMinutes;
+  this.fadeOutMs = fadeOutMs;
+}
+protoOf(SleepTimerOptions).w13 = function () {
+  return this.presets;
+};
+protoOf(SleepTimerOptions).x13 = function () {
+  return this.stepMinutes;
+};
+protoOf(SleepTimerOptions).y13 = function () {
+  return this.maxMinutes;
+};
+protoOf(SleepTimerOptions).z13 = function () {
+  return this.fadeOutMs;
+};
+function sleepTimerOptions() {
+  // Inline function 'kotlin.collections.toTypedArray' call
+  var this_0 = SleepTimerSteps_getInstance().o12_1;
+  var tmp$ret$0 = copyToArray(this_0);
+  return new SleepTimerOptions(tmp$ret$0, 5, 720, toNumber(new Long(30000, 0)));
+}
+function sleepFadeVolume(remainingMs, fadeDurationMs, fadeOutEnabled) {
+  return SleepTimerSteps_getInstance().s12(numberToLong(remainingMs), numberToLong(fadeDurationMs), fadeOutEnabled);
 }
 function artworkAt_0(url, px) {
   return artworkAt(url, px);
@@ -1579,10 +1661,10 @@ function PlaylistMove_0(setVideoId, before) {
   this.setVideoId = setVideoId;
   this.before = before;
 }
-protoOf(PlaylistMove_0).r13 = function () {
+protoOf(PlaylistMove_0).a14 = function () {
   return this.setVideoId;
 };
-protoOf(PlaylistMove_0).s13 = function () {
+protoOf(PlaylistMove_0).b14 = function () {
   return this.before;
 };
 function playlistMoves_0(current, target) {
@@ -1605,16 +1687,16 @@ function SearchFilterOption(id, label, params, requiresAuth) {
   this.params = params;
   this.requiresAuth = requiresAuth;
 }
-protoOf(SearchFilterOption).t13 = function () {
+protoOf(SearchFilterOption).c14 = function () {
   return this.id;
 };
-protoOf(SearchFilterOption).u13 = function () {
+protoOf(SearchFilterOption).d14 = function () {
   return this.label;
 };
-protoOf(SearchFilterOption).v13 = function () {
+protoOf(SearchFilterOption).e14 = function () {
   return this.params;
 };
-protoOf(SearchFilterOption).w13 = function () {
+protoOf(SearchFilterOption).f14 = function () {
   return this.requiresAuth;
 };
 function searchFilters() {
@@ -1636,6 +1718,11 @@ export {
   BestPartLine as BestPartLine,
   BestPartPick as BestPartPick,
   bestPart as bestPart,
+  queueHistoryTrimCount_0 as queueHistoryTrimCount,
+  lastPlayedWindow_0 as lastPlayedWindow,
+  SleepTimerOptions as SleepTimerOptions,
+  sleepTimerOptions as sleepTimerOptions,
+  sleepFadeVolume as sleepFadeVolume,
   artworkAt_0 as artworkAt,
   PlaylistMove_0 as PlaylistMove,
   playlistMoves_0 as playlistMoves,

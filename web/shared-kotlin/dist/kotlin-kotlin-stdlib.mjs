@@ -108,19 +108,19 @@ initMetadataForClass(ListIteratorImpl, 'ListIteratorImpl', VOID, IteratorImpl);
 initMetadataForClass(AbstractMutableList, 'AbstractMutableList', VOID, AbstractMutableCollection, [Collection, KtList]);
 initMetadataForClass(AbstractMap, 'AbstractMap', VOID, VOID, [KtMap]);
 initMetadataForClass(AbstractMutableMap, 'AbstractMutableMap', VOID, AbstractMap, [KtMutableMap]);
-initMetadataForClass(AbstractMutableSet, 'AbstractMutableSet', VOID, AbstractMutableCollection, [KtSet, Collection]);
+initMetadataForClass(AbstractMutableSet, 'AbstractMutableSet', VOID, AbstractMutableCollection, [Collection, KtSet]);
 initMetadataForCompanion(Companion_2);
 initMetadataForClass(ArrayList, 'ArrayList', ArrayList_init_$Create$, AbstractMutableList, [Collection, KtList]);
 initMetadataForClass(HashMap, 'HashMap', HashMap_init_$Create$, AbstractMutableMap, [KtMutableMap]);
-initMetadataForClass(HashMapKeys, 'HashMapKeys', VOID, AbstractMutableSet, [KtSet, Collection]);
+initMetadataForClass(HashMapKeys, 'HashMapKeys', VOID, AbstractMutableSet, [Collection, KtSet]);
 initMetadataForClass(HashMapValues, 'HashMapValues', VOID, AbstractMutableCollection, [Collection]);
-initMetadataForClass(HashMapEntrySetBase, 'HashMapEntrySetBase', VOID, AbstractMutableSet, [KtSet, Collection]);
+initMetadataForClass(HashMapEntrySetBase, 'HashMapEntrySetBase', VOID, AbstractMutableSet, [Collection, KtSet]);
 initMetadataForClass(HashMapEntrySet, 'HashMapEntrySet', VOID, HashMapEntrySetBase);
 initMetadataForClass(HashMapKeysDefault$iterator$1);
 initMetadataForClass(HashMapKeysDefault, 'HashMapKeysDefault', VOID, AbstractMutableSet);
 initMetadataForClass(HashMapValuesDefault$iterator$1);
 initMetadataForClass(HashMapValuesDefault, 'HashMapValuesDefault', VOID, AbstractMutableCollection);
-initMetadataForClass(HashSet, 'HashSet', HashSet_init_$Create$, AbstractMutableSet, [KtSet, Collection]);
+initMetadataForClass(HashSet, 'HashSet', HashSet_init_$Create$, AbstractMutableSet, [Collection, KtSet]);
 initMetadataForCompanion(Companion_3);
 initMetadataForClass(Itr, 'Itr');
 initMetadataForClass(KeysItr, 'KeysItr', VOID, Itr);
@@ -165,7 +165,7 @@ function containsAllEntries(m) {
 initMetadataForInterface(InternalMap, 'InternalMap');
 initMetadataForClass(InternalHashMap, 'InternalHashMap', InternalHashMap_init_$Create$, VOID, [InternalMap]);
 initMetadataForClass(LinkedHashMap, 'LinkedHashMap', LinkedHashMap_init_$Create$, HashMap, [KtMutableMap]);
-initMetadataForClass(LinkedHashSet, 'LinkedHashSet', LinkedHashSet_init_$Create$, HashSet, [KtSet, Collection]);
+initMetadataForClass(LinkedHashSet, 'LinkedHashSet', LinkedHashSet_init_$Create$, HashSet, [Collection, KtSet]);
 initMetadataForInterface(Continuation, 'Continuation');
 initMetadataForClass(InterceptedCoroutine, 'InterceptedCoroutine', VOID, VOID, [Continuation]);
 initMetadataForClass(CoroutineImpl, 'CoroutineImpl', VOID, InterceptedCoroutine, [Continuation]);
@@ -671,13 +671,22 @@ function coerceIn(_this__u8e3s4, minimumValue, maximumValue) {
     return maximumValue;
   return _this__u8e3s4;
 }
+function coerceIn_0(_this__u8e3s4, minimumValue, maximumValue) {
+  if (minimumValue > maximumValue)
+    throw IllegalArgumentException_init_$Create$_0('Cannot coerce value to an empty range: maximum ' + maximumValue + ' is less than minimum ' + minimumValue + '.');
+  if (_this__u8e3s4 < minimumValue)
+    return minimumValue;
+  if (_this__u8e3s4 > maximumValue)
+    return maximumValue;
+  return _this__u8e3s4;
+}
 function coerceAtLeast_1(_this__u8e3s4, minimumValue) {
   return _this__u8e3s4 < minimumValue ? minimumValue : _this__u8e3s4;
 }
 function coerceAtMost_0(_this__u8e3s4, maximumValue) {
   return compare(_this__u8e3s4, maximumValue) > 0 ? maximumValue : _this__u8e3s4;
 }
-function coerceIn_0(_this__u8e3s4, minimumValue, maximumValue) {
+function coerceIn_1(_this__u8e3s4, minimumValue, maximumValue) {
   if (compare(minimumValue, maximumValue) > 0)
     throw IllegalArgumentException_init_$Create$_0('Cannot coerce value to an empty range: maximum ' + maximumValue.toString() + ' is less than minimum ' + minimumValue.toString() + '.');
   if (compare(_this__u8e3s4, minimumValue) < 0)
@@ -6596,6 +6605,9 @@ function emptyList() {
 function get_indices_1(_this__u8e3s4) {
   return numberRangeToNumber(0, _this__u8e3s4.j() - 1 | 0);
 }
+function listOf_0(elements) {
+  return elements.length > 0 ? asList(elements) : emptyList();
+}
 function get_lastIndex_2(_this__u8e3s4) {
   return _this__u8e3s4.j() - 1 | 0;
 }
@@ -8429,7 +8441,7 @@ function toDuration(_this__u8e3s4, unit) {
     var tmp$ret$0 = add(this_0, fromInt(1));
     tmp = durationOfMillis(multiply(numberToLong(tmp_0), convertDurationUnitToMilliseconds(abs_0(coerceAtLeast_0(_this__u8e3s4, tmp$ret$0)), unit)));
   } else {
-    tmp = durationOfMillis(coerceIn_0(convertDurationUnit(_this__u8e3s4, unit, DurationUnit_MILLISECONDS_getInstance()), new Long(1, -1073741824), new Long(-1, 1073741823)));
+    tmp = durationOfMillis(coerceIn_1(convertDurationUnit(_this__u8e3s4, unit, DurationUnit_MILLISECONDS_getInstance()), new Long(1, -1073741824), new Long(-1, 1073741823)));
   }
   return tmp;
 }
@@ -8525,7 +8537,7 @@ function addMillisWithoutOverflow(_this__u8e3s4, other) {
     if (equalsLong(other, new Long(-1, 1073741823)) || equalsLong(other, new Long(1, -1073741824))) {
       tmp = other;
     } else {
-      tmp = coerceIn_0(add(_this__u8e3s4, other), new Long(1, -1073741824), new Long(-1, 1073741823));
+      tmp = coerceIn_1(add(_this__u8e3s4, other), new Long(1, -1073741824), new Long(-1, 1073741823));
     }
   }
   return tmp;
@@ -8535,7 +8547,7 @@ function durationOfMillisNormalized(millis) {
   if (compare(new Long(1108857478, -1074), millis) <= 0 ? compare(millis, new Long(-1108857478, 1073)) <= 0 : false) {
     tmp = durationOfNanos(millisToNanos(millis));
   } else {
-    tmp = durationOfMillis(coerceIn_0(millis, new Long(1, -1073741824), new Long(-1, 1073741823)));
+    tmp = durationOfMillis(coerceIn_1(millis, new Long(1, -1073741824), new Long(-1, 1073741823)));
   }
   return tmp;
 }
@@ -10507,6 +10519,7 @@ export {
   IntCompanionObject_instance as IntCompanionObject_instance38ap4zil98hon,
   ShortCompanionObject_instance as ShortCompanionObject_instancekdrujyym9g7v,
   StringCompanionObject_instance as StringCompanionObject_instance1v0ht40fz3tq0,
+  Companion_getInstance_8 as Companion_getInstancecdnyz9xt7b9r,
   PrimitiveClasses_getInstance as PrimitiveClasses_getInstanceds06xwqrwfdm,
   Companion_getInstance_10 as Companion_getInstancevdtg3uvqmv7f,
   Companion_getInstance_13 as Companion_getInstance1bxbth0yni76u,
@@ -10611,6 +10624,7 @@ export {
   lastOrNull as lastOrNull1aq5oz189qoe1,
   last as last1vo29oleiqj36,
   listOf as listOfvhqybd2zx248,
+  listOf_0 as listOf1jh22dvmctj1r,
   mapCapacity as mapCapacity1h45rc3eh9p2l,
   mapOf_0 as mapOf1xd03cq9cnmy8,
   maxOrNull as maxOrNull2e5ok5wkly1cp,
@@ -10694,6 +10708,7 @@ export {
   coerceAtMost_0 as coerceAtMostmgknbongtqt,
   coerceAtMost as coerceAtMost322komnqp70ag,
   coerceIn as coerceInlzh524ulyz3c,
+  coerceIn_0 as coerceIn10f36k81le1mm,
   contains_0 as contains2c50nlxg7en7o,
   step as step18s9qzr5xwxat,
   until as until1jbpn0z3f8lbg,

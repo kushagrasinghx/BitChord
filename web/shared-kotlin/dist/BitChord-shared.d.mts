@@ -23,6 +23,23 @@ export declare namespace BestPartPick {
     }
 }
 export declare function bestPart(nextResponse: Nullable<string>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
+export declare function queueHistoryTrimCount(currentIndex: number): number;
+export declare function lastPlayedWindow(size: number, index: number): Array<number>;
+export declare class SleepTimerOptions {
+    constructor(presets: Array<number>, stepMinutes: number, maxMinutes: number, fadeOutMs: number);
+    get presets(): Array<number>;
+    get stepMinutes(): number;
+    get maxMinutes(): number;
+    get fadeOutMs(): number;
+}
+export declare namespace SleepTimerOptions {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => SleepTimerOptions;
+    }
+}
+export declare function sleepTimerOptions(): SleepTimerOptions;
+export declare function sleepFadeVolume(remainingMs: number, fadeDurationMs: number, fadeOutEnabled: boolean): number;
 export declare function artworkAt(url: Nullable<string>, px: number): Nullable<string>;
 export declare class PlaylistMove {
     constructor(setVideoId: string, before: Nullable<string>);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   best,
+  foldLatin,
   hasConflictingAlbums,
   matches,
   queries,
@@ -146,5 +147,24 @@ describe('TrackMatcher', () => {
     expect(matches(song('Film Name', 'Some Artist', '4:07'), 'Song Name (From "Film Name")', 'Singer', 247)).toBe(false);
     // One word of a longer aside is not the whole title.
     expect(matches(song('Night', 'Singer', '4:20'), '夜に駆ける (Racing Into The Night)', 'Singer', 260)).toBe(false);
+  });
+});
+
+describe('Latin accents (TrackMatcherAccentsTest)', () => {
+  it('matches a Turkish title to its unaccented upload, both ways', () => {
+    expect(matches(song('Simarik', 'Tarkan'), 'Şımarık', 'Tarkan')).toBe(true);
+    expect(matches(song('Şımarık', 'Tarkan'), 'Simarik', 'Tarkan')).toBe(true);
+  });
+
+  it('matches an accented artist to its unaccented spelling', () => {
+    expect(matches(song('Nilüfer', 'Muslum Gurses'), 'Nilüfer', 'Müslüm Gürses')).toBe(true);
+  });
+
+  it('still refuses a different title', () => {
+    expect(matches(song('Kuzu Kuzu', 'Tarkan'), 'Şımarık', 'Tarkan')).toBe(false);
+  });
+
+  it('keeps the marks of other scripts', () => {
+    expect(foldLatin('दिल')).not.toBe(foldLatin('दल'));
   });
 });

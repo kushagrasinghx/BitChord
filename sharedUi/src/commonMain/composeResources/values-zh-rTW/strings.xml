@@ -198,4 +198,15 @@
     <string name="search_library_empty">搜尋本地音樂資料夾中的歌曲。</string>
     <string name="search_library_hint">歌曲、藝人和專輯</string>
     <string name="search_library_no_results">本地音樂中沒有與「%1$s」匹配的內容。</string>
+    <string name="add_to_queue">新增到播放佇列</string>
+    <string name="queue_selected_count">已選擇 %1$d 項</string>
+    <string name="queue_select_all">全選</string>
+    <string name="queue_select">選擇</string>
+    <string name="queue_close_selection">關閉選擇模式</string>
+    <string name="queue_add_to_playlist">播放列表</string>
+    <string name="queue_download">下載</string>
+    <string name="queue_selection_remove">移除</string>
+    <string name="queue_add_all_to_playlist">全部新增到播放列表</string>
+    <string name="mixes_yours">你的混音</string>
+    <string name="mixes_none">暫無混音。繼續收聽，YouTube Music 會為你生成混音。</string>
 </resources>

@@ -24,6 +24,7 @@
     <string name="search">חיפוש</string>
     <string name="clear_search">ניקוי חיפוש</string>
     <string name="library">ספרייה</string>
+    <string name="radio">רדיו</string>
     <string name="home">בית</string>
     <string name="play">הפעלה</string>
     <string name="explore">גלה</string>
@@ -91,6 +92,8 @@
     <string name="testing">בודק…</string>
     <string name="connected">מחובר</string>
     <string name="account_integrations">חשבון &amp; אינטגרציות</string>
+    <string name="youtube_premium_audio">אודיו של YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">יש לי Premium: הזרמת Opus באיכות גבוהה יותר של ~256 kbps במקום 160 kbps הרגילים</string>
     <string name="account_scrobbling">חשבון &amp; סקרובלינג</string>
     <string name="rich_presence">נוכחות עשירה</string>
     <string name="scrobbling">סקרובלינג</string>
@@ -191,7 +194,7 @@
     <string name="playback">השמעה</string>
     <string name="appearance">מראה</string>
     <string name="storage">אחסון</string>
-    <string name="your_data">הנתונים שלך</string>
+    <string name="your_data">גיבוי ושחזור</string>
     <string name="miscellaneous">שונות</string>
     <string name="lossless_hq_audio">אודיו Lossless / HQ</string>
     <string name="on_wifi">ב-Wi-Fi</string>
@@ -201,6 +204,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">ממזג רצועה אחת לתוך הבאה</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">סקירה כללית של Automix</string>
     <string name="skip_silence">דילוג על שקט</string>
     <string name="skip_silence_subtitle">קיצוץ הפסקות ארוכות משנייה</string>
     <string name="skip_silence_float_subtitle">לא זמין בפלט float של 32 סיביות</string>
@@ -479,7 +483,13 @@
     <string name="lyrics_share_title">שיתוף המילים</string>
     <string name="lyrics_share_description">השורות שבחרת, על כרטיס עם העטיפה.</string>
     <string name="lyrics_share_story">המר לסטורי</string>
-    <string name="lyrics_share_story_revert">חזרה לכרטיס</string>
+    <string name="lyrics_share_story_revert">המר לכרטיס</string>
+    <string name="lyrics_share_canvas">קנבס</string>
+    <string name="lyrics_share_video">וידאו</string>
+    <string name="lyrics_share_image">תמונה</string>
+    <string name="lyrics_share_saving">שומר…</string>
+    <string name="lyrics_share_gradient">מעבר צבע</string>
+    <string name="lyrics_share_show_logo">הצגת הלוגו של BitChord</string>
     <string name="listening_shape">דפוס ההאזנה שלך</string>
     <string name="member_since">חבר מאז</string>
     <string name="member_since_value">חבר מאז %1$s</string>
@@ -594,6 +604,14 @@
     <string name="version_cut_aligned">מיושר</string>
     <string name="automix_enabled_subtitle">מתזמן ומשלב כל מעבר מהרצועות עצמן. כבה זאת אם הטלפון מתחמם או ההפעלה מגמגמת.</string>
     <string name="automix_disabled_subtitle">מתזמן ומשלב מעברים באופן אוטומטי, ללא מחוון. הביצועים עשויים להשתנות במכשירים איטיים.</string>
+    <string name="automix_models_downloading">מוריד את Automix (%1$d MB)… %2$d%%. עד הסיום השירים יתחלפו במעבר רגיל.</string>
+    <string name="automix_model">מודל Automix</string>
+    <string name="automix_model_missing">לא הורד. Automix יוריד אותו כשתפעיל אותו, או הורד אותו עכשיו.</string>
+    <string name="automix_model_download">הורדה (%1$d MB)</string>
+    <string name="automix_model_ready">הורד, תופס %1$d MB במכשיר הזה.</string>
+    <string name="automix_models_failed">לא ניתן היה להוריד את המודל. בדוק את החיבור ונסה שוב.</string>
+    <string name="automix_model_delete_title">למחוק את מודל Automix?</string>
+    <string name="automix_model_delete_warning">פעולה זו תפנה %1$d MB ותכבה את Automix. הפעלה מחדש של Automix תוריד את המודל שוב.</string>
     <string name="advanced_automix">Automix מתקדם</string>
     <string name="advanced_automix_subtitle">מערבב כמו די-ג׳יי: שומר על הקצב מסונכרן, מבצע כל מעבר על הפעמה וחותך בין שירים שלא מתמזגים. ללא עיבוד נוסף.</string>
     <string name="no_lyrics_sources_enabled">אין. מילים לא יורדו.</string>
@@ -649,6 +667,10 @@
     <plurals name="songs_added_to_queue">
         <item quantity="one">שיר %1$d נוסף לתור</item>
         <item quantity="other">%1$d שירים נוספו לתור</item>
+    </plurals>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d שיר הוסר</item>
+        <item quantity="other">%1$d שירים הוסרו</item>
     </plurals>
     <plurals name="log_copied_line_count">
         <item quantity="one">יומן הועתק · שורה %1$d</item>
@@ -860,6 +882,8 @@
     <string name="export_compatible_downloads">ייצא הורדות תואמות</string>
     <string name="sync_downloaded_playlists">שמירה על רשימות השמעה מעודכנות</string>
     <string name="sync_downloaded_playlists_subtitle">בדיקה פעמיים ביום והורדה של שירים חדשים ברשימות ההשמעה שהורדת</string>
+    <string name="download_liked_songs">הורדת שירים שאהבת</string>
+    <string name="download_liked_songs_subtitle">מוריד את המוזיקה שאהבת וכל שיר שתאהב מעכשיו</string>
     <string name="playlist_sync_ask_title">שירים חדשים ב-%1$s: %2$d</string>
     <string name="playlist_sync_ask_text">יש להקיש כדי להוריד</string>
     <string name="playlist_sync_done_title">נוספו אל %1$s: %2$d</string>
@@ -1005,6 +1029,7 @@
     <string name="sort_date_added_toggle">תאריך הוספה</string>
 
     <string name="sort_default">סדר ברירת מחדל</string>
+    <string name="sort_track_number">מספר רצועה</string>
 
     <string name="sort_library">מיין</string>
 
@@ -1278,8 +1303,6 @@
 
 
     <string name="source_needs_lossless_output">דורש פלט ללא אובדן · השתמשו במכשיר שתומך באודיו ללא אובדן</string>
-    <string name="source_needs_update">התוסף הזה אינו מעודכן. הוא עדיין עובד, אבל בקשו מהמפתח לעדכן אותו לפי מסמכי התוספים העדכניים של BitChord.</string>
-    <string name="source_outdated">תוסף לא מעודכן</string>
     <string name="source_needs_lossless_bt_codec">דורש פלט ללא אובדן · ה‑Bluetooth משתמש ב‑%1$s; השתמשו במכשיר שתומך באודיו ללא אובדן</string>
     <string name="source_needs_lossless_bt_unknown">דורש פלט ללא אובדן · לא ניתן לדעת באיזה קודק Bluetooth נעשה שימוש</string>
     <string name="source_downloads_on">הורדות מותרות</string>
@@ -1462,4 +1485,84 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="find_a_playlist">חיפוש פלייליסט</string>
+    <string name="no_playlists_match">אין פלייליסטים שתואמים ל־“%1$s”</string>
+    <string name="hide_lyrics_preview">הסתרת מילות השיר</string>
+    <string name="hide_lyrics_preview_subtitle">מסתיר את שורת מילות השיר בנגן</string>
+    <string name="show_total_duration">הצגת משך כולל</string>
+    <string name="show_total_duration_subtitle">מציג את האורך המלא של השיר במקום הזמן שנותר</string>
+    <string name="sleep_timer_fade_out">עמעום לפני השהיה</string>
+    <string name="sleep_timer_fade_out_subtitle">מנמיך את עוצמת הקול בהדרגה ב־30 השניות האחרונות</string>
+    <string name="disable_spotify_canvas">השבתת Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">לעולם לא להשתמש ב־Spotify Canvas. עטיפות מונפשות יגיעו מהמקורות האחרים</string>
+    <string name="queue_removed_song">הוסר %1$s</string>
+    <string name="queue_undo_action">ביטול</string>
+    <string name="queue_cleared">התור נוקה</string>
+    <string name="queue_selected_count">%1$d נבחרו</string>
+    <string name="queue_playlist_added">נוספו %1$d מתוך %2$d שירים</string>
+    <string name="queue_playlist_partial">%1$s (%2$d לא תואמים, %3$d כבר קיימים, %4$d נכשלו)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">גיבוי ל-Google Drive</string>
+    <string name="drive_backup_unavailable">גיבוי ל-Google Drive דורש את שירותי Google Play, שאינם קיימים במכשיר זה.</string>
+    <string name="drive_backup_never">אף פעם</string>
+    <string name="drive_restore_failed">השחזור נכשל: %1$s</string>
+    <string name="drive_account_header">חשבון Google</string>
+    <string name="drive_connect_failed">לא ניתן להתחבר: %1$s</string>
+    <string name="drive_connect">חיבור Google Drive</string>
+    <string name="drive_connect_subtitle">בחירת חשבון בטלפון זה לגיבוי</string>
+    <string name="drive_sign_in_again_subtitle">הגישה ל-Google Drive הוסרה. יש להתחבר מחדש כדי להמשיך לגבות.</string>
+    <string name="drive_sign_in_again">התחברות</string>
+    <string name="drive_restore_header">שחזור</string>
+    <string name="drive_backup_footer">הגיבויים נשמרים בתיקיית אפליקציה מוסתרת ב-Google Drive שלך ונספרים בנפח האחסון. סיסמאות והתחברויות אינן נכללות לעולם. למחיקה, יש לפתוח Drive → הגדרות → ניהול אפליקציות.</string>
+    <string name="drive_restore_connect_first">יש לחבר קודם חשבון Google</string>
+    <string name="drive_restore_action">שחזור</string>
+    <string name="drive_disconnect_confirm_title">לנתק את Google Drive?</string>
+    <string name="drive_backup_restoring">משחזר…</string>
+    <string name="drive_frequency_daily">יומי</string>
+    <string name="drive_frequency_weekly">שבועי</string>
+    <string name="drive_frequency_monthly">חודשי</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">סנכרון אוטומטי</string>
+    <string name="drive_auto_sync_footer">הטלפון הזה מעלה את היסטוריית ההאזנה שלו ומוריד את זו של המכשירים האחרים שלך ברקע כשהסוללה אינה חלשה. סנכרון ידני נספר בלוח הזמנים.</string>
+    <string name="drive_choose_device">בחירת המכשיר של הטלפון הזה</string>
+    <string name="drive_choose_device_subtitle">גיבוי כמכשיר חדש, או שחזור כמכשיר שכבר נמצא ב-Drive</string>
+    <string name="drive_device_not_set">בחירת מכשיר</string>
+    <string name="drive_device_synced">סונכרן ב-%1$s</string>
+    <string name="drive_devices_checking">מחפש מכשירים…</string>
+    <string name="drive_devices_failed">לא ניתן לטעון מכשירים: %1$s</string>
+    <string name="drive_devices_footer">ההאזנה מכל המכשירים מצטברת ב-Replay. יש להקיש על מכשיר כדי למחוק את הגיבוי שלו.</string>
+    <string name="drive_devices_header">מכשירים</string>
+    <string name="drive_devices_none">אין עדיין מכשירים בחשבון זה</string>
+    <string name="drive_devices_none_other">אין עדיין מכשירים אחרים בחשבון זה</string>
+    <string name="drive_devices_title">גיבוי או שחזור בתור</string>
+    <string name="drive_forked_notice">טלפון אחר שוחזר בתור המכשיר הזה, ולכן הטלפון הזה מסתנכרן עכשיו בתור %1$s.</string>
+    <string name="drive_new_device">גיבוי כמכשיר חדש</string>
+    <string name="drive_new_device_footer">ההאזנה בטלפון הזה נשמרת כמכשיר נפרד. ההאזנה מהמכשירים האחרים שלך מתווספת לצידה ב-Replay.</string>
+    <string name="drive_remove_confirm_title">למחוק את הגיבוי של %1$s?</string>
+    <string name="drive_remove_confirm_body">הגיבוי שלו יימחק מ-Google Drive וההאזנה שלו תוסר מ-Replay בכל המכשירים שלך. לא ניתן לבטל פעולה זו.</string>
+    <string name="drive_delete_mine_body">הגיבוי של הטלפון הזה יימחק מ-Google Drive והסנכרון האוטומטי יכובה. Replay בטלפון הזה שומר הכול, ו\"סנכרון עכשיו\" מתחיל גיבוי חדש.</string>
+    <string name="drive_rename">שינוי שם</string>
+    <string name="drive_rename_title">שינוי שם הטלפון הזה</string>
+    <string name="drive_rename_message">המכשירים האחרים שלך יציגו את הטלפון הזה בשם זה.</string>
+    <string name="drive_restore_as_done">מסתנכרן עכשיו בתור %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">הטלפון הזה הופך למכשיר שנבחר: היסטוריית ההאזנה וההגדרות שלו מחליפות את אלו של הטלפון הזה.</string>
+    <string name="drive_restore_as_header">שחזור בתור</string>
+    <string name="drive_restore_as_subtitle">בחירת מכשיר מה-Drive שלך כדי להמשיך בתורו</string>
+    <string name="drive_restore_as_title">שחזור בתור מכשיר אחר</string>
+    <string name="drive_sync_done">סונכרן כרגע</string>
+    <string name="drive_sync_downloading">מוריד מ-%1$s · %2$d מתוך %3$d</string>
+    <string name="drive_sync_failed">הסנכרון נכשל: %1$s</string>
+    <string name="drive_sync_last">סנכרון אחרון</string>
+    <string name="drive_sync_now">סנכרון עכשיו</string>
+    <string name="drive_sync_preparing">מכין סנכרון…</string>
+    <string name="drive_sync_uploading">מעלה חודש %1$d מתוך %2$d</string>
+    <string name="drive_this_phone">הטלפון הזה</string>
+    <string name="drive_this_phone_header">הטלפון הזה</string>
+    <string name="drive_this_phone_subtitle">המכשיר שבתורו הטלפון הזה מגבה</string>
+    <string name="drive_restore_confirm_title">לשחזר בתור %1$s?</string>
+    <string name="drive_restore_confirm_body">הטלפון הזה יהפוך ל-%1$s. היסטוריית ההאזנה וההגדרות שלו יחליפו את אלו של הטלפון הזה, ומעכשיו הוא יסתנכרן בתור %1$s. התחברויות אינן נכללות.</string>
+    <string name="drive_disconnect_confirm_body">הסנכרון ייפסק. כל מה שכבר נמצא ב-Drive יישמר, וההאזנה מהמכשירים האחרים שלך תוסר מ-Replay בטלפון הזה עד לחיבור מחדש.</string>
+    <string name="drive_backup_row_subtitle">גיבוי וסנכרון של Replay בין המכשירים שלך</string>
+    <string name="drive_over_cellular">סנכרון בחבילת גלישה</string>
+    <string name="drive_over_cellular_subtitle">כשכבוי, סנכרונים אוטומטיים ממתינים ל-Wi-Fi</string>
 </resources>

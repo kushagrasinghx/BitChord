@@ -39,11 +39,17 @@
 
 # ---- Native and crypto --------------------------------------------------------
 # ONNX Runtime and QuickJS are called from JNI, which R8 cannot see. SMBJ picks
-# its BouncyCastle providers and event bus handlers reflectively.
+# its authenticators and event bus handlers reflectively.
 -keep class ai.onnxruntime.** { *; }
 -keep class com.hierynomus.** { *; }
 -keep class net.engio.mbassy.** { *; }
--keep class org.bouncycastle.** { *; }
+# BouncyCastle needs no keep rule: SMBJ (BCSecurityProvider), libadb (pairing's
+# HKDF/AES-GCM) and WatchInstaller (the X.509 builder) all call it directly, so
+# R8 traces what they use. Its only lookups by name are inside its JCA provider
+# packages, and nothing registers BouncyCastleProvider — the certificate is
+# signed through the platform's own providers. Keep an exact class here if a
+# new use reaches it by name.
+-dontwarn org.bouncycastle.**
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 # The vendored FFmpeg extension's JNI calls back into this by name to grow
 # its output buffer (native/ffmpeg/ffmpeg_jni.cc, JNI_OnLoad).

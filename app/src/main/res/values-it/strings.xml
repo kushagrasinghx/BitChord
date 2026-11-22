@@ -23,6 +23,7 @@
     <string name="search">Cerca</string>
     <string name="clear_search">Cancella ricerca</string>
     <string name="library">Libreria</string>
+    <string name="radio">Radio</string>
     <string name="home">Home</string>
     <string name="play">Riproduci</string>
     <string name="explore">Esplora</string>
@@ -111,6 +112,8 @@
     <string name="testing">Test in corso…</string>
     <string name="connected">Connesso</string>
     <string name="account_integrations">Account e integrazioni</string>
+    <string name="youtube_premium_audio">Audio YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">Ho Premium: riproduci l\'Opus di qualità superiore a ~256 kbps invece dei 160 kbps standard</string>
     <string name="account_scrobbling">Account e scrobbling</string>
     <string name="rich_presence">Presenza avanzata</string>
     <string name="scrobbling">Scrobbling</string>
@@ -221,7 +224,7 @@
     <string name="playback">Riproduzione</string>
     <string name="appearance">Aspetto</string>
     <string name="storage">Archiviazione</string>
-    <string name="your_data">I tuoi dati</string>
+    <string name="your_data">Backup e ripristino</string>
     <string name="miscellaneous">Varie</string>
     <string name="lossless_hq_audio">Audio lossless / HQ</string>
     <string name="on_wifi">Via Wi-Fi</string>
@@ -231,6 +234,7 @@
     <string name="crossfade">Dissolvenza incrociata</string>
     <string name="crossfade_subtitle">Sfuma un brano nel successivo</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Panoramica di Automix</string>
     <string name="automix_performance">Prestazioni Automix</string>
     <string name="automix_performance_subtitle">Imposta quanta CPU può usare l\'analisi in background</string>
     <string name="automix_performance_warning">Prestazioni più elevate analizzano i brani più velocemente, ma possono usare più batteria e scaldare il telefono.</string>
@@ -561,8 +565,14 @@
     <string name="listen_most_around">Ascolti soprattutto verso le %1$s.</string>
     <string name="lyrics_share_title">Condividi il testo</string>
     <string name="lyrics_share_description">I versi che hai scelto, impaginati su una scheda con la copertina.</string>
-    <string name="lyrics_share_story">Trasforma in storia</string>
-    <string name="lyrics_share_story_revert">Torna alla scheda</string>
+    <string name="lyrics_share_story">Converti in storia</string>
+    <string name="lyrics_share_story_revert">Converti in scheda</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Video</string>
+    <string name="lyrics_share_image">Immagine</string>
+    <string name="lyrics_share_saving">Salvataggio…</string>
+    <string name="lyrics_share_gradient">Sfumatura</string>
+    <string name="lyrics_share_show_logo">Mostra logo BitChord</string>
     <string name="listening_shape">Il tuo andamento di ascolto</string>
     <string name="member_since">Membro da</string>
     <string name="member_since_value">Membro da %1$s</string>
@@ -690,6 +700,14 @@
     <string name="version_cut_aligned">allineato</string>
     <string name="automix_enabled_subtitle">Calcola i tempi e fonde ogni transizione dai brani stessi. Disattivalo se il telefono si scalda o la riproduzione si blocca.</string>
     <string name="automix_disabled_subtitle">Calcola i tempi e fonde le transizioni automaticamente, senza un cursore. Le prestazioni possono variare sui dispositivi più lenti.</string>
+    <string name="automix_models_downloading">Download di Automix (%1$d MB)… %2$d%%. Fino al termine i brani usano la normale dissolvenza.</string>
+    <string name="automix_model">Modello Automix</string>
+    <string name="automix_model_missing">Non scaricato. Automix lo scarica quando lo attivi, oppure scaricalo ora.</string>
+    <string name="automix_model_download">Scarica (%1$d MB)</string>
+    <string name="automix_model_ready">Scaricato, occupa %1$d MB su questo dispositivo.</string>
+    <string name="automix_models_failed">Impossibile scaricare il modello. Controlla la connessione e riprova.</string>
+    <string name="automix_model_delete_title">Eliminare il modello Automix?</string>
+    <string name="automix_model_delete_warning">Libera %1$d MB e disattiva Automix. Riattivando Automix il modello verrà scaricato di nuovo.</string>
     <string name="advanced_automix">Automix avanzato</string>
     <string name="advanced_automix_subtitle">Mixa come un DJ: tiene i battiti allineati, fa ogni passaggio sul tempo e taglia tra i brani che non si fondono. Nessuna elaborazione aggiuntiva.</string>
     <string name="no_lyrics_sources_enabled">Nessuna. I testi non verranno recuperati.</string>
@@ -869,6 +887,8 @@
     <string name="export_compatible_downloads">Esporta download compatibili</string>
     <string name="sync_downloaded_playlists">Mantieni aggiornate le playlist</string>
     <string name="sync_downloaded_playlists_subtitle">Controlla due volte al giorno e scarica i brani aggiunti alle playlist scaricate</string>
+    <string name="download_liked_songs">Scarica i brani che ti piacciono</string>
+    <string name="download_liked_songs_subtitle">Scarica i brani che ti piacciono e ogni brano a cui metti mi piace da ora in poi</string>
     <string name="playlist_sync_ask_title">Nuovi brani in %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">Tocca per scaricare</string>
     <string name="playlist_sync_done_title">Aggiunti a %1$s: %2$d</string>
@@ -997,6 +1017,7 @@
     <string name="sort_songs">Ordina brani</string>
 
     <string name="sort_default">Ordine predefinito</string>
+    <string name="sort_track_number">Numero traccia</string>
 
     <string name="unsubscribe">Annulla iscrizione</string>
 
@@ -1212,8 +1233,6 @@
 
 
     <string name="source_needs_lossless_output">Richiede un’uscita lossless · usa un dispositivo compatibile con il lossless</string>
-    <string name="source_needs_update">Questo add-on non è aggiornato. Funziona ancora, ma chiedi al suo sviluppatore di aggiornarlo seguendo la documentazione più recente degli add-on BitChord.</string>
-    <string name="source_outdated">Add-on obsoleto</string>
     <string name="source_needs_lossless_bt_codec">Richiede un’uscita lossless · il Bluetooth usa %1$s; usa un dispositivo compatibile con il lossless</string>
     <string name="source_needs_lossless_bt_unknown">Richiede un’uscita lossless · impossibile sapere quale codec Bluetooth è in uso</string>
     <string name="source_downloads_on">Download consentiti</string>
@@ -1396,4 +1415,88 @@
     <string name="bit_perfect_status_inexact">%1$s · non esatto: questa sorgente non è PCM lossless</string>
     <string name="bit_perfect_status_waiting">In attesa di un brano lossless su un\'uscita supportata</string>
     <string name="bit_perfect_status_unavailable">Non disponibile per questo brano (%1$s)</string>
+    <string name="find_a_playlist">Cerca una playlist</string>
+    <string name="no_playlists_match">Nessuna playlist corrisponde a “%1$s”</string>
+    <string name="hide_lyrics_preview">Nascondi testo</string>
+    <string name="hide_lyrics_preview_subtitle">Nasconde la riga del testo nel player</string>
+    <string name="show_total_duration">Mostra durata totale</string>
+    <string name="show_total_duration_subtitle">Mostra la durata completa del brano invece del tempo rimanente</string>
+    <string name="sleep_timer_fade_out">Dissolvenza prima della pausa</string>
+    <string name="sleep_timer_fade_out_subtitle">Abbassa gradualmente il volume negli ultimi 30 secondi</string>
+    <string name="disable_spotify_canvas">Disattiva Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Non usare mai Spotify Canvas. Le copertine animate arrivano dalle altre fonti</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">%1$d brano rimosso</item>
+        <item quantity="other">%1$d brani rimossi</item>
+    </plurals>
+    <string name="queue_removed_song">%1$s rimosso</string>
+    <string name="queue_undo_action">Annulla</string>
+    <string name="queue_cleared">Coda svuotata</string>
+    <string name="queue_selected_count">Selezionati: %1$d</string>
+    <string name="queue_playlist_added">Aggiunti %1$d brani su %2$d</string>
+    <string name="queue_playlist_partial">%1$s (%2$d incompatibili, %3$d già presenti, %4$d non riusciti)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Backup su Google Drive</string>
+    <string name="drive_backup_unavailable">Il backup su Google Drive richiede i servizi Google Play, non presenti su questo dispositivo.</string>
+    <string name="drive_backup_never">Mai</string>
+    <string name="drive_restore_failed">Ripristino non riuscito: %1$s</string>
+    <string name="drive_account_header">Account Google</string>
+    <string name="drive_connect_failed">Impossibile connettersi: %1$s</string>
+    <string name="drive_connect">Collega Google Drive</string>
+    <string name="drive_connect_subtitle">Scegli un account di questo telefono per il backup</string>
+    <string name="drive_sign_in_again_subtitle">L\'accesso a Google Drive è stato rimosso. Accedi di nuovo per continuare i backup.</string>
+    <string name="drive_sign_in_again">Accedi</string>
+    <string name="drive_restore_header">Ripristina</string>
+    <string name="drive_backup_footer">I backup sono conservati in una cartella dell\'app nascosta nel tuo Google Drive e occupano spazio di archiviazione. Password e accessi non sono mai inclusi. Per eliminarlo, apri Drive → Impostazioni → Gestisci app.</string>
+    <string name="drive_restore_connect_first">Collega prima un account Google</string>
+    <string name="drive_restore_action">Ripristina</string>
+    <string name="drive_disconnect_confirm_title">Scollegare Google Drive?</string>
+    <string name="drive_backup_restoring">Ripristino…</string>
+    <string name="drive_frequency_daily">Giornaliero</string>
+    <string name="drive_frequency_weekly">Settimanale</string>
+    <string name="drive_frequency_monthly">Mensile</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">Sincronizzazione automatica</string>
+    <string name="drive_auto_sync_footer">Questo telefono carica la sua cronologia di ascolto e scarica quella degli altri tuoi dispositivi in background quando la batteria non è scarica. Una sincronizzazione manuale conta per la pianificazione.</string>
+    <string name="drive_choose_device">Scegli il dispositivo di questo telefono</string>
+    <string name="drive_choose_device_subtitle">Esegui il backup come nuovo dispositivo o ripristina come uno già presente su Drive</string>
+    <string name="drive_device_not_set">Scegli dispositivo</string>
+    <string name="drive_device_synced">Sincronizzato il %1$s</string>
+    <string name="drive_devices_checking">Ricerca dei dispositivi…</string>
+    <string name="drive_devices_failed">Impossibile caricare i dispositivi: %1$s</string>
+    <string name="drive_devices_footer">L\'ascolto di tutti i dispositivi si somma in Replay. Tocca un dispositivo per eliminarne il backup.</string>
+    <string name="drive_devices_header">Dispositivi</string>
+    <string name="drive_devices_none">Ancora nessun dispositivo in questo account</string>
+    <string name="drive_devices_none_other">Ancora nessun altro dispositivo in questo account</string>
+    <string name="drive_devices_title">Backup o ripristino come</string>
+    <string name="drive_forked_notice">Un altro telefono è stato ripristinato come questo dispositivo, quindi questo telefono ora si sincronizza come %1$s.</string>
+    <string name="drive_new_device">Backup come nuovo dispositivo</string>
+    <string name="drive_new_device_footer">L\'ascolto di questo telefono resta un dispositivo a sé. Quello degli altri tuoi dispositivi si aggiunge in Replay.</string>
+    <string name="drive_remove_confirm_title">Eliminare il backup di %1$s?</string>
+    <string name="drive_remove_confirm_body">Il suo backup viene eliminato da Google Drive e il suo ascolto esce da Replay su tutti i tuoi dispositivi. Non si può annullare.</string>
+    <string name="drive_delete_mine_body">Il backup di questo telefono viene eliminato da Google Drive e la sincronizzazione automatica viene disattivata. Replay su questo telefono conserva tutto, e Sincronizza ora avvia un nuovo backup.</string>
+    <string name="drive_rename">Rinomina</string>
+    <string name="drive_rename_title">Rinomina questo telefono</string>
+    <string name="drive_rename_message">Gli altri tuoi dispositivi mostreranno questo telefono con questo nome.</string>
+    <string name="drive_restore_as_done">Ora sincronizzato come %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">Questo telefono diventa il dispositivo scelto: la sua cronologia di ascolto e le sue impostazioni sostituiscono quelle di questo telefono.</string>
+    <string name="drive_restore_as_header">Ripristina come</string>
+    <string name="drive_restore_as_subtitle">Scegli un dispositivo su Drive da cui continuare</string>
+    <string name="drive_restore_as_title">Ripristina come un altro dispositivo</string>
+    <string name="drive_sync_done">Sincronizzato ora</string>
+    <string name="drive_sync_downloading">Download da %1$s · %2$d di %3$d</string>
+    <string name="drive_sync_failed">Sincronizzazione non riuscita: %1$s</string>
+    <string name="drive_sync_last">Ultima sincronizzazione</string>
+    <string name="drive_sync_now">Sincronizza ora</string>
+    <string name="drive_sync_preparing">Preparazione della sincronizzazione…</string>
+    <string name="drive_sync_uploading">Caricamento del mese %1$d di %2$d</string>
+    <string name="drive_this_phone">Questo telefono</string>
+    <string name="drive_this_phone_header">Questo telefono</string>
+    <string name="drive_this_phone_subtitle">Il dispositivo con cui questo telefono esegue il backup</string>
+    <string name="drive_restore_confirm_title">Ripristinare come %1$s?</string>
+    <string name="drive_restore_confirm_body">Questo telefono diventa %1$s. La sua cronologia di ascolto e le sue impostazioni sostituiscono quelle di questo telefono, che da ora si sincronizza come %1$s. Gli accessi non sono inclusi.</string>
+    <string name="drive_disconnect_confirm_body">La sincronizzazione si ferma. Tutto ciò che è su Drive viene mantenuto e l\'ascolto degli altri dispositivi viene rimosso da Replay su questo telefono finché non ti ricolleghi.</string>
+    <string name="drive_backup_row_subtitle">Backup e sincronizzazione di Replay tra i tuoi dispositivi</string>
+    <string name="drive_over_cellular">Sincronizza con dati mobili</string>
+    <string name="drive_over_cellular_subtitle">Se disattivato, le sincronizzazioni automatiche attendono il Wi-Fi</string>
 </resources>

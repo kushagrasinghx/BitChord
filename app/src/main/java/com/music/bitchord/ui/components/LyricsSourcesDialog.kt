@@ -40,12 +40,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -103,12 +106,14 @@ fun LyricsSourcesDialog(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
                 onClick = onDismiss,
-            ),
+            )
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier = Modifier
-                .width(ALERT_WIDTH)
+                .widthIn(min = ALERT_WIDTH, max = 320.dp)
+                .fillMaxWidth(0.88f)
                 .clip(shape)
                 .then(
                     if (reduceDynamicBlur) {
@@ -181,12 +186,8 @@ fun LyricsSourcesDialog(
             )
 
             AlertRule()
-            AlertAction(
-                label = stringResource(
-                    if (paxSenixApiKey.isBlank()) R.string.paxsenix_api_key_missing
-                    else R.string.paxsenix_api_key_configured,
-                ),
-                emphasised = false,
+            PaxSenixApiKeyRow(
+                configured = paxSenixApiKey.isNotBlank(),
                 onClick = { showPaxSenixKeyDialog = true },
             )
             AlertRule()
@@ -236,6 +237,46 @@ fun LyricsSourcesDialog(
                 }
             },
         )
+    }
+}
+
+/** The PaxSenix key: its name, and under it whether one is set. */
+@Composable
+private fun PaxSenixApiKeyRow(configured: Boolean, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = ACTION_HEIGHT)
+            .background(
+                if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f) else Color.Transparent,
+            )
+            .clickable(
+                indication = null,
+                interactionSource = interactionSource,
+                onClick = onClick,
+            )
+            .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.paxsenix_api_key),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(
+                    if (configured) R.string.paxsenix_api_key_configured
+                    else R.string.paxsenix_api_key_missing,
+                ),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -426,9 +467,13 @@ private fun ReorderableSourceList(
         }
     }
 
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val dynamicMaxHeight = (screenHeight * 0.42f).coerceIn(180.dp, SOURCES_MAX_HEIGHT)
+
     Column(
         modifier = Modifier
-            .heightIn(max = SOURCES_MAX_HEIGHT)
+            .heightIn(max = dynamicMaxHeight)
+            .clipToBounds()
             // Measured outside [verticalScroll] on purpose: inside it, this
             // would report the full, unclipped height of every row stacked up
             // rather than the capped card height, since verticalScroll gives
@@ -547,9 +592,9 @@ private fun ReorderableSourceList(
                             )
                             Text(
                                 text = source.detail,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }

@@ -104,6 +104,23 @@ class AuthStore(context: Context) {
         set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
 
     /**
+     * A credential that belongs to a setting: a scrobbler session key, the
+     * Spotify session cookie, a lyrics API key. Kept here, beside the other
+     * credentials, rather than in the settings file — that file goes into
+     * Android's Auto Backup, and this one never does. Prefixed so a settings
+     * key can never collide with one of this store's own.
+     */
+    fun settingSecret(key: String): String? = prefs.getString(SETTING_PREFIX + key, null)
+
+    fun setSettingSecret(key: String, value: String?) {
+        prefs.edit().apply {
+            if (value.isNullOrEmpty()) remove(SETTING_PREFIX + key) else putString(SETTING_PREFIX + key, value)
+        }.apply()
+    }
+
+    fun hasSettingSecret(key: String): Boolean = prefs.contains(SETTING_PREFIX + key)
+
+    /**
      * The WebDAV server password. Encrypted like every other credential here:
      * a backup export carries the server URL and username in plain prefs, but
      * never this.
@@ -230,5 +247,6 @@ class AuthStore(context: Context) {
         private const val KEY_DISCORD_TOKEN = "discord_token"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_SMB_PASSWORD = "smb_password"
+        private const val SETTING_PREFIX = "setting."
     }
 }

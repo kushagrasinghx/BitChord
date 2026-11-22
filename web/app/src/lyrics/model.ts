@@ -41,6 +41,15 @@ export function line(timeMs: number, text: string, extra: Partial<LyricLine> = {
 
 export const isGap = (l: LyricLine) => l.text.length === 0;
 export const isWordSynced = (l: LyricLine) => l.words.length > 0;
+
+/** KuGou's and QQ's "纯音乐，请欣赏" ("pure music, please enjoy"), and its longer variants. */
+export const INSTRUMENTAL_NOTICE = /纯音乐.*欣赏/;
+
+/** Lyrics made of nothing but that notice: an instrumental, which has no lyrics to show. */
+export function isInstrumentalNotice(lines: LyricLine[]): boolean {
+  const sung = lines.map((l) => l.text.trim()).filter(Boolean);
+  return sung.length > 0 && sung.every((t) => INSTRUMENTAL_NOTICE.test(t));
+}
 /** Whether anything said when the singing stops (LyricLine.hasKnownEnd). */
 export const hasKnownEnd = (l: LyricLine) => l.words.length > 0 || l.sungUntilMs !== null;
 

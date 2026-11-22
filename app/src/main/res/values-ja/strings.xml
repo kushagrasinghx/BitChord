@@ -21,6 +21,7 @@
     <string name="search">検索</string>
     <string name="clear_search">検索をクリア</string>
     <string name="library">ライブラリ</string>
+    <string name="radio">ラジオ</string>
     <string name="home">ホーム</string>
     <string name="play">再生</string>
     <string name="explore">見つける</string>
@@ -84,6 +85,8 @@
     <string name="testing">テスト中…</string>
     <string name="connected">接続済み</string>
     <string name="account_integrations">アカウントと連携</string>
+    <string name="youtube_premium_audio">YouTube Premium オーディオ</string>
+    <string name="youtube_premium_audio_subtitle">Premium に加入済み：標準の 160 kbps ではなく、高音質の約 256 kbps Opus で再生します</string>
     <string name="account_scrobbling">アカウントとスクロブリング</string>
     <string name="rich_presence">リッチプレゼンス</string>
     <string name="scrobbling">スクロブリング</string>
@@ -185,7 +188,7 @@
     <string name="playback">再生</string>
     <string name="appearance">外観</string>
     <string name="storage">ストレージ</string>
-    <string name="your_data">あなたのデータ</string>
+    <string name="your_data">バックアップと復元</string>
     <string name="miscellaneous">その他</string>
     <string name="lossless_hq_audio">ロスレス / 高音質オーディオ</string>
     <string name="on_wifi">Wi-Fi接続時</string>
@@ -195,6 +198,7 @@
     <string name="crossfade">クロスフェード</string>
     <string name="crossfade_subtitle">1曲を次の曲へなめらかにつなげます</string>
     <string name="automix">オートミックス [BETA]</string>
+    <string name="automix_overview">オートミックスの概要</string>
     <string name="skip_silence">無音をスキップ</string>
     <string name="skip_silence_subtitle">1秒より長い無音部分をカットします</string>
     <string name="skip_silence_float_subtitle">32ビット浮動小数点出力では使用できません</string>
@@ -499,8 +503,14 @@
     <string name="listen_most_around">最もよく聴くのは%1$s頃です。</string>
     <string name="lyrics_share_title">歌詞を共有</string>
     <string name="lyrics_share_description">選んだ行を、ジャケットと一緒にカードにレイアウトします。</string>
-    <string name="lyrics_share_story">ストーリー用にする</string>
-    <string name="lyrics_share_story_revert">カードに戻す</string>
+    <string name="lyrics_share_story">ストーリーに変換</string>
+    <string name="lyrics_share_story_revert">カードに変換</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">動画</string>
+    <string name="lyrics_share_image">画像</string>
+    <string name="lyrics_share_saving">保存中…</string>
+    <string name="lyrics_share_gradient">グラデーション</string>
+    <string name="lyrics_share_show_logo">BitChordのロゴを表示</string>
     <string name="listening_shape">あなたの再生パターン</string>
     <string name="member_since">登録日</string>
     <string name="member_since_value">登録日：%1$s</string>
@@ -623,6 +633,14 @@
     <string name="version_cut_aligned">同期済み</string>
     <string name="automix_enabled_subtitle">トラック自体からすべての切り替えのタイミングとブレンドを計算します。端末が熱くなったり再生が途切れたりする場合はオフにしてください。</string>
     <string name="automix_disabled_subtitle">スライダーなしで切り替えのタイミングとブレンドを自動的に計算します。低スペック端末ではパフォーマンスが変わることがあります。</string>
+    <string name="automix_models_downloading">Automix をダウンロード中（%1$d MB）… %2$d%%。完了までは通常のクロスフェードで切り替わります。</string>
+    <string name="automix_model">Automix モデル</string>
+    <string name="automix_model_missing">未ダウンロードです。Automix をオンにすると取得されます。今すぐダウンロードもできます。</string>
+    <string name="automix_model_download">ダウンロード (%1$d MB)</string>
+    <string name="automix_model_ready">ダウンロード済み。この端末で %1$d MB を使用しています。</string>
+    <string name="automix_models_failed">モデルをダウンロードできませんでした。接続を確認して再試行してください。</string>
+    <string name="automix_model_delete_title">Automix モデルを削除しますか？</string>
+    <string name="automix_model_delete_warning">%1$d MB が解放され、Automix はオフになります。再びオンにするとモデルが再度ダウンロードされます。</string>
     <string name="advanced_automix">高度なオートミックス</string>
     <string name="advanced_automix_subtitle">DJ のようにミックスします。ビートを揃え、切り替えを拍に合わせ、合わない曲同士はカットでつなぎます。追加の処理は不要です。</string>
     <string name="no_lyrics_sources_enabled">なし。歌詞は取得されません。</string>
@@ -795,6 +813,8 @@
     <string name="export_compatible_downloads">互換性のあるダウンロードをエクスポート</string>
     <string name="sync_downloaded_playlists">プレイリストを最新に保つ</string>
     <string name="sync_downloaded_playlists_subtitle">1日2回確認し、ダウンロード済みプレイリストに追加された曲をダウンロードします</string>
+    <string name="download_liked_songs">高く評価した曲をダウンロード</string>
+    <string name="download_liked_songs_subtitle">高く評価した曲と、今後高く評価するすべての曲をダウンロードします</string>
     <string name="playlist_sync_ask_title">%1$s の新しい曲：%2$d</string>
     <string name="playlist_sync_ask_text">タップしてダウンロード</string>
     <string name="playlist_sync_done_title">%1$s に追加：%2$d</string>
@@ -988,6 +1008,7 @@
     <string name="sort_date_added_toggle">追加日</string>
 
     <string name="sort_default">デフォルトの順序</string>
+    <string name="sort_track_number">トラック番号</string>
 
     <string name="sort_library">並べ替え</string>
 
@@ -1251,8 +1272,6 @@
 
 
     <string name="source_needs_lossless_output">ロスレス出力が必要 · ロスレス対応のデバイスを使用してください</string>
-    <string name="source_needs_update">このアドオンは古いバージョンです。引き続き使用できますが、最新のBitChordアドオンドキュメントに沿って更新するよう開発者に依頼してください。</string>
-    <string name="source_outdated">古いアドオン</string>
     <string name="source_needs_lossless_bt_codec">ロスレス出力が必要 · Bluetoothは%1$sです。ロスレス対応のデバイスを使用してください</string>
     <string name="source_needs_lossless_bt_unknown">ロスレス出力が必要 · 使用中のBluetoothコーデックを判別できません</string>
     <string name="source_downloads_on">ダウンロード可</string>
@@ -1435,4 +1454,87 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="find_a_playlist">プレイリストを検索</string>
+    <string name="no_playlists_match">「%1$s」に一致するプレイリストはありません</string>
+    <string name="hide_lyrics_preview">歌詞を非表示</string>
+    <string name="hide_lyrics_preview_subtitle">プレーヤーの歌詞の行を非表示にします</string>
+    <string name="show_total_duration">合計時間を表示</string>
+    <string name="show_total_duration_subtitle">残り時間の代わりに曲の長さを表示します</string>
+    <string name="sleep_timer_fade_out">一時停止前にフェードアウト</string>
+    <string name="sleep_timer_fade_out_subtitle">最後の30秒で音量を徐々に下げます</string>
+    <string name="disable_spotify_canvas">Spotify Canvasを無効にする</string>
+    <string name="disable_spotify_canvas_subtitle">Spotify Canvasを使用しません。アニメーションアートワークは他のソースから取得します</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">%1$d曲を削除しました</item>
+    </plurals>
+    <string name="queue_removed_song">%1$sを削除しました</string>
+    <string name="queue_undo_action">元に戻す</string>
+    <string name="queue_cleared">キューをクリアしました</string>
+    <string name="queue_selected_count">%1$d件選択</string>
+    <string name="queue_playlist_added">%2$d曲中%1$d曲を追加しました</string>
+    <string name="queue_playlist_partial">%1$s（非対応 %2$d、追加済み %3$d、失敗 %4$d）</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Google ドライブにバックアップ</string>
+    <string name="drive_backup_unavailable">Google ドライブへのバックアップには Google Play 開発者サービスが必要ですが、このデバイスにはありません。</string>
+    <string name="drive_backup_never">なし</string>
+    <string name="drive_restore_failed">復元に失敗しました: %1$s</string>
+    <string name="drive_account_header">Google アカウント</string>
+    <string name="drive_connect_failed">接続できませんでした: %1$s</string>
+    <string name="drive_connect">Google ドライブを接続</string>
+    <string name="drive_connect_subtitle">バックアップ先にするこのスマートフォンのアカウントを選択</string>
+    <string name="drive_sign_in_again_subtitle">Google ドライブへのアクセスが削除されました。バックアップを続けるには再度ログインしてください。</string>
+    <string name="drive_sign_in_again">ログイン</string>
+    <string name="drive_restore_header">復元</string>
+    <string name="drive_backup_footer">バックアップは Google ドライブ内の非表示のアプリフォルダに保存され、ドライブの容量を使用します。パスワードやログイン情報は含まれません。削除するには、ドライブ → 設定 → アプリの管理 を開きます。</string>
+    <string name="drive_restore_connect_first">先に Google アカウントを接続してください</string>
+    <string name="drive_restore_action">復元</string>
+    <string name="drive_disconnect_confirm_title">Google ドライブの接続を解除しますか？</string>
+    <string name="drive_backup_restoring">復元中…</string>
+    <string name="drive_frequency_daily">毎日</string>
+    <string name="drive_frequency_weekly">毎週</string>
+    <string name="drive_frequency_monthly">毎月</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">自動同期</string>
+    <string name="drive_auto_sync_footer">電池残量が少なくないとき、このスマートフォンはバックグラウンドで自分の再生履歴をアップロードし、他のデバイスの履歴をダウンロードします。手動の同期もスケジュールに含まれます。</string>
+    <string name="drive_choose_device">このスマートフォンのデバイスを選択</string>
+    <string name="drive_choose_device_subtitle">新しいデバイスとしてバックアップするか、ドライブにあるデバイスとして復元します</string>
+    <string name="drive_device_not_set">デバイスを選択</string>
+    <string name="drive_device_synced">%1$s に同期</string>
+    <string name="drive_devices_checking">デバイスを検索中…</string>
+    <string name="drive_devices_failed">デバイスを読み込めませんでした: %1$s</string>
+    <string name="drive_devices_footer">すべてのデバイスの再生履歴が Replay で合算されます。デバイスをタップするとそのバックアップを削除できます。</string>
+    <string name="drive_devices_header">デバイス</string>
+    <string name="drive_devices_none">このアカウントにはまだデバイスがありません</string>
+    <string name="drive_devices_none_other">このアカウントには他のデバイスがまだありません</string>
+    <string name="drive_devices_title">バックアップまたは復元</string>
+    <string name="drive_forked_notice">別のスマートフォンがこのデバイスとして復元されたため、このスマートフォンは %1$s として同期されるようになりました。</string>
+    <string name="drive_new_device">新しいデバイスとしてバックアップ</string>
+    <string name="drive_new_device_footer">このスマートフォンの再生履歴は独自のデバイスとして保持され、他のデバイスの履歴が Replay で合算されます。</string>
+    <string name="drive_remove_confirm_title">%1$s のバックアップを削除しますか？</string>
+    <string name="drive_remove_confirm_body">バックアップが Google ドライブから削除され、すべてのデバイスの Replay からその再生履歴が消えます。元に戻すことはできません。</string>
+    <string name="drive_delete_mine_body">このスマートフォンのバックアップが Google ドライブから削除され、自動同期がオフになります。このスマートフォンの Replay はすべて残り、「今すぐ同期」で新しいバックアップを開始できます。</string>
+    <string name="drive_rename">名前を変更</string>
+    <string name="drive_rename_title">このスマートフォンの名前を変更</string>
+    <string name="drive_rename_message">他のデバイスではこのスマートフォンがこの名前で表示されます。</string>
+    <string name="drive_restore_as_done">%1$s として同期中 · %2$s</string>
+    <string name="drive_restore_as_footer">このスマートフォンは選んだデバイスになり、その再生履歴と設定がこのスマートフォンのものに置き換わります。</string>
+    <string name="drive_restore_as_header">復元するデバイス</string>
+    <string name="drive_restore_as_subtitle">引き継ぐデバイスをドライブから選択</string>
+    <string name="drive_restore_as_title">別のデバイスとして復元</string>
+    <string name="drive_sync_done">たった今同期しました</string>
+    <string name="drive_sync_downloading">%1$s からダウンロード中 · %3$d 件中 %2$d 件</string>
+    <string name="drive_sync_failed">同期に失敗しました: %1$s</string>
+    <string name="drive_sync_last">前回の同期</string>
+    <string name="drive_sync_now">今すぐ同期</string>
+    <string name="drive_sync_preparing">同期を準備中…</string>
+    <string name="drive_sync_uploading">%2$d か月中 %1$d か月目をアップロード中</string>
+    <string name="drive_this_phone">このスマートフォン</string>
+    <string name="drive_this_phone_header">このスマートフォン</string>
+    <string name="drive_this_phone_subtitle">このスマートフォンのバックアップ先デバイス</string>
+    <string name="drive_restore_confirm_title">%1$s として復元しますか？</string>
+    <string name="drive_restore_confirm_body">このスマートフォンは %1$s になります。その再生履歴と設定がこのスマートフォンのものに置き換わり、今後は %1$s として同期されます。ログイン情報は含まれません。</string>
+    <string name="drive_disconnect_confirm_body">同期は停止します。ドライブにあるデータは残り、再接続するまでこのスマートフォンの Replay から他のデバイスの再生履歴が除かれます。</string>
+    <string name="drive_backup_row_subtitle">Replay をすべてのデバイスでバックアップ・同期</string>
+    <string name="drive_over_cellular">モバイルデータで同期</string>
+    <string name="drive_over_cellular_subtitle">オフの場合、自動同期は Wi-Fi 接続を待ちます</string>
 </resources>

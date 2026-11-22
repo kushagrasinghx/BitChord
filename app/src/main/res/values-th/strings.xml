@@ -21,6 +21,7 @@
     <string name="search">ค้นหา</string>
     <string name="clear_search">ล้างการค้นหา</string>
     <string name="library">คลังเพลง</string>
+    <string name="radio">วิทยุ</string>
     <string name="home">หน้าแรก</string>
     <string name="play">เล่น</string>
     <string name="explore">สำรวจ</string>
@@ -87,6 +88,8 @@
     <string name="testing">กำลังทดสอบ…</string>
     <string name="connected">เชื่อมต่อแล้ว</string>
     <string name="account_integrations">บัญชีและการเชื่อมต่อ</string>
+    <string name="youtube_premium_audio">เสียง YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">ฉันมี Premium: สตรีม Opus คุณภาพสูงกว่า ~256 kbps แทน 160 kbps มาตรฐาน</string>
     <string name="account_scrobbling">บัญชีและการสโครบเบิล</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">การสโครบเบิล</string>
@@ -197,7 +200,7 @@
     <string name="playback">การเล่น</string>
     <string name="appearance">ลักษณะที่ปรากฏ</string>
     <string name="storage">พื้นที่จัดเก็บ</string>
-    <string name="your_data">ข้อมูลของคุณ</string>
+    <string name="your_data">สำรองและกู้คืนข้อมูล</string>
     <string name="miscellaneous">เบ็ดเตล็ด</string>
     <string name="lossless_hq_audio">เสียงไม่สูญเสียคุณภาพ / คุณภาพสูง</string>
     <string name="on_wifi">เมื่อใช้ Wi-Fi</string>
@@ -207,6 +210,7 @@
     <string name="crossfade">ครอสเฟด</string>
     <string name="crossfade_subtitle">ผสานเพลงหนึ่งเข้ากับเพลงถัดไป</string>
     <string name="automix">Automix [เบต้า]</string>
+    <string name="automix_overview">ภาพรวม Automix</string>
     <string name="automix_performance">ประสิทธิภาพ Automix</string>
     <string name="automix_performance_subtitle">กำหนดปริมาณ CPU ที่ใช้วิเคราะห์ในพื้นหลัง</string>
     <string name="automix_performance_warning">ประสิทธิภาพที่สูงขึ้นจะวิเคราะห์แทร็กได้เร็วขึ้น แต่อาจใช้แบตเตอรี่มากขึ้นและทำให้เครื่องร้อนขึ้น</string>
@@ -528,7 +532,13 @@
     <string name="lyrics_share_title">แชร์เนื้อเพลง</string>
     <string name="lyrics_share_description">บรรทัดที่คุณเลือก เรียงเป็นการ์ดพร้อมปก</string>
     <string name="lyrics_share_story">แปลงเป็นสตอรี่</string>
-    <string name="lyrics_share_story_revert">กลับเป็นการ์ด</string>
+    <string name="lyrics_share_story_revert">แปลงเป็นการ์ด</string>
+    <string name="lyrics_share_canvas">แคนวาส</string>
+    <string name="lyrics_share_video">วิดีโอ</string>
+    <string name="lyrics_share_image">รูปภาพ</string>
+    <string name="lyrics_share_saving">กำลังบันทึก…</string>
+    <string name="lyrics_share_gradient">ไล่สี</string>
+    <string name="lyrics_share_show_logo">แสดงโลโก้ BitChord</string>
     <string name="listening_shape">รูปแบบการฟังของคุณ</string>
     <string name="member_since">สมาชิกตั้งแต่</string>
     <string name="member_since_value">เป็นสมาชิกตั้งแต่ %1$s</string>
@@ -652,6 +662,14 @@
     <string name="version_cut_aligned">จัดตำแหน่งแล้ว</string>
     <string name="automix_enabled_subtitle">กำหนดจังหวะและผสานทุกช่วงเปลี่ยนเพลงจากตัวแทร็กเอง ปิดหากเครื่องร้อนหรือการเล่นกระตุก</string>
     <string name="automix_disabled_subtitle">กำหนดจังหวะและผสานช่วงเปลี่ยนเพลงโดยอัตโนมัติ โดยไม่มีแถบเลื่อน ประสิทธิภาพอาจแตกต่างกันในอุปกรณ์ที่ช้ากว่า</string>
+    <string name="automix_models_downloading">กำลังดาวน์โหลด Automix (%1$d MB)… %2$d%% ระหว่างนี้เพลงจะเฟดข้ามแบบปกติ</string>
+    <string name="automix_model">โมเดล Automix</string>
+    <string name="automix_model_missing">ยังไม่ได้ดาวน์โหลด Automix จะดาวน์โหลดเมื่อเปิดใช้ หรือดาวน์โหลดตอนนี้</string>
+    <string name="automix_model_download">ดาวน์โหลด (%1$d MB)</string>
+    <string name="automix_model_ready">ดาวน์โหลดแล้ว ใช้พื้นที่ %1$d MB บนอุปกรณ์นี้</string>
+    <string name="automix_models_failed">ดาวน์โหลดโมเดลไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
+    <string name="automix_model_delete_title">ลบโมเดล Automix ไหม</string>
+    <string name="automix_model_delete_warning">จะคืนพื้นที่ %1$d MB และปิด Automix เมื่อเปิด Automix อีกครั้งจะดาวน์โหลดโมเดลใหม่</string>
     <string name="advanced_automix">Automix ขั้นสูง</string>
     <string name="advanced_automix_subtitle">มิกซ์แบบดีเจ: รักษาจังหวะให้ตรงกัน เปลี่ยนเพลงตรงจังหวะ และตัดข้ามเพลงที่เข้ากันไม่ได้ ไม่มีการประมวลผลเพิ่ม</string>
     <string name="no_lyrics_sources_enabled">ไม่มี จะไม่มีการดึงเนื้อเพลง</string>
@@ -1067,6 +1085,7 @@
     <string name="sort_date_added_toggle">Date added</string>
 
     <string name="sort_default">Default order</string>
+    <string name="sort_track_number">Track number</string>
 
     <string name="sort_library">Sort</string>
 
@@ -1091,6 +1110,8 @@
     <string name="export_compatible_downloads">Export compatible downloads</string>
     <string name="sync_downloaded_playlists">อัปเดตเพลย์ลิสต์อยู่เสมอ</string>
     <string name="sync_downloaded_playlists_subtitle">ตรวจสอบวันละสองครั้งและดาวน์โหลดเพลงใหม่ในเพลย์ลิสต์ที่ดาวน์โหลดไว้</string>
+    <string name="download_liked_songs">ดาวน์โหลดเพลงที่ชอบ</string>
+    <string name="download_liked_songs_subtitle">ดาวน์โหลดเพลงที่คุณชอบ และทุกเพลงที่คุณกดชอบนับจากนี้</string>
     <string name="playlist_sync_ask_title">เพลงใหม่ใน %1$s: %2$d</string>
     <string name="playlist_sync_ask_text">แตะเพื่อดาวน์โหลด</string>
     <string name="playlist_sync_done_title">เพิ่มไปยัง %1$s แล้ว: %2$d</string>
@@ -1256,8 +1277,6 @@
 
 
     <string name="source_needs_lossless_output">ต้องใช้เอาต์พุตแบบ lossless · ใช้อุปกรณ์ที่รองรับ lossless</string>
-    <string name="source_needs_update">แอดออนนี้ล้าสมัย ยังใช้งานได้อยู่ แต่โปรดขอให้นักพัฒนาอัปเดตตามเอกสารแอดออน BitChord ล่าสุด</string>
-    <string name="source_outdated">แอดออนล้าสมัย</string>
     <string name="source_needs_lossless_bt_codec">ต้องใช้เอาต์พุตแบบ lossless · Bluetooth ใช้ %1$s อยู่ ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_unknown">ต้องใช้เอาต์พุตแบบ lossless · ไม่ทราบว่ากำลังใช้ตัวแปลงสัญญาณ Bluetooth ใด</string>
     <string name="source_downloads_on">อนุญาตให้ดาวน์โหลด</string>
@@ -1440,4 +1459,87 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="find_a_playlist">ค้นหาเพลย์ลิสต์</string>
+    <string name="no_playlists_match">ไม่มีเพลย์ลิสต์ที่ตรงกับ “%1$s”</string>
+    <string name="hide_lyrics_preview">ซ่อนเนื้อเพลง</string>
+    <string name="hide_lyrics_preview_subtitle">ซ่อนบรรทัดเนื้อเพลงบนหน้าเครื่องเล่น</string>
+    <string name="show_total_duration">แสดงความยาวทั้งหมด</string>
+    <string name="show_total_duration_subtitle">แสดงความยาวเต็มของเพลงแทนเวลาที่เหลือ</string>
+    <string name="sleep_timer_fade_out">ค่อยๆ ลดเสียงก่อนหยุดชั่วคราว</string>
+    <string name="sleep_timer_fade_out_subtitle">ค่อยๆ ลดระดับเสียงในช่วง 30 วินาทีสุดท้าย</string>
+    <string name="disable_spotify_canvas">ปิดใช้ Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">ไม่ใช้ Spotify Canvas เลย ภาพปกเคลื่อนไหวจะมาจากแหล่งอื่นแทน</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">นำออก %1$d เพลงแล้ว</item>
+    </plurals>
+    <string name="queue_removed_song">นำ %1$s ออกแล้ว</string>
+    <string name="queue_undo_action">เลิกทำ</string>
+    <string name="queue_cleared">ล้างคิวแล้ว</string>
+    <string name="queue_selected_count">เลือก %1$d รายการ</string>
+    <string name="queue_playlist_added">เพิ่มแล้ว %1$d จาก %2$d เพลง</string>
+    <string name="queue_playlist_partial">%1$s (ใช้ไม่ได้ %2$d, มีอยู่แล้ว %3$d, ล้มเหลว %4$d)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">สำรองข้อมูลไปยัง Google ไดรฟ์</string>
+    <string name="drive_backup_unavailable">การสำรองข้อมูลไปยัง Google ไดรฟ์ต้องใช้บริการ Google Play ซึ่งอุปกรณ์นี้ไม่มี</string>
+    <string name="drive_backup_never">ไม่เคย</string>
+    <string name="drive_restore_failed">กู้คืนไม่สำเร็จ: %1$s</string>
+    <string name="drive_account_header">บัญชี Google</string>
+    <string name="drive_connect_failed">เชื่อมต่อไม่ได้: %1$s</string>
+    <string name="drive_connect">เชื่อมต่อ Google ไดรฟ์</string>
+    <string name="drive_connect_subtitle">เลือกบัญชีในโทรศัพท์นี้เพื่อสำรองข้อมูล</string>
+    <string name="drive_sign_in_again_subtitle">สิทธิ์เข้าถึง Google ไดรฟ์ถูกนำออกแล้ว ลงชื่อเข้าใช้อีกครั้งเพื่อสำรองข้อมูลต่อ</string>
+    <string name="drive_sign_in_again">ลงชื่อเข้าใช้</string>
+    <string name="drive_restore_header">กู้คืน</string>
+    <string name="drive_backup_footer">ข้อมูลสำรองจะเก็บไว้ในโฟลเดอร์แอปที่ซ่อนอยู่ใน Google ไดรฟ์ของคุณ และนับรวมในพื้นที่เก็บข้อมูล ไม่มีรหัสผ่านหรือข้อมูลการลงชื่อเข้าใช้รวมอยู่ หากต้องการลบ ให้เปิดไดรฟ์ → การตั้งค่า → จัดการแอป</string>
+    <string name="drive_restore_connect_first">เชื่อมต่อบัญชี Google ก่อน</string>
+    <string name="drive_restore_action">กู้คืน</string>
+    <string name="drive_disconnect_confirm_title">ยกเลิกการเชื่อมต่อ Google ไดรฟ์ไหม</string>
+    <string name="drive_backup_restoring">กำลังกู้คืน…</string>
+    <string name="drive_frequency_daily">ทุกวัน</string>
+    <string name="drive_frequency_weekly">ทุกสัปดาห์</string>
+    <string name="drive_frequency_monthly">ทุกเดือน</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">ซิงค์อัตโนมัติ</string>
+    <string name="drive_auto_sync_footer">โทรศัพท์นี้จะอัปโหลดประวัติการฟังของตัวเองและดาวน์โหลดของอุปกรณ์อื่นในเบื้องหลังเมื่อแบตเตอรี่ไม่ต่ำ การซิงค์ด้วยตนเองจะนับรวมในกำหนดการด้วย</string>
+    <string name="drive_choose_device">เลือกอุปกรณ์ของโทรศัพท์นี้</string>
+    <string name="drive_choose_device_subtitle">สำรองข้อมูลเป็นอุปกรณ์ใหม่ หรือกู้คืนเป็นอุปกรณ์ที่มีอยู่ในไดรฟ์</string>
+    <string name="drive_device_not_set">เลือกอุปกรณ์</string>
+    <string name="drive_device_synced">ซิงค์เมื่อ %1$s</string>
+    <string name="drive_devices_checking">กำลังค้นหาอุปกรณ์…</string>
+    <string name="drive_devices_failed">โหลดอุปกรณ์ไม่ได้: %1$s</string>
+    <string name="drive_devices_footer">ประวัติการฟังจากทุกอุปกรณ์จะรวมกันใน Replay แตะอุปกรณ์เพื่อลบข้อมูลสำรองของอุปกรณ์นั้น</string>
+    <string name="drive_devices_header">อุปกรณ์</string>
+    <string name="drive_devices_none">ยังไม่มีอุปกรณ์ในบัญชีนี้</string>
+    <string name="drive_devices_none_other">ยังไม่มีอุปกรณ์อื่นในบัญชีนี้</string>
+    <string name="drive_devices_title">สำรองหรือกู้คืนเป็น</string>
+    <string name="drive_forked_notice">มีโทรศัพท์อื่นกู้คืนเป็นอุปกรณ์นี้ โทรศัพท์นี้จึงซิงค์เป็น %1$s แทน</string>
+    <string name="drive_new_device">สำรองข้อมูลเป็นอุปกรณ์ใหม่</string>
+    <string name="drive_new_device_footer">ประวัติการฟังของโทรศัพท์นี้จะเป็นอุปกรณ์ของตัวเอง และประวัติของอุปกรณ์อื่นจะถูกรวมเข้าใน Replay</string>
+    <string name="drive_remove_confirm_title">ลบข้อมูลสำรองของ %1$s ไหม</string>
+    <string name="drive_remove_confirm_body">ข้อมูลสำรองจะถูกลบจาก Google ไดรฟ์ และประวัติการฟังจะหายไปจาก Replay ในทุกอุปกรณ์ เลิกทำไม่ได้</string>
+    <string name="drive_delete_mine_body">ข้อมูลสำรองของโทรศัพท์เครื่องนี้จะถูกลบจาก Google ไดรฟ์ และการซิงค์อัตโนมัติจะปิด Replay ในโทรศัพท์เครื่องนี้ยังเก็บทุกอย่างไว้ และ ซิงค์เลย จะเริ่มข้อมูลสำรองใหม่</string>
+    <string name="drive_rename">เปลี่ยนชื่อ</string>
+    <string name="drive_rename_title">เปลี่ยนชื่อโทรศัพท์นี้</string>
+    <string name="drive_rename_message">อุปกรณ์อื่นของคุณจะแสดงโทรศัพท์นี้ด้วยชื่อนี้</string>
+    <string name="drive_restore_as_done">กำลังซิงค์เป็น %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">โทรศัพท์นี้จะกลายเป็นอุปกรณ์ที่คุณเลือก ประวัติการฟังและการตั้งค่าของอุปกรณ์นั้นจะแทนที่ของโทรศัพท์นี้</string>
+    <string name="drive_restore_as_header">กู้คืนเป็น</string>
+    <string name="drive_restore_as_subtitle">เลือกอุปกรณ์ในไดรฟ์เพื่อใช้งานต่อ</string>
+    <string name="drive_restore_as_title">กู้คืนเป็นอุปกรณ์อื่น</string>
+    <string name="drive_sync_done">เพิ่งซิงค์</string>
+    <string name="drive_sync_downloading">กำลังดาวน์โหลดจาก %1$s · %2$d จาก %3$d</string>
+    <string name="drive_sync_failed">ซิงค์ไม่สำเร็จ: %1$s</string>
+    <string name="drive_sync_last">ซิงค์ล่าสุด</string>
+    <string name="drive_sync_now">ซิงค์เลย</string>
+    <string name="drive_sync_preparing">กำลังเตรียมซิงค์…</string>
+    <string name="drive_sync_uploading">กำลังอัปโหลดเดือนที่ %1$d จาก %2$d</string>
+    <string name="drive_this_phone">โทรศัพท์นี้</string>
+    <string name="drive_this_phone_header">โทรศัพท์นี้</string>
+    <string name="drive_this_phone_subtitle">อุปกรณ์ที่โทรศัพท์นี้ใช้สำรองข้อมูล</string>
+    <string name="drive_restore_confirm_title">กู้คืนเป็น %1$s ไหม</string>
+    <string name="drive_restore_confirm_body">โทรศัพท์นี้จะกลายเป็น %1$s ประวัติการฟังและการตั้งค่าของอุปกรณ์นั้นจะแทนที่ของโทรศัพท์นี้ และนับจากนี้จะซิงค์เป็น %1$s ไม่รวมข้อมูลการลงชื่อเข้าใช้</string>
+    <string name="drive_disconnect_confirm_body">การซิงค์จะหยุด ข้อมูลทั้งหมดในไดรฟ์ยังคงอยู่ และประวัติการฟังของอุปกรณ์อื่นจะถูกนำออกจาก Replay ในโทรศัพท์นี้จนกว่าจะเชื่อมต่ออีกครั้ง</string>
+    <string name="drive_backup_row_subtitle">สำรองและซิงค์ Replay ในทุกอุปกรณ์ของคุณ</string>
+    <string name="drive_over_cellular">ซิงค์ผ่านอินเทอร์เน็ตมือถือ</string>
+    <string name="drive_over_cellular_subtitle">เมื่อปิด การซิงค์อัตโนมัติจะรอ Wi-Fi</string>
 </resources>

@@ -9,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -22,13 +23,16 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
@@ -41,6 +45,29 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+
+private val queueSnapshotRefreshRevision = mutableLongStateOf(0L)
+private val queueTierOverrides = mutableStateMapOf<Pair<String, String>, QueueTier>()
+
+private class QueueSnapshotRefreshListener : MediaController.Listener {
+    var lastQueueRefreshRevision = Long.MIN_VALUE
+    var ready = false
+
+    override fun onExtrasChanged(controller: MediaController, extras: Bundle) {
+        if (!ready) return
+        val revision = extras.getLong(EXTRA_QUEUE_REFRESH_REVISION, Long.MIN_VALUE)
+        val entryId = extras.getString(EXTRA_QUEUE_REFRESH_ENTRY_ID)
+        val mediaId = extras.getString(EXTRA_QUEUE_REFRESH_MEDIA_ID)
+        val tier = extras.getString(EXTRA_QUEUE_REFRESH_TIER)
+            ?.let { runCatching { QueueTier.valueOf(it) }.getOrNull() }
+        if (revision <= lastQueueRefreshRevision || entryId == null ||
+            mediaId == null || tier == null
+        ) return
+        lastQueueRefreshRevision = revision
+        queueTierOverrides[mediaId to entryId] = tier
+        queueSnapshotRefreshRevision.longValue++
+    }
+}
 
 /** Snapshot of playback state, driven by the MediaController. */
 data class PlayerState(
@@ -79,12 +106,23 @@ data class PlayerState(
 fun rememberMediaController(): MediaController? {
     val context = LocalContext.current
     var controller by remember { mutableStateOf<MediaController?>(null) }
+    val listener = remember(context) { QueueSnapshotRefreshListener() }
 
     DisposableEffect(context) {
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        val future = MediaController.Builder(context, token)
+            .setListener(listener)
+            .buildAsync()
         future.addListener(
-            { controller = runCatching { future.get() }.getOrNull() },
+            {
+                val connected = runCatching { future.get() }.getOrNull()
+                if (connected != null) {
+                    listener.lastQueueRefreshRevision = connected.sessionExtras
+                        .getLong(EXTRA_QUEUE_REFRESH_REVISION, Long.MIN_VALUE)
+                    listener.ready = true
+                }
+                controller = connected
+            },
             ContextCompat.getMainExecutor(context),
         )
         onDispose {
@@ -298,13 +336,90 @@ fun MediaController.setQueueDragActive(active: Boolean) {
     )
 }
 
+/** A queue-screen swipe moves this occurrence rather than adding a second copy. */
+suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+/**
+ * A queue-screen tap on a history row: played again at the playhead, keeping
+ * later history as history. False when the service left the queue as it was
+ * (a party, a bounded context, a row that moved): seek to it instead.
+ */
+suspend fun MediaController.replayFromHistory(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_REPLAY_HISTORY, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
+/** Only queue-screen removals enter the service's transient Undo history. */
+suspend fun MediaController.removeQueueItemWithUndo(index: Int, song: Song): Boolean =
+    acknowledgedQueueEdit(
+        ACTION_QUEUE_REMOVE_WITH_UNDO,
+        bundleOf(
+            EXTRA_QUEUE_MOVE_INDEX to index,
+            EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+            EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+        ),
+    )
+
+suspend fun MediaController.removeQueueEntriesWithUndo(entries: List<QueueEntryIdentity>): Boolean {
+    if (entries.isEmpty()) return false
+    val args = Bundle().apply {
+        putStringArrayList(EXTRA_QUEUE_BULK_MEDIA_IDS, ArrayList(entries.map { it.mediaId }))
+        putStringArrayList(EXTRA_QUEUE_BULK_ENTRY_IDS, ArrayList(entries.map { it.queueEntryId.orEmpty() }))
+        putBooleanArray(EXTRA_QUEUE_BULK_ENTRY_ID_PRESENT, entries.map { it.queueEntryId != null }.toBooleanArray())
+        putIntArray(EXTRA_QUEUE_BULK_OCCURRENCES, entries.map { it.occurrence }.toIntArray())
+    }
+    return acknowledgedQueueEdit(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, args)
+}
+
+suspend fun MediaController.clearUserQueueWithUndo(): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_CLEAR_WITH_UNDO, Bundle.EMPTY)
+
+suspend fun MediaController.undoQueueEdit(token: String): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_UNDO, bundleOf(EXTRA_QUEUE_UNDO_TOKEN to token))
+
+private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: Bundle): Boolean =
+    try {
+        sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args).await().resultCode ==
+            SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable
 fun rememberPlayerState(controller: MediaController?): PlayerState {
     val position = remember { PlaybackPosition() }
     var state by remember { mutableStateOf(PlayerState(position = position)) }
+    val queueRefreshRevision = queueSnapshotRefreshRevision.longValue
 
-    DisposableEffect(controller) {
+    DisposableEffect(controller, queueRefreshRevision) {
         val player = controller ?: return@DisposableEffect onDispose {}
 
         // A MediaController reads each item across the session boundary. Keep
@@ -324,6 +439,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
         // thousand songs out of the session for every track it loaded, on the
         // main thread, for as long as the queue kept playing.
         var queueChanged = false
+        var authoritativeQueueChange = false
 
         fun sync(
             error: String? = null,
@@ -334,6 +450,10 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             if (rebuildQueue) {
                 queueSnapshot = (0 until player.mediaItemCount)
                     .map { player.getMediaItemAt(it).toSong() }
+                    .map { song ->
+                        val override = song.queueEntryId?.let { queueTierOverrides[song.videoId to it] }
+                        if (override == null) song else song.copy(queueTier = override)
+                    }
             } else if (refreshCurrentQueueItem && item != null) {
                 val index = player.currentMediaItemIndex
                 if (index in queueSnapshot.indices) {
@@ -342,10 +462,11 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             }
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
-            position.report(player.currentPosition.coerceAtLeast(0L))
+            val playing = player.isPlaying
+            position.report(player.currentPosition.coerceAtLeast(0L), isPlaying = playing)
             state = state.copy(
                 song = item?.toSong(),
-                isPlaying = player.isPlaying,
+                isPlaying = playing,
                 durationMs = player.duration.coerceAtLeast(0L),
                 error = error,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
@@ -368,6 +489,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     timeline.windowCount != queueSnapshot.size
                 ) {
                     queueChanged = true
+                    authoritativeQueueChange = true
                 } else if (timeline.windowCount > 0 && queueSnapshot.isNotEmpty()) {
                     val window = Timeline.Window()
                     for (i in 0 until timeline.windowCount) {
@@ -376,7 +498,8 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                         val entryId = item.mediaMetadata.extras?.getString(EXTRA_QUEUE_ENTRY_ID)
                             ?: mediaItemEntryIds[item]
                         if (item.mediaId != queueSnapshot[i].videoId ||
-                            (entryId != null && entryId != queueSnapshot[i].queueEntryId)
+                            (entryId != null && entryId != queueSnapshot[i].queueEntryId) ||
+                            item.queueTier != queueSnapshot[i].queueTier
                         ) {
                             queueChanged = true
                             break
@@ -400,11 +523,16 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     newPosition.positionMs > oldPosition.positionMs
                 if (!reanchor) position.seeks++
             }
-            override fun onEvents(p: Player, events: Player.Events) = sync(
-                error = state.error,
-                rebuildQueue = queueChanged.also { queueChanged = false },
-                refreshCurrentQueueItem = events.contains(Player.EVENT_MEDIA_METADATA_CHANGED),
-            )
+            override fun onEvents(p: Player, events: Player.Events) {
+                if (authoritativeQueueChange) queueTierOverrides.clear()
+                authoritativeQueueChange = false
+                val rebuildQueue = queueChanged.also { queueChanged = false }
+                sync(
+                    error = state.error,
+                    rebuildQueue = rebuildQueue,
+                    refreshCurrentQueueItem = events.contains(Player.EVENT_MEDIA_METADATA_CHANGED),
+                )
+            }
             override fun onPlayerErrorChanged(error: androidx.media3.common.PlaybackException?) {
                 sync(error?.let { "Playback failed: ${it.errorCodeName}" })
             }
@@ -423,7 +551,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     val foreground = rememberIsForeground()
     LaunchedEffect(controller, state.isPlaying, foreground) {
         while (controller != null && state.isPlaying && foreground) {
-            position.report(controller.currentPosition.coerceAtLeast(0L))
+            position.report(controller.currentPosition.coerceAtLeast(0L), isPlaying = controller.isPlaying)
             val duration = controller.duration.coerceAtLeast(0L)
             if (duration != state.durationMs) state = state.copy(durationMs = duration)
             delay(500)
@@ -500,6 +628,10 @@ val MediaItem.queueEntryId: String?
 const val EXTRA_QUEUE_TIER = "bitchord.queueTier"
 const val EXTRA_QUEUE_ENTRY_ID = "bitchord.queueEntryId"
 const val EXTRA_CANONICAL_INDEX = "bitchord.canonicalIndex"
+const val EXTRA_QUEUE_REFRESH_REVISION = "bitchord.queueRefresh.revision"
+const val EXTRA_QUEUE_REFRESH_ENTRY_ID = "bitchord.queueRefresh.entryId"
+const val EXTRA_QUEUE_REFRESH_MEDIA_ID = "bitchord.queueRefresh.mediaId"
+const val EXTRA_QUEUE_REFRESH_TIER = "bitchord.queueRefresh.tier"
 
 /** Provenance index within the canonical collection (0-based). */
 val MediaItem.canonicalIndex: Int?
@@ -716,7 +848,12 @@ fun Song.toMediaItem(): MediaItem {
             // Sized here rather than left as stored: this is what the lock
             // screen, the notification and Android Auto draw, all of them
             // large, and none of them go back for a better copy later.
-            .setArtworkUri(artworkAt(NOTIFICATION_ART_PX)?.toUri())
+            //
+            // Media3 loads this itself, with no way to try a second URL, so a
+            // YouTube cover goes at the size every video has: a larger one is a
+            // 404 for an old upload, and a blank lock screen. It is also read
+            // back as the queue row's thumbnail, which wants no 1280px copy.
+            .setArtworkUri(artworkAt(NOTIFICATION_ART_PX)?.let { youTubeThumbnailFallback(it) ?: it }?.toUri())
             // System media surfaces (One UI's Now Bar, Android Auto, Assistant)
             // classify a session by its media type; untyped sessions get treated
             // as generic audio and lose the music-specific card.

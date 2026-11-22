@@ -61,4 +61,30 @@ class QueueHistoryDisplayTest {
         assertTrue(splitQueue(listOf(song("a")), 1, true).history.isEmpty())
         assertTrue(splitQueue(listOf(song("a")), 0, true).history.isEmpty())
     }
+
+    @Test
+    fun `selectable rows exclude current and preserve section order and timeline indices`() {
+        val queue = listOf(song("old"), song("current"), song("manual", QueueTier.USER_QUEUE),
+            song("album"), song("radio", QueueTier.AUTOPLAY))
+
+        assertEquals(listOf(0, 2, 3, 4), splitQueue(queue, 1, true).rows.map { it.timelineIndex })
+        assertEquals(listOf(2, 3, 4), splitQueue(queue, 1).rows.map { it.timelineIndex })
+    }
+
+    @Test
+    fun `each upcoming section can be the first selectable section`() {
+        val current = song("current")
+        assertEquals(listOf(1), splitQueue(listOf(current, song("manual", QueueTier.USER_QUEUE)), 0).rows.map { it.timelineIndex })
+        assertEquals(listOf(1), splitQueue(listOf(current, song("album")), 0).rows.map { it.timelineIndex })
+        assertEquals(listOf(1), splitQueue(listOf(current, song("radio", QueueTier.AUTOPLAY)), 0).rows.map { it.timelineIndex })
+    }
+
+    @Test
+    fun `last current song leaves only enabled history selectable`() {
+        val queue = listOf(song("old"), song("current"))
+        assertEquals(listOf(0), splitQueue(queue, 1, true).rows.map { it.timelineIndex })
+        assertTrue(splitQueue(queue, 1).rows.isEmpty())
+        assertTrue(splitQueue(listOf(song("current")), 0).rows.isEmpty())
+        assertTrue(splitQueue(emptyList(), 0).rows.isEmpty())
+    }
 }

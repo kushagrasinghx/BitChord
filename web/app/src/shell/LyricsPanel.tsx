@@ -2,10 +2,10 @@
 import '@uimaxbai/am-lyrics/am-lyrics.js';
 import { Check, ChevronDown, Loader2, Minus, Settings2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { LyricClock } from '@bitchord/shared-kotlin';
 import { useCanvas } from '@/data/spotify/canvas';
 import { getBridge } from '@/extension/bridge';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
-import { LyricClock } from '@/lyrics/clock';
 import { onUngrantedChange, ungrantedOrigins } from '@/lyrics/http';
 import type { SourceState } from '@/lyrics/repository';
 import { enabledSources } from '@/lyrics/settings';
@@ -170,7 +170,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
         const sec = getPlayhead()?.sec ?? last;
         if (sec < last - 0.15 || sec > last + 1) discontinuity++;
         last = sec;
-        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity);
+        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity, true);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
@@ -182,14 +182,16 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
     const tick = () => {
       const now = performance.now();
       // The reading and its stamp are taken together.
-      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity);
+      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, !audio.paused);
       frame = requestAnimationFrame(tick);
     };
+    // Paused, the sweep stays where it was drawn rather than snapping to the
+    // media time (which a running clock is a frame or two ahead of), and the
+    // resume carries on from there; a seek while paused still lands.
     const hold = () => {
       cancelAnimationFrame(frame);
-      const ms = audio.currentTime * 1000;
-      clock.hold(ms, performance.now());
-      el.currentTime = ms;
+      const now = performance.now();
+      el.currentTime = clock.observe(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, false) ?? clock.displayedMs;
     };
     const resume = () => {
       cancelAnimationFrame(frame);

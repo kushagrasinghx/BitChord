@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LyricClock } from './clock';
+import { LyricClock } from '@bitchord/shared-kotlin';
 
-// Ported from the native app's LyricClockTest.kt.
+// LyricClockTest.kt's cases, run against LyricClock.kt itself (shared/commonMain, compiled to JavaScript).
 
 const FRAME_MS = 1000 / 60;
 
@@ -66,7 +66,7 @@ function run(playback: Playback, seconds: number, maxStallMs = 0, seed = 11) {
   while (now <= seconds * 1000) {
     playback.deliver(now);
     frames.push(now);
-    shown.push(clock.frame(now, playback.report, playback.sampledAt, 0));
+    shown.push(clock.frame(now, playback.report, playback.sampledAt, 0, true));
     truth.push(playback.trueAt(now));
     now += FRAME_MS;
     if (maxStallMs > 0 && random() < 0.02) now += random() * maxStallMs;
@@ -124,16 +124,71 @@ describe('LyricClock', () => {
     let shown = 0;
     while (now <= 3000) {
       const taken = Math.floor(now / 500) * 500;
-      shown = clock.frame(now, 10_000 + taken, taken, 0);
+      shown = clock.frame(now, 10_000 + taken, taken, 0, true);
       now += FRAME_MS;
     }
     // Seek to 60 s, announced.
     const seekAt = now;
     while (now <= seekAt + 1000) {
       const taken = Math.floor(now / 500) * 500;
-      shown = clock.frame(now, 60_000 + Math.max(0, taken - seekAt), Math.max(taken, seekAt), 1);
+      shown = clock.frame(now, 60_000 + Math.max(0, taken - seekAt), Math.max(taken, seekAt), 1, true);
       now += FRAME_MS;
     }
     expect(Math.abs(shown - (60_000 + (now - FRAME_MS - seekAt)))).toBeLessThan(100);
+  });
+
+  // Pause and resume: the readings LyricClockTest.kt builds from a PlaybackPosition, written out.
+
+  it('resumes where it stopped', () => {
+    const clock = new LyricClock(10_000);
+    clock.frame(0, 10_000, 0, 0, true);
+    clock.observe(5, 10_000, 5, 0, false);
+    clock.restart();
+    expect(clock.frame(60_000, 10_000, 0, 0, true)).toBe(10_000);
+    expect(clock.frame(60_016, 10_000, 0, 0, true)).toBe(10_016);
+  });
+
+  it('freezes the sweep through a pause, then carries on from it', () => {
+    const clock = new LyricClock(30_000);
+    clock.frame(1000, 30_000, 1000, 0, true);
+    const beforePause = clock.frame(1200.5, 30_000, 1000, 0, true);
+    const frozen = clock.displayedMs;
+
+    expect(clock.observe(1210, 30_170, 1210, 0, false)).toBe(beforePause);
+    expect(clock.observe(1500, 30_150, 1500, 0, false)).toBe(beforePause);
+    expect(clock.displayedMs).toBe(frozen);
+
+    expect(clock.observe(5000, 30_100, 5000, 0, true)).toBeNull();
+    clock.restart();
+    expect(clock.frame(5000, 30_100, 5000, 0, true)).toBe(beforePause);
+    let previous = beforePause;
+    let position = 30_100;
+    for (let step = 1; step <= 600; step++) {
+      const elapsed = step * FRAME_MS;
+      const now = 5000 + elapsed;
+      position = 30_100 + Math.trunc(elapsed);
+      const next = clock.frame(now, position, now, 0, true);
+      expect(next).toBeGreaterThanOrEqual(previous);
+      previous = next;
+    }
+    expect(Math.abs(previous - position)).toBeLessThan(40);
+  });
+
+  it('still lands a seek made while paused', () => {
+    const clock = new LyricClock(30_867);
+    clock.observe(1000, 30_867, 1000, 0, false);
+    expect(clock.observe(2000, 20_000, 2000, 1, false)).toBe(20_000);
+    expect(clock.observe(3000, 35_000, 3000, 2, false)).toBe(35_000);
+    expect(clock.observe(5000, 34_990, 5000, 2, true)).toBeNull();
+    clock.restart();
+    expect(clock.frame(5000, 34_990, 5000, 2, true)).toBe(35_000);
+  });
+
+  it('does not hold the paused place over a seek made as playback resumes', () => {
+    const clock = new LyricClock(30_867);
+    clock.observe(1000, 30_867, 1000, 0, false);
+    expect(clock.observe(5000, 20_000, 5000, 1, true)).toBeNull();
+    clock.restart();
+    expect(clock.frame(5000, 20_000, 5000, 1, true)).toBe(20_000);
   });
 });

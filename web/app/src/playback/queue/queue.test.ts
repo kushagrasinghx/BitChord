@@ -10,6 +10,7 @@ import {
   playedUserQueueIndices,
   shuffledStartingOrder,
   shuffledUpcomingOrder,
+  splitQueue,
   upcomingUserQueueIndices,
   userQueueInsertionIndex,
   type QueueEntry,
@@ -171,5 +172,51 @@ describe('QueueTimeline', () => {
     const identity = () => 0.999999; // Fisher-Yates with j = i keeps the order
     const result = shuffledUpcomingOrder(['context', 'context', 'context'], identity);
     expect(result).not.toEqual([0, 1, 2]);
+  });
+});
+
+// Ported from sharedUi/src/jvmTest/…/QueueHistoryDisplayTest.kt
+describe('splitQueue (PlayerQueue.splitQueue)', () => {
+  const entries = (spec: [string, QueueTier][]) => spec.map(([id, tier]) => asEntry(track(id), tier, null));
+  const queue = entries([['old', 'context'], ['current', 'context'], ['manual', 'user'], ['album', 'context'], ['radio', 'autoplay']]);
+  const at = (rows: { at: number }[]) => rows.map((r) => r.at);
+
+  it('hides history by default without changing what is upcoming', () => {
+    const hidden = splitQueue(queue, 1, false);
+    const visible = splitQueue(queue, 1, true);
+    expect(hidden.history).toEqual([]);
+    expect(at(visible.history)).toEqual([0]);
+    expect(at(hidden.upcoming)).toEqual(at(visible.upcoming));
+    expect(at(visible.upcoming)).toEqual([2, 3, 4]);
+  });
+  it('adds the old current song as playback advances; going back leaves the rest upcoming', () => {
+    const abc = entries([['a', 'context'], ['b', 'context'], ['c', 'context']]);
+    expect(splitQueue(abc, 2, true).history.map((r) => r.entry.track.videoId)).toEqual(['a', 'b']);
+    const back = splitQueue(abc, 1, true);
+    expect(back.history.map((r) => r.entry.track.videoId)).toEqual(['a']);
+    expect(at(back.upcoming)).toEqual([2]);
+  });
+  it('keeps duplicates apart, at their own timeline indices', () => {
+    const same = entries([['same', 'context'], ['same', 'context'], ['same', 'context'], ['same', 'context']]);
+    const split = splitQueue(same, 2, true);
+    const rows = [...split.history, ...split.upcoming];
+    expect(at(rows)).toEqual([0, 1, 3]);
+    expect(new Set(rows.map((r) => r.entry.entryId)).size).toBe(3);
+  });
+  it('has no history for an empty, invalid or first-song queue', () => {
+    const one = entries([['a', 'context']]);
+    expect(splitQueue([], 0, true).history).toEqual([]);
+    expect(splitQueue(one, -1, true).history).toEqual([]);
+    expect(splitQueue(one, 1, true).history).toEqual([]);
+    expect(splitQueue(one, 0, true).history).toEqual([]);
+  });
+  it('leaves only shown history selectable once the last song is playing', () => {
+    const two = entries([['old', 'context'], ['current', 'context']]);
+    const rows = (show: boolean) => {
+      const split = splitQueue(two, 1, show);
+      return at([...split.history, ...split.upcoming]);
+    };
+    expect(rows(true)).toEqual([0]);
+    expect(rows(false)).toEqual([]);
   });
 });

@@ -57,6 +57,14 @@ interface Settings {
   automixBars: number;
   /** Stats for nerds: the stream's codec, bitrate and sample rate, and what Automix is doing, under the artist. */
   showNerdStats: boolean;
+  /** Up Next lists the songs already played above what's next (AppSettings.showQueueHistory; off by default, as there). */
+  showQueueHistory: boolean;
+}
+
+/** A queue edit Undo can take back for a few seconds (QueueScreenUndo.kt): never saved, never sent to a party. */
+export interface UndoNotice {
+  token: number;
+  message: string;
 }
 
 interface PlayerState extends Settings {
@@ -73,6 +81,8 @@ interface PlayerState extends Settings {
   automixState: AutoDJSnapshot | null;
   /** A loop mix is playing from its decks: read the position from getPlayhead(), not the element. */
   mixing: boolean;
+  /** The last removal or Clear, while Undo can still take it back. */
+  undoNotice: UndoNotice | null;
 
   /** Plays [tracks] as the context (an album, a playlist), from [startIndex]. */
   playTracks: (tracks: Track[], startIndex: number, source: QueueSource) => void;
@@ -85,9 +95,13 @@ interface PlayerState extends Settings {
   /** Tapping a row in Up Next (QueueTimeline.computeJumpOrder). */
   jumpTo: (index: number) => void;
   removeAt: (index: number) => void;
+  /** Removes rows by entry id (never the playing one), and offers Undo. */
+  removeEntries: (entryIds: readonly string[]) => void;
+  /** Takes back the last removal or Clear, if nothing has moved the queue since. */
+  undo: () => void;
   /** Moves an upcoming row; both indices are into [queue] and after the playing one. */
   move: (from: number, to: number) => void;
-  /** "Clear": the upcoming hand-queued tracks. The album or playlist and AutoPlay stay. */
+  /** "Clear": the upcoming hand-queued tracks, with Undo. The album or playlist and AutoPlay stay. */
   clearUpNext: () => void;
   next: () => void;
   previous: () => void;
@@ -102,6 +116,7 @@ interface PlayerState extends Settings {
   setAutomix: (on: boolean) => void;
   setAutomixBars: (bars: number) => void;
   setShowNerdStats: (on: boolean) => void;
+  setShowQueueHistory: (on: boolean) => void;
 }
 
 // ---- Settings, kept across visits ---------------------------------------------------
@@ -117,6 +132,7 @@ const DEFAULT_SETTINGS: Settings = {
   automix: false,
   automixBars: 16,
   showNerdStats: false,
+  showQueueHistory: false,
 };
 
 function loadSettings(): Settings {
@@ -128,10 +144,10 @@ function loadSettings(): Settings {
 }
 
 function saveSettings(state: Settings) {
-  const { shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats } = state;
+  const { shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats, showQueueHistory } = state;
   localStorage.setItem(
     SETTINGS_KEY,
-    JSON.stringify({ shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats }),
+    JSON.stringify({ shuffle, repeat, autoplay, volume, muted, crossfadeSec, automix, automixBars, showNerdStats, showQueueHistory }),
   );
 }
 
@@ -213,7 +229,8 @@ function getDecks(): Promise<Deck[]> {
 
 function applyVolumes() {
   const { volume, muted } = usePlayer.getState();
-  const level = muted ? 0 : Math.min(1, Math.max(0, volume));
+  // The sleep timer's fade scales the user's volume rather than replacing it.
+  const level = muted ? 0 : Math.min(1, Math.max(0, volume)) * sleepGain;
   if (graph) {
     // Routed through Web Audio: the elements stay at 1 and the graph carries volume and the fade.
     const now = graph.ctx.currentTime;
@@ -253,6 +270,8 @@ function ensureAutomix(): Promise<AutomixGraph | null> {
         current: () => {
           // A party doesn't mix: every member would blend on their own clock (the phone stops too).
           if (partyHooks?.inParty()) return null;
+          // "After this song": the song ends on its own, with nothing blended in.
+          if (pauseAfterTrack) return null;
           const { queue, index, status } = usePlayer.getState();
           const entry = queue[index];
           return entry && status === 'playing' ? queued(entry) : null;
@@ -410,6 +429,57 @@ export function setPartyHooks(hooks: PartyHooks | null): void {
 }
 const intent = () => partyHooks?.onIntent();
 
+// ---- The sleep timer's door (playback/sleepTimer.ts) ------------------------------------
+
+/** The sleep timer's fade, 0–1, applied on top of the volume (SleepTimer.calculateFadeVolume). */
+let sleepGain = 1;
+/** "After this song": the queue moves on when it ends, but doesn't play (PlaybackService's afterTrack). */
+let pauseAfterTrack = false;
+
+export function setSleepGain(gain: number): void {
+  if (gain === sleepGain) return;
+  sleepGain = gain;
+  applyVolumes();
+}
+
+export function setPauseAfterTrack(on: boolean): void {
+  pauseAfterTrack = on;
+}
+
+const tickListeners = new Set<() => void>();
+/**
+ * Called a few times a second while the track in front plays, from its own
+ * timeupdate: the audio clock, which a background tab doesn't slow down the
+ * way it does timers.
+ */
+export function onPlaybackTick(listener: () => void): () => void {
+  tickListeners.add(listener);
+  return () => tickListeners.delete(listener);
+}
+
+// ---- Undo (QueueScreenUndo.kt) ---------------------------------------------------------
+
+/** How long Undo stays on offer (PlaybackService's 4.5 s). */
+const UNDO_MS = 4_500;
+let undoTokens = 0;
+let undoEdit: { token: number; queue: QueueEntry[]; index: number; after: QueueEntry[]; afterIndex: number; timer: ReturnType<typeof setTimeout> } | null = null;
+
+function dropUndo() {
+  if (!undoEdit) return;
+  clearTimeout(undoEdit.timer);
+  undoEdit = null;
+  usePlayer.setState({ undoNotice: null });
+}
+
+/** Offers to put [before] back, for as long as nothing else moves the queue. */
+function offerUndo(before: { queue: QueueEntry[]; index: number }, message: string) {
+  dropUndo();
+  const { queue, index } = usePlayer.getState();
+  const token = ++undoTokens;
+  undoEdit = { token, ...before, after: queue, afterIndex: index, timer: setTimeout(dropUndo, UNDO_MS) };
+  usePlayer.setState({ undoNotice: { token, message } });
+}
+
 // ---- Store ------------------------------------------------------------------------
 
 /** Each load gets a number; an answer for an older one is dropped. */
@@ -427,6 +497,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   deck: 0,
   automixState: null,
   mixing: false,
+  undoNotice: null,
 
   playTracks(tracks, startIndex, source) {
     if (!tracks.length) return;
@@ -497,6 +568,33 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     intent();
   },
 
+  removeEntries(entryIds) {
+    const { queue, index } = get();
+    const drop = new Set(entryIds);
+    // The playing song isn't a row in Up Next; it can't be removed from under itself.
+    drop.delete(queue[index]?.entryId ?? '');
+    const removed = queue.filter((e) => drop.has(e.entryId));
+    if (!removed.length) return;
+    set({
+      queue: queue.filter((e) => !drop.has(e.entryId)),
+      index: index - queue.slice(0, Math.max(index, 0)).filter((e) => drop.has(e.entryId)).length,
+    });
+    void refillAutoplay();
+    offerUndo({ queue, index }, removed.length === 1 ? `Removed ${removed[0]!.track.title}` : `Removed ${removed.length} songs`);
+    intent();
+  },
+
+  undo() {
+    const edit = undoEdit;
+    if (!edit) return;
+    const { queue, index } = get();
+    dropUndo();
+    // Something else moved the queue since: putting the old one back would undo that too.
+    if (queue !== edit.after || index !== edit.afterIndex) return;
+    set({ queue: edit.queue, index: edit.index });
+    intent();
+  },
+
   move(from, to) {
     const { queue, index } = get();
     if (from <= index || to <= index || from >= queue.length || to >= queue.length || from === to) return;
@@ -510,7 +608,9 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   clearUpNext() {
     const { queue, index } = get();
     const drop = new Set(upcomingUserQueueIndices(queue.map((e) => e.tier), index));
+    if (!drop.size) return;
     set({ queue: queue.filter((_, i) => !drop.has(i)) });
+    offerUndo({ queue, index }, 'Queue cleared');
     intent();
   },
 
@@ -540,8 +640,9 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     // A listener in a party the host has locked: the press moves this device alone.
     if (partyHooks?.onLockedTransport(resuming)) return;
     if (!audio || status === 'error') {
-      // A stopped or failed track starts again from where it was.
-      void startAt(index, { startSec: audio?.currentTime ?? 0 });
+      // A stopped or failed track starts again from where it was; a restored queue from where it was left.
+      void startAt(index, { startSec: audio?.currentTime ?? resumeAtSec });
+      resumeAtSec = 0;
     } else if (audio.paused) {
       // In a party, a resume waits for the instant the server schedules for everyone.
       if (!partyHooks?.shouldDeferPlay()) void audio.play().catch((e: unknown) => trackLog.w(`play() refused: ${String(e)}`));
@@ -636,7 +737,39 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ showNerdStats });
     saveSettings(get());
   },
+
+  setShowQueueHistory(showQueueHistory) {
+    set({ showQueueHistory });
+    saveSettings(get());
+  },
 }));
+
+// Anything else that moves the queue retires Undo, as on the phone (checkQueueUndoValidity).
+usePlayer.subscribe((s) => {
+  if (undoEdit && (s.queue !== undoEdit.after || s.index !== undoEdit.afterIndex)) dropUndo();
+});
+
+// ---- The last queue, kept across visits (playback/lastQueue.ts, LastPlayed.kt) --------------
+
+/** Where a restored queue's song was left, for the first Play. */
+let resumeAtSec = 0;
+
+/**
+ * Puts a saved queue back, paused at its song, so Play (or the media key)
+ * carries on from [startSec]. Nothing loads until then. Ignored once
+ * something else has started playing.
+ */
+export function restoreQueue(queue: QueueEntry[], index: number, startSec: number): void {
+  const entry = queue[index];
+  if (!entry || usePlayer.getState().queue.length) return;
+  resumeAtSec = startSec;
+  usePlayer.setState({ queue, index, nowPlaying: hintOf(entry.track), status: 'paused', error: null });
+  updateMediaSession(usePlayer.getState().nowPlaying);
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+}
+
+// Lazily, with the Kotlin it shares with the phone: neither is needed to draw the first page.
+void import('@/playback/lastQueue').then((m) => m.keepLastQueue());
 
 // For browser-driven tests, next to __bcAudio.
 if (import.meta.env.DEV) {
@@ -732,7 +865,8 @@ function planNext(auto: boolean): NextPlan | null {
   return null;
 }
 
-async function advance(auto: boolean): Promise<void> {
+/** [paused]: the sleep timer's "after this song", which moves on to the next track without playing it. */
+async function advance(auto: boolean, paused = false): Promise<void> {
   let plan = planNext(auto);
   if (!plan && usePlayer.getState().autoplay) {
     await refillAutoplay(true);
@@ -747,15 +881,15 @@ async function advance(auto: boolean): Promise<void> {
     const audio = getAudio();
     if (audio) {
       audio.currentTime = 0;
-      void audio.play();
+      if (!paused) void audio.play();
     }
     return;
   }
   usePlayer.setState({ queue: plan.queue });
-  await startAt(plan.index, { auto });
+  await startAt(plan.index, { auto, autoplay: !paused });
 }
 
-/** Once a track is under way: prune hand-queued tracks already played, and top up AutoPlay. */
+/** Once a track is under way: prune hand-queued tracks already played, keep 25 behind it, and top up AutoPlay. */
 function afterTrackStarted() {
   const { queue, index } = usePlayer.getState();
   const played = new Set(playedUserQueueIndices(queue.map((e) => e.tier), index));
@@ -765,6 +899,11 @@ function afterTrackStarted() {
       index: index - [...played].filter((i) => i < index).length,
     });
   }
+  void import('@/playback/queue/history').then(({ trimmedHistory }) => {
+    const { queue, index, repeat } = usePlayer.getState();
+    const trimmed = trimmedHistory(queue, index, repeat === 'all');
+    if (trimmed) usePlayer.setState(trimmed);
+  });
   void refillAutoplay();
 }
 
@@ -898,7 +1037,7 @@ function cancelCrossfade() {
 /** Called as the track in front plays: within the crossfade length of its end, start the next one underneath. */
 function maybeCrossfade() {
   const state = usePlayer.getState();
-  if (!decks || fade || state.automix || !state.crossfadeSec || state.status !== 'playing') return;
+  if (!decks || fade || state.automix || !state.crossfadeSec || state.status !== 'playing' || pauseAfterTrack) return;
   const front = decks[active]!;
   const remaining = front.audio.duration - front.audio.currentTime;
   if (!Number.isFinite(remaining) || remaining > state.crossfadeSec || remaining < 1) return;
@@ -1005,6 +1144,8 @@ function bindElement(deck: Deck, n: number) {
   element.addEventListener('waiting', () => set('buffering'));
   element.addEventListener('ended', () => {
     if (!inFront() || holding) return;
+    // Read before the listeners: the sleep timer's own retires "after this song" as it ends.
+    const sleeping = pauseAfterTrack;
     endedListeners.forEach((listener) => listener());
     // The track ran out before the crossfade's next one could start: give up
     // on the fade and play the next track here. Waiting on it was silence for
@@ -1014,12 +1155,13 @@ function bindElement(deck: Deck, n: number) {
     // AutoMix's outgoing track ran out before the blend's midpoint (a stall): the incoming one is already playing.
     if (graph?.dj.forceHandoff()) return;
     // The queue moving on by itself is the user's intent, as far as a party is concerned.
-    void advance(true).then(intent);
+    void advance(true, sleeping).then(intent);
   });
   element.addEventListener('timeupdate', () => {
     if (!inFront()) return;
     maybeCrossfade();
     ensureAutoplay();
+    tickListeners.forEach((listener) => listener());
   });
   for (const event of ['durationchange', 'ratechange', 'seeked'] as const) {
     element.addEventListener(event, () => {

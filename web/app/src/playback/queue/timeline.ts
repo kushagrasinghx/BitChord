@@ -183,6 +183,27 @@ export function applyJump(timeline: readonly QueueEntry[], currentIndex: number,
   };
 }
 
+export interface QueueRow {
+  entry: QueueEntry;
+  /** Where it sits in the timeline: what jumpTo, removeAt and move take. */
+  at: number;
+}
+
+/**
+ * Up Next's rows (PlayerQueue.splitQueue): the songs already played, only
+ * when history is shown, then what's next. The playing song is in neither:
+ * it's the player's, not a row.
+ */
+export function splitQueue(
+  timeline: readonly QueueEntry[],
+  currentIndex: number,
+  showHistory: boolean,
+): { history: QueueRow[]; upcoming: QueueRow[] } {
+  if (currentIndex < 0 || currentIndex >= timeline.length) return { history: [], upcoming: [] };
+  const rows = timeline.map((entry, at) => ({ entry, at }));
+  return { history: showHistory ? rows.slice(0, currentIndex) : [], upcoming: rows.slice(currentIndex + 1) };
+}
+
 /** The upcoming hand-queued rows: what "Clear" removes. Context and AutoPlay stay. */
 export function upcomingUserQueueIndices(tiers: readonly QueueTier[], currentIndex: number): number[] {
   return range(Math.max(currentIndex + 1, 0), tiers.length).filter((i) => tiers[i] === 'user');

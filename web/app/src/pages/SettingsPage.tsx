@@ -12,6 +12,7 @@ import { useHistorySettings } from '@/playback/historyReporting';
 import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
+import { PlayerSettings } from './PlayerSettings';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
 
@@ -183,6 +184,8 @@ export default function SettingsPage() {
             them. Songs it can’t read in time play to the end and crossfade. Based on AutoMix by David Finnegan (AGPL-3.0).
           </p>
         )}
+
+        <PlayerSettings />
 
         <h2 className={settingsUi.sectionHeader}>Lyrics</h2>
         <section className={settingsUi.group}>

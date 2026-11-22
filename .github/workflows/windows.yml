@@ -8,18 +8,22 @@ name: Windows
 # release's tag, as BitChord-<tag>-windows-setup.exe next to the APKs. That is the
 # whole Windows release step: the app's update check (windows/src-tauri/src/update.rs)
 # looks for that file on the latest release.
+#
+# The tests include windows/src-tauri/src/upstream.rs: checks, against upstream's own
+# files, of the few things the Windows app relies on there (sign-in URLs, design
+# tokens, the Media Session, the releases it checks). So a change under web/ that
+# would quietly break the Windows app fails here, on that change's own PR.
 on:
   push:
     branches: [main]
-    paths:
+    paths: &paths
       - 'windows/**'
       - 'web/**'
+      - 'build.gradle.kts'
+      - 'app/src/main/java/com/music/bitchord/data/AppUpdateChecker.kt'
       - '.github/workflows/windows.yml'
   pull_request:
-    paths:
-      - 'windows/**'
-      - 'web/**'
-      - '.github/workflows/windows.yml'
+    paths: *paths
   release:
     types: [published]
   workflow_dispatch:
@@ -49,6 +53,10 @@ jobs:
       # Installs, builds the extension and the site, then the shell (windows/README.md).
       - name: Build
         run: node windows/scripts/build.mjs
+
+      # After the build: the shell compiles against web/app's built site.
+      - name: Test (shell, and what it relies on upstream)
+        run: cargo test --release --manifest-path windows/src-tauri/Cargo.toml
 
       - uses: actions/upload-artifact@v4
         with:

@@ -12,6 +12,8 @@ mod media_session;
 mod sign_in;
 mod title_bar;
 mod update;
+#[cfg(test)]
+mod upstream;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 

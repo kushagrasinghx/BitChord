@@ -71,6 +71,16 @@ cpSync(join(web, 'extension', '.output', 'chrome-mv3'), extensionOut, { recursiv
 // Discord) a browser would ask for on grant.html are granted up front instead.
 const manifestPath = join(extensionOut, 'manifest.json');
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+// What the shell needs from upstream's extension build; fail here, not quietly in the app.
+// - It serves the shell's page: BITCHORD_SITE_ORIGINS reached web/extension/site.config.ts.
+// - Its id is pinned by the manifest `key`, which is the id web/app was built to message.
+if (!manifest.externally_connectable?.matches?.includes(`${SHELL_ORIGIN}/*`)) {
+  throw new Error(`The extension doesn't serve ${SHELL_ORIGIN}: has BITCHORD_SITE_ORIGINS (web/extension/site.config.ts) been renamed?`);
+}
+if (!manifest.key) {
+  throw new Error('The extension has no manifest `key`, so its id is no longer the one web/app messages (web/extension/wxt.config.ts).');
+}
 manifest.host_permissions = [...new Set([...(manifest.host_permissions ?? []), ...(manifest.optional_host_permissions ?? [])])];
 delete manifest.optional_host_permissions;
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));

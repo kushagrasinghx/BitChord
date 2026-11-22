@@ -26,10 +26,10 @@ const HEADER: f64 = 64.0;
 const FOOTER: f64 = 44.0;
 
 pub struct Provider {
-    host: &'static str,
+    pub(crate) host: &'static str,
     name: &'static str,
     /// Where the provider sends the browser once signed in: the sheet closes there.
-    done_host: &'static str,
+    pub(crate) done_host: &'static str,
     /// Every site the sign-in itself passes through. Anywhere else (help, privacy,
     /// terms) and the sheet offers the way back.
     flow: &'static [&'static str],

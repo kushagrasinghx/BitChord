@@ -88,14 +88,32 @@ The window takes the web player's glass (the player pill, the sidebar):
 
 ## Keeping it current
 
-There is nothing to port per release. The page and the extension are built
-from `web/` as it stands, the version comes from `bitchordVersionName`, and the
-pnpm version from `web/package.json`, so a release of the web player is a
-release of the Windows app: run the build.
+There is nothing to port per release. Everything the app is made of comes from
+upstream as it stands, on every build:
 
-Only a change to how the page and extension find each other would need work
-here: a new origin rule in `web/extension/site.config.ts`, or a new extension
-permission that WebView2 does not support.
+| What | From |
+|---|---|
+| The player | `web/app`, built as for the site |
+| YouTube, Spotify, lyrics access | `web/extension`, the Chrome build |
+| Version | `bitchordVersionName` / `bitchordBetaSuffix` in `build.gradle.kts` |
+| pnpm | `packageManager` in `web/package.json` |
+| Sign-in sheet, title bar, scrollbars | `web/app/src/styles/tokens.css` (colours, type, radii) |
+| Releases | publishing a GitHub release (the workflow attaches the installer) |
+
+The few places where an upstream change could break the app quietly, instead
+of failing the build, are checked against upstream's files by
+`src-tauri/src/upstream.rs`, which CI runs on every change to `web/`:
+
+- Google's and Spotify's sign-in URLs still open in the sheet and hand back where it closes;
+- every design token the shell draws with is still defined;
+- the `/extension` route and sidebar entry `shell/player.css` hides are where it looks;
+- the player still reports through the Media Session (the media keys);
+- the update check reads the same releases as the phone's `AppUpdateChecker.kt`.
+
+`scripts/build.mjs` also fails if the built extension no longer serves the
+shell's origin or loses its pinned id. A failure names what moved and the line
+to change here. What no check can foresee is a new extension permission
+WebView2 doesn't support; that shows up as a feature not working in the app.
 
 ## Releases and updates
 

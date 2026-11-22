@@ -17,7 +17,7 @@ use windows::Web::Http::HttpClient;
 use windows::core::HSTRING;
 use windows_sys::Win32::UI::WindowsAndMessaging::{IDYES, MB_ICONINFORMATION, MB_YESNO, MessageBoxW};
 
-const LATEST: &str = "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest";
+pub(crate) const LATEST: &str = "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest";
 /// What the workflow names the installer it attaches: BitChord-v1.11-windows-setup.exe.
 const ASSET_SUFFIX: &str = "-windows-setup.exe";
 const DOWNLOADS: &str = "https://github.com/kushagrasinghx/BitChord/releases/download/";

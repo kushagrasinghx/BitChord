@@ -236,7 +236,7 @@
       "id": "library",
       "name": "Library hub and its Show all pages",
       "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/LibraryScreen.kt", "app/src/main/java/com/music/bitchord/ui/screens/LibraryPhoneParts.kt"],
-      "web": ["web/app/src/pages/LibraryHubPage.tsx", "web/app/src/pages/LibraryPage.tsx"]
+      "web": ["web/app/src/pages/LibraryHubPage.tsx", "web/app/src/pages/LibraryPage.tsx", "web/app/src/data/music/pinnedPlaylists.ts"]
     },
     {
       "id": "detail-pages",

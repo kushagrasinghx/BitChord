@@ -1476,4 +1476,65 @@
     <string name="drive_backup_row_subtitle">Sao lưu và đồng bộ Replay trên mọi thiết bị</string>
     <string name="drive_over_cellular">Đồng bộ qua dữ liệu di động</string>
     <string name="drive_over_cellular_subtitle">Khi tắt, đồng bộ tự động sẽ chờ Wi-Fi</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">Chuyển ảnh bìa</string>
+    <string name="automix_art_transition_subtitle">Chuyển ảnh bìa mượt mà giữa các bài khi dùng Automix.</string>
+    <string name="automix_mini_art_transition">Chuyển ảnh bìa ở trình phát mini</string>
+    <string name="automix_mini_art_transition_subtitle">Hiển thị hiệu ứng chuyển ảnh bìa ở trình phát mini khi dùng Automix.</string>
+    <string name="replay_year_albums">Những album bạn đắm chìm</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">album</item>
+    </plurals>
+    <string name="replay_year_all_day">Suốt Ngày Đêm</string>
+    <string name="replay_year_all_day_detail">Sáng, trưa hay tối, lúc nào cũng có nhạc.</string>
+    <string name="replay_year_artist_start">Nghệ sĩ hàng đầu của bạn năm nay là…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">nghệ sĩ</item>
+    </plurals>
+    <string name="replay_year_building">Đang tổng hợp năm của bạn…</string>
+    <string name="replay_year_busiest_minutes">%1$s phút nghe nhạc trong một ngày</string>
+    <string name="replay_year_busiest_song">Chủ yếu là %1$s</string>
+    <string name="replay_year_busiest_start">Ngày bạn nghe nhiều nhất là</string>
+    <string name="replay_year_clock_start">Bạn sôi nổi nhất vào khoảng</string>
+    <string name="replay_year_daytime">Lữ Khách Ban Ngày</string>
+    <string name="replay_year_daytime_detail">Bạn giữ nhạc vang lên suốt cả ngày.</string>
+    <string name="replay_year_discovery_start">Năm nay bạn đã khám phá</string>
+    <string name="replay_year_early_bird">Người Dậy Sớm</string>
+    <string name="replay_year_early_bird_detail">Ngày của bạn bắt đầu bằng âm nhạc trước 10 giờ sáng.</string>
+    <string name="replay_year_genres_start">Chất nhạc của bạn năm nay</string>
+    <string name="replay_year_golden_hour">Giờ Vàng</string>
+    <string name="replay_year_golden_hour_detail">Buổi tối là lúc âm nhạc lên tiếng.</string>
+    <string name="replay_year_minutes_days_end">âm nhạc.</string>
+    <string name="replay_year_minutes_days_start">Tức là</string>
+    <string name="replay_year_minutes_days_value">%1$s ngày</string>
+    <string name="replay_year_minutes_hours_value">%1$s giờ</string>
+    <string name="replay_year_minutes_start">Năm nay bạn đã nghe nhạc</string>
+    <string name="replay_year_minutes_together">%1$s phút bên nhau</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">phút</item>
+    </plurals>
+    <string name="replay_year_months">Năm của bạn qua từng tháng</string>
+    <string name="replay_year_mute">Tắt tiếng câu chuyện</string>
+    <string name="replay_year_night_owl">Cú Đêm</string>
+    <string name="replay_year_night_owl_detail">Phần lớn thời gian nghe nhạc của bạn diễn ra sau 10 giờ tối.</string>
+    <string name="replay_year_open">Mở Replay %1$s của bạn</string>
+    <string name="replay_year_opener_detail">Cùng nhìn lại những gì bạn đã nghe.</string>
+    <string name="replay_year_opener_end">của bạn trên BitChord</string>
+    <string name="replay_year_opener_start">Năm</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">Đã phát %1$s lần</item>
+    </plurals>
+    <string name="replay_year_song_start">Và bài hát của năm dành cho bạn là…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">bài hát</item>
+    </plurals>
+    <string name="replay_year_summary_artists">Nghệ sĩ hàng đầu</string>
+    <string name="replay_year_summary_minutes">Số phút đã nghe</string>
+    <string name="replay_year_summary_songs">Bài hát hàng đầu</string>
+    <string name="replay_year_summary_title">Năm %1$s của bạn</string>
+    <string name="replay_year_top_artists">Nghệ sĩ hàng đầu của bạn</string>
+    <string name="replay_year_top_songs">Những bài hát hàng đầu còn lại của bạn</string>
+    <string name="replay_year_unmute">Bật tiếng câu chuyện</string>
+    <string name="show_best_part">Nút Đoạn hay nhất</string>
+    <string name="show_best_part_subtitle">Nút trên ảnh bìa để chuyển đến đoạn mà mọi người nghe lại nhiều nhất</string>
 </resources>

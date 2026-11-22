@@ -1409,4 +1409,65 @@
     <string name="drive_backup_row_subtitle">모든 기기에서 Replay 백업 및 동기화</string>
     <string name="drive_over_cellular">모바일 데이터로 동기화</string>
     <string name="drive_over_cellular_subtitle">끄면 자동 동기화가 Wi-Fi를 기다립니다</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">아트워크 전환 효과</string>
+    <string name="automix_art_transition_subtitle">자동 믹스 중 트랙 사이에서 커버 아트를 부드럽게 전환합니다.</string>
+    <string name="automix_mini_art_transition">미니 플레이어 아트워크 전환</string>
+    <string name="automix_mini_art_transition_subtitle">자동 믹스 중 미니 플레이어에서도 아트워크 전환 효과를 표시합니다.</string>
+    <string name="replay_year_albums">푹 빠져 지낸 앨범</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">장의 앨범</item>
+    </plurals>
+    <string name="replay_year_all_day">하루 종일</string>
+    <string name="replay_year_all_day_detail">아침이든 낮이든 밤이든, 언제나 음악이 흘렀어요.</string>
+    <string name="replay_year_artist_start">올해 가장 많이 들은 아티스트는…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">명의 아티스트</item>
+    </plurals>
+    <string name="replay_year_building">나의 한 해를 정리하는 중…</string>
+    <string name="replay_year_busiest_minutes">하루 동안 %1$s분의 음악</string>
+    <string name="replay_year_busiest_song">주로 들은 곡: %1$s</string>
+    <string name="replay_year_busiest_start">가장 많이 들은 날은</string>
+    <string name="replay_year_clock_start">가장 활발했던 시간은</string>
+    <string name="replay_year_daytime">한낮의 리스너</string>
+    <string name="replay_year_daytime_detail">하루 내내 음악을 틀어 두었어요.</string>
+    <string name="replay_year_discovery_start">올해 만난 음악은</string>
+    <string name="replay_year_early_bird">아침형 리스너</string>
+    <string name="replay_year_early_bird_detail">오전 10시 전부터 음악으로 하루를 시작했어요.</string>
+    <string name="replay_year_genres_start">올해의 내 사운드</string>
+    <string name="replay_year_golden_hour">골든 아워</string>
+    <string name="replay_year_golden_hour_detail">음악은 늘 저녁에 흘러나왔어요.</string>
+    <string name="replay_year_minutes_days_end">동안 음악을 들었어요.</string>
+    <string name="replay_year_minutes_days_start">무려</string>
+    <string name="replay_year_minutes_days_value">%1$s일</string>
+    <string name="replay_year_minutes_hours_value">%1$s시간</string>
+    <string name="replay_year_minutes_start">올해 음악을 들은 시간은</string>
+    <string name="replay_year_minutes_together">함께한 %1$s분</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">분</item>
+    </plurals>
+    <string name="replay_year_months">월별로 보는 나의 한 해</string>
+    <string name="replay_year_mute">스토리 음소거</string>
+    <string name="replay_year_night_owl">올빼미 리스너</string>
+    <string name="replay_year_night_owl_detail">감상의 대부분이 오후 10시 이후였어요.</string>
+    <string name="replay_year_open">리플레이 %1$s 열기</string>
+    <string name="replay_year_opener_detail">그동안 들은 음악을 돌아볼게요.</string>
+    <string name="replay_year_opener_end">년</string>
+    <string name="replay_year_opener_start">BitChord에서 보낸 나의</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">%1$s회 재생</item>
+    </plurals>
+    <string name="replay_year_song_start">그리고 올해의 노래는…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">곡</item>
+    </plurals>
+    <string name="replay_year_summary_artists">자주 들은 아티스트</string>
+    <string name="replay_year_summary_minutes">감상한 시간(분)</string>
+    <string name="replay_year_summary_songs">자주 들은 곡</string>
+    <string name="replay_year_summary_title">나의 %1$s년</string>
+    <string name="replay_year_top_artists">자주 들은 아티스트</string>
+    <string name="replay_year_top_songs">그 밖의 자주 들은 곡</string>
+    <string name="replay_year_unmute">스토리 음소거 해제</string>
+    <string name="show_best_part">베스트 파트 버튼</string>
+    <string name="show_best_part_subtitle">아트워크 위에 사람들이 가장 많이 다시 듣는 구간으로 건너뛰는 버튼을 표시합니다</string>
 </resources>

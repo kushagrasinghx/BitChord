@@ -1594,4 +1594,80 @@
     <string name="drive_backup_row_subtitle">Копирование и синхронизация Replay между устройствами</string>
     <string name="drive_over_cellular">Синхронизировать по мобильной сети</string>
     <string name="drive_over_cellular_subtitle">Если выключено, автосинхронизация ждёт Wi-Fi</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">Переход обложек</string>
+    <string name="automix_art_transition_subtitle">Плавно смешивает обложки между треками во время автомикса.</string>
+    <string name="automix_mini_art_transition">Переход обложек в мини-плеере</string>
+    <string name="automix_mini_art_transition_subtitle">Показывает переходы обложек в мини-плеере во время автомикса.</string>
+    <string name="replay_year_albums">Альбомы, в которых вы жили</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">альбом</item>
+        <item quantity="few">альбома</item>
+        <item quantity="many">альбомов</item>
+        <item quantity="other">альбома</item>
+    </plurals>
+    <string name="replay_year_all_day">Круглые сутки</string>
+    <string name="replay_year_all_day_detail">Утром, днём или ночью — всегда что-то играло.</string>
+    <string name="replay_year_artist_start">Ваш главный исполнитель этого года…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">исполнителя</item>
+        <item quantity="few">исполнителя</item>
+        <item quantity="many">исполнителей</item>
+        <item quantity="other">исполнителя</item>
+    </plurals>
+    <string name="replay_year_building">Собираем ваш год…</string>
+    <string name="replay_year_busiest_minutes">%1$s мин. музыки за один день</string>
+    <string name="replay_year_busiest_song">Чаще всего: %1$s</string>
+    <string name="replay_year_busiest_start">Ваш самый насыщенный день —</string>
+    <string name="replay_year_clock_start">Пик вашей активности — около</string>
+    <string name="replay_year_daytime">Дневной странник</string>
+    <string name="replay_year_daytime_detail">Музыка сопровождала вас весь день.</string>
+    <string name="replay_year_discovery_start">В этом году вы открыли для себя</string>
+    <string name="replay_year_early_bird">Ранняя пташка</string>
+    <string name="replay_year_early_bird_detail">Ваши дни начинались с музыки до 10 утра.</string>
+    <string name="replay_year_genres_start">Ваше звучание этого года</string>
+    <string name="replay_year_golden_hour">Золотой час</string>
+    <string name="replay_year_golden_hour_detail">Музыка звучала по вечерам.</string>
+    <string name="replay_year_minutes_days_end">музыки.</string>
+    <string name="replay_year_minutes_days_start">Это</string>
+    <string name="replay_year_minutes_days_value">%1$s дня</string>
+    <string name="replay_year_minutes_hours_value">%1$s ч</string>
+    <string name="replay_year_minutes_start">В этом году вы слушали музыку</string>
+    <string name="replay_year_minutes_together">%1$s мин. вместе</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">минуту</item>
+        <item quantity="few">минуты</item>
+        <item quantity="many">минут</item>
+        <item quantity="other">минуты</item>
+    </plurals>
+    <string name="replay_year_months">Ваш год по месяцам</string>
+    <string name="replay_year_mute">Выключить звук истории</string>
+    <string name="replay_year_night_owl">Сова</string>
+    <string name="replay_year_night_owl_detail">Большая часть прослушиваний приходилась на время после 22:00.</string>
+    <string name="replay_year_open">Открыть ваш Replay %1$s</string>
+    <string name="replay_year_opener_detail">Давайте вспомним, что вы слушали.</string>
+    <string name="replay_year_opener_end">в BitChord</string>
+    <string name="replay_year_opener_start">Ваш</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">Прослушано %1$s раз</item>
+        <item quantity="few">Прослушано %1$s раза</item>
+        <item quantity="many">Прослушано %1$s раз</item>
+        <item quantity="other">Прослушано %1$s раза</item>
+    </plurals>
+    <string name="replay_year_song_start">А ваша песня года…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">песню</item>
+        <item quantity="few">песни</item>
+        <item quantity="many">песен</item>
+        <item quantity="other">песни</item>
+    </plurals>
+    <string name="replay_year_summary_artists">Топ исполнителей</string>
+    <string name="replay_year_summary_minutes">Минут прослушано</string>
+    <string name="replay_year_summary_songs">Топ песен</string>
+    <string name="replay_year_summary_title">Ваш %1$s</string>
+    <string name="replay_year_top_artists">Ваши топ-исполнители</string>
+    <string name="replay_year_top_songs">Остальные ваши топ-песни</string>
+    <string name="replay_year_unmute">Включить звук истории</string>
+    <string name="show_best_part">Кнопка «Лучший момент»</string>
+    <string name="show_best_part_subtitle">Кнопка на обложке, которая перематывает к фрагменту песни, который чаще всего переслушивают</string>
 </resources>

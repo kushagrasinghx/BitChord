@@ -1542,4 +1542,65 @@
     <string name="drive_backup_row_subtitle">สำรองและซิงค์ Replay ในทุกอุปกรณ์ของคุณ</string>
     <string name="drive_over_cellular">ซิงค์ผ่านอินเทอร์เน็ตมือถือ</string>
     <string name="drive_over_cellular_subtitle">เมื่อปิด การซิงค์อัตโนมัติจะรอ Wi-Fi</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">การเปลี่ยนปก</string>
+    <string name="automix_art_transition_subtitle">ผสานปกอัลบั้มระหว่างแทร็กอย่างนุ่มนวลขณะใช้ Automix</string>
+    <string name="automix_mini_art_transition">การเปลี่ยนปกในมินิเพลเยอร์</string>
+    <string name="automix_mini_art_transition_subtitle">แสดงการเปลี่ยนปกในมินิเพลเยอร์ขณะใช้ Automix</string>
+    <string name="replay_year_albums">อัลบั้มที่อยู่กับคุณตลอด</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">อัลบั้ม</item>
+    </plurals>
+    <string name="replay_year_all_day">ตลอดวันตลอดคืน</string>
+    <string name="replay_year_all_day_detail">ไม่ว่าเช้า กลางวัน หรือกลางคืน ก็มีเพลงเปิดอยู่เสมอ</string>
+    <string name="replay_year_artist_start">ศิลปินอันดับหนึ่งของคุณปีนี้คือ…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">ศิลปิน</item>
+    </plurals>
+    <string name="replay_year_building">กำลังสร้างปีของคุณ…</string>
+    <string name="replay_year_busiest_minutes">ฟังเพลง %1$s นาทีในวันเดียว</string>
+    <string name="replay_year_busiest_song">ส่วนใหญ่เป็น %1$s</string>
+    <string name="replay_year_busiest_start">วันที่คุณฟังมากที่สุดคือ</string>
+    <string name="replay_year_clock_start">ช่วงที่คุณคึกคักที่สุดคือราว</string>
+    <string name="replay_year_daytime">นักฟังยามกลางวัน</string>
+    <string name="replay_year_daytime_detail">คุณเปิดเพลงต่อเนื่องตลอดทั้งวัน</string>
+    <string name="replay_year_discovery_start">ปีนี้คุณได้สำรวจ</string>
+    <string name="replay_year_early_bird">นกตื่นเช้า</string>
+    <string name="replay_year_early_bird_detail">วันของคุณเริ่มต้นด้วยเพลงก่อน 10 โมงเช้า</string>
+    <string name="replay_year_genres_start">สไตล์เพลงของคุณปีนี้</string>
+    <string name="replay_year_golden_hour">ช่วงเวลาสีทอง</string>
+    <string name="replay_year_golden_hour_detail">ยามเย็นคือเวลาของเสียงเพลง</string>
+    <string name="replay_year_minutes_days_end">ของเสียงเพลง</string>
+    <string name="replay_year_minutes_days_start">เท่ากับ</string>
+    <string name="replay_year_minutes_days_value">%1$s วัน</string>
+    <string name="replay_year_minutes_hours_value">%1$s ชั่วโมง</string>
+    <string name="replay_year_minutes_start">ปีนี้คุณฟังเพลงไป</string>
+    <string name="replay_year_minutes_together">ฟังด้วยกัน %1$s นาที</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">นาที</item>
+    </plurals>
+    <string name="replay_year_months">ปีของคุณ เดือนต่อเดือน</string>
+    <string name="replay_year_mute">ปิดเสียงเรื่องราว</string>
+    <string name="replay_year_night_owl">นกฮูกราตรี</string>
+    <string name="replay_year_night_owl_detail">การฟังของคุณส่วนใหญ่เกิดขึ้นหลัง 4 ทุ่ม</string>
+    <string name="replay_year_open">เปิด Replay %1$s ของคุณ</string>
+    <string name="replay_year_opener_detail">มาย้อนดูเพลงที่คุณฟังกัน</string>
+    <string name="replay_year_opener_end">ของคุณบน BitChord</string>
+    <string name="replay_year_opener_start">ปี</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">เล่น %1$s ครั้ง</item>
+    </plurals>
+    <string name="replay_year_song_start">และเพลงแห่งปีของคุณคือ…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">เพลง</item>
+    </plurals>
+    <string name="replay_year_summary_artists">ศิลปินยอดนิยม</string>
+    <string name="replay_year_summary_minutes">นาทีที่ฟัง</string>
+    <string name="replay_year_summary_songs">เพลงยอดนิยม</string>
+    <string name="replay_year_summary_title">ปี %1$s ของคุณ</string>
+    <string name="replay_year_top_artists">ศิลปินยอดนิยมของคุณ</string>
+    <string name="replay_year_top_songs">เพลงยอดนิยมอื่นๆ ของคุณ</string>
+    <string name="replay_year_unmute">เปิดเสียงเรื่องราว</string>
+    <string name="show_best_part">ปุ่มท่อนที่ดีที่สุด</string>
+    <string name="show_best_part_subtitle">ปุ่มบนปกที่ข้ามไปยังท่อนของเพลงที่ผู้คนเล่นซ้ำมากที่สุด</string>
 </resources>

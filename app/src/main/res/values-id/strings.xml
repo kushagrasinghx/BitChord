@@ -1536,4 +1536,65 @@
     <string name="drive_backup_row_subtitle">Cadangkan dan sinkronkan Replay di semua perangkat Anda</string>
     <string name="drive_over_cellular">Sinkronkan lewat data seluler</string>
     <string name="drive_over_cellular_subtitle">Jika nonaktif, sinkronisasi otomatis menunggu Wi-Fi</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">Transisi sampul</string>
+    <string name="automix_art_transition_subtitle">Memadukan sampul secara halus antartrek selama Automix.</string>
+    <string name="automix_mini_art_transition">Transisi sampul pemutar mini</string>
+    <string name="automix_mini_art_transition_subtitle">Menampilkan transisi sampul di pemutar mini selama Automix.</string>
+    <string name="replay_year_albums">Album yang menemani hari-hari Anda</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">album</item>
+    </plurals>
+    <string name="replay_year_all_day">Sepanjang Waktu</string>
+    <string name="replay_year_all_day_detail">Pagi, siang, atau malam, selalu ada musik yang diputar.</string>
+    <string name="replay_year_artist_start">Artis teratas Anda tahun ini adalah…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">artis</item>
+    </plurals>
+    <string name="replay_year_building">Menyusun tahun Anda…</string>
+    <string name="replay_year_busiest_minutes">%1$s menit musik dalam sehari</string>
+    <string name="replay_year_busiest_song">Paling sering %1$s</string>
+    <string name="replay_year_busiest_start">Hari tersibuk Anda adalah</string>
+    <string name="replay_year_clock_start">Anda paling bersemangat sekitar</string>
+    <string name="replay_year_daytime">Penjelajah Siang</string>
+    <string name="replay_year_daytime_detail">Anda memutar musik sepanjang hari.</string>
+    <string name="replay_year_discovery_start">Tahun ini Anda menjelajahi</string>
+    <string name="replay_year_early_bird">Si Bangun Pagi</string>
+    <string name="replay_year_early_bird_detail">Hari Anda dimulai dengan musik sebelum pukul 10 pagi.</string>
+    <string name="replay_year_genres_start">Warna musik Anda tahun ini</string>
+    <string name="replay_year_golden_hour">Jam Emas</string>
+    <string name="replay_year_golden_hour_detail">Malam hari adalah waktunya musik.</string>
+    <string name="replay_year_minutes_days_end">musik.</string>
+    <string name="replay_year_minutes_days_start">Itu setara dengan</string>
+    <string name="replay_year_minutes_days_value">%1$s hari</string>
+    <string name="replay_year_minutes_hours_value">%1$s jam</string>
+    <string name="replay_year_minutes_start">Tahun ini Anda mendengarkan selama</string>
+    <string name="replay_year_minutes_together">%1$s menit bersama</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">menit</item>
+    </plurals>
+    <string name="replay_year_months">Tahun Anda, bulan demi bulan</string>
+    <string name="replay_year_mute">Bisukan cerita</string>
+    <string name="replay_year_night_owl">Burung Hantu Malam</string>
+    <string name="replay_year_night_owl_detail">Sebagian besar waktu mendengarkan Anda terjadi setelah pukul 10 malam.</string>
+    <string name="replay_year_open">Buka Replay %1$s Anda</string>
+    <string name="replay_year_opener_detail">Mari melihat kembali apa yang Anda putar.</string>
+    <string name="replay_year_opener_end">Anda di BitChord</string>
+    <string name="replay_year_opener_start">Tahun</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">Diputar %1$s kali</item>
+    </plurals>
+    <string name="replay_year_song_start">Dan lagu Anda tahun ini…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">lagu</item>
+    </plurals>
+    <string name="replay_year_summary_artists">Artis teratas</string>
+    <string name="replay_year_summary_minutes">Menit didengarkan</string>
+    <string name="replay_year_summary_songs">Lagu teratas</string>
+    <string name="replay_year_summary_title">%1$s Anda</string>
+    <string name="replay_year_top_artists">Artis teratas Anda</string>
+    <string name="replay_year_top_songs">Lagu teratas Anda lainnya</string>
+    <string name="replay_year_unmute">Bunyikan cerita</string>
+    <string name="show_best_part">Tombol Bagian Terbaik</string>
+    <string name="show_best_part_subtitle">Tombol pada sampul yang melompat ke bagian lagu yang paling sering diputar ulang orang</string>
 </resources>

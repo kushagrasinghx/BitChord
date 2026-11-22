@@ -1561,4 +1561,75 @@
     <string name="drive_backup_row_subtitle">Sauvegarder et synchroniser Replay entre vos appareils</string>
     <string name="drive_over_cellular">Synchroniser via les données mobiles</string>
     <string name="drive_over_cellular_subtitle">Désactivé, les synchronisations automatiques attendent le Wi-Fi</string>
+    <!-- v1.10: Replay Year, AutoMix artwork, Best Part -->
+    <string name="automix_art_transition">Transition de pochette</string>
+    <string name="automix_art_transition_subtitle">Fond en douceur les pochettes d\'un morceau à l\'autre pendant Automix.</string>
+    <string name="automix_mini_art_transition">Transition de pochette dans le mini-lecteur</string>
+    <string name="automix_mini_art_transition_subtitle">Affiche les transitions de pochette dans le mini-lecteur pendant Automix.</string>
+    <string name="replay_year_albums">Les albums où vous avez vécu</string>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">album</item>
+        <item quantity="many">albums</item>
+        <item quantity="other">albums</item>
+    </plurals>
+    <string name="replay_year_all_day">Jour et nuit</string>
+    <string name="replay_year_all_day_detail">Matin, midi ou soir, il y avait toujours de la musique.</string>
+    <string name="replay_year_artist_start">Votre artiste de l\'année était…</string>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">artiste</item>
+        <item quantity="many">artistes</item>
+        <item quantity="other">artistes</item>
+    </plurals>
+    <string name="replay_year_building">Préparation de votre année…</string>
+    <string name="replay_year_busiest_minutes">%1$s minutes de musique en une journée</string>
+    <string name="replay_year_busiest_song">Surtout %1$s</string>
+    <string name="replay_year_busiest_start">Votre plus grosse journée a été le</string>
+    <string name="replay_year_clock_start">Vous vous animiez vers</string>
+    <string name="replay_year_daytime">Mélomane de jour</string>
+    <string name="replay_year_daytime_detail">La musique vous a accompagné toute la journée.</string>
+    <string name="replay_year_discovery_start">Cette année, vous avez exploré</string>
+    <string name="replay_year_early_bird">Lève-tôt</string>
+    <string name="replay_year_early_bird_detail">Vos journées commençaient en musique avant 10 h.</string>
+    <string name="replay_year_genres_start">Votre son de l\'année</string>
+    <string name="replay_year_golden_hour">Heure dorée</string>
+    <string name="replay_year_golden_hour_detail">C\'est le soir que la musique sortait.</string>
+    <string name="replay_year_minutes_days_end">de musique.</string>
+    <string name="replay_year_minutes_days_start">Soit</string>
+    <string name="replay_year_minutes_days_value">%1$s jours</string>
+    <string name="replay_year_minutes_hours_value">%1$s heures</string>
+    <string name="replay_year_minutes_start">Cette année, vous avez écouté pendant</string>
+    <string name="replay_year_minutes_together">%1$s minutes ensemble</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">minute</item>
+        <item quantity="many">minutes</item>
+        <item quantity="other">minutes</item>
+    </plurals>
+    <string name="replay_year_months">Votre année, mois par mois</string>
+    <string name="replay_year_mute">Couper le son de la story</string>
+    <string name="replay_year_night_owl">Oiseau de nuit</string>
+    <string name="replay_year_night_owl_detail">Une grande partie de vos écoutes a eu lieu après 22 h.</string>
+    <string name="replay_year_open">Ouvrir votre Replay %1$s</string>
+    <string name="replay_year_opener_detail">Revenons sur ce que vous avez écouté.</string>
+    <string name="replay_year_opener_end">dans BitChord</string>
+    <string name="replay_year_opener_start">Votre</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">Écouté %1$s fois</item>
+        <item quantity="many">Écouté %1$s fois</item>
+        <item quantity="other">Écouté %1$s fois</item>
+    </plurals>
+    <string name="replay_year_song_start">Et votre chanson de l\'année…</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">chanson</item>
+        <item quantity="many">chansons</item>
+        <item quantity="other">chansons</item>
+    </plurals>
+    <string name="replay_year_summary_artists">Meilleurs artistes</string>
+    <string name="replay_year_summary_minutes">Minutes d\'écoute</string>
+    <string name="replay_year_summary_songs">Meilleures chansons</string>
+    <string name="replay_year_summary_title">Votre %1$s</string>
+    <string name="replay_year_top_artists">Vos meilleurs artistes</string>
+    <string name="replay_year_top_songs">Le reste de vos meilleures chansons</string>
+    <string name="replay_year_unmute">Réactiver le son de la story</string>
+    <string name="show_best_part">Bouton « Meilleur passage »</string>
+    <string name="show_best_part_subtitle">Un bouton sur la pochette qui saute au passage de la chanson le plus réécouté</string>
 </resources>

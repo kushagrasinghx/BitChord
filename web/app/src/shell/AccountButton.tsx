@@ -4,6 +4,7 @@ import { MdPerson } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { GlassDisc } from '@/components/ui/GlassDisc';
+import { useShortcutsSheet } from './ShortcutsSheet';
 import { useRefreshYtAuth, useSelectChannel, useSetConnected, useYtAuth } from '@/extension/useYtAuth';
 
 export const SIGN_IN_URL = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https://music.youtube.com/';
@@ -180,6 +181,16 @@ export function AccountButton() {
               </MenuItem>
             </>
           )}
+          {/* The desktop's shortcuts are otherwise only behind "?" (ShortcutsSheet.tsx). */}
+          <MenuSeparator />
+          <MenuItem
+            onSelect={() => {
+              close();
+              useShortcutsSheet.getState().setOpen(true);
+            }}
+          >
+            Keyboard shortcuts
+          </MenuItem>
         </Menu>
       )}
     </>

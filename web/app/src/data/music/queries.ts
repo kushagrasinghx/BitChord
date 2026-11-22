@@ -151,7 +151,7 @@ export function prefetchPageData(pathname: string): void {
   const [, kind, id] = pathname.split('/');
   if (!id) {
     if (kind === 'home') void queryClient.prefetchInfiniteQuery(homeQuery());
-    if (kind === 'new') void queryClient.prefetchQuery(exploreQuery());
+    if (kind === 'new' || kind === 'explore') void queryClient.prefetchQuery(categoriesQuery());
     return;
   }
   const decoded = decodeURIComponent(id);

@@ -4,6 +4,7 @@ import { startPartySync } from '@/party/partySync';
 import { useDiscordPresence } from '@/playback/discordPresence';
 import { startHistoryReporting } from '@/playback/historyReporting';
 import { startLivePresence } from '@/playback/livePresence';
+import { startListeningRecorder } from '@/replay/recorder';
 import { Outlet } from 'react-router';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { config } from '@/config';
@@ -38,6 +39,8 @@ export function AppShell() {
   useEffect(() => startHistoryReporting(), []);
   // Counts this tab in the "listening now" figure beside the phone and PC apps.
   useEffect(() => startLivePresence(), []);
+  // Counts what plays here for the Replay, as the phone's ListeningRecorder does.
+  useEffect(() => startListeningRecorder(), []);
   const extension = useExtension();
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);

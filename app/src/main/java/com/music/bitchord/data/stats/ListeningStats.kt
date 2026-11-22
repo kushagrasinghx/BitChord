@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.Instant
@@ -141,102 +140,11 @@ object ListeningStats {
         val at = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
         val dayKey = "${at.year}-${"%02d".format(at.monthValue)}-${"%02d".format(at.dayOfMonth)}"
         synchronized(lock) {
-            val bucket = bucketFor(YearMonth.from(at))
-            val track = bucket.tracks.getOrPut(song.videoId) {
-                TrackEntry(
-                    id = song.videoId,
-                    title = song.title,
-                    artist = song.artist,
-                    album = song.albumName,
-                    albumId = song.albumId,
-                    artistId = song.artistId,
-                    art = song.thumbnailUrl,
-                )
-            }
-            track.ms += playedMs
-            track.last = now
-            // Filled in as it becomes known: a track queued from search reaches
-            // the player with no album, and the lookup that finds one lands
-            // while it is already playing. The entry was created without it.
-            if (track.album == null) track.album = song.albumName
-            if (track.albumId == null) track.albumId = song.albumId
-            if (track.artistId == null) track.artistId = song.artistId
-            if (track.art == null) track.art = song.thumbnailUrl
-            if (countsAsPlay) track.plays++
-
-            // Day-level sub-bucket for the track.
-            val trackDay = bucket.trackDays.computeIfAbsent(dayKey) { DayStats() }
-            trackDay.ms += playedMs
-            if (countsAsPlay) trackDay.plays++
-
-            // Also populate per-entity days map so weekRange() can read it.
-            track.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
-                d.ms += playedMs
-                if (countsAsPlay) d.plays++
-            }
-
-            // The lead artist, not the credit as a string. A track billed
-            // "Cheema Y & Gur Sidhu" is not a third artist who happens to share
-            // both their names, and filing it as one is how a chart lists the
-            // same person twice — once solo and again in each collaboration —
-            // with their listening split between the rows.
-            //
-            // The *lead* rather than everyone named, which is the reading the
-            // rest of the app already makes: a row's artist id points at
-            // whoever its page opens, and crediting a feature the same as a
-            // headline act puts a guest verse on a chart of what someone
-            // listens to.
-            primaryArtist(song.artist)?.let { name ->
-                // Asked here rather than in the recorder, because here is where
-                // the credit has already been reduced to a person: asking about
-                // "Cheema Y & Gur Sidhu" gets a picture of nobody and a genre of
-                // nothing.
-                ArtistFacts.noticed(name)
-                val artist = bucket.artists.getOrPut(name.lowercase(Locale.ROOT)) {
-                    NameEntry(name = name, art = song.thumbnailUrl)
-                }
-                artist.ms += playedMs
-                if (countsAsPlay) artist.plays++
-                if (artist.id == null) artist.id = song.artistId
-
-                // Day-level sub-bucket for the artist.
-                val artistDay = bucket.artistDays.computeIfAbsent(dayKey) { DayStats() }
-                artistDay.ms += playedMs
-                if (countsAsPlay) artistDay.plays++
-
-                // Also populate per-entity days map so weekRange() can read it.
-                artist.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
-                    d.ms += playedMs
-                    if (countsAsPlay) d.plays++
-                }
-            }
-
-            song.albumName?.trim()?.takeIf { it.isNotEmpty() }?.let { name ->
-                // Keyed on albumId when available (stable across artist-credit
-                // variations), falling back to name+artist for local files.
-                val key = albumKey(song.albumId, name, song.artist)
-                val album = bucket.albums.getOrPut(key) {
-                    NameEntry(name = name, sub = song.artist, art = song.thumbnailUrl)
-                }
-                album.ms += playedMs
-                if (countsAsPlay) album.plays++
-                if (album.id == null) album.id = song.albumId
-
-                // Day-level sub-bucket for the album.
-                val albumDay = bucket.albumDays.computeIfAbsent(dayKey) { DayStats() }
-                albumDay.ms += playedMs
-                if (countsAsPlay) albumDay.plays++
-
-                // Also populate per-entity days map so weekRange() can read it.
-                album.days.computeIfAbsent(dayKey) { DayStats() }.also { d ->
-                    d.ms += playedMs
-                    if (countsAsPlay) d.plays++
-                }
-            }
-
-            bucket.hours[at.hour] += playedMs
-            val day = at.dayOfMonth
-            bucket.days[day] = (bucket.days[day] ?: 0L) + playedMs
+            // What a sample adds, and where, is OpenBucket's (shared with the
+            // web player). Artists are looked up as they are noticed: see
+            // ArtistFacts.
+            bucketFor(YearMonth.from(at))
+                .record(song, playedMs, countsAsPlay, now, dayKey, at.hour, at.dayOfMonth, ArtistFacts::noticed)
             dirty = true
         }
     }
@@ -335,7 +243,7 @@ object ListeningStats {
             it.period == period && it.version == version && it.facts == facts && it.day == today
         }?.let { return@withContext it.summary }
 
-        val merged = MergedBucket()
+        val merged = MergedListening()
         // This device's month first, then every other device's copy of it —
         // see [PeerListening]. Each is a separate sum of separate plays, so
         // adding them is the whole of the merge. Own first so that where two
@@ -351,14 +259,14 @@ object ListeningStats {
                     val start = month.atDay(1)
                     val end = month.atEndOfMonth()
                     !(end < range.first || start > range.second)
-                }.forEach { month -> monthBuckets(month).forEach { bucket -> merged.add(bucket, range) } }
+                }.forEach { month -> monthBuckets(month).forEach { bucket -> merged.add(bucket, range.asDayFilter()) } }
             }
             else -> {
                 allMonths().filter { period.covers(it, today) }
                     .forEach { month -> monthBuckets(month).forEach(merged::add) }
             }
         }
-        merged.toSummary(period, today).also {
+        toSummary(merged, period, today).also {
             cached = Cached(period, version, facts, today, it)
         }
     }
@@ -380,36 +288,27 @@ object ListeningStats {
         flushAndAwait()
         val today = LocalDate.now()
         val months = allMonths().filter { it.year == year }
-        val merged = MergedBucket()
-        val dayMs = HashMap<String, Long>()
+        val merged = MergedListening()
+        val dayBuckets = ArrayList<StoredBucket>()
         val monthTops = ArrayList<ReplayMonthTop>()
         months.forEach { month ->
             val buckets = bucketsOf(month)
             buckets.forEach(merged::add)
-            buckets.forEach { bucket ->
-                bucket.days.forEach { (day, ms) ->
-                    val date = "${bucket.month}-%02d".format(Locale.ROOT, day)
-                    dayMs[date] = (dayMs[date] ?: 0L) + ms
-                }
-            }
+            dayBuckets += buckets
             // A month on its own, for its top song only. Ranked by the same
             // merge as the year, so a month's chart agrees with the Replay's.
-            val single = MergedBucket().apply { buckets.forEach(::add) }
-            single.toSummary(ReplayPeriod.THIS_YEAR, today).songs.firstOrNull()
+            val single = MergedListening().apply { buckets.forEach(::add) }
+            toSummary(single, ReplayPeriod.THIS_YEAR, today).songs.firstOrNull()
                 ?.let { monthTops += ReplayMonthTop(month, it) }
         }
-        val summary = merged.toSummary(ReplayPeriod.THIS_YEAR, today).copy(label = year.toString())
-        // The song that carried the busiest day: the track whose day entry for
-        // that date is biggest. Months recorded before tracks kept per-day
-        // entries have none, and the story picks another song.
+        val dayMs = YearListening.dayMs(dayBuckets)
+        val summary = toSummary(merged, ReplayPeriod.THIS_YEAR, today).copy(label = year.toString())
+        // The song that carried the busiest day (see YearListening). Months
+        // recorded before tracks kept per-day entries have none, and the story
+        // picks another song.
         val busiestDaySong = summary.busiestDay?.let { date ->
             val month = runCatching { YearMonth.parse(date.take(7)) }.getOrNull() ?: return@let null
-            val best = bucketsOf(month).flatMap { it.tracks }
-                .groupBy { it.id }
-                .mapValues { (_, entries) -> entries.sumOf { it.days[date]?.ms ?: 0L } }
-                .filterValues { it > 0 }
-                .maxByOrNull { it.value }
-                ?.key ?: return@let null
+            val best = YearListening.busiestDaySongId(bucketsOf(month), date) ?: return@let null
             summary.songs.firstOrNull { it.song.videoId == best }?.song
         }
         ReplayYearData(year, summary, dayMs, monthTops, busiestDaySong)
@@ -471,48 +370,12 @@ object ListeningStats {
      */
     private fun prune() {
         val existing = months()
-        if (existing.size > KEEP_MONTHS) {
-            existing.take(existing.size - KEEP_MONTHS).forEach {
+        if (existing.size > ListeningLimits.KEEP_MONTHS) {
+            existing.take(existing.size - ListeningLimits.KEEP_MONTHS).forEach {
                 File(directory, "$it.json").delete()
             }
         }
-        val bucket = open ?: return
-        bucket.tracks.trimTo(MAX_TRACKS) { it.ms }
-        bucket.artists.trimTo(MAX_NAMES) { it.ms }
-        bucket.albums.trimTo(MAX_NAMES) { it.ms }
-    }
-
-    /**
-     * [this] keyed by [key], with anything that lands on the same key added
-     * together rather than overwriting.
-     *
-     * Needed because a key is *recomputed* on load rather than read back from
-     * the file — see [NameEntry.key]. Two entries written under different keys
-     * by an older build can therefore arrive at the same key now, and the
-     * obvious `associateByTo` would silently drop one of their totals.
-     */
-    private inline fun <T : Any> List<T>.mergedBy(
-        into: LinkedHashMap<String, T>,
-        key: (T) -> String,
-    ): LinkedHashMap<String, T> {
-        forEach { entry ->
-            val k = key(entry)
-            val existing = into[k]
-            if (existing == null) {
-                into[k] = entry
-            } else {
-                @Suppress("UNCHECKED_CAST")
-                (existing as NameEntry).absorb(entry as NameEntry)
-            }
-        }
-        return into
-    }
-
-    private inline fun <K, V> MutableMap<K, V>.trimTo(limit: Int, crossinline weight: (V) -> Long) {
-        if (size <= limit) return
-        entries.sortedBy { weight(it.value) }
-            .take(size - limit)
-            .forEach { remove(it.key) }
+        open?.trim()
     }
 
     // ── Backup ──────────────────────────────────────────────────────────────
@@ -554,406 +417,105 @@ object ListeningStats {
     // ── Shapes ──────────────────────────────────────────────────────────────
 
     /**
-     * The open month, in mutable form.
+     * The charts [merged] makes for [period], drawn as the phone draws them.
      *
-     * Apart from [StoredBucket] because the stored shape is a schema and this
-     * one is a working set: a counter that goes up thousands of times a session
-     * wants to be a `var` in a map, and a file format wants to be immutable and
-     * boring.
+     * The ranking is [MergedListening]'s, shared with the web player. What is
+     * added here is what only the phone knows: each artist's own picture and
+     * page where [ArtistFacts] has found one, and the genres they vote for.
      */
-    private class OpenBucket(
-        val key: String,
-        val tracks: MutableMap<String, TrackEntry>,
-        val artists: MutableMap<String, NameEntry>,
-        val albums: MutableMap<String, NameEntry>,
-        val hours: LongArray,
-        val days: MutableMap<Int, Long>,
-        /** Per-day sub-buckets for track/artist/album. Key: "YYYY-MM-DD". */
-        val trackDays: MutableMap<String, DayStats> = mutableMapOf(),
-        val artistDays: MutableMap<String, DayStats> = mutableMapOf(),
-        val albumDays: MutableMap<String, DayStats> = mutableMapOf(),
-    ) {
-        fun snapshot() = StoredBucket(
-            month = key,
-            tracks = tracks.values.toList(),
-            artists = artists.map { (key, entry) -> entry.copy(key = key) },
-            albums = albums.map { (key, entry) -> entry.copy(key = key) },
-            hours = hours.toList(),
-            days = days.toMap(),
-            trackDays = trackDays.mapValues { it.value },
-            artistDays = artistDays.mapValues { it.value },
-            albumDays = albumDays.mapValues { it.value },
+    private fun toSummary(merged: MergedListening, period: ReplayPeriod, today: LocalDate): ReplaySummary {
+        // For weekly mode, compute per-entity totals from day-level sub-buckets.
+        val inRange = if (period.needsDayFilter()) period.range(today)?.asDayFilter() else null
+
+        val rankedSongs = merged.songs(inRange)
+
+        // The artist's own picture and page where one has been found, and
+        // the track's sleeve where one hasn't -- see [ArtistFacts]. Resolved
+        // here rather than stored in the bucket because it is a fact about
+        // the artist, not about the evening they were played on: written
+        // into every month it would freeze at whatever was known the first
+        // time they came up, and be missing from every month before that.
+        val rankedArtists = merged.artists(inRange).map {
+            it.copy(
+                artworkUrl = ArtistFacts.imageFor(it.title) ?: it.artworkUrl,
+                browseId = it.browseId ?: ArtistFacts.browseIdFor(it.title),
+            )
+        }
+
+        val rankedAlbums = merged.albums(inRange)
+
+        // Genres are derived rather than stored — see [ArtistFacts]. An
+        // artist with no tag yet simply doesn't vote, which is why this can
+        // be an empty list on a page whose other charts are full.
+        val genreMs = LinkedHashMap<String, Long>()
+        val genrePlays = LinkedHashMap<String, Int>()
+        val genreArt = LinkedHashMap<String, String?>()
+        rankedArtists.forEach { artist ->
+            ArtistFacts.genresFor(artist.title).forEach { genre ->
+                genreMs[genre] = (genreMs[genre] ?: 0L) + artist.ms
+                genrePlays[genre] = (genrePlays[genre] ?: 0) + artist.plays
+                if (genreArt[genre] == null) genreArt[genre] = artist.artworkUrl
+            }
+        }
+        // Anything still missing a picture is asked about now, so opening
+        // the page is a second way for these to fill in — the first being
+        // playing the music, which is no help to someone who has just
+        // installed a build that started collecting them.
+        rankedArtists.take(ARTISTS_TO_RESOLVE)
+            .filter { it.artworkUrl == null || it.browseId == null }
+            .forEach { ArtistFacts.noticed(it.title) }
+
+        val rankedGenres = genreMs.entries
+            .sortedByDescending { it.value }
+            .map {
+                RankedEntry(
+                    title = it.key,
+                    subtitle = null,
+                    artworkUrl = genreArt[it.key],
+                    browseId = null,
+                    ms = it.value,
+                    plays = genrePlays[it.key] ?: 0,
+                )
+            }
+
+        val busiest = merged.busiestDay()
+        return ReplaySummary(
+            period = period,
+            label = period.label(today),
+            totalMs = rankedSongs.sumOf { it.ms },
+            totalPlays = rankedSongs.sumOf { it.plays },
+            songs = rankedSongs,
+            artists = rankedArtists,
+            albums = rankedAlbums,
+            genres = rankedGenres,
+            hourOfDay = merged.hours.toList(),
+            busiestDay = busiest?.first,
+            busiestDayMs = busiest?.second ?: 0L,
+            distinctSongs = rankedSongs.size,
+            distinctArtists = rankedArtists.size,
+            distinctAlbums = rankedAlbums.size,
+            since = merged.earliest,
         )
-
-        companion object {
-            fun of(key: String, stored: StoredBucket) = OpenBucket(
-                key = key,
-                tracks = stored.tracks.associateByTo(LinkedHashMap()) { it.id },
-                // Re-keyed on the lead artist, so entries a previous build
-                // filed under a whole credit fold into the person on read
-                // instead of sitting beside them forever.
-                artists = stored.artists
-                    .map { it.copy(name = primaryArtist(it.name) ?: it.name) }
-                    .mergedBy(LinkedHashMap()) { it.name.lowercase(Locale.ROOT) },
-                albums = stored.albums.mergedBy(LinkedHashMap()) { albumKey(it.id, it.name, it.sub.orEmpty()) },
-                hours = LongArray(24) { stored.hours.getOrElse(it) { 0L } },
-                days = stored.days.toMutableMap(),
-                trackDays = stored.trackDays?.toMutableMap() ?: mutableMapOf(),
-                artistDays = stored.artistDays?.toMutableMap() ?: mutableMapOf(),
-                albumDays = stored.albumDays?.toMutableMap() ?: mutableMapOf(),
-            )
-        }
-    }
-
-    /** Several months added together, on the way to a [ReplaySummary]. */
-    private class MergedBucket {
-        val tracks = HashMap<String, TrackEntry>()
-        val artists = HashMap<String, NameEntry>()
-        val albums = HashMap<String, NameEntry>()
-        val hours = LongArray(24)
-        val days = HashMap<String, Long>()
-        /** Per-day sub-buckets for tracks. Key: "YYYY-MM-DD". */
-        val trackDays = HashMap<String, DayStats>()
-        /** Per-day sub-buckets for artists. Key: "YYYY-MM-DD". */
-        val artistDays = HashMap<String, DayStats>()
-        /** Per-day sub-buckets for albums. Key: "YYYY-MM-DD". */
-        val albumDays = HashMap<String, DayStats>()
-        var earliest: String? = null
-
-        fun add(bucket: StoredBucket) {
-            bucket.tracks.forEach { entry ->
-                tracks.merge(mergeKey(entry), entry.copy()) { a, b -> a.also { it.absorb(b) } }
-            }
-            bucket.artists.forEach { entry ->
-                val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
-                artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
-            }
-            bucket.albums.forEach { entry ->
-                val key = albumKey(entry.id, entry.name, entry.sub.orEmpty())
-                albums.merge(key, entry.copy()) { a, b -> a.also { it.absorb(b) } }
-            }
-            repeat(24) { hours[it] += bucket.hours.getOrElse(it) { 0L } }
-            bucket.days.forEach { (day, ms) ->
-                val date = "${bucket.month}-%02d".format(day)
-                days[date] = (days[date] ?: 0L) + ms
-            }
-            if (earliest == null || bucket.month < earliest!!) earliest = bucket.month
-        }
-
-        /** Add all day-level sub-buckets for weekly queries. */
-        fun addDaySubs(bucket: StoredBucket) {
-            bucket.trackDays?.forEach { (dateStr, stats) ->
-                trackDays.merge(dateStr, stats) { a, b -> DayStats(a.ms + b.ms, a.plays + b.plays) }
-            }
-            bucket.artistDays?.forEach { (dateStr, stats) ->
-                artistDays.merge(dateStr, stats) { a, b -> DayStats(a.ms + b.ms, a.plays + b.plays) }
-            }
-            bucket.albumDays?.forEach { (dateStr, stats) ->
-                albumDays.merge(dateStr, stats) { a, b -> DayStats(a.ms + b.ms, a.plays + b.plays) }
-            }
-        }
-
-        /** Add only the days that fall within [range], keyed as "YYYY-MM-DD". */
-        fun add(bucket: StoredBucket, range: Pair<LocalDate, LocalDate>) {
-            // Merge entity-level data (tracks/artists/albums) so weekRange() can read them.
-            bucket.tracks.forEach { entry ->
-                tracks.merge(mergeKey(entry), entry.copy()) { a, b -> a.also { it.absorb(b) } }
-            }
-            bucket.artists.forEach { entry ->
-                val lead = entry.copy(name = primaryArtist(entry.name) ?: entry.name)
-                artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
-            }
-            bucket.albums.forEach { entry ->
-                val key = albumKey(entry.id, entry.name, entry.sub.orEmpty())
-                albums.merge(key, entry.copy()) { a, b -> a.also { it.absorb(b) } }
-            }
-            // Merge day-level sub-buckets for the flat days map and cross-month totals.
-            addDaySubs(bucket)
-            bucket.days.forEach { (day, ms) ->
-                val candidate = "${bucket.month}-%02d".format(day)
-                val date = runCatching { LocalDate.parse(candidate) }.getOrNull()
-                    ?: return@forEach
-                if (date >= range.first && date <= range.second) {
-                    days[candidate] = (days[candidate] ?: 0L) + ms
-                }
-            }
-        }
-
-        fun toSummary(period: ReplayPeriod, today: LocalDate): ReplaySummary {
-            // For weekly mode, compute per-entity totals from day-level sub-buckets.
-            val weekRange = if (period.needsDayFilter()) period.range(today) else null
-
-            val rankedSongs = if (weekRange != null) {
-                tracks.values
-                    .mapNotNull { entry ->
-                        val (ms, plays) = entry.weekRange(weekRange)
-                        if (ms > 0) entry to (ms to plays) else null
-                    }
-                    .sortedWith(compareByDescending<Pair<TrackEntry, Pair<Long, Int>>> { it.second.first }
-                        .thenByDescending { it.second.second })
-                    .map { (entry, msPlays) ->
-                        val (ms, plays) = msPlays
-                        RankedSong(
-                            song = Song(
-                                videoId = entry.id,
-                                title = entry.title,
-                                artist = entry.artist,
-                                thumbnailUrl = entry.art,
-                                artistId = entry.artistId,
-                                albumId = entry.albumId,
-                                albumName = entry.album,
-                            ),
-                            ms = ms,
-                            plays = plays,
-                        )
-                    }
-            } else {
-                tracks.values
-                    .sortedWith(compareByDescending<TrackEntry> { it.ms }.thenByDescending { it.plays })
-                    .map {
-                        RankedSong(
-                            song = Song(
-                                videoId = it.id,
-                                title = it.title,
-                                artist = it.artist,
-                                thumbnailUrl = it.art,
-                                artistId = it.artistId,
-                                albumId = it.albumId,
-                                albumName = it.album,
-                            ),
-                            ms = it.ms,
-                            plays = it.plays,
-                        )
-                    }
-            }
-
-            // The artist's own picture and page where one has been found, and
-            // the track's sleeve where one hasn't -- see [ArtistFacts]. Resolved
-            // here rather than stored in the bucket because it is a fact about
-            // the artist, not about the evening they were played on: written
-            // into every month it would freeze at whatever was known the first
-            // time they came up, and be missing from every month before that.
-            val rankedArtists = if (weekRange != null) {
-                artists.values
-                    .mapNotNull { entry ->
-                        val (ms, plays) = entry.weekRange(weekRange)
-                        if (ms > 0) entry to (ms to plays) else null
-                    }
-                    .sortedWith(compareByDescending<Pair<NameEntry, Pair<Long, Int>>> { it.second.first }
-                        .thenByDescending { it.second.second })
-                    .map { (entry, msPlays) ->
-                        val (ms, plays) = msPlays
-                        RankedEntry(
-                            title = entry.name,
-                            subtitle = entry.sub,
-                            artworkUrl = ArtistFacts.imageFor(entry.name) ?: entry.art,
-                            browseId = entry.id ?: ArtistFacts.browseIdFor(entry.name),
-                            ms = ms,
-                            plays = plays,
-                        )
-                    }
-            } else {
-                artists.values
-                    .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
-                    .map {
-                        RankedEntry(
-                            title = it.name,
-                            subtitle = it.sub,
-                            artworkUrl = ArtistFacts.imageFor(it.name) ?: it.art,
-                            browseId = it.id ?: ArtistFacts.browseIdFor(it.name),
-                            ms = it.ms,
-                            plays = it.plays,
-                        )
-                    }
-            }
-
-            val releases = foldAlbumsByTitle(albums.values)
-            val rankedAlbums = if (weekRange != null) {
-                releases
-                    .mapNotNull { entry ->
-                        val (ms, plays) = entry.weekRange(weekRange)
-                        if (ms > 0) entry to (ms to plays) else null
-                    }
-                    .sortedWith(compareByDescending<Pair<NameEntry, Pair<Long, Int>>> { it.second.first }
-                        .thenByDescending { it.second.second })
-                    .map { (entry, msPlays) ->
-                        val (ms, plays) = msPlays
-                        RankedEntry(entry.name, entry.sub, entry.art, entry.id, ms, plays)
-                    }
-            } else {
-                releases
-                    .sortedWith(compareByDescending<NameEntry> { it.ms }.thenByDescending { it.plays })
-                    .map { RankedEntry(it.name, it.sub, it.art, it.id, it.ms, it.plays) }
-            }
-
-            // Genres are derived rather than stored — see [ArtistFacts]. An
-            // artist with no tag yet simply doesn't vote, which is why this can
-            // be an empty list on a page whose other charts are full.
-            val genreMs = LinkedHashMap<String, Long>()
-            val genrePlays = LinkedHashMap<String, Int>()
-            val genreArt = LinkedHashMap<String, String?>()
-            rankedArtists.forEach { artist ->
-                ArtistFacts.genresFor(artist.title).forEach { genre ->
-                    genreMs[genre] = (genreMs[genre] ?: 0L) + artist.ms
-                    genrePlays[genre] = (genrePlays[genre] ?: 0) + artist.plays
-                    if (genreArt[genre] == null) genreArt[genre] = artist.artworkUrl
-                }
-            }
-            // Anything still missing a picture is asked about now, so opening
-            // the page is a second way for these to fill in — the first being
-            // playing the music, which is no help to someone who has just
-            // installed a build that started collecting them.
-            rankedArtists.take(ARTISTS_TO_RESOLVE)
-                .filter { it.artworkUrl == null || it.browseId == null }
-                .forEach { ArtistFacts.noticed(it.title) }
-
-            val rankedGenres = genreMs.entries
-                .sortedByDescending { it.value }
-                .map {
-                    RankedEntry(
-                        title = it.key,
-                        subtitle = null,
-                        artworkUrl = genreArt[it.key],
-                        browseId = null,
-                        ms = it.value,
-                        plays = genrePlays[it.key] ?: 0,
-                    )
-                }
-
-            val busiest = days.entries.maxByOrNull { it.value }
-            return ReplaySummary(
-                period = period,
-                label = period.label(today),
-                totalMs = rankedSongs.sumOf { it.ms },
-                totalPlays = rankedSongs.sumOf { it.plays },
-                songs = rankedSongs,
-                artists = rankedArtists,
-                albums = rankedAlbums,
-                genres = rankedGenres,
-                hourOfDay = hours.toList(),
-                busiestDay = busiest?.key,
-                busiestDayMs = busiest?.value ?: 0L,
-                distinctSongs = rankedSongs.size,
-                distinctArtists = rankedArtists.size,
-                distinctAlbums = rankedAlbums.size,
-                since = earliest,
-            )
-        }
     }
 
     /**
-     * How an album is filed: uses [albumId] as the primary key when available
-     * (stable across different artist-credit strings), falling back to name+artist
-     * for local files that have no ID.
-     *
-     * Joined on a NUL rather than a space, because that is the one character
-     * neither half can contain: with a space, "Greatest Hits" by "Vol 2" and
-     * "Greatest Hits Vol" by "2" are the same key. Contrived, but the class of
-     * bug is not, and a separator that cannot collide costs nothing.
-     *
-     * Concatenated rather than interpolated so the separator is visible in the
-     * source — a NUL inside a template string is an invisible character in the
-     * middle of a line, which is exactly how this file spent a while being
-     * treated as a binary by every tool that looked at it.
+     * Whether a `YYYY-MM-DD` key falls in this inclusive range, for the shared
+     * merge, which has no calendar of its own. A key that won't parse isn't in it.
      */
-    private fun albumKey(name: String, artist: String): String =
-        name.lowercase(Locale.ROOT) + ALBUM_KEY_SEPARATOR + artist.lowercase(Locale.ROOT)
-
-    /** @see albumKey(albumId, name, artist) — overload for keyed lookups. */
-    private fun albumKey(albumId: String?, name: String, artist: String): String =
-        albumId?.let { it } ?: albumKey(name, artist)
-
-    /**
-     * Which row of the song chart [entry] is added into.
-     *
-     * A track's id, except for a file on the device: its id is a `content://`
-     * or `file://` address that only means something on the phone that played
-     * it, so the same song played from two phones' storage would otherwise be
-     * two rows. Those fold by title and artist instead.
-     */
-    internal fun mergeKey(entry: TrackEntry): String =
-        if (entry.id.startsWith("content://") || entry.id.startsWith("file://")) {
-            "local" + ALBUM_KEY_SEPARATOR + albumKey(entry.title, entry.artist)
-        } else {
-            entry.id
-        }
-
-    /**
-     * [albums] with every entry that would be drawn as the same row folded into one.
-     *
-     * Filing by [albumKey] (id first) keeps one release apart from another, but
-     * it also keeps one album apart from *itself*: a month written before the
-     * track carried an album id files it by name, a later month files it by id,
-     * and YouTube hands out more than one id for the same record. Over a year
-     * those land as two entries with the same title and artist, which splits the
-     * album's minutes across two rows and gives the Replay list two items with
-     * the same key, which Compose answers by crashing.
-     *
-     * Entries with an id go first so the one that survives can still open the
-     * album page; among those, the most played one's picture and id win.
-     * Copies are folded, never the entries passed in.
-     */
-    internal fun foldAlbumsByTitle(albums: Collection<NameEntry>): List<NameEntry> {
-        val folded = LinkedHashMap<String, NameEntry>()
-        albums
-            .sortedWith(compareByDescending<NameEntry> { it.id != null }.thenByDescending { it.ms })
-            .forEach { entry ->
-                val key = albumKey(entry.name, entry.sub.orEmpty())
-                val existing = folded[key]
-                if (existing == null) {
-                    folded[key] = entry.copy(days = entry.days.mapValuesTo(mutableMapOf()) { it.value.copy() })
-                } else {
-                    existing.absorb(entry)
-                }
-            }
-        return folded.values.toList()
+    private fun Pair<LocalDate, LocalDate>.asDayFilter(): (String) -> Boolean = { key ->
+        val date = runCatching { LocalDate.parse(key) }.getOrNull()
+        date != null && date >= first && date <= second
     }
 
-    /** @see albumKey */
-    private val ALBUM_KEY_SEPARATOR = Char(UNIT_SEPARATOR).toString()
+    /** @see ListeningKeys.mergeKey */
+    internal fun mergeKey(entry: TrackEntry): String = ListeningKeys.mergeKey(entry)
 
-    /**
-     * ASCII 0x1F, which exists for exactly this and cannot occur in a title.
-     *
-     * Built from its code point rather than written as an escape: a control
-     * character spelt out in a string literal is an invisible byte in the
-     * middle of a line, and this file spent a while being treated as a binary
-     * by every tool that looked at it because of one.
-     */
-    private const val UNIT_SEPARATOR = 31
+    /** @see ListeningKeys.foldAlbumsByTitle */
+    internal fun foldAlbumsByTitle(albums: Collection<NameEntry>): List<NameEntry> =
+        ListeningKeys.foldAlbumsByTitle(albums)
 
-    /**
-     * The people named on a track's credit.
-     *
-     * Split conservatively, and on punctuation rather than on words: `,`, `&`,
-     * `x` and the feature markers are how every catalogue this app reads joins
-     * two artists, while " and " and " with " are as often part of a band's
-     * actual name — "Florence and the Machine", "Nick Cave and the Bad Seeds" —
-     * so they are left alone. A name is still split wrongly now and then
-     * ("Simon & Garfunkel"), which costs one duplicated chart row; not splitting
-     * at all costs a row for every collaboration anyone has ever recorded.
-     */
-    fun primaryArtist(credit: String): String? {
-        lastCredit?.let { (raw, name) -> if (raw == credit) return name }
-        val name = credit.split(CREDIT_SEPARATORS)
-            .firstOrNull { it.isNotBlank() }
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-        // Memoised on the last credit seen, because the caller is the playback
-        // sampler: it asks about the same string a dozen times a minute for as
-        // long as a track is playing, and a regex split per tick is work with a
-        // known answer.
-        lastCredit = credit to name
-        return name
-    }
-
-    @Volatile
-    private var lastCredit: Pair<String, String?>? = null
-
-    private val CREDIT_SEPARATORS = Regex(
-        """\s*,\s*|\s+&\s+|\s+x\s+|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+""",
-        RegexOption.IGNORE_CASE,
-    )
+    /** The lead artist on a track's credit: see [ListeningKeys.primaryArtist]. */
+    fun primaryArtist(credit: String): String? = ListeningKeys.primaryArtist(credit)
 
     private const val TAG = "BitChordListening"
     private const val DIRECTORY = "listening"
@@ -961,169 +523,7 @@ object ListeningStats {
     /** How far down the artist chart a page opening will send lookups for. */
     private const val ARTISTS_TO_RESOLVE = 15
 
-    /** Three years, which is longer than "all time" means to most people. */
-    private const val KEEP_MONTHS = 36
-
-    /**
-     * Per-month caps. Generous enough that nobody reaches them by listening,
-     * tight enough that a bucket stays well under a hundred kilobytes.
-     */
-    private const val MAX_TRACKS = 600
-    private const val MAX_NAMES = 400
 }
-
-/** Daily-level listening for a single track or artist. */
-@Serializable
-public data class DayStats(
-    var ms: Long = 0L,
-    var plays: Int = 0,
-)
-
-/** One track's totals inside a bucket. */
-@Serializable
-data class TrackEntry(
-    val id: String,
-    val title: String = "",
-    val artist: String = "",
-    var album: String? = null,
-    var albumId: String? = null,
-    var artistId: String? = null,
-    var art: String? = null,
-    var ms: Long = 0L,
-    var plays: Int = 0,
-    var last: Long = 0L,
-    /** Per-day breakdown for weekly queries. Key: "YYYY-MM-DD". */
-    var days: MutableMap<String, DayStats> = mutableMapOf(),
-) {
-    fun absorb(other: TrackEntry) {
-        ms += other.ms
-        plays += other.plays
-        last = maxOf(last, other.last)
-        if (album == null) album = other.album
-        if (albumId == null) albumId = other.albumId
-        if (artistId == null) artistId = other.artistId
-        if (art == null) art = other.art
-        // Merge per-day sub-buckets.
-        if (other.days.isNotEmpty()) {
-            other.days.forEach { (dateKey, stats) ->
-                days.computeIfAbsent(dateKey) { DayStats() }.also { existing ->
-                    existing.ms += stats.ms
-                    existing.plays += stats.plays
-                }
-            }
-        }
-    }
-
-    /** Sum ms/plays for days that fall within [range]. Falls back to full totals if .days is empty. */
-    fun weekRange(range: Pair<LocalDate, LocalDate>): Pair<Long, Int> {
-        var totalMs = 0L
-        var totalPlays = 0
-        if (days.isNotEmpty()) {
-            for ((dateStr, stats) in days) {
-                val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: continue
-                if (date >= range.first && date <= range.second) {
-                    totalMs += stats.ms
-                    totalPlays += stats.plays
-                }
-            }
-        } else {
-            // Legacy data: .days was never populated — use overall totals.
-            return ms to plays
-        }
-        return totalMs to totalPlays
-    }
-}
-
-/**
- * One artist's or album's totals.
- *
- * [key] is the map key it was stored under. Written for a reader's benefit and
- * for anything downstream of an export; it is deliberately *not* read back.
- *
- * Reading it was the original design, on the reasoning that a stored key cannot
- * be spelt differently by a later build. What that actually buys is the
- * opposite: an entry keyed by an older build keeps its old key forever, so the
- * same artist ends up in two rows the moment the spelling changes and there is
- * no way back. Recomputing on load means a change heals itself — see
- * [OpenBucket.of] and the merge it does on the way in.
- */
-@Serializable
-data class NameEntry(
-    val name: String = "",
-    val sub: String? = null,
-    var art: String? = null,
-    var id: String? = null,
-    var ms: Long = 0L,
-    var plays: Int = 0,
-    val key: String? = null,
-    /** Per-day breakdown for weekly queries. Key: "YYYY-MM-DD". */
-    var days: MutableMap<String, DayStats> = mutableMapOf(),
-) {
-    fun absorb(other: NameEntry) {
-        ms += other.ms
-        plays += other.plays
-        if (art == null) art = other.art
-        if (id == null) id = other.id
-        // Merge per-day sub-buckets.
-        if (other.days.isNotEmpty()) {
-            other.days.forEach { (dateKey, stats) ->
-                days.computeIfAbsent(dateKey) { DayStats() }.also { existing ->
-                    existing.ms += stats.ms
-                    existing.plays += stats.plays
-                }
-            }
-        }
-    }
-
-    /** Sum ms/plays for days that fall within [range]. Falls back to full totals if .days is empty. */
-    fun weekRange(range: Pair<LocalDate, LocalDate>): Pair<Long, Int> {
-        var totalMs = 0L
-        var totalPlays = 0
-        if (days.isNotEmpty()) {
-            for ((dateStr, stats) in days) {
-                val date = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: continue
-                if (date >= range.first && date <= range.second) {
-                    totalMs += stats.ms
-                    totalPlays += stats.plays
-                }
-            }
-        } else {
-            // Legacy data: .days was never populated — use overall totals.
-            return ms to plays
-        }
-        return totalMs to totalPlays
-    }
-}
-
-/** One calendar month on disk. */
-@Serializable
-data class StoredBucket(
-    val version: Int = 1,
-    val month: String,
-    val tracks: List<TrackEntry> = emptyList(),
-    val artists: List<NameEntry> = emptyList(),
-    val albums: List<NameEntry> = emptyList(),
-    /** Milliseconds played per hour of the day, 0..23. */
-    val hours: List<Long> = List(24) { 0L },
-    /** Milliseconds played per day of the month. */
-    val days: Map<Int, Long> = emptyMap(),
-    /** Per-day sub-buckets for tracks. Key: "YYYY-MM-DD". */
-    val trackDays: Map<String, DayStats>? = null,
-    /** Per-day sub-buckets for artists. Key: "YYYY-MM-DD". */
-    val artistDays: Map<String, DayStats>? = null,
-    /** Per-day sub-buckets for albums. Key: "YYYY-MM-DD". */
-    val albumDays: Map<String, DayStats>? = null,
-)
-
-/** A row on one of the four charts. */
-data class RankedEntry(
-    val title: String,
-    val subtitle: String?,
-    val artworkUrl: String?,
-    val browseId: String?,
-    val ms: Long,
-    val plays: Int,
-)
 
 /** A calendar year, for the Replay year story. See [ListeningStats.year]. */
 data class ReplayYearData(
@@ -1139,9 +539,6 @@ data class ReplayYearData(
 
 /** One month's top song. */
 data class ReplayMonthTop(val month: YearMonth, val song: RankedSong)
-
-/** A song row, which keeps the whole [Song] so tapping it can play it. */
-data class RankedSong(val song: Song, val ms: Long, val plays: Int)
 
 /** How far back a Replay reaches. */
 enum class ReplayPeriod(val chip: String) {

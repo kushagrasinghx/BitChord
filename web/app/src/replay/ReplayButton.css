@@ -1,0 +1,41 @@
+/*
+ * The Replay button's letters (ReplayYearButton.kt): each rolls into the pill
+ * on its own, odd ones from above and even from below, landing with a small
+ * overshoot like a split-flap board; then the play mark pops. Every five
+ * seconds they carry on out the other side and roll straight back in.
+ */
+.rb-glyph {
+  display: inline-block;
+  animation: rb-in 0.38s cubic-bezier(0.3, 1.9, 0.5, 1) both;
+}
+@keyframes rb-in {
+  from {
+    transform: translateY(calc(var(--rb-from) * 120%));
+  }
+}
+.rb-out .rb-glyph {
+  animation: rb-out 0.24s ease-in both;
+}
+@keyframes rb-out {
+  to {
+    transform: translateY(calc(var(--rb-from) * -120%));
+  }
+}
+.rb-play {
+  animation: rb-pop 0.3s cubic-bezier(0.3, 1.9, 0.5, 1) both;
+}
+.rb-out .rb-play {
+  animation: rb-pop 0.24s ease-in reverse both;
+}
+@keyframes rb-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-glyph,
+  .rb-play {
+    animation: none !important;
+  }
+}

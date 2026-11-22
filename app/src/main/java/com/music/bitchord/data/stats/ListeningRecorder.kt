@@ -8,7 +8,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.min
 
 /**
  * Turns the player's ticking into the numbers [ListeningStats] keeps.
@@ -26,7 +25,7 @@ import kotlin.math.min
  * while audio is actually coming out, and each tick contributes the *wall-clock*
  * time since the last one. Seeking cannot inflate it because position is never
  * consulted. Pausing cannot inflate it because no tick happens. The gap either
- * side of a pause is capped at [MAX_STEP_MS], which is what stops an hour on the
+ * side of a pause is capped at [ListeningTally.MAX_STEP_MS], which is what stops an hour on the
  * lock screen from arriving as an hour of listening on the first tick after
  * resume.
  *
@@ -40,14 +39,14 @@ import kotlin.math.min
  * Minutes accumulate continuously. A *play* is counted once, when enough of the
  * track has gone by to call it listened to — the same half-or-four-minutes rule
  * the scrobbler uses, so the two never disagree about what a play is.
+ *
+ * The rule itself, the step cap and the threshold, is [ListeningTally]'s, in the
+ * shared module, so the web player's Replay counts exactly as this does.
  */
 object ListeningRecorder {
 
-    private var currentId: String? = null
-    private var lastSampleAt: Long = 0L
-    private var playedThisTrack: Long = 0L
-    private var playCounted = false
-    private var samplesSinceFlush = 0
+    /** The counting itself, shared with the web player's Replay. */
+    private val tally = ListeningTally()
 
     /**
      * One tick of the player's sampler.
@@ -58,36 +57,14 @@ object ListeningRecorder {
      */
     @Synchronized
     fun onSample(song: Song, durationMs: Long) {
-        val now = System.currentTimeMillis()
-        if (song.videoId != currentId) {
-            // A new track anchors the clock and contributes nothing yet — see
-            // the class note on undercounting.
-            currentId = song.videoId
-            lastSampleAt = now
-            playedThisTrack = 0L
-            playCounted = false
-            return
-        }
-        val step = (now - lastSampleAt).coerceIn(0L, MAX_STEP_MS)
-        lastSampleAt = now
-        if (step <= 0L) return
-        playedThisTrack += step
-
         val length = durationMs.takeIf { it > 0 } ?: song.durationMillis()
-        val threshold = if (length > 0) {
-            min(length / 2, PLAY_CEILING_MS).coerceAtLeast(PLAY_FLOOR_MS)
-        } else {
-            PLAY_FLOOR_MS
-        }
-        val counts = !playCounted && playedThisTrack >= threshold
-        if (counts) playCounted = true
+        // Null on a new track's first tick, which anchors the clock — see the
+        // class note on undercounting.
+        val step = tally.sample(song.videoId, System.currentTimeMillis(), length) ?: return
 
-        ListeningStats.record(enriched(song), step, counts)
+        ListeningStats.record(enriched(song), step.playedMs, step.countsAsPlay)
 
-        if (++samplesSinceFlush >= FLUSH_EVERY) {
-            samplesSinceFlush = 0
-            ListeningStats.flush()
-        }
+        if (step.flush) ListeningStats.flush()
     }
 
     /**
@@ -95,14 +72,11 @@ object ListeningRecorder {
      *
      * Forgetting the current track is what makes the *next* tick anchor rather
      * than contribute: without it, a player paused for an afternoon would hand
-     * [MAX_STEP_MS] of listening to whatever was on screen when it resumed.
+     * [ListeningTally.MAX_STEP_MS] of listening to whatever was on screen when it resumed.
      */
     @Synchronized
     fun onStopped() {
-        currentId = null
-        playedThisTrack = 0L
-        playCounted = false
-        samplesSinceFlush = 0
+        tally.stop()
         ListeningStats.flush()
     }
 
@@ -164,24 +138,6 @@ object ListeningRecorder {
         }
         return song
     }
-
-    /**
-     * The most a single tick may contribute.
-     *
-     * A shade over the sampler's interval, so an ordinary tick that arrived late
-     * — a busy main thread, a device coming out of doze — is still counted in
-     * full, while the unbounded gap across a pause is not.
-     */
-    private const val MAX_STEP_MS = 8_000L
-
-    /** Under half a minute is not a listen, however it ended. */
-    private const val PLAY_FLOOR_MS = 30_000L
-
-    /** Past four minutes, half a track is more listening than anyone disputes. */
-    private const val PLAY_CEILING_MS = 4 * 60 * 1000L
-
-    /** Six ticks — about half a minute of listening between disk writes. */
-    private const val FLUSH_EVERY = 6
 
     /** What a YouTube video id looks like, and nothing else this app plays does. */
     private const val YOUTUBE_ID_LENGTH = 11

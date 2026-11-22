@@ -517,6 +517,14 @@ internal class LyricsCardPainter internal constructor(
         positionMs: Long?,
     ) {
         val row = placed.row
+
+        // On the still card (null positionMs), draw the standard editorial omission marker "(...)"
+        if (positionMs == null) {
+            canvas.drawText(row.text, placed.x, placed.baseline, row.paint)
+            return
+        }
+
+        // On video clips and animated preview: render the 3 interactive counting dots
         val size = row.paint.textSize
         val dotSize = (size * DOT_TO_TYPE).coerceAtLeast(8f)
         val dotGap = (size * DOT_GAP_TO_TYPE).coerceAtLeast(4f)
@@ -528,15 +536,18 @@ internal class LyricsCardPainter internal constructor(
         } else {
             placed.x + radius
         }
-        val centerY = placed.baseline + (row.paint.ascent() + row.paint.descent()) / 2f
+        val centerY = placed.baseline - size * 0.65f * 0.30f
 
         val start = line?.startMs
+            ?: lines.take(row.line).lastOrNull { !it.isGap && (it.endMs != null || it.startMs != null) }?.let { it.endMs ?: it.startMs }
         val end = line?.endMs
+            ?: lines.drop(row.line + 1).firstOrNull { !it.isGap && it.startMs != null }?.startMs
 
         scratch.set(row.paint)
+        scratch.color = Color.WHITE
 
-        if (positionMs == null || start == null || end == null || end <= start) {
-            scratch.alpha = (row.paint.alpha * GAP_DOT_REST).roundToInt().coerceIn(0, 255)
+        if (start == null || end == null || end <= start) {
+            scratch.alpha = (255f * GAP_DOT_REST).roundToInt().coerceIn(0, 255)
             for (dot in 0 until GAP_DOTS) {
                 canvas.drawCircle(startX + dot * stride, centerY, radius, scratch)
             }
@@ -557,12 +568,31 @@ internal class LyricsCardPainter internal constructor(
             1f
         }
 
+        val blurFilter = blurFilterFor(size * GLOW_RATIO)
+
         for (dot in 0 until GAP_DOTS) {
+            // Each dot owns its 1/3 share of the break and fills across it (v/1.9.10-re timing)
             val lit = ((through * GAP_DOTS - dot).coerceIn(0f, 1f) * standDown).coerceIn(0f, 1f)
             val dotAlpha = GAP_DOT_REST + (1f - GAP_DOT_REST) * lit
+            val alphaInt = (255f * dotAlpha).roundToInt().coerceIn(0, 255)
             val cx = startX + dot * stride
-            scratch.alpha = (row.paint.alpha * dotAlpha).roundToInt().coerceIn(0, 255)
-            canvas.drawCircle(cx, centerY, radius, scratch)
+
+            // Subtle tactile swell: resting dot at 88%, expanding smoothly to 100% as it lights
+            val scale = 0.88f + 0.12f * lit
+            val dotRadius = radius * scale
+
+            // Glowing bloom behind active/filling dot
+            if (lit > 0.05f) {
+                glow.set(row.paint)
+                glow.color = Color.WHITE
+                glow.alpha = (alphaInt * 0.55f * lit).roundToInt().coerceIn(0, 255)
+                glow.maskFilter = blurFilter
+                canvas.drawCircle(cx, centerY, dotRadius, glow)
+            }
+
+            // Crisp anti-aliased white dot
+            scratch.alpha = alphaInt
+            canvas.drawCircle(cx, centerY, dotRadius, scratch)
         }
     }
 
@@ -1051,8 +1081,8 @@ private fun isRtl(text: String): Boolean =
 private const val GAP_MARKER_OFFSET = 0.18f
 
 /** A dot's diameter, and the air between dots, against the lyric's own size. */
-private const val DOT_TO_TYPE = 0.34f
-private const val DOT_GAP_TO_TYPE = 0.18f
+private const val DOT_TO_TYPE = 0.38f
+private const val DOT_GAP_TO_TYPE = 0.16f
 
 /** How many dots a break fills, and how bright a dot rests before its turn. */
 private const val GAP_DOTS = 3

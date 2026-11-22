@@ -96,10 +96,17 @@ internal fun shareTimeline(lines: List<LyricsShareLine>): ShareTimeline? {
     val windows = mutableListOf<LineWindow>()
     var cursor = 0L
     lines.forEachIndexed { index, line ->
-        val start = line.startMs ?: return@forEachIndexed
+        val start: Long = line.startMs
+            ?: (if (line.isGap) lines.take(index).lastOrNull { !it.isGap && (it.endMs != null || it.startMs != null) }?.let { it.endMs ?: it.startMs } else null)
+            ?: return@forEachIndexed
+
+        val rawEnd: Long = line.endMs
+            ?: (if (line.isGap) lines.drop(index + 1).firstOrNull { !it.isGap && it.startMs != null }?.startMs else null)
+            ?: return@forEachIndexed
+
         val room = MAX_SHARE_MS - cursor
         if (room <= MIN_LINE_MS) return@forEachIndexed
-        val end = minOf(line.endMs ?: return@forEachIndexed, start + room)
+        val end = minOf(rawEnd, start + room)
         if (end - start < MIN_LINE_MS) return@forEachIndexed
         val last = segments.lastOrNull()
         if (last != null && last.second == start) {
@@ -188,6 +195,7 @@ internal suspend fun exportLyricsVideo(
         }
         for (url in urls.orEmpty()) {
             val item = EditedMediaItem.Builder(MediaItem.fromUri(url))
+                .setFrameRate(FRAME_RATE)
                 .setRemoveAudio(true)
                 .setEffects(clipEffects(width, height))
                 .build()

@@ -268,7 +268,7 @@ internal fun rememberLyricsPicker(
                 val prevWindow = if (position > 0 && synced) singWindow(source, prevIndex, index) else null
                 val gapStart: Long? = prevWindow?.second
                 val currStart: Long? = source.getOrNull(index)?.timeMs?.coerceAtLeast(0L)
-                val hasInterlude = synced && gapStart != null && currStart != null && (currStart - gapStart) >= 3_500L
+                val hasInterlude = synced && gapStart != null && currStart != null && (currStart - gapStart) >= 1_500L
 
                 // A jump over unchosen lines or an instrumental interlude between verses is marked on the card
                 // with three counting dots and plays the instrumental audio continuously without jarring cuts.
@@ -454,7 +454,7 @@ internal fun singWindow(lines: List<LyricLine>, index: Int, nextPicked: Int?): P
     val start = line.timeMs.coerceAtLeast(0L)
     val nextStamp = lines.getOrNull(index + 1)?.timeMs?.takeIf { it > start }
     val sungUntil = line.sungUntilMs?.takeIf { it > start }
-    val hasInterlude = sungUntil != null && nextStamp != null && (nextStamp - sungUntil) >= 3_500L
+    val hasInterlude = sungUntil != null && nextStamp != null && (nextStamp - sungUntil) >= 3_000L
 
     val end = if (nextPicked == index + 1 && nextStamp != null && !hasInterlude) {
         nextStamp
@@ -468,7 +468,7 @@ internal fun singWindow(lines: List<LyricLine>, index: Int, nextPicked: Int?): P
 }
 
 /** A beat of air after a line's own end, so its last word isn't clipped. */
-private const val SHARE_TAIL_MS = 400L
+private const val SHARE_TAIL_MS = 600L
 
 /** A last line with nothing after it to time it by. */
 private const val SHARE_LINE_FALLBACK_MS = 5_000L

@@ -11,9 +11,13 @@ const variants = {
   /*
    * A pushed page's back button (app/.../ui/components/FrostedTopBar.kt
    * ArtworkPageBackButton): 44px of the bar's frosted surface with its 10%
-   * white hairline, the glyph in the page's text colour.
+   * white hairline, the glyph in the page's text colour. On an artwork-tinted
+   * page that text colour is chosen for the tint, not for the theme's glass
+   * (white on a dark sleeve under the light theme's pale glass), so the
+   * circle takes the tint itself, nudged an eighth towards the glyph so it
+   * still reads as a control, with a hairline from the tint's own palette.
    */
-  back: 'size-11 glass-material text-primary shadow-[inset_0_0_0_0.5px_#ffffff1a]',
+  back: 'size-11 glass-material text-primary shadow-[inset_0_0_0_0.5px_#ffffff1a] in-data-tint:bg-[color-mix(in_srgb,var(--page-tint)_88%,var(--systemPrimary))] in-data-tint:shadow-[inset_0_0_0_0.5px_var(--systemQuaternary)]',
 };
 
 /**

@@ -308,6 +308,16 @@ internal class LyricsCardPainter internal constructor(
         lines.forEachIndexed { index, line -> ranks[index] = if (line.isGap) -1 else next++ }
     }
 
+    /** Start timestamps of all sung lines (in order of rank), for smooth line handovers. */
+    private val sungStarts = LongArray(lines.count { !it.isGap }).also { starts ->
+        var next = 0
+        lines.forEach { line ->
+            if (!line.isGap) {
+                starts[next++] = line.startMs ?: line.timing?.timeMs ?: 0L
+            }
+        }
+    }
+
     /** The card at [positionMs] (track time; null for the still card), into [into] when given. */
     fun render(positionMs: Long?, into: Bitmap? = null): Bitmap {
         val bitmap = into ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -327,40 +337,71 @@ internal class LyricsCardPainter internal constructor(
     /** Draws the card onto [canvas] at the card's own pixel size. */
     fun drawOn(canvas: Canvas, positionMs: Long?) {
         canvas.drawBitmap(layout.base, 0f, 0f, basePaint)
-        val active = positionMs?.let(::activeLine) ?: -1
-        for (placed in layout.rows) drawRow(canvas, placed, positionMs, active)
+        val activeRank = positionMs?.let(::activeRank) ?: -1f
+        for (placed in layout.rows) drawRow(canvas, placed, positionMs, activeRank)
     }
 
-    /** The line being sung at [positionMs]: the last one to have started, or the first. */
-    private fun activeLine(positionMs: Long): Int {
-        var first = -1
-        var last = -1
-        lines.forEachIndexed { index, line ->
-            if (line.isGap) return@forEachIndexed
-            val start = line.startMs ?: line.timing?.timeMs ?: return@forEachIndexed
-            if (first < 0) first = index
-            if (positionMs >= start) last = index
+    /** Continuous cursor rank across the sung lines, easing smoothly during line changes. */
+    private fun activeRank(positionMs: Long): Float {
+        if (sungStarts.isEmpty()) return -1f
+        val lastIndex = sungStarts.lastIndex
+        if (lastIndex == 0 || sungStarts.first() >= sungStarts[lastIndex] || positionMs <= sungStarts[0]) {
+            return 0f
         }
-        return if (last >= 0) last else first
+        if (positionMs >= sungStarts[lastIndex]) {
+            val sLast = sungStarts[lastIndex]
+            val prevSeg = (sLast - sungStarts[lastIndex - 1]).coerceAtLeast(1L)
+            val handover = minOf(LINE_CROSSFADE_MS, prevSeg * 0.45f).coerceAtLeast(1f)
+            if (positionMs < sLast + handover) {
+                val p = ((positionMs - sLast) / handover).coerceIn(0f, 1f)
+                val eased = p * p * (3f - 2f * p)
+                return (lastIndex - 1).toFloat() + eased
+            }
+            return lastIndex.toFloat()
+        }
+
+        for (i in 0 until lastIndex) {
+            val s0 = sungStarts[i]
+            val s1 = sungStarts[i + 1]
+            if (positionMs < s1) {
+                if (i > 0) {
+                    val prevSeg = (s0 - sungStarts[i - 1]).coerceAtLeast(1L)
+                    val nextSeg = (s1 - s0).coerceAtLeast(1L)
+                    val handover = minOf(LINE_CROSSFADE_MS, nextSeg * 0.45f, prevSeg * 0.45f).coerceAtLeast(1f)
+                    if (positionMs < s0 + handover) {
+                        val p = ((positionMs - s0) / handover).coerceIn(0f, 1f)
+                        val eased = p * p * (3f - 2f * p)
+                        return (i - 1).toFloat() + eased
+                    }
+                }
+                return i.toFloat()
+            }
+        }
+        return lastIndex.toFloat()
     }
 
-    private fun drawRow(canvas: Canvas, placed: PlacedRow, positionMs: Long?, active: Int) {
+    private fun drawRow(canvas: Canvas, placed: PlacedRow, positionMs: Long?, activeRank: Float) {
         val row = placed.row
         val line = lines.getOrNull(row.line)
-        if (positionMs == null || row.isGap || line == null || active < 0) {
+        val lineRank = rank.getOrNull(row.line) ?: -1
+        if (positionMs == null || row.isGap || line == null || activeRank < 0f || lineRank < 0) {
             canvas.drawText(row.text, placed.x, placed.baseline, row.paint)
             return
         }
         val timing = line.timing
-        val distance = kotlin.math.abs(rank[row.line] - rank[active]).coerceAtMost(LINE_FALLOFF.lastIndex)
-        val alpha = row.paint.alpha * LINE_FALLOFF[distance]
+        val distance = kotlin.math.abs(lineRank.toFloat() - activeRank)
+        val alpha = row.paint.alpha * falloffAt(distance)
         val start = line.startMs ?: timing?.timeMs ?: 0L
         val swept = timing != null && timing.isWordSynced && !row.rtl
 
         if (!swept) {
             // No word timings (or a script the sweep can't follow): the line
-            // lights whole the moment it starts, as the panel's does.
-            val lit = if (positionMs >= start) 1f else UNSUNG_ALPHA
+            // fades in as it starts and fades out on handover.
+            val litProgress = if (positionMs < start) 0f else {
+                ((positionMs - start).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+            }
+            val easedLit = litProgress * litProgress * (3f - 2f * litProgress)
+            val lit = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * easedLit
             scratch.set(row.paint)
             scratch.alpha = (alpha * lit).roundToInt()
             canvas.drawText(row.text, placed.x, placed.baseline, scratch)
@@ -788,6 +829,18 @@ private const val UNSUNG_ALPHA = 0.45f
 
 /** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA. */
 private val LINE_FALLOFF = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
+
+/** How long a line change takes to hand over: crossfade window in milliseconds. */
+private const val LINE_CROSSFADE_MS = 320f
+
+/** Smoothly lerp LINE_FALLOFF by distance from the active line cursor. */
+private fun falloffAt(distance: Float): Float {
+    val d = distance.coerceIn(0f, LINE_FALLOFF.lastIndex.toFloat())
+    val i0 = d.toInt()
+    val i1 = minOf(i0 + 1, LINE_FALLOFF.lastIndex)
+    val frac = d - i0
+    return LINE_FALLOFF[i0] + (LINE_FALLOFF[i1] - LINE_FALLOFF[i0]) * frac
+}
 
 /** The sweep's soft leading edge: WIPE_FEATHER, 30dp. */
 private const val FEATHER_RATIO = 30f / 34f

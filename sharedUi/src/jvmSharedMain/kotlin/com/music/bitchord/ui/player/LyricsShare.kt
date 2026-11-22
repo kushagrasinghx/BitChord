@@ -261,13 +261,27 @@ internal fun rememberLyricsPicker(
         val source = lines.orEmpty()
         val chosen = picks.sorted()
         val synced = source.any { it.timeMs > 0L }
-        val picked = buildList {
+        val picked = buildList<LyricsShareLine> {
             chosen.forEachIndexed { position, index ->
                 // A jump over unchosen lines is marked on the card, so the
                 // picture says the verse was cut here rather than letting two
                 // distant halves read as if they ran on from each other.
                 if (position > 0 && index > chosen[position - 1] + 1) {
-                    add(LyricsShareLine(text = "", subText = null, isGap = true))
+                    val prevIndex = chosen[position - 1]
+                    val prevWindow = if (synced) singWindow(source, prevIndex, index) else null
+                    val gapStart: Long? = prevWindow?.second
+                    val currStart: Long? = source.getOrNull(index)?.timeMs?.coerceAtLeast(0L)
+                    val gStart: Long?
+                    val gEnd: Long?
+                    if (synced && gapStart != null && currStart != null && currStart > gapStart) {
+                        val dur = currStart - gapStart
+                        gStart = gapStart
+                        gEnd = gapStart + minOf(dur, MAX_GAP_SHARE_MS)
+                    } else {
+                        gStart = null
+                        gEnd = null
+                    }
+                    add(LyricsShareLine(text = "", subText = null, isGap = true, startMs = gStart, endMs = gEnd))
                 }
                 val line = source.getOrNull(index) ?: return@forEachIndexed
                 val sub = subLines?.getOrNull(index)?.text
@@ -450,3 +464,6 @@ private const val SHARE_LINE_FALLBACK_MS = 5_000L
 
 /** Longest one line is held for when it ends a run: no minute-long outros. */
 private const val SHARE_LINE_MAX_MS = 9_000L
+
+/** Longest an instrumental gap between picked lines is held in the share clip. */
+private const val MAX_GAP_SHARE_MS = 10_000L

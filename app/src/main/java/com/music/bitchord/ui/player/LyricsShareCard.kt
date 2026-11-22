@@ -392,7 +392,11 @@ internal class LyricsCardPainter internal constructor(
         val row = placed.row
         val line = lines.getOrNull(row.line)
         val lineRank = rank.getOrNull(row.line) ?: -1
-        if (positionMs == null || row.isGap || line == null || activeRank < 0f || lineRank < 0) {
+        if (row.isGap) {
+            drawGapDots(canvas, placed, line, positionMs)
+            return
+        }
+        if (positionMs == null || line == null || activeRank < 0f || lineRank < 0) {
             canvas.drawText(row.text, placed.x, placed.baseline, row.paint)
             return
         }
@@ -424,10 +428,15 @@ internal class LyricsCardPainter internal constructor(
         }
         val revealed = (revealedInLine - row.start).coerceIn(0f, row.text.length.toFloat())
         val sung = positionMs >= timing.endMs
-        val dim = if (sung) 1f else UNSUNG_ALPHA
+        val dim = if (sung) {
+            val fadeAfter = ((positionMs - timing.endMs).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+            1f - (1f - UNSUNG_ALPHA) * smootherstep(fadeAfter)
+        } else {
+            UNSUNG_ALPHA
+        }
         val lifts = !row.isSub
 
-        if (revealed <= 0f || (sung && revealed >= row.text.length)) {
+        if (revealed <= 0f || (sung && revealed >= row.text.length && dim <= UNSUNG_ALPHA + 0.01f)) {
             scratch.set(row.paint)
             scratch.alpha = (alpha * dim).roundToInt()
             drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
@@ -467,6 +476,67 @@ internal class LyricsCardPainter internal constructor(
                 canvas.drawRect(0f, top, edge + feather + 1f, bottom, fade)
             }
             canvas.restoreToCount(save)
+        }
+    }
+
+    /**
+     * Three dots lighting in turn across an instrumental break, matching the player's
+     * interlude animation. Dots rest dim, fill bright from left to right as the silence runs,
+     * and smoothly return to rest once the next line begins singing.
+     */
+    private fun drawGapDots(
+        canvas: Canvas,
+        placed: PlacedRow,
+        line: LyricsShareLine?,
+        positionMs: Long?,
+    ) {
+        val row = placed.row
+        val size = row.paint.textSize
+        val dotSize = (size * DOT_TO_TYPE).coerceAtLeast(8f)
+        val dotGap = (size * DOT_GAP_TO_TYPE).coerceAtLeast(4f)
+        val radius = dotSize / 2f
+        val stride = dotSize + dotGap
+        val totalWidth = GAP_DOTS * dotSize + (GAP_DOTS - 1) * dotGap
+        val startX = if (row.centered) {
+            placed.x - totalWidth / 2f + radius
+        } else {
+            placed.x + radius
+        }
+        val centerY = placed.baseline + (row.paint.ascent() + row.paint.descent()) / 2f
+
+        val start = line?.startMs
+        val end = line?.endMs
+
+        scratch.set(row.paint)
+
+        if (positionMs == null || start == null || end == null || end <= start) {
+            scratch.alpha = (row.paint.alpha * GAP_DOT_REST).roundToInt().coerceIn(0, 255)
+            for (dot in 0 until GAP_DOTS) {
+                canvas.drawCircle(startX + dot * stride, centerY, radius, scratch)
+            }
+            return
+        }
+
+        val through = when {
+            positionMs <= start -> 0f
+            positionMs >= end -> 1f
+            else -> ((positionMs - start).toFloat() / (end - start)).coerceIn(0f, 1f)
+        }
+
+        // When the break finishes, the dots smoothly fade back down to resting alpha
+        val standDown = if (positionMs >= end) {
+            val fade = ((positionMs - end).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+            1f - smootherstep(fade)
+        } else {
+            1f
+        }
+
+        for (dot in 0 until GAP_DOTS) {
+            val lit = ((through * GAP_DOTS - dot).coerceIn(0f, 1f) * standDown).coerceIn(0f, 1f)
+            val dotAlpha = GAP_DOT_REST + (1f - GAP_DOT_REST) * lit
+            val cx = startX + dot * stride
+            scratch.alpha = (row.paint.alpha * dotAlpha).roundToInt().coerceIn(0, 255)
+            canvas.drawCircle(cx, centerY, radius, scratch)
         }
     }
 
@@ -953,6 +1023,14 @@ private fun isRtl(text: String): Boolean =
 
 /** Small visual correction so the omission marker sits below the line above. */
 private const val GAP_MARKER_OFFSET = 0.18f
+
+/** A dot's diameter, and the air between dots, against the lyric's own size. */
+private const val DOT_TO_TYPE = 0.34f
+private const val DOT_GAP_TO_TYPE = 0.18f
+
+/** How many dots a break fills, and how bright a dot rests before its turn. */
+private const val GAP_DOTS = 3
+private const val GAP_DOT_REST = 0.25f
 
 /**
  * The sizes tried, largest first.

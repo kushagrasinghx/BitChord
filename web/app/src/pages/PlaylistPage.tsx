@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpDown, GripVertical, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowUpDown, GripVertical, Link, Pencil, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { Dialog } from '@/components/Dialog';
 import { MenuHeader, MenuItem } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
-import { DetailHeader, detailButton } from '@/components/music/DetailHeader';
+import { AboutSection, DetailHeader, detailButton } from '@/components/music/DetailHeader';
 import { DetailMenu } from '@/components/music/DetailMenu';
+import { DetailSearchButton, DetailSearchField, NothingMatches, useDetailFilter } from '@/components/music/DetailSearchField';
 import { AddToPlaylistsButton } from '@/components/music/PlaylistPicker';
 import { playList, shuffleList } from '@/components/music/play';
 import { LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
+import { SuggestedSongRow } from '@/components/music/SongRows';
 import { TrackList } from '@/components/music/TrackList';
 import { sortTracks, useSongSorts } from '@/data/music/library';
 import {
@@ -19,7 +22,9 @@ import {
   useReorderPlaylist,
   type PlaylistEntry,
 } from '@/data/music/playlistEdit';
-import { usePlaylist, useSignedIn, useYouTubeReady } from '@/data/music/queries';
+import { useAddToPlaylist, usePlaylist, useSignedIn, useYouTubeReady } from '@/data/music/queries';
+import { usePlaylistSuggestions } from '@/data/music/suggestions';
+import type { Track } from '@/data/music/types';
 import { useArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
 import { PlaylistSkeleton } from '@/skeletons/PageSkeletons';
@@ -71,41 +76,121 @@ function RenameForm({ id, title, onDone }: { id: string; title: string; onDone: 
   );
 }
 
-/** The account's own playlist: reorder, rename, and delete, which asks a second time as the phone does. */
-function OwnerActions({ id, title, onClose, onReorder }: { id: string; title: string; onClose: () => void; onReorder: () => void }) {
-  const [view, setView] = useState<'main' | 'rename' | 'confirm-delete'>('main');
-  const remove = useDeletePlaylist(id);
-  const navigate = useNavigate();
-  if (view === 'rename') return <RenameForm id={id} title={title} onDone={onClose} />;
+/** The account's own playlist: reorder, rename, and delete, which asks first in a dialog. */
+function OwnerActions({
+  id,
+  title,
+  onClose,
+  onReorder,
+  onDelete,
+}: {
+  id: string;
+  title: string;
+  onClose: () => void;
+  onReorder: () => void;
+  onDelete: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  if (renaming) return <RenameForm id={id} title={title} onDone={onClose} />;
   return (
     <>
       <MenuItem icon={<ArrowUpDown size={15} />} onSelect={() => (onClose(), onReorder())}>
         Reorder Songs
       </MenuItem>
-      <MenuItem icon={<Pencil size={15} />} onSelect={() => setView('rename')}>
+      <MenuItem icon={<Pencil size={15} />} onSelect={() => setRenaming(true)}>
         Rename Playlist
       </MenuItem>
-      <MenuItem
-        icon={<Trash2 size={15} />}
-        destructive
-        disabled={remove.isPending}
-        onSelect={() => {
-          if (view !== 'confirm-delete') return setView('confirm-delete');
-          remove.mutate(undefined, {
-            onSuccess: () => {
-              onClose();
-              navigate('/library/playlists', { replace: true });
-            },
-          });
-        }}
-      >
-        {remove.isError
-          ? 'Couldn’t delete it. Try again?'
-          : view === 'confirm-delete'
-            ? `Delete “${title}”? Click again to confirm.`
-            : 'Delete Playlist'}
+      <MenuItem icon={<Trash2 size={15} />} destructive onSelect={() => (onClose(), onDelete())}>
+        Delete Playlist
       </MenuItem>
     </>
+  );
+}
+
+/** The phone's alert before a playlist goes: what will go, Cancel, and a red Delete. */
+function DeletePlaylistDialog({ id, title, onClose }: { id: string; title: string; onClose: () => void }) {
+  const remove = useDeletePlaylist(id);
+  const navigate = useNavigate();
+  return (
+    <Dialog
+      title="Delete playlist?"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="h-9 rounded-pill px-4 type-body-emphasized text-primary hover:bg-quinary" onClick={onClose} disabled={remove.isPending}>
+            Cancel
+          </button>
+          <button
+            className="h-9 rounded-pill bg-accent-red px-4 type-body-emphasized text-white disabled:opacity-40"
+            disabled={remove.isPending}
+            onClick={() => remove.mutate(undefined, { onSuccess: () => navigate('/library/playlists', { replace: true }) })}
+          >
+            {remove.isPending ? 'Deleting…' : 'Delete'}
+          </button>
+        </>
+      }
+    >
+      <p className="type-body text-secondary">“{title}” will be deleted from your YouTube Music library. This can’t be undone.</p>
+      {remove.isError && (
+        <p className="mt-2 type-callout text-destructive" role="alert">
+          Couldn’t delete it: {errorText(remove.error)}
+        </p>
+      )}
+    </Dialog>
+  );
+}
+
+/** Share: the playlist's YouTube Music link, copied, with a word that it was before the menu goes. */
+function ShareItem({ id, onClose }: { id: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <MenuItem
+      icon={<Link size={15} />}
+      onSelect={() =>
+        void navigator.clipboard.writeText(`https://music.youtube.com/playlist?list=${id.replace(/^VL/, '')}`).then(() => {
+          setCopied(true);
+          setTimeout(onClose, 700);
+        })
+      }
+    >
+      {copied ? 'Link Copied' : 'Share Link'}
+    </MenuItem>
+  );
+}
+
+/**
+ * Under the account's own playlist, the songs YouTube suggests adding
+ * (DetailScreen.kt, Suggested): a heading, then rows whose + adds the song.
+ * An added song leaves the list at once; the playlist reloads with it.
+ */
+function Suggested({ id, title, known }: { id: string; title: string; known: Track[] }) {
+  const suggestions = usePlaylistSuggestions(id, true);
+  const add = useAddToPlaylist();
+  const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
+  const rows = useMemo(() => {
+    const inPlaylist = new Set(known.map((t) => t.videoId));
+    return (suggestions.data ?? []).filter((t) => !inPlaylist.has(t.videoId) && !added.has(t.videoId));
+  }, [suggestions.data, known, added]);
+  if (!rows.length) return null;
+  const source = { title: `${title}: Suggested`, type: 'playlist' as const, id };
+  return (
+    <section className="mt-6" aria-label="Suggested">
+      {/* SectionHeading: headlineMedium, 10 above and 8 below. */}
+      <h2 className="mx-(--body-gutter) mt-2.5 mb-2 type-title-1-emphasized">Suggested</h2>
+      <div className="mx-[max(0px,calc(var(--body-gutter)-16px))]">
+        {rows.map((track, i) => (
+          <SuggestedSongRow
+            key={track.videoId}
+            track={track}
+            onPlayRow={() => playList(rows, i, { source })}
+            adding={add.isPending && add.variables?.videoId === track.videoId}
+            onAdd={() =>
+              add.mutate({ playlistId: id, videoId: track.videoId }, { onSuccess: () => setAdded((prev) => new Set(prev).add(track.videoId)) })
+            }
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -235,7 +320,7 @@ function ReorderSongs({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
-/** A playlist (report §14): header, then the artwork track list, loading on as you scroll. */
+/** A playlist (DetailScreen.kt): header, the filter, the columned track list loading on as you scroll, then Suggested on the account's own. */
 export default function PlaylistPage() {
   const id = decodeURIComponent(useParams().id ?? '');
   const { missing } = useYouTubeReady();
@@ -246,19 +331,23 @@ export default function PlaylistPage() {
   const sort = useSongSorts((s) => s.sorts[id] ?? 'DEFAULT');
   const setSort = useSongSorts((s) => s.setSort);
   const [reordering, setReordering] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = playlist;
   const onNearEnd = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
-  // A sorted list is only right once it holds every song, so a sort loads the rest straight away.
-  useEffect(() => {
-    if (sort !== 'DEFAULT') onNearEnd();
-  }, [sort, onNearEnd]);
-
-  // Shown, played and shuffled in the chosen order.
+  // Shown, played and shuffled in the chosen order, narrowed by the filter.
   const pages = playlist.data?.pages;
   const tracks = useMemo(() => sortTracks(pages?.flatMap((page) => page.tracks) ?? [], sort), [pages, sort]);
+  const filter = useDetailFilter(tracks);
+  const shown = filter.matches;
+  const filtering = filter.query.trim() !== '';
+
+  // A sorted or filtered list is only right once it holds every song, so either loads the rest straight away.
+  useEffect(() => {
+    if (sort !== 'DEFAULT' || filtering) onNearEnd();
+  }, [sort, filtering, onNearEnd]);
 
   if (missing) return <NeedsExtension />;
   if (playlist.isError && !playlist.data) return <LoadError error={playlist.error} onRetry={() => void playlist.refetch()} />;
@@ -270,25 +359,44 @@ export default function PlaylistPage() {
     <>
       <DetailHeader
         info={header}
-        canPlay={tracks.length > 0}
-        onPlay={() => playList(tracks, 0, context)}
-        onShuffle={() => shuffleList(tracks, context)}
+        canPlay={shown.length > 0}
+        onPlay={() => playList(shown, 0, context)}
+        onShuffle={() => shuffleList(shown, context)}
         extra={
           <>
+            <DetailSearchButton filter={filter} />
             <AddToPlaylistsButton tracks={tracks} />
             <DetailMenu label={header.title} sort={sort} onSort={(next) => setSort(id, next)}>
-              {(close) => owned && <OwnerActions id={id} title={header.title} onClose={close} onReorder={() => setReordering(true)} />}
+              {(close) => (
+                <>
+                  <ShareItem id={id} onClose={close} />
+                  {owned && (
+                    <OwnerActions
+                      id={id}
+                      title={header.title}
+                      onClose={close}
+                      onReorder={() => setReordering(true)}
+                      onDelete={() => setDeleting(true)}
+                    />
+                  )}
+                </>
+              )}
             </DetailMenu>
           </>
         }
       />
+      {deleting && <DeletePlaylistDialog id={id} title={header.title} onClose={() => setDeleting(false)} />}
+      <AboutSection title="About the playlist" text={header.description} />
       {reordering ? (
         <ReorderSongs id={id} onClose={() => setReordering(false)} />
       ) : (
         <>
-          <TrackList tracks={tracks} variant="playlist" onNearEnd={onNearEnd} source={context.source} />
+          <DetailSearchField filter={filter} />
+          {filtering && shown.length === 0 && !hasNextPage && <NothingMatches query={filter.query} />}
+          <TrackList tracks={shown} variant="playlist" onNearEnd={onNearEnd} source={context.source} />
           {isFetchingNextPage && <div className="flex justify-center py-5 type-callout text-secondary">Loading more songs…</div>}
           {playlist.isFetchNextPageError && <LoadMoreError onRetry={() => void fetchNextPage()} />}
+          {owned && !filtering && <Suggested id={id} title={header.title} known={tracks} />}
         </>
       )}
       <footer className={detailFooter}>

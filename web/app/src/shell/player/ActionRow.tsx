@@ -16,13 +16,16 @@ const ICON = 26;
 const SEGMENT = 64;
 const pillWidth = (segments: number) => SEGMENT * segments + (segments - 1);
 
-// Material's rounded Person: the party half of the phone's capsule.
+// Material's rounded Person: the party half of the phone's capsule, drawn while in a party.
 const PERSON =
   'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v1c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-1c0-2.66-5.33-4-8-4z';
-function PersonIcon({ size }: { size: number }) {
+// Material's rounded Speaker, so "This computer" under it reads as where the music plays.
+const SPEAKER =
+  'M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 1.99 2 1.99L17 22c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 2c1.1 0 2 .9 2 2s-.9 2-2 2c-1.11 0-2-.9-2-2s.89-2 2-2zm0 16c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z';
+function Glyph({ d, size }: { d: string; size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d={PERSON} />
+      <path d={d} />
     </svg>
   );
 }
@@ -166,7 +169,7 @@ export function ActionRow({ pane, onPane }: { pane: Pane; onPane: (pane: Pane) =
                 inert={queueOpen}
                 onClick={openParty}
               >
-                <PersonIcon size={22} />
+                <Glyph d={inParty ? PERSON : SPEAKER} size={22} />
               </button>
             )}
           </div>

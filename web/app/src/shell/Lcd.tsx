@@ -95,8 +95,9 @@ const fadingLine = 'min-w-0 overflow-hidden whitespace-nowrap [mask-image:linear
  * video plays in it at 16:9; 10px on, the title at 16/600 with the explicit
  * badge ahead of it, and the artist at 14 in the secondary grey. It is one
  * button into the full-screen player, as the phone's whole bar is.
+ * `times`, the desktop capsule's elapsed and remaining, end the artist line.
  */
-export function Lcd() {
+export function Lcd({ times }: { times?: ReactNode }) {
   const nowPlaying = usePlayer((s) => s.nowPlaying);
   const status = usePlayer((s) => s.status);
   const error = usePlayer((s) => s.error);
@@ -138,8 +139,12 @@ export function Lcd() {
           {explicit && <ExplicitBadge size={12} />}
           {nowPlaying?.title || (status === 'loading' ? 'Loading…' : '')}
         </span>
-        <span className={`${fadingLine} type-callout ${status === 'error' ? 'text-red' : 'text-on-surface-variant'}`}>
-          {status === 'error' ? error : nowPlaying?.artist}
+        {/* The desktop capsule's times sit at the artist line's end, the line giving way to them. */}
+        <span className="flex min-w-0 items-baseline">
+          <span className={`${fadingLine} flex-1 type-callout ${status === 'error' ? 'text-red' : 'text-on-surface-variant'}`}>
+            {status === 'error' ? error : nowPlaying?.artist}
+          </span>
+          {nowPlaying && times}
         </span>
       </span>
     </button>

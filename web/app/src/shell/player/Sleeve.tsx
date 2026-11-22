@@ -30,7 +30,7 @@ const layer = 'absolute inset-0 size-full object-cover opacity-0 transition-opac
  *
  * `dock` is the outer layer the sheet moves to fly the sleeve in from the
  * mini player's cover; `thumb` collapses it to the header's 54px, which it
- * travels to and from over 420ms.
+ * travels to and from over 420ms, as it does to and from its docked size.
  */
 export function Sleeve({
   nowPlaying,
@@ -38,6 +38,7 @@ export function Sleeve({
   playing,
   video,
   thumb,
+  docked = false,
   dock,
   onClick,
 }: {
@@ -47,6 +48,8 @@ export function Sleeve({
   playing: boolean;
   video: boolean;
   thumb: boolean;
+  /** Shrunk in its column to make room for the controls under it; changing it plays the same move as `thumb`. */
+  docked?: boolean;
   dock: Ref<HTMLDivElement>;
   onClick?: () => void;
 }) {
@@ -73,7 +76,7 @@ export function Sleeve({
       ],
       { duration: COLLAPSE_MS, easing: FAST_OUT_SLOW_IN },
     );
-  }, [thumb, still]);
+  }, [thumb, docked, still]);
 
   const size = thumb
     ? { width: video ? (THUMB * 16) / 9 : THUMB, height: THUMB }

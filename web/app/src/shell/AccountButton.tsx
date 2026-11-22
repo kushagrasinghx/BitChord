@@ -6,7 +6,7 @@ import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { GlassDisc } from '@/components/ui/GlassDisc';
 import { useRefreshYtAuth, useSelectChannel, useSetConnected, useYtAuth } from '@/extension/useYtAuth';
 
-const SIGN_IN_URL = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https://music.youtube.com/';
+export const SIGN_IN_URL = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https://music.youtube.com/';
 
 const avatar = 'inline-grid flex-none place-items-center rounded-full bg-surface-variant object-cover type-[600_11px/1] text-on-surface-variant';
 

@@ -106,10 +106,11 @@ export function AppShell() {
       <div className="relative min-h-0 overflow-hidden">
         <Sidebar />
         <MobileTopBar />
-        {/* The page scrolls under the fixed sidebar and the floating player. */}
+        {/* The page scrolls under the fixed sidebar and the floating player. --top-bar-trailing-width is the
+            top bar's 44px account circle plus a 12px gap, which the Search field stops short of. */}
         <main
           id="scrollable-page"
-          className="absolute inset-0 overflow-x-hidden overflow-y-auto pl-(--web-navigation-width) [scrollbar-gutter:stable] data-tint:bg-(--page-tint) data-tint:transition-[background-color] data-tint:duration-300 data-tint:ease-in max-sm:pt-(--mobile-top-bar-height) max-sm:pl-0"
+          className="absolute inset-0 overflow-x-hidden overflow-y-auto pl-(--web-navigation-width) sm:[--top-bar-trailing-width:56px] [scrollbar-gutter:stable] data-tint:bg-(--page-tint) data-tint:transition-[background-color] data-tint:duration-300 data-tint:ease-in max-sm:pt-(--mobile-top-bar-height) max-sm:pl-0"
         >
           <TopBar />
           {/* Clears the floating pill: its height, its offset, and some air. */}

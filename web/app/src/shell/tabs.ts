@@ -18,5 +18,5 @@ export function tabOf(pathname: string): number {
   return TABS.findIndex((tab) => tab.to === pathname);
 }
 
-/** Android's Search tab tap clears the field and focuses it (MainActivity onTabSelected); the Search page listens. */
-export const SEARCH_RESET_EVENT = 'bitchord:search-reset';
+/** Android's Search tab tap clears the field and focuses it (MainActivity onTabSelected); the Search field listens. */
+export { SEARCH_RESET_EVENT } from '@/components/music/searchReset';

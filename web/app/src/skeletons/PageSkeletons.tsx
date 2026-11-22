@@ -35,19 +35,11 @@ export function NewSkeleton() {
 export function SearchSkeleton() {
   return (
     <div aria-busy="true">
-      <div className="flex justify-center px-(--body-gutter) py-3" aria-hidden="true">
-        <SkeletonBlock width="min(492px, 100%)" height={38} radius="var(--radius-pill)" />
-      </div>
-      <div className={sectionTitle} aria-hidden="true">
-        <SkeletonLine lineHeight={22} fontSize={17} width={160} />
-      </div>
-      <div
-        className="mx-(--body-gutter) mt-3 mb-8 grid grid-cols-[repeat(4,1fr)] gap-5 max-lg:grid-cols-[repeat(3,1fr)] max-[607px]:grid-cols-[repeat(2,1fr)]"
-        aria-hidden="true"
-      >
-        {Array.from({ length: 16 }, (_, i) => (
-          <SkeletonBlock key={i} aspectRatio="16 / 9" radius="var(--radius-artwork-large)" />
-        ))}
+      {/* The Search page's field (SearchField.tsx): 46px, r11, beside the top bar's account pill. */}
+      <div className="px-(--body-gutter) pt-[3px] pb-1.5" aria-hidden="true">
+        <div className="me-(--top-bar-trailing-width,0px)">
+          <SkeletonBlock height={46} radius="var(--radius-search)" />
+        </div>
       </div>
     </div>
   );

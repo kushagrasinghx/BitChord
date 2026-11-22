@@ -23,6 +23,51 @@ export declare namespace BestPartPick {
     }
 }
 export declare function bestPart(nextResponse: Nullable<string>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
+export declare class BestPartHeat {
+    constructor(segmentMs: number, intensity: Float64Array);
+    get segmentMs(): number;
+    get intensity(): Float64Array;
+}
+export declare namespace BestPartHeat {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => BestPartHeat;
+    }
+}
+export declare function bestPartHeatmap(nextResponse: string): Nullable<BestPartHeat>;
+export declare function bestPartFromHeat(heat: Nullable<BestPartHeat>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
+export declare class AutoMixWindow {
+    constructor(startSeconds: number, endSeconds: number);
+    get startSeconds(): number;
+    get endSeconds(): number;
+}
+export declare namespace AutoMixWindow {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => AutoMixWindow;
+    }
+}
+export declare function autoMixArtworkWindow(swap: number, end: number, preparedForSeconds: number): Nullable<AutoMixWindow>;
+export declare function autoMixRevealProgress(progress: number): number;
+export declare class AutoMixMaskTuning {
+    constructor(noiseScale: number, noiseSoftness: number, noiseLow: number, noiseHigh: number, noiseSeedSpan: number, noiseOctaves: number, blurStartDp: number, blurEndProgress: number);
+    get noiseScale(): number;
+    get noiseSoftness(): number;
+    get noiseLow(): number;
+    get noiseHigh(): number;
+    get noiseSeedSpan(): number;
+    get noiseOctaves(): number;
+    get blurStartDp(): number;
+    get blurEndProgress(): number;
+}
+export declare namespace AutoMixMaskTuning {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => AutoMixMaskTuning;
+    }
+}
+export declare function autoMixMaskTuning(): AutoMixMaskTuning;
+export declare function youTubeThumbnailFallback(url: string): Nullable<string>;
 export declare function artworkAt(url: Nullable<string>, px: number): Nullable<string>;
 export declare class PlaylistMove {
     constructor(setVideoId: string, before: Nullable<string>);

@@ -20,7 +20,7 @@ export function NeedsExtension({ what = 'YouTube Music' }: { what?: string }) {
     <div className={stateStyles.state}>
       <p className={stateStyles.title}>Browse {what} with the BitChord extension</p>
       <p className={stateStyles.detail}>
-        The extension lets this page reach YouTube Music from your own browser. Addons and lyrics work without it.
+        The extension lets BitChord reach YouTube Music with your own sign-in. Addons and lyrics work without it.
       </p>
       <PrefetchLink to="/extension" className={stateStyles.button}>
         Get the Extension

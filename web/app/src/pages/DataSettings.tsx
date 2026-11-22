@@ -94,7 +94,7 @@ export function DownloadsSettings() {
   useEffect(() => void refetch(), [status.done, status.running, refetch]);
 
   const remove = async () => {
-    if (!window.confirm('Remove every downloaded song from this browser? Keep Liked Songs Downloaded is turned off too.')) return;
+    if (!window.confirm('Remove every downloaded song from this device? Keep Liked Songs Downloaded is turned off too.')) return;
     setKeepLiked(false);
     await removeAllOffline();
     void refetch();
@@ -111,7 +111,7 @@ export function DownloadsSettings() {
   return (
     <Group
       header="Downloads"
-      footer={[...notes, u?.quota ? `This browser lets BitChord keep up to ${formatBytes(u.quota)}.` : null].filter(Boolean).join(' ') || undefined}
+      footer={[...notes, u?.quota ? `BitChord can keep up to ${formatBytes(u.quota)} here.` : null].filter(Boolean).join(' ') || undefined}
     >
       <Toggle
         icon={CircleArrowDown}
@@ -119,8 +119,8 @@ export function DownloadsSettings() {
         keywords={['liked', 'favorites', 'offline', 'automatic']}
         detail={
           signedIn
-            ? 'Your Liked Music, saved in this browser to play without a connection. Checked every 12 hours while BitChord is open.'
-            : 'Sign in to YouTube Music in this browser to keep your liked songs downloaded.'
+            ? 'Your Liked Music, saved on this device to play without a connection. Checked every 12 hours while BitChord is open.'
+            : 'Sign in to YouTube Music here to keep your liked songs downloaded.'
         }
         checked={keepLiked}
         onChange={(on) => {

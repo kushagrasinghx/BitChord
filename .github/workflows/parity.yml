@@ -1,0 +1,41 @@
+name: Parity
+
+# Keeps the web player (and the Windows app, which hosts it) level with the
+# Android app: web/parity.json maps each Android feature to its web side.
+# On every PR this checks the map's paths still exist, and annotates any
+# feature whose Android files changed while its web side didn't, naming the
+# web files. It never fails for a gap (an Android-only fix is often right);
+# it makes sure the gap is a decision, not an accident. Logic in
+# shared/commonMain needs none of this: the web runs it compiled.
+on:
+  pull_request:
+
+concurrency:
+  group: parity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    name: Web parity with Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The map is complete
+        run: |
+          node --test web/scripts/parity.test.mjs
+          node web/scripts/parity.mjs check
+
+      - name: Android changes without their web side
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: node web/scripts/parity.mjs changed $(git diff --name-only "$BASE"...HEAD)

@@ -1,4 +1,4 @@
-import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { ArrowUpRight, ListMusic, Radio, Settings } from 'lucide-react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
@@ -30,10 +30,20 @@ interface NavItem {
   Icon: (props: NavIconProps) => React.ReactNode;
 }
 
+/** Apple's sidebar has no Radio glyph captured (web/docs/apple-music-dom.md); the broadcast mark, at the playlists' size. */
+function RadioIcon({ className }: NavIconProps) {
+  return (
+    <span className={className}>
+      <Radio size={18} strokeWidth={1.8} />
+    </span>
+  );
+}
+
 const PRIMARY: NavItem[] = [
   { to: '/search', label: 'Search', Icon: SearchIcon },
   { to: '/home', label: 'Home', Icon: HomeIcon },
   { to: '/new', label: 'New', Icon: NewIcon },
+  { to: '/radio', label: 'Radio', Icon: RadioIcon },
 ];
 
 const LIBRARY_ICONS: Record<Exclude<LibrarySection, 'playlists'>, NavItem['Icon']> = {

@@ -1,8 +1,9 @@
-import { Search, X } from 'lucide-react';
+import { Check, ListEnd, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useSuggestions } from '@/data/music/queries';
 import type { MusicItem } from '@/data/music/types';
+import { usePlayer } from '@/state/player';
 import { Artwork } from './Artwork';
 import { hrefFor } from './links';
 import { playTrack, toTrack } from './play';
@@ -10,15 +11,21 @@ import { TrackMenu } from './TrackMenu';
 
 type Option = { kind: 'query'; text: string; typed: string; rest: string } | { kind: 'item'; item: MusicItem };
 
+const isPlayable = (item: MusicItem) => item.kind === 'song' || item.kind === 'video';
+
 /**
  * The centred search field and its suggestions (report §6): a pill field, and
  * a glass dropdown of completions, then artist, album and song suggestions.
- * Arrow keys move through it; Enter picks; Escape closes.
+ * Arrow keys move through it; Enter picks; Escape closes. A song or video
+ * suggestion goes on the queue from its hover button or Shift+Enter, the
+ * phone's swipe on a live result, and the list stays up for the next one.
  */
 export function SearchField({ initial, onSearch }: { initial: string; onSearch: (query: string) => void }) {
   const [value, setValue] = useState(initial);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  // Suggestions already sent to the queue this time, to show a tick for.
+  const [queued, setQueued] = useState<ReadonlySet<string>>(new Set());
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
   const navigate = useNavigate();
@@ -42,6 +49,11 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
     ...(suggestions.data?.items ?? []).map((item) => ({ kind: 'item' as const, item })),
   ];
   const showList = open && value.trim().length > 0 && options.length > 0;
+
+  const queue = (item: MusicItem) => {
+    usePlayer.getState().addToQueue([toTrack(item)]);
+    setQueued((now) => new Set(now).add(item.id));
+  };
 
   const pick = (option: Option | undefined) => {
     if (menuOpen.current) return;
@@ -97,6 +109,11 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
               setActive((i) => Math.max(i - 1, -1));
             } else if (e.key === 'Escape') {
               setOpen(false);
+            } else if (e.key === 'Enter' && e.shiftKey) {
+              const option = options[active];
+              if (option?.kind !== 'item' || !isPlayable(option.item)) return;
+              e.preventDefault();
+              queue(option.item);
             }
           }}
         />
@@ -123,7 +140,7 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
         >
           {options.map((option, i) => {
             const item = option.kind === 'item' ? option.item : null;
-            const playable = item !== null && (item.kind === 'song' || item.kind === 'video');
+            const playable = item !== null && isPlayable(item);
             return (
             <li
               key={option.kind === 'query' ? `q-${option.text}` : `i-${option.item.id}`}
@@ -158,11 +175,21 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
                     <span className="mt-px truncate type-callout text-secondary group-data-active/option:text-white">{option.item.subtitle || kindLabel(option.item.kind)}</span>
                   </div>
                   {playable && item && (
-                    <TrackMenu
-                      track={toTrack(item)}
-                      onOpenChange={onMenuOpenChange}
-                      className="grid size-7 place-items-center rounded-full text-secondary opacity-0 transition-opacity duration-100 ease-in group-hover/option:opacity-100 group-data-active/option:text-white focus-visible:opacity-100 hover:bg-quinary group-data-active/option:hover:bg-white/20 data-open:opacity-100"
-                    />
+                    <>
+                      <button
+                        className={rowAction}
+                        aria-label={`Add ${item.title} to queue`}
+                        title="Add to Queue (Shift+Enter)"
+                        data-open={queued.has(item.id) || undefined}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          queue(item);
+                        }}
+                      >
+                        {queued.has(item.id) ? <Check size={16} strokeWidth={2.4} /> : <ListEnd size={16} />}
+                      </button>
+                      <TrackMenu track={toTrack(item)} onOpenChange={onMenuOpenChange} className={rowAction} />
+                    </>
                   )}
                 </>
               )}
@@ -180,7 +207,10 @@ const optionRow = 'group/option mx-1.5 cursor-default rounded-[3px] data-active:
 const hint = `${optionRow} grid grid-cols-[16px_minmax(0,1fr)] items-center p-1 type-body text-secondary`;
 const lockup = `${optionRow} mt-1.5 grid items-center gap-x-2.5 p-1.5`;
 const lockupCols = 'grid-cols-[46px_minmax(0,1fr)]';
-const lockupMenuCols = 'grid-cols-[46px_minmax(0,1fr)_auto]';
+const lockupMenuCols = 'grid-cols-[46px_minmax(0,1fr)_auto_auto]';
+// A song row's queue and ⋯ buttons: shown on hover or selection, and kept up once used.
+const rowAction =
+  'grid size-7 place-items-center rounded-full text-secondary opacity-0 transition-opacity duration-100 ease-in group-hover/option:opacity-100 group-data-active/option:text-white focus-visible:opacity-100 hover:bg-quinary group-data-active/option:hover:bg-white/20 data-open:opacity-100';
 
 function kindLabel(kind: MusicItem['kind']): string {
   return { song: 'Song', video: 'Video', album: 'Album', playlist: 'Playlist', 'spotify-playlist': 'Spotify Playlist', artist: 'Artist', episode: 'Episode', podcast: 'Podcast', unknown: '' }[kind];

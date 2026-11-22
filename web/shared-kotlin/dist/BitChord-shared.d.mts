@@ -23,6 +23,30 @@ export declare namespace BestPartPick {
     }
 }
 export declare function bestPart(nextResponse: Nullable<string>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
+export declare class SongCreditGroup {
+    constructor(role: string, names: Array<string>);
+    get role(): string;
+    get names(): Array<string>;
+}
+export declare namespace SongCreditGroup {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => SongCreditGroup;
+    }
+}
+export declare class CreditsBrowse {
+    constructor(browseId: string, params: Nullable<string>);
+    get browseId(): string;
+    get params(): Nullable<string>;
+}
+export declare namespace CreditsBrowse {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => CreditsBrowse;
+    }
+}
+export declare function songCredits(browseResponse: string): Array<SongCreditGroup>;
+export declare function creditsBrowse(nextResponse: string, videoId: string): Nullable<CreditsBrowse>;
 export declare function artworkAt(url: Nullable<string>, px: number): Nullable<string>;
 export declare class PlaylistMove {
     constructor(setVideoId: string, before: Nullable<string>);

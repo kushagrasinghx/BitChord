@@ -78,9 +78,13 @@ export async function fetchCategories(): Promise<CategoryGroup[]> {
   return mapCategories(response.data);
 }
 
-export async function fetchSearch(query: string): Promise<SearchResults> {
+/** A search, narrowed by one of the filter chips' YouTube Music params (Models.kt SearchFilter) when given. */
+export async function fetchSearch(query: string, params?: string | null): Promise<SearchResults> {
   const yt = await getMusicClient();
-  return mapSearch(await yt.music.search(query));
+  if (!params) return mapSearch(await yt.music.search(query));
+  // YouTube.js only builds params for its own five types; Library's are YouTube Music's own.
+  const { YTMusic } = await import('youtubei.js/web');
+  return mapSearch(new YTMusic.Search(await yt.actions.execute('/search', { query, params, client: 'YTMUSIC' }), yt.actions, true));
 }
 
 /** YouTube Music's Songs shelf for [query]: what an import or a match is chosen from. */
@@ -266,11 +270,12 @@ export async function fetchPlaylistOptions(videoId: string): Promise<PlaylistOpt
     .filter((option) => option.playlistId && option.playlistId !== LIKED_MUSIC_PLAYLIST && option.title);
 }
 
-export async function addToPlaylist(playlistId: string, videoId: string): Promise<void> {
+/** Adds one track or several, in one request; ones the playlist already holds are skipped. */
+export async function addToPlaylist(playlistId: string, videoIds: string | string[]): Promise<void> {
   const yt = await getSignedInnertube();
   await yt.actions.execute('/browse/edit_playlist', {
     playlistId: playlistId.replace(/^VL/, ''),
-    actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }],
+    actions: [videoIds].flat().map((addedVideoId) => ({ action: 'ACTION_ADD_VIDEO', addedVideoId, dedupeOption: 'DEDUPE_OPTION_SKIP' })),
     client: 'YTMUSIC',
   });
 }

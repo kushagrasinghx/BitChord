@@ -48,6 +48,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.R
@@ -158,19 +159,23 @@ internal fun AndroidLyricsShareSheet(
 
     // One export per look, reused by Save and Share alike.
     var exporting by remember(request) { mutableStateOf(false) }
+    var exportProgress by remember(request) { mutableStateOf<Int?>(null) }
     var exported by remember(request) { mutableStateOf<Pair<Any, File>?>(null) }
     suspend fun videoFile(): File? {
         val look = listOf(clip, story, showLogo)
         exported?.takeIf { it.first == look && it.second.exists() }?.let { return it.second }
         exporting = true
+        exportProgress = 0
         return try {
             // The export lays its own background — the clip, or the backdrop —
             // so the card it is handed is always the bare one.
             val overlay = lyricsCardPainter(context, request, story, showLogo, transparent = true)
-            exportLyricsVideo(context, request, clip, overlay, portrait = story)
-                ?.also { exported = look to it }
+            exportLyricsVideo(context, request, clip, overlay, portrait = story) { progress ->
+                exportProgress = progress
+            }?.also { exported = look to it }
         } finally {
             exporting = false
+            exportProgress = null
         }
     }
 
@@ -261,12 +266,12 @@ internal fun AndroidLyricsShareSheet(
                     // As dark as the export's: about the player's own backdrop.
                     Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = CLIP_SCRIM)))
                     CardPreview(painter, bitmap, timeline.takeIf { isVideo }, Modifier.matchParentSize())
-                    if (exporting) ExportSpinner()
+                    if (exporting) ExportSpinner(exportProgress)
                 }
             } else {
                 Box(modifier = preview, contentAlignment = Alignment.Center) {
                     CardPreview(painter, bitmap, timeline.takeIf { isVideo }, Modifier.matchParentSize())
-                    if (exporting) ExportSpinner()
+                    if (exporting) ExportSpinner(exportProgress)
                 }
             }
 
@@ -336,7 +341,12 @@ internal fun AndroidLyricsShareSheet(
                     saved = saved,
                     savedLabel = stringResource(R.string.saved_bang),
                     busy = saving,
-                    busyLabel = stringResource(R.string.lyrics_share_saving),
+                    busyLabel = if (exportProgress != null && exportProgress!! > 0) {
+                        stringResource(R.string.save)
+                    } else {
+                        stringResource(R.string.lyrics_share_saving)
+                    },
+                    progress = if (saving) exportProgress else null,
                     onClick = {
                         val drawn = image
                         if (drawn != null) {
@@ -366,6 +376,13 @@ internal fun AndroidLyricsShareSheet(
                     accent = true,
                     enabled = image != null && !exporting && !saving,
                     modifier = Modifier.weight(1f),
+                    busy = exporting && !saving,
+                    busyLabel = if (exportProgress != null && exportProgress!! > 0) {
+                        stringResource(R.string.share)
+                    } else {
+                        stringResource(R.string.lyrics_share_saving)
+                    },
+                    progress = if (exporting && !saving) exportProgress else null,
                     onClick = {
                         val drawn = image
                         if (drawn != null) {
@@ -417,19 +434,34 @@ private enum class ShareBackground(@param:StringRes val label: Int, val source: 
 
 /** Over the preview while the video is being made. */
 @Composable
-private fun ExportSpinner() {
+private fun ExportSpinner(progress: Int? = null) {
     Box(
         modifier = Modifier
-            .size(52.dp)
-            .clip(RoundedCornerShape(26.dp))
-            .background(Color.Black.copy(alpha = 0.35f)),
+            .size(56.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Color.Black.copy(alpha = 0.55f)),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(26.dp),
-            strokeWidth = 2.5.dp,
-            color = Color.White.copy(alpha = 0.85f),
-        )
+        if (progress != null && progress > 0) {
+            CircularProgressIndicator(
+                progress = { progress / 100f },
+                modifier = Modifier.size(36.dp),
+                strokeWidth = 3.dp,
+                color = Color.White,
+            )
+            Text(
+                text = "$progress%",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        } else {
+            CircularProgressIndicator(
+                modifier = Modifier.size(26.dp),
+                strokeWidth = 2.5.dp,
+                color = Color.White.copy(alpha = 0.85f),
+            )
+        }
     }
 }
 

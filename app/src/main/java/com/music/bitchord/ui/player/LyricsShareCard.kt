@@ -354,8 +354,7 @@ internal class LyricsCardPainter internal constructor(
             val handover = minOf(LINE_CROSSFADE_MS, prevSeg * 0.45f).coerceAtLeast(1f)
             if (positionMs < sLast + handover) {
                 val p = ((positionMs - sLast) / handover).coerceIn(0f, 1f)
-                val eased = p * p * (3f - 2f * p)
-                return (lastIndex - 1).toFloat() + eased
+                return (lastIndex - 1).toFloat() + smootherstep(p)
             }
             return lastIndex.toFloat()
         }
@@ -370,8 +369,7 @@ internal class LyricsCardPainter internal constructor(
                     val handover = minOf(LINE_CROSSFADE_MS, nextSeg * 0.45f, prevSeg * 0.45f).coerceAtLeast(1f)
                     if (positionMs < s0 + handover) {
                         val p = ((positionMs - s0) / handover).coerceIn(0f, 1f)
-                        val eased = p * p * (3f - 2f * p)
-                        return (i - 1).toFloat() + eased
+                        return (i - 1).toFloat() + smootherstep(p)
                     }
                 }
                 return i.toFloat()
@@ -400,8 +398,7 @@ internal class LyricsCardPainter internal constructor(
             val litProgress = if (positionMs < start) 0f else {
                 ((positionMs - start).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
             }
-            val easedLit = litProgress * litProgress * (3f - 2f * litProgress)
-            val lit = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * easedLit
+            val lit = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(litProgress)
             scratch.set(row.paint)
             scratch.alpha = (alpha * lit).roundToInt()
             canvas.drawText(row.text, placed.x, placed.baseline, scratch)
@@ -831,15 +828,22 @@ private const val UNSUNG_ALPHA = 0.45f
 private val LINE_FALLOFF = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
 
 /** How long a line change takes to hand over: crossfade window in milliseconds. */
-private const val LINE_CROSSFADE_MS = 320f
+private const val LINE_CROSSFADE_MS = 380f
 
-/** Smoothly lerp LINE_FALLOFF by distance from the active line cursor. */
+/** Quintic polynomial with zero 1st and 2nd derivatives at endpoints for zero jerk. */
+private fun smootherstep(t: Float): Float {
+    val p = t.coerceIn(0f, 1f)
+    return p * p * p * (p * (p * 6f - 15f) + 10f)
+}
+
+/** Smoothly interpolate LINE_FALLOFF by distance from the active line cursor without slope kinks. */
 private fun falloffAt(distance: Float): Float {
     val d = distance.coerceIn(0f, LINE_FALLOFF.lastIndex.toFloat())
     val i0 = d.toInt()
     val i1 = minOf(i0 + 1, LINE_FALLOFF.lastIndex)
     val frac = d - i0
-    return LINE_FALLOFF[i0] + (LINE_FALLOFF[i1] - LINE_FALLOFF[i0]) * frac
+    val smoothFrac = frac * frac * (3f - 2f * frac)
+    return LINE_FALLOFF[i0] + (LINE_FALLOFF[i1] - LINE_FALLOFF[i0]) * smoothFrac
 }
 
 /** The sweep's soft leading edge: WIPE_FEATHER, 30dp. */

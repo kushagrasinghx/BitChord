@@ -48,6 +48,7 @@ import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import com.music.bitchord.data.canvas.CanvasArtwork
@@ -137,6 +138,7 @@ internal suspend fun exportLyricsVideo(
     painter: LyricsCardPainter,
     /** A story: Apple's 3:4 rendition crops to 9:16 with less lost than its square one. */
     portrait: Boolean,
+    onProgress: ((Int) -> Unit)? = null,
 ): File? {
     val folder = File(context.cacheDir, SHARE_FOLDER).apply { mkdirs() }
     val out = File(folder, VIDEO_FILE_NAME)
@@ -182,7 +184,7 @@ internal suspend fun exportLyricsVideo(
                 .setFrameRate(FRAME_RATE)
                 .setEffects(Effects(emptyList(), listOf(fit(width, height))))
                 .build()
-            return transform(context, EditedMediaItemSequence.Builder(still).build(), audio, overlay, out)
+            return transform(context, EditedMediaItemSequence.Builder(still).build(), audio, overlay, out, onProgress)
         }
         for (url in urls.orEmpty()) {
             val item = EditedMediaItem.Builder(MediaItem.fromUri(url))
@@ -197,7 +199,7 @@ internal suspend fun exportLyricsVideo(
                 val repeats = ceil(lengthMs / length.toDouble()).toInt().coerceIn(1, MAX_REPEATS)
                 EditedMediaItemSequence.Builder(List(repeats) { item }).build()
             }
-            if (transform(context, video, audio, overlay, out)) return true
+            if (transform(context, video, audio, overlay, out, onProgress)) return true
         }
         return false
     }
@@ -364,6 +366,7 @@ private suspend fun transform(
     audio: ShareAudio?,
     overlay: BitmapOverlay,
     out: File,
+    onProgress: ((Int) -> Unit)? = null,
 ): Boolean {
     val sequences = mutableListOf(video)
     var songFactory: MediaSource.Factory = DefaultMediaSourceFactory(context)
@@ -395,6 +398,28 @@ private suspend fun transform(
 
     return withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { cont ->
+            val progressHolder = ProgressHolder()
+            val handler = Handler(Looper.getMainLooper())
+            var lastProgress = -1
+            var transformerRef: Transformer? = null
+            val progressRunnable = object : Runnable {
+                override fun run() {
+                    if (!cont.isActive) return
+                    val tf = transformerRef
+                    if (tf != null) {
+                        val state = tf.getProgress(progressHolder)
+                        if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
+                            val p = progressHolder.progress
+                            if (p != lastProgress) {
+                                lastProgress = p
+                                onProgress?.invoke(p)
+                            }
+                        }
+                    }
+                    handler.postDelayed(this, 100)
+                }
+            }
+
             val transformer = Transformer.Builder(context)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -416,6 +441,8 @@ private suspend fun transform(
                 )
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                        handler.removeCallbacks(progressRunnable)
+                        onProgress?.invoke(100)
                         if (cont.isActive) cont.resume(true)
                     }
 
@@ -424,15 +451,22 @@ private suspend fun transform(
                         exportResult: ExportResult,
                         exportException: ExportException,
                     ) {
+                        handler.removeCallbacks(progressRunnable)
                         Log.w(TAG, "lyrics video export failed (audio=${audio != null})", exportException)
                         if (cont.isActive) cont.resume(false)
                     }
                 })
                 .build()
+            transformerRef = transformer
             out.delete()
             transformer.start(composition, out.path)
+            handler.post(progressRunnable)
+
             // The sheet closed mid-export: stop encoding, on the thread it runs on.
-            cont.invokeOnCancellation { Handler(Looper.getMainLooper()).post { transformer.cancel() } }
+            cont.invokeOnCancellation {
+                handler.removeCallbacks(progressRunnable)
+                Handler(Looper.getMainLooper()).post { transformer.cancel() }
+            }
         }
     }
 }
@@ -502,7 +536,7 @@ private const val MAX_SHARE_MS = 60_000L
 /** Shorter than this and a "line" is a stamp glitch, not something sung. */
 private const val MIN_LINE_MS = 300L
 
-private const val FRAME_RATE = 30
+private const val FRAME_RATE = 60
 private const val BACKDROP_FILE_NAME = "lyrics-backdrop.png"
 private const val TAG = "LyricsShareVideo"
 private const val MAX_REPEATS = 6

@@ -1,18 +1,20 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Check, ListEnd } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { PauseIcon, PlayIcon } from '@/components/icons/Transport';
 import type { ArtistRef, Track } from '@/data/music/types';
 import { usePlayer } from '@/state/player';
-import { Artwork } from './Artwork';
-import { ExplicitBadge } from './ExplicitBadge';
 import { albumHref, artistHref, formatDuration } from './links';
 import { playList, playTrack, type ListContext } from './play';
+import { PlayingBars } from './PlayingBars';
+import { currentRowFill, RowArtwork, rowMoreButton, RowTitle, useRowPlayback } from './SongRows';
 import { TrackMenu } from './TrackMenu';
 
 type Variant = 'album' | 'playlist';
 
-const ROW_HEIGHT: Record<Variant, number> = { album: 46, playlist: 54 };
+/** A first guess for the virtualizer; each row is measured once it's drawn (a playlist row is taller below 768px). */
+const ROW_HEIGHT: Record<Variant, number> = { album: 60, playlist: 56 };
 /** Below this, plain rows: an album or a short playlist gains nothing from virtualizing. */
 const VIRTUALIZE_FROM = 80;
 
@@ -29,32 +31,44 @@ interface TrackListProps {
   source?: ListContext['source'];
 }
 
-/* Track lists (report §3 album rows, §14 playlist rows). */
+/*
+ * Track rows, the phone's SongRow (sharedUi/.../components/Common.kt): 16px
+ * in from the row's edge and 4px above and below, a 16px titleMedium title
+ * over a 14px second line, the duration in 12px labelMedium, and the ⋮ always
+ * there. An album numbers its rows in a 24px column (TRACK_NUMBER_WIDTH) where
+ * a playlist shows 48px artwork; a playlist keeps its Artist, Album and Time
+ * columns on a wide window, and below 768px becomes the phone's single column
+ * with its 52px artwork.
+ *
+ * The second line and the duration are `text-secondary`: on an untinted page
+ * that is onSurfaceVariant exactly, and on a tinted one it follows the tint,
+ * as the phone's palette.onBackgroundVariant follows the artwork.
+ */
 
 const cell = 'flex h-full min-w-0 items-center';
 // 396 / 274 / 274 / 141 at 1440px (report §14).
 const playlistColumns = 'grid-cols-[minmax(0,36.5fr)_minmax(0,25.25fr)_minmax(0,25.25fr)_minmax(0,13fr)]';
 // Artist and album: playlists only, and not below 768px.
-const secondary = `${cell} pe-2.5 max-md:hidden`;
-const tertiary = `${cell} pe-4 max-md:hidden`;
+const secondary = `${cell} pe-2.5 type-callout text-secondary max-md:hidden`;
 // A row from another catalogue with no YouTube Music song (yet) is dimmed.
 const dimmed = 'group-data-unavailable/row:opacity-45';
-const link = 'text-inherit hover:underline group-data-current/row:text-primary';
+const link = 'text-inherit hover:underline';
 
 /**
- * A hairline on top of every row, hidden on hover and around the playing row;
- * a fill on hover, a stronger one for the playing row.
+ * A hairline above every row from its title onwards (Common.kt
+ * NUMBERED_ROW_DIVIDER_INSET and ROW_DIVIDER_INSET), hidden on hover and
+ * around the playing row, which is washed with the primary colour.
  */
 const row = [
-  'group/row relative grid items-center bg-transparent hover:bg-tracklist-hover data-unavailable:cursor-default',
-  'data-current:bg-[color-mix(in_srgb,var(--systemPrimary)_12%,transparent)]',
-  'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:border-t-[0.5px] before:border-t-divider',
+  `group/row relative grid items-center rounded-row px-4 hover:bg-tracklist-hover data-unavailable:cursor-default ${currentRowFill}`,
+  'before:pointer-events-none before:absolute before:end-0 before:top-0 before:border-t-[0.5px] before:border-t-divider',
   'hover:before:border-t-transparent data-current:before:border-t-transparent [&:hover+&]:before:border-t-transparent [&[data-current]+&]:before:border-t-transparent',
 ].join(' ');
 
 const rowVariant: Record<Variant, string> = {
-  album: 'h-[46px] grid-cols-[minmax(0,1fr)_auto] rounded-row',
-  playlist: `h-[54px] ${playlistColumns} rounded-[12px] max-md:grid-cols-[minmax(0,1fr)_auto]`,
+  // 52px tall number column + 4 + 4.
+  album: 'h-[60px] grid-cols-[minmax(0,1fr)_auto] before:start-14',
+  playlist: `h-14 ${playlistColumns} before:start-[76px] max-md:h-[60px] max-md:grid-cols-[minmax(0,1fr)_auto] max-md:before:start-[84px]`,
 };
 
 function Artists({ artists }: { artists: ArtistRef[] }) {
@@ -79,95 +93,99 @@ function Artists({ artists }: { artists: ArtistRef[] }) {
   );
 }
 
-const time: Record<Variant, string> = {
-  album: 'relative justify-end pe-3 type-body tabular-nums',
-  playlist: 'relative justify-end pe-[18px] type-body tabular-nums',
-};
+/**
+ * The phone's swipe-to-queue, for a mouse: on hover (or focus) a row offers
+ * Add to Queue beside its duration, and shows a tick for a moment once it's done.
+ */
+function QueueButton({ track }: { track: Track }) {
+  const [queued, setQueued] = useState(false);
+  useEffect(() => {
+    if (!queued) return;
+    const timer = setTimeout(() => setQueued(false), 1500);
+    return () => clearTimeout(timer);
+  }, [queued]);
+  return (
+    <button
+      className="grid size-8 flex-none place-items-center rounded-full text-secondary opacity-0 transition-opacity duration-100 group-hover/row:opacity-100 hover:bg-quinary hover:text-primary focus-visible:opacity-100 data-done:opacity-100"
+      aria-label={`Add ${track.title} to queue`}
+      title="Add to queue"
+      data-done={queued || undefined}
+      onClick={() => {
+        usePlayer.getState().addToQueue([track]);
+        setQueued(true);
+      }}
+    >
+      {queued ? <Check size={17} strokeWidth={2.4} /> : <ListEnd size={17} strokeWidth={2.2} />}
+    </button>
+  );
+}
 
 interface RowProps {
   track: Track;
   variant: Variant;
   position: number;
-  fallbackArtwork: string | null | undefined;
   onPlayRow: () => void;
 }
 
-function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps) {
-  const current = usePlayer((s) => s.nowPlaying?.videoId === track.videoId);
-  const playing = usePlayer((s) => s.nowPlaying?.videoId === track.videoId && (s.status === 'playing' || s.status === 'buffering'));
-  const togglePlay = usePlayer((s) => s.togglePlay);
+function Row({ track, variant, position, onPlayRow }: RowProps) {
+  const playback = useRowPlayback(track, onPlayRow);
+  const { current, playing, onPlay } = playback;
   const unavailable = track.unavailable;
-  const onPlay = () => (unavailable ? undefined : current ? togglePlay() : onPlayRow());
+  const album = variant === 'album';
 
   return (
     <div
       className={`${row} ${rowVariant[variant]}`}
+      role="listitem"
       data-variant={variant}
       data-current={current || undefined}
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
-      onDoubleClick={onPlay}
+      onClick={playback.onClick}
     >
-      <div className={`${cell} gap-3`}>
-        <div className={`relative grid w-10 shrink-0 place-items-center${variant === 'playlist' ? ' ms-[7px]' : ''}`}>
-          {variant === 'playlist' ? (
-            <>
-              <Artwork src={track.thumbnail ?? fallbackArtwork ?? null} displayWidth={40} radius="var(--radius-artwork-small)" />
-              {current && (
-                // The playing row's marker: a still play glyph over the artwork (or where the number was).
-                <span
-                  className="absolute inset-0 grid place-items-center rounded-artwork-sm bg-[rgb(0_0_0/0.45)] text-white group-hover/row:invisible"
-                  aria-label="Now playing"
-                >
-                  <PlayIcon size={18} />
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="type-body text-secondary group-hover/row:invisible">
-              {current ? (
-                <span className="grid place-items-center text-primary group-hover/row:invisible" aria-label="Now playing">
-                  <PlayIcon size={14} />
-                </span>
-              ) : (
-                (track.index ?? position)
-              )}
-            </span>
-          )}
-          <button
-            className={`absolute inset-0 grid place-items-center rounded-artwork-sm opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 group-data-unavailable/row:hidden ${
-              variant === 'playlist' ? 'bg-lockup-hover text-white' : 'text-primary'
-            }`}
-            aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
-            onClick={onPlay}
-            disabled={!!unavailable}
-          >
-            {playing ? <PauseIcon size={variant === 'playlist' ? 18 : 16} /> : <PlayIcon size={variant === 'playlist' ? 18 : 16} />}
-          </button>
-        </div>
-        <div
-          className={`flex min-w-0 flex-col ${dimmed} group-data-[unavailable=matching]/row:animate-matching motion-reduce:group-data-[unavailable=matching]/row:animate-none`}
-        >
-          <div className="flex min-w-0 items-center">
-            <span className="truncate type-body text-primary">{track.title}</span>
-            {track.explicit && <ExplicitBadge />}
+      <div className={`${cell} ${album ? 'gap-4' : 'gap-3 max-md:gap-3.5'}`}>
+        {album ? (
+          <div className="relative grid h-[52px] w-6 shrink-0 place-items-center">
+            {current ? (
+              <span className="grid place-items-center group-hover/row:invisible" aria-label="Now playing">
+                <PlayingBars playing={playing} />
+              </span>
+            ) : (
+              <span className="type-body text-secondary tabular-nums group-hover/row:invisible">{track.index ?? position}</span>
+            )}
+            {/* The number turns into play (or pause) on hover or focus. */}
+            <button
+              className="absolute inset-0 grid place-items-center text-primary opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 group-data-unavailable/row:hidden"
+              aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
+              onClick={onPlay}
+              disabled={!!unavailable}
+            >
+              {playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+            </button>
           </div>
-          {variant === 'album' && track.artists.length > 0 && (
-            <div className="truncate type-callout">
+        ) : (
+          <RowArtwork track={track} playback={playback} className="w-12 max-md:w-[52px]" />
+        )}
+        <div
+          className={`flex min-w-0 flex-col gap-0.5 ${dimmed} group-data-[unavailable=matching]/row:animate-matching motion-reduce:group-data-[unavailable=matching]/row:animate-none`}
+        >
+          <RowTitle track={track} />
+          {track.artists.length > 0 && (
+            <div className={`truncate type-callout text-secondary ${album ? '' : 'md:hidden'}`}>
               <Artists artists={track.artists} />
             </div>
           )}
         </div>
       </div>
-      {variant === 'playlist' && (
+      {!album && (
         <>
           <div className={`${secondary} ${dimmed}`}>
-            <span className="truncate type-body">
+            <span className="truncate">
               <Artists artists={track.artists} />
             </span>
           </div>
-          <div className={`${tertiary} ${dimmed}`}>
-            <span className="truncate type-body">
+          <div className={`${secondary} pe-4 ${dimmed}`}>
+            <span className="truncate">
               {track.album &&
                 (albumHref(track.album.id) ? (
                   <PrefetchLink to={albumHref(track.album.id)!} className={link}>
@@ -180,17 +198,13 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
           </div>
         </>
       )}
-      <div className={`${cell} ${time[variant]} ${dimmed}`}>
-        {/* The ⋯ button (TrackMenu) takes the time's place on hover, as Apple's rows do. */}
-        <span className={unavailable ? undefined : 'group-focus-within/row:invisible group-hover/row:invisible group-has-[[data-open]]/row:invisible'}>
+      <div className={`${cell} justify-end gap-1 ps-2 ${dimmed}`}>
+        {!unavailable && <QueueButton track={track} />}
+        <span className="type-label-medium text-secondary tabular-nums">
           {unavailable === 'missing' ? 'Not found' : formatDuration(track.durationSec)}
         </span>
-        {!unavailable && (
-          <TrackMenu
-            track={track}
-            className="absolute end-2.5 hidden size-7 place-items-center rounded-full text-key group-focus-within/row:grid group-hover/row:grid hover:bg-quinary data-open:grid"
-          />
-        )}
+        {/* Hanging into the row's padding, so the dots end near its edge. */}
+        {!unavailable && <TrackMenu track={track} className={`-me-2.5 ${rowMoreButton}`} />}
       </div>
     </div>
   );
@@ -198,29 +212,34 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
 
 function Header() {
   return (
-    <div className={`grid h-8 items-center ${playlistColumns} type-callout-emphasized text-secondary max-md:hidden`} aria-hidden="true">
-      <div className={`${cell} gap-3 ps-[7px]`}>Song</div>
-      <div className={secondary}>Artist</div>
-      <div className={tertiary}>Album</div>
-      <div className={`${cell} ${time.playlist}`}>Time</div>
+    <div className={`grid h-8 items-center px-4 ${playlistColumns} type-callout-emphasized text-secondary max-md:hidden`} aria-hidden="true">
+      <div className={cell}>Song</div>
+      <div className={`${cell} pe-2.5`}>Artist</div>
+      <div className={`${cell} pe-4`}>Album</div>
+      <div className={`${cell} justify-end pe-[30px]`}>Time</div>
     </div>
   );
 }
 
 /**
- * Album and playlist track lists (report §3, §14): hairline-divided rows,
- * hover fill, the number (or artwork) turning into a play button. Long lists
- * are virtualized against the page's scroll container (prompt §3).
+ * Album and playlist track lists: SongRows divided by inset hairlines. Long
+ * lists are virtualized against the page's scroll container (prompt §3).
  */
 export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source }: TrackListProps) {
+  // An album's tracks carry no artwork or artist of their own: each row (its
+  // queue button and menu with it) takes the album's.
+  const withFallback = (track: Track): Track => ({
+    ...track,
+    thumbnail: track.thumbnail ?? fallbackArtwork ?? null,
+    artists: track.artists.length ? track.artists : (fallbackArtists ?? []),
+  });
   const playRow = (i: number) => {
     // Rows from another catalogue that found no YouTube Music song stay out of the queue.
     if (source) {
       const playable = tracks.filter((t) => !t.unavailable);
       return playList(playable, Math.max(0, playable.indexOf(tracks[i]!)), { source, fallbackArtwork, fallbackArtists });
     }
-    const track = tracks[i]!;
-    playTrack(track.artists.length || !fallbackArtists ? track : { ...track, artists: fallbackArtists }, fallbackArtwork);
+    playTrack(withFallback(tracks[i]!), fallbackArtwork);
   };
   const container = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
@@ -242,8 +261,13 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
     if (virtual ? last && last.index >= tracks.length - 20 : true) onNearEnd();
   }, [last?.index, tracks.length, virtual, onNearEnd]);
 
+  const renderRow = (i: number, key?: string) => (
+    <Row key={key} track={withFallback(tracks[i]!)} variant={variant} position={i + 1} onPlayRow={() => playRow(i)} />
+  );
+
   return (
-    <div className="mx-(--body-gutter) type-callout text-secondary" data-variant={variant} role="table" aria-label="Songs">
+    // Rows reach 16px past the page's gutter, so their text lines up with the header's and their fill overhangs it.
+    <div className="mx-[max(0px,calc(var(--body-gutter)-16px))]" data-variant={variant} role="list" aria-label="Songs">
       {variant === 'playlist' && <Header />}
       <div ref={container}>
         {virtual ? (
@@ -251,6 +275,8 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
             {items.map((item) => (
               <div
                 key={item.key}
+                data-index={item.index}
+                ref={virtualizer.measureElement}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -259,27 +285,12 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
                   transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
                 }}
               >
-                <Row
-                  track={tracks[item.index]!}
-                  variant={variant}
-                  position={item.index + 1}
-                  fallbackArtwork={fallbackArtwork}
-                  onPlayRow={() => playRow(item.index)}
-                />
+                {renderRow(item.index)}
               </div>
             ))}
           </div>
         ) : (
-          tracks.map((track, i) => (
-            <Row
-              key={`${track.videoId}-${i}`}
-              track={track}
-              variant={variant}
-              position={i + 1}
-              fallbackArtwork={fallbackArtwork}
-              onPlayRow={() => playRow(i)}
-            />
-          ))
+          tracks.map((track, i) => renderRow(i, `${track.videoId}-${i}`))
         )}
       </div>
     </div>

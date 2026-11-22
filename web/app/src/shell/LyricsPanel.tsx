@@ -8,6 +8,7 @@ import { getBridge } from '@/extension/bridge';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { onUngrantedChange, ungrantedOrigins } from '@/lyrics/http';
 import type { LyricLine } from '@/lyrics/model';
+import { adjustedLyricsPosition, adjustedLyricsSeekTarget, useLyricsOffset } from '@/lyrics/offset';
 import type { SourceState } from '@/lyrics/repository';
 import { enabledSources } from '@/lyrics/settings';
 import { sourceById, type LyricsSourceId } from '@/lyrics/sources';
@@ -133,6 +134,7 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
   const deck = usePlayer((s) => s.deck);
   const mixing = usePlayer((s) => s.mixing);
   const videoId = usePlayer((s) => s.nowPlaying?.videoId);
+  const offsetMs = useLyricsOffset((s) => s.offsetMs);
 
   // Created by hand, with its TTML set before it's attached: am-lyrics starts
   // loading the moment it connects, and through React the properties arrive
@@ -149,7 +151,8 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
     el.toggleAttribute('data-full', full);
     const onLineClick = (event: Event) => {
       const timestamp = (event as CustomEvent<{ timestamp: number }>).detail?.timestamp;
-      if (typeof timestamp === 'number') usePlayer.getState().seek(timestamp / 1000);
+      // The line shows where the offset puts it, so that is where a tap lands (NowPlayingScreen.kt adjustedLyricsSeekTarget).
+      if (typeof timestamp === 'number') usePlayer.getState().seek(adjustedLyricsSeekTarget(timestamp, useLyricsOffset.getState().offsetMs) / 1000);
     };
     el.addEventListener('line-click', onLineClick);
     host.current?.append(el);
@@ -180,12 +183,15 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
     const audio = getAudio();
     const el = element.current;
     if (!audio || !el) return;
+    // The clock reads the shifted time (PlayerLyrics.kt LyricPositionSource); a new
+    // offset restarts it below, as the phone counts a change as a discontinuity.
+    const at = (sec: number) => adjustedLyricsPosition(Math.trunc(sec * 1000), offsetMs);
     if (mixing) {
       // A loop mix plays the song from a deck while its element sits paused:
       // follow the mix's playhead, which loops and moves at the ramped tempo.
       // A loop's wrap (or the handover) is a jump on purpose, not drift to steer out.
       const start = getPlayhead()?.sec ?? audio.currentTime;
-      const clock = new LyricClock(start * 1000);
+      const clock = new LyricClock(at(start));
       let discontinuity = 0;
       let last = start;
       let frame = 0;
@@ -194,19 +200,19 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
         const sec = getPlayhead()?.sec ?? last;
         if (sec < last - 0.15 || sec > last + 1) discontinuity++;
         last = sec;
-        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity, true);
+        el.currentTime = clock.frame(now, at(sec), now, discontinuity, true);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
       return () => cancelAnimationFrame(frame);
     }
-    const clock = new LyricClock(audio.currentTime * 1000);
+    const clock = new LyricClock(at(audio.currentTime));
     let discontinuity = 0;
     let frame = 0;
     const tick = () => {
       const now = performance.now();
       // The reading and its stamp are taken together.
-      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, !audio.paused);
+      el.currentTime = clock.frame(now, at(audio.currentTime), now, discontinuity, !audio.paused);
       frame = requestAnimationFrame(tick);
     };
     // Paused, the sweep stays where it was drawn rather than snapping to the
@@ -215,7 +221,7 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
     const hold = () => {
       cancelAnimationFrame(frame);
       const now = performance.now();
-      el.currentTime = clock.observe(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, false) ?? clock.displayedMs;
+      el.currentTime = clock.observe(now, at(audio.currentTime), now, discontinuity, false) ?? clock.displayedMs;
     };
     const resume = () => {
       cancelAnimationFrame(frame);
@@ -239,7 +245,7 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
       audio.removeEventListener('pause', hold);
       audio.removeEventListener('play', resume);
     };
-  }, [deck, videoId, ttml, mixing]);
+  }, [deck, videoId, ttml, mixing, offsetMs]);
 
   // am-lyrics renders and scrolls itself; it only needs the space. Full screen fades it out at the top and bottom.
   return (

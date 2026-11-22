@@ -36,7 +36,8 @@ function Header({ title, sortable }: { title: string; sortable: boolean }) {
 
 /**
  * Downloads (LibraryPhoneParts.kt, the Downloads folder): the songs kept in
- * this browser, as Settings › Keep Liked Songs Downloaded fills it, newest
+ * this browser, from a song menu's Download and from Settings › Keep Liked
+ * Songs Downloaded (one store for both, as the phone's Downloads), newest
  * first. They play from the copy here, online or not.
  */
 function Downloads() {
@@ -65,7 +66,7 @@ function Downloads() {
           <TrackList tracks={tracks} variant="playlist" source={{ title: 'Downloads', type: 'library', id: 'downloads' }} />
         </div>
       ) : (
-        <EmptyState title="No downloads yet" detail="Turn on Keep Liked Songs Downloaded in Settings to keep your liked songs in this browser." />
+        <EmptyState title="No downloads yet" detail="Choose Download in a song’s menu, or turn on Keep Liked Songs Downloaded in Settings, to keep songs in this browser." />
       )}
     </>
   );

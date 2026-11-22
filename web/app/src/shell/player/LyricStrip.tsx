@@ -1,6 +1,7 @@
 import { ChevronRight, Music2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { isGap } from '@/lyrics/model';
+import { adjustedLyricsPosition, useLyricsOffset } from '@/lyrics/offset';
 import { useLyrics } from '@/lyrics/useLyrics';
 import { getPlayhead, usePlayer } from '@/state/player';
 import { currentLineIndex, INTRO_LINES } from './lyricLines';
@@ -20,17 +21,19 @@ export function LyricStrip({ onOpen }: { onOpen: () => void }) {
   const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? '');
   const lines = lyrics.data?.lines ?? null;
   const synced = !!lyrics.data?.synced;
+  const offsetMs = useLyricsOffset((s) => s.offsetMs);
   const [index, setIndex] = useState(-1);
   // One intro line per track, as the phone picks it.
   const intro = useMemo(() => INTRO_LINES[Math.floor(Math.random() * INTRO_LINES.length)]!, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!lines || !synced) return;
-    const tick = () => setIndex(currentLineIndex(lines, (getPlayhead()?.sec ?? 0) * 1000));
+    // Shifted as the lyrics pane is, so the strip and the pane agree (PlayerLyrics.kt adjustedLyricsPosition).
+    const tick = () => setIndex(currentLineIndex(lines, adjustedLyricsPosition((getPlayhead()?.sec ?? 0) * 1000, offsetMs)));
     tick();
     const timer = setInterval(tick, POLL_MS);
     return () => clearInterval(timer);
-  }, [lines, synced]);
+  }, [lines, synced, offsetMs]);
 
   let text: string | null = null;
   if (lines?.length && synced) {

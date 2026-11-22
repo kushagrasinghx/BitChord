@@ -41,10 +41,34 @@ async function likedTracks(newestOnly: boolean): Promise<Track[]> {
   return tracks.filter((t) => !t.unavailable);
 }
 
+/** A four-minute Opus file is ~5 MB; room is asked for a long one. */
+export const ROOM_PER_TRACK = 15 * 1024 * 1024;
+
 /** Whether another file of about [bytes] fits under the browser's quota with room to spare. */
-async function fits(bytes: number): Promise<boolean> {
+export async function fits(bytes: number): Promise<boolean> {
   const { usage = 0, quota = Infinity } = (await navigator.storage?.estimate?.()) ?? {};
   return usage + bytes + HEADROOM_BYTES < quota;
+}
+
+/**
+ * Fetches [track]'s whole file and keeps it. Shared by this sync and the song
+ * menu's Download (downloads.ts), as the phone's Downloads serves both
+ * PlaylistSync and SongActionsMenu's DownloadRow.
+ */
+export async function downloadTrack(track: Track, signal?: AbortSignal): Promise<void> {
+  // shortcut: fetchTrackAudio stops at 40 MB (about 33 minutes of Opus), so longer tracks would be cut short; they are counted as failed until it can fetch a whole file of any length.
+  if ((track.durationSec ?? 0) > MAX_DURATION_SEC) throw new Error('too long to download whole');
+  const audio = await fetchTrackAudio(track.videoId, signal);
+  await saveOffline(
+    {
+      videoId: track.videoId,
+      title: track.title,
+      author: track.artists.map((a) => a.name).join(', '),
+      durationSec: track.durationSec ?? 0,
+      thumbnail: track.thumbnail,
+    },
+    new Uint8Array(audio.bytes),
+  );
 }
 
 let running: Promise<void> | null = null;
@@ -74,26 +98,13 @@ async function run(newestOnly: boolean): Promise<void> {
     for (const track of missing) {
       // Stopped from Settings, or Remove Downloads pressed, part-way through.
       if (!useOfflineSettings.getState().keepLiked) return;
-      // A four-minute Opus file is ~5 MB; ask for room for a long one.
-      if (!(await fits(15 * 1024 * 1024))) {
+      if (!(await fits(ROOM_PER_TRACK))) {
         status({ error: 'Not enough storage for more downloads' });
         whole = false;
         break;
       }
       try {
-        // shortcut: fetchTrackAudio stops at 40 MB (about 33 minutes of Opus), so longer tracks would be cut short; they are counted as failed until it can fetch a whole file of any length.
-        if ((track.durationSec ?? 0) > MAX_DURATION_SEC) throw new Error('too long to download whole');
-        const audio = await fetchTrackAudio(track.videoId);
-        await saveOffline(
-          {
-            videoId: track.videoId,
-            title: track.title,
-            author: track.artists.map((a) => a.name).join(', '),
-            durationSec: track.durationSec ?? 0,
-            thumbnail: track.thumbnail,
-          },
-          new Uint8Array(audio.bytes),
-        );
+        await downloadTrack(track);
       } catch (error) {
         whole = false;
         if (/SABR only/.test(String(error))) status((s) => ({ skippedSabr: s.skippedSabr + 1 }));

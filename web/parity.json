@@ -122,8 +122,8 @@
     {
       "id": "lyric-clock",
       "name": "Lyric clock (karaoke sweep, pause and resume)",
-      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt"],
-      "web": ["web/app/src/shell/LyricsPanel.tsx"],
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LyricsOffsetSheet.kt"],
+      "web": ["web/app/src/shell/LyricsPanel.tsx", "web/app/src/lyrics/offset.ts"],
       "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/player/LyricClock.kt"]
     },
     {
@@ -167,9 +167,9 @@
     },
     {
       "id": "liked-offline",
-      "name": "Keep liked songs downloaded",
-      "android": ["app/src/main/java/com/music/bitchord/download/PlaylistSync.kt"],
-      "web": ["web/app/src/playback/offline/"]
+      "name": "Downloads: keep liked songs downloaded, and single songs from the menu",
+      "android": ["app/src/main/java/com/music/bitchord/download/PlaylistSync.kt", "app/src/main/java/com/music/bitchord/download/Downloads.kt"],
+      "web": ["web/app/src/playback/offline/", "web/app/src/playback/offline/downloads.ts"]
     },
     {
       "id": "stream-resolution",
@@ -211,7 +211,7 @@
       "id": "menus",
       "name": "Menus: song and release actions, right-click (long press), Song info",
       "android": ["app/src/main/java/com/music/bitchord/ui/components/IosMenu.kt", "app/src/main/java/com/music/bitchord/ui/components/SongActionsMenu.kt", "app/src/main/java/com/music/bitchord/ui/components/SongInfoDialog.kt"],
-      "web": ["web/app/src/components/Menu.tsx", "web/app/src/components/music/TrackMenu.tsx", "web/app/src/components/music/BrowseMenu.tsx", "web/app/src/components/music/actionMenu.ts", "web/app/src/components/music/SongCredits.tsx", "web/app/src/data/music/songInfo.ts"]
+      "web": ["web/app/src/components/Menu.tsx", "web/app/src/components/music/TrackMenu.tsx", "web/app/src/shell/LyricsOffsetMenu.tsx", "web/app/src/components/music/BrowseMenu.tsx", "web/app/src/components/music/actionMenu.ts", "web/app/src/components/music/SongCredits.tsx", "web/app/src/data/music/songInfo.ts"]
     },
     {
       "id": "home",

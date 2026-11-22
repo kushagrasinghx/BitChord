@@ -67,6 +67,11 @@ export async function offlineTracks(): Promise<OfflineTrack[]> {
   return responses.map(metaOf).filter((t): t is OfflineTrack => t !== null);
 }
 
+/** The song menu's Remove download (SongActionsMenu.kt DownloadRow, Downloads.delete). */
+export async function removeOffline(videoId: string): Promise<void> {
+  if (offlineSupported()) await (await caches.open(CACHE)).delete(keyOf(videoId));
+}
+
 /** Settings › Remove Downloads. */
 export async function removeAllOffline(): Promise<void> {
   if (offlineSupported()) await caches.delete(CACHE);

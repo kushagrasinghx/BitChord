@@ -3,7 +3,7 @@ package com.music.bitchord.ui.player
 import kotlin.math.abs
 
 /** One reading and its transport state, consumed identically by the observer and the frame loop. */
-internal data class LyricClockReading(
+data class LyricClockReading(
     val positionMs: Long,
     val sampledAtMs: Double,
     val discontinuity: Long,
@@ -45,7 +45,7 @@ internal data class LyricClockReading(
  * with no Compose in it, so it can be tested frame by frame;
  * `rememberLyricClock` is the composable that drives it.
  */
-internal class LyricClock(startMs: Long) {
+class LyricClock(startMs: Long) {
     /** Where the lyrics are drawn, in song milliseconds. */
     var displayedMs: Double = startMs.toDouble()
         private set

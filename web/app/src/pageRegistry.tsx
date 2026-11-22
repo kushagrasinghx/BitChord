@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
-import { matchPath } from 'react-router';
+import { matchPath, Navigate } from 'react-router';
 import { prefetchPageData } from '@/data/music/queries';
 import {
   AlbumSkeleton,
@@ -25,7 +25,9 @@ interface PageRoute {
  */
 export const pages: PageRoute[] = [
   { path: '/home', load: () => import('@/pages/HomePage'), skeleton: <HomeSkeleton /> },
-  { path: '/new', load: () => import('@/pages/NewPage'), skeleton: <NewSkeleton /> },
+  { path: '/explore', load: () => import('@/pages/NewPage'), skeleton: <NewSkeleton /> },
+  // The page was "New" before it became the phone's Explore tab; old links still land.
+  { path: '/new', load: async () => ({ default: () => <Navigate to="/explore" replace /> }), skeleton: null },
   { path: '/radio', load: () => import('@/pages/RadioPage'), skeleton: <HomeSkeleton /> },
   { path: '/search', load: () => import('@/pages/SearchPage'), skeleton: <SearchSkeleton /> },
   { path: '/album/:id', load: () => import('@/pages/AlbumPage'), skeleton: <AlbumSkeleton /> },

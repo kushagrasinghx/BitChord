@@ -30,6 +30,9 @@ const FOOTER: f64 = 44.0;
 
 pub struct Provider {
     pub(crate) host: &'static str,
+    /// The pages on [host] that start this sign-in; empty means any. Google's host also serves
+    /// OAuth consent popups (Drive backup), which must stay popups (see [on_new_window]).
+    entry_paths: &'static [&'static str],
     name: &'static str,
     /// Where the provider sends the browser once signed in: the sheet closes there.
     pub(crate) done_host: &'static str,
@@ -45,6 +48,8 @@ pub struct Provider {
 const PROVIDERS: &[Provider] = &[
     Provider {
         host: "accounts.google.com",
+        // web/app/src/shell/AccountButton.tsx opens ServiceLogin and AddSession; the rest are Google's own forms.
+        entry_paths: &["/ServiceLogin", "/AddSession", "/v3/signin", "/signin/v2"],
         name: "YouTube Music",
         done_host: "music.youtube.com",
         // Sign-in, the YouTube session hand-off (SetSID), cookie consent, and the recovery-options step.
@@ -54,6 +59,7 @@ const PROVIDERS: &[Provider] = &[
     },
     Provider {
         host: "accounts.spotify.com",
+        entry_paths: &[],
         name: "Spotify",
         done_host: "open.spotify.com",
         // Spotify's own login and captcha, and the sites behind "Continue with Google/Facebook/Apple".
@@ -71,7 +77,15 @@ const PROVIDERS: &[Provider] = &[
 ];
 
 pub fn provider(url: &Url) -> Option<&'static Provider> {
-    PROVIDERS.iter().find(|p| url.host_str() == Some(p.host))
+    PROVIDERS.iter().find(|p| {
+        url.host_str() == Some(p.host) && (p.entry_paths.is_empty() || p.entry_paths.iter().any(|e| url.path().starts_with(e)))
+    })
+}
+
+/// A Google OAuth consent popup (Drive backup's token client): it hands its token back to the
+/// page that opened it, so it must stay a real popup, in this same profile.
+fn is_oauth_popup(url: &Url) -> bool {
+    url.host_str() == Some("accounts.google.com") && ["/o/oauth2/", "/gsi/", "/signin/oauth"].iter().any(|p| url.path().starts_with(p))
 }
 
 /// Serves the sheet's chrome, with upstream's design tokens compiled in.
@@ -86,6 +100,9 @@ pub fn serve() -> Response<Vec<u8>> {
 
 /// What every popup from the player becomes: a sign-in sheet, a browser tab, or (the extension's own pages) a popup.
 pub fn on_new_window<R: Runtime>(app: &AppHandle<R>, url: Url) -> NewWindowResponse<R> {
+    if is_oauth_popup(&url) {
+        return NewWindowResponse::Allow;
+    }
     if let Some(provider) = provider(&url) {
         let app = app.clone();
         // Off the WebView2 callback: creating webviews inside it can deadlock.
@@ -315,4 +332,39 @@ fn layout<R: Runtime>(window: &tauri::Window<R>) -> Option<(Rect, Rect)> {
         (LogicalPosition::new(0.0, 0.0), LogicalSize::new(size.width, size.height)),
         (LogicalPosition::new(x, y + HEADER), LogicalSize::new(card_w, card_h - HEADER - FOOTER)),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn url(s: &str) -> Url {
+        Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn youtube_music_sign_in_opens_in_the_sheet() {
+        for page in [
+            "https://accounts.google.com/ServiceLogin?service=youtube&continue=https://music.youtube.com/",
+            "https://accounts.google.com/AddSession?service=youtube&continue=https://music.youtube.com/",
+            "https://accounts.google.com/v3/signin/identifier?continue=https://music.youtube.com/",
+        ] {
+            assert_eq!(provider(&url(page)).map(|p| p.name), Some("YouTube Music"), "{page}");
+        }
+    }
+
+    #[test]
+    fn google_oauth_popups_stay_popups() {
+        let consent = url("https://accounts.google.com/o/oauth2/v2/auth?client_id=x&scope=https://www.googleapis.com/auth/drive.appdata");
+        assert!(provider(&consent).is_none());
+        assert!(is_oauth_popup(&consent));
+        assert!(is_oauth_popup(&url("https://accounts.google.com/gsi/select?client_id=x")));
+        assert!(!is_oauth_popup(&url("https://accounts.google.com/ServiceLogin")));
+    }
+
+    #[test]
+    fn spotify_sign_in_opens_in_the_sheet() {
+        let login = url("https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F");
+        assert_eq!(provider(&login).map(|p| p.name), Some("Spotify"));
+    }
 }

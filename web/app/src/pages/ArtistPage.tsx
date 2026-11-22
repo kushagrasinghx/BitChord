@@ -11,7 +11,7 @@ import { CompactSongRow } from '@/components/music/SongRows';
 import { LoadError, NeedsExtension } from '@/components/music/States';
 import { requestAppleAccess, useAppleArtistArt, useUngrantedAppleOrigins, type AppleArtistArt } from '@/data/apple/artistArt';
 import { recentLabel, topRelease } from '@/data/music/detail';
-import { useArtist, useSignedIn, useYouTubeReady } from '@/data/music/queries';
+import { useArtist, useSetSubscribed, useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import type { MusicItem } from '@/data/music/types';
 import type { ArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
@@ -137,6 +137,7 @@ export default function ArtistPage() {
   const { missing } = useYouTubeReady();
   const signedIn = useSignedIn();
   const artist = useArtist(id);
+  const subscribe = useSetSubscribed();
   const apple = useAppleArtistArt(artist.data?.name);
   const appleUngranted = useUngrantedAppleOrigins();
   const tint = useMemo<ArtworkColor | null>(
@@ -154,6 +155,9 @@ export default function ArtistPage() {
   const songs = data.topSongs.slice(0, MAX_TOP_SONGS);
   const context = { source: { title: `${data.name}: Top Songs`, type: 'artist' as const, id: data.id } };
   const wash = 'var(--page-tint,var(--pageBG))';
+  const subscription = data.subscription;
+  const subscribed = subscription?.subscribed ?? false;
+  const canSubscribe = signedIn && !!subscription;
   return (
     <>
       <header>
@@ -211,13 +215,19 @@ export default function ArtistPage() {
               onClick={() => playList(songs, 0, context)}
             />
             <button
-              // The phone's subscribe star, greyed out where it can't be used rather than leaving Play off-centre.
+              // The phone's subscribe star (DetailScreen's Star / StarBorder), greyed out where it can't be
+              // used rather than leaving Play off-centre: a subscription is the account's (MainActivity).
               className={`grid size-[52px] flex-none place-items-center rounded-full ${veil} ${pressable} [&_svg]:size-[23px]`}
-              aria-label="Subscribe"
-              title={signedIn ? 'Subscribing isn’t available on the web yet' : 'Sign in to subscribe'}
-              disabled
+              aria-label={subscribed ? 'Unsubscribe' : 'Subscribe'}
+              aria-pressed={canSubscribe ? subscribed : undefined}
+              title={!signedIn ? 'Sign in to subscribe' : subscribed ? 'Unsubscribe' : 'Subscribe'}
+              disabled={!canSubscribe}
+              onClick={() =>
+                subscription &&
+                subscribe.mutate({ artistId: id, channelId: subscription.channelId, subscribed: !subscribed })
+              }
             >
-              <Star strokeWidth={2.2} />
+              <Star strokeWidth={2.2} fill={subscribed ? 'currentColor' : 'none'} />
             </button>
           </div>
           {!apple && appleUngranted.length > 0 && (

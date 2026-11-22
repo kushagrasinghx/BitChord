@@ -11,7 +11,8 @@ import type { BrowsePage } from './types';
 
 const fixture = (name: string) =>
   JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../fixtures/innertube/${name}.json`, import.meta.url)), 'utf8'));
-const response = (name: string) => ({ success: true, status_code: 200, data: fixture(name) }) as never;
+const responseOf = (data: unknown) => ({ success: true, status_code: 200, data }) as never;
+const response = (name: string) => responseOf(fixture(name));
 const actions = { session: { context: { client: {} } } } as never;
 
 describe('home', () => {
@@ -95,6 +96,20 @@ describe('artist', () => {
     expect(artist.topSongs.length).toBeGreaterThan(0);
     expect(artist.shelves.some((s) => s.items[0]?.kind === 'album')).toBe(true);
     expect(artist.shelves.some((s) => s.layout === 'circle')).toBe(true);
+  });
+
+  it('reads the subscribe state and channel off the header button', () => {
+    const artist = mapArtist('UCtest', new YTMusic.Artist(response('browse-artist'), actions));
+    // The button's channel, not the id the page was fetched under.
+    expect(artist.subscription).toEqual({ channelId: 'UCq19-LqvG35A-30oyAiPiqA', subscribed: false });
+  });
+
+  it('offers no subscription where the button has no state', () => {
+    const copy = fixture('browse-artist') as { header: { musicImmersiveHeaderRenderer: Record<string, unknown> } };
+    delete (copy.header.musicImmersiveHeaderRenderer.subscriptionButton as { subscribeButtonRenderer: Record<string, unknown> })
+      .subscribeButtonRenderer.subscribed;
+    const artist = mapArtist('UCtest', new YTMusic.Artist(responseOf(copy), actions));
+    expect(artist.subscription).toBeNull();
   });
 });
 

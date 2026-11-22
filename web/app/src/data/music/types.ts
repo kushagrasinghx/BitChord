@@ -116,6 +116,8 @@ export interface ArtistPage {
   topSongs: Track[];
   topSongsSeeAll: BrowseLink | null;
   shelves: Shelf[];
+  /** The header's subscribe button (SubscriptionState in shared Models.kt); null where none is offered. */
+  subscription: { channelId: string; subscribed: boolean } | null;
 }
 
 export interface HomePage {

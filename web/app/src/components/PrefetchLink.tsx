@@ -5,11 +5,16 @@ function warm(to: LinkProps['to']) {
   preloadRoute(typeof to === 'string' ? to : (to.pathname ?? ''));
 }
 
-/** A link that loads its page's chunk on hover or focus (prompt §3, "Prefetch"). */
+/**
+ * A link that loads its page's chunk on hover or focus (prompt §3, "Prefetch").
+ * It pushes with the page crossfade (shell/pageTransition.css), as the phone
+ * fades everything opened over a tab.
+ */
 export function PrefetchLink({ to, onPointerEnter, onFocus, ...rest }: LinkProps) {
   return (
     <Link
       to={to}
+      viewTransition
       onPointerEnter={(e) => {
         warm(to);
         onPointerEnter?.(e);

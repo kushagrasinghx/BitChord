@@ -1,65 +1,20 @@
-import { ArrowUpRight, ListMusic, Radio, Settings } from 'lucide-react';
+import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { useLocation, type NavLinkProps } from 'react-router';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
-import {
-  AlbumsIcon,
-  AllPlaylistsIcon,
-  ArtistsIcon,
-  HomeIcon,
-  MadeForYouIcon,
-  NewIcon,
-  RecentlyAddedIcon,
-  SearchIcon,
-  SongsIcon,
-  type NavIconProps,
-} from '@/components/icons/NavIcons';
+import { AllPlaylistsIcon } from '@/components/icons/NavIcons';
 import { hrefFor } from '@/components/music/links';
 import { config } from '@/config';
-import { LIBRARY_SECTIONS, type LibrarySection } from '@/data/music/library';
+import { LIBRARY_SECTIONS } from '@/data/music/library';
 import { useLibraryPlaylists, useSignedIn } from '@/data/music/queries';
 import { useSpotifyPlaylists } from '@/data/spotify/queries';
 import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
 import { useUi } from '@/state/ui';
-import { AccountButton } from './AccountButton';
-
-interface NavItem {
-  to: string;
-  label: string;
-  Icon: (props: NavIconProps) => React.ReactNode;
-}
-
-/** Apple's sidebar has no Radio glyph captured (web/docs/apple-music-dom.md); the broadcast mark, at the playlists' size. */
-function RadioIcon({ className }: NavIconProps) {
-  return (
-    <span className={className}>
-      <Radio size={18} strokeWidth={1.8} />
-    </span>
-  );
-}
-
-const PRIMARY: NavItem[] = [
-  { to: '/search', label: 'Search', Icon: SearchIcon },
-  { to: '/home', label: 'Home', Icon: HomeIcon },
-  { to: '/new', label: 'New', Icon: NewIcon },
-  { to: '/radio', label: 'Radio', Icon: RadioIcon },
-];
-
-const LIBRARY_ICONS: Record<Exclude<LibrarySection, 'playlists'>, NavItem['Icon']> = {
-  recent: RecentlyAddedIcon,
-  artists: ArtistsIcon,
-  albums: AlbumsIcon,
-  songs: SongsIcon,
-  'made-for-you': MadeForYouIcon,
-};
-
-const LIBRARY: NavItem[] = (Object.keys(LIBRARY_ICONS) as (keyof typeof LIBRARY_ICONS)[]).map((section) => ({
-  to: `/library/${section}`,
-  label: LIBRARY_SECTIONS[section].title,
-  Icon: LIBRARY_ICONS[section],
-}));
+import { pillFrames, SPRING_MS } from './tabSpring';
+import { SEARCH_RESET_EVENT, tabOf, TABS } from './tabs';
 
 // A sidebar row; NavLink sets aria-current on the page's own row.
 const item =
@@ -84,11 +39,16 @@ function scrollPageToTop() {
   page.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
 }
 
-/** A sidebar link, which is also the way back to the top of the page it opens. */
+/**
+ * A sidebar link, which is also the way back to the top of the page it opens.
+ * Tabs swap instantly; anything else is pushed with the page crossfade, as the
+ * phone's navigator only fades between a tab and what is pushed over it.
+ */
 function SidebarLink({ onClick, ...props }: NavLinkProps) {
   const { pathname } = useLocation();
   return (
     <PrefetchNavLink
+      viewTransition={tabOf(String(props.to)) < 0}
       {...props}
       onClick={(event) => {
         if (pathname === props.to) scrollPageToTop();
@@ -98,28 +58,78 @@ function SidebarLink({ onClick, ...props }: NavLinkProps) {
   );
 }
 
-function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate: () => void }) {
+/** A tab's row height plus the gap under it (h-9, mb-0.5): how far the pill moves per tab. */
+const TAB_STEP = 38;
+// The glyph's 1.08 pop rides the same spring as the pill (FloatingBottomBar.kt BottomBarItem), sampled for CSS.
+const SPRING_EASE =
+  'ease-[linear(0,0.032,0.111,0.217,0.336,0.456,0.57,0.673,0.762,0.837,0.898,0.945,0.98,1.005,1.022,1.032,1.037,1.038,1.037,1.034,1.03,1.025,1.02,1.016,1)]';
+
+/**
+ * Android's tabs as the top of the sidebar (FloatingBottomBar.kt): the chosen
+ * one in the key colour, the rest onSurfaceVariant, tints crossing over 200ms,
+ * and one pill of the key colour at 14% that travels between them on the
+ * glass spring rather than a highlight per row. A page pushed over a tab keeps
+ * that tab lit, as the phone's bar does under a pushed page.
+ */
+function TabList({ onNavigate }: { onNavigate: () => void }) {
+  const { pathname } = useLocation();
+  const current = tabOf(pathname);
+  const [shown, setShown] = useState(current);
+  if (current >= 0 && current !== shown) setShown(current);
+  const pill = useRef<HTMLLIElement>(null);
+  const settled = useRef(shown);
+
+  useLayoutEffect(() => {
+    const el = pill.current;
+    const from = settled.current;
+    settled.current = shown;
+    if (!el || from < 0 || shown < 0 || from === shown || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // The new position is already committed: start from the old tab, or from wherever the pill is
+    // mid-flight, so a second click turns it around rather than restarting it.
+    const flying = el.getAnimations();
+    const y = flying.length ? new DOMMatrix(getComputedStyle(el).transform).m42 : from * TAB_STEP;
+    flying.forEach((a) => a.cancel());
+    el.animate(pillFrames(y, shown * TAB_STEP, TAB_STEP), { duration: SPRING_MS });
+  }, [shown]);
+
   return (
-    <ul className={list}>
-      {items.map(({ to, label, Icon }) => (
-        <li key={to}>
-          <SidebarLink to={to} className={item} onClick={onNavigate}>
-            <Icon size={24} className={icon} />
-            <span className={navLabel}>{label}</span>
-          </SidebarLink>
-        </li>
-      ))}
+    <ul className={`${list} relative`}>
+      {shown >= 0 && (
+        <li
+          ref={pill}
+          className="pointer-events-none absolute inset-x-0 top-0 h-9 rounded-nav bg-key/14"
+          style={{ transform: `translateY(${shown * TAB_STEP}px)` }}
+          aria-hidden="true"
+        />
+      )}
+      {TABS.map(({ to, label, Icon }, index) => {
+        const selected = index === shown;
+        return (
+          <li key={to}>
+            <SidebarLink
+              to={to}
+              className={`relative flex h-9 items-center gap-2 mb-0.5 p-1 rounded-nav type-body-reduced transition-colors duration-200 hover:bg-quinary ${selected ? 'text-key' : 'text-on-surface-variant'}`}
+              onClick={() => {
+                // Search tapped on Search starts a new search (MainActivity onTabSelected).
+                if (to === '/search' && pathname === '/search') window.dispatchEvent(new Event(SEARCH_RESET_EVENT));
+                onNavigate();
+              }}
+            >
+              <Icon size={24} className={`flex-none transition-[scale] duration-[360ms] motion-reduce:transition-none ${SPRING_EASE} ${selected ? 'scale-108' : ''}`} />
+              <span className={navLabel}>{label}</span>
+            </SidebarLink>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-/** Library and Playlists (report §1), once YouTube requests are made as the user. */
+/** The account's playlists (report §1), once YouTube requests are made as the user. */
 function LibraryNav({ onNavigate }: { onNavigate: () => void }) {
   const playlists = useLibraryPlaylists();
   return (
     <>
-      <h2 className={sectionHeader}>Library</h2>
-      <NavList items={LIBRARY} onNavigate={onNavigate} />
       <h2 className={sectionHeader}>Playlists</h2>
       <ul className={list}>
         <li>
@@ -196,7 +206,7 @@ export function Sidebar() {
           </PrefetchLink>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none]">
-          <NavList items={PRIMARY} onNavigate={close} />
+          <TabList onNavigate={close} />
           {signedIn && <LibraryNav onNavigate={close} />}
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
         </div>
@@ -213,7 +223,6 @@ export function Sidebar() {
               </span>
             )}
           </SidebarLink>
-          <AccountButton />
           <div className="flex items-center justify-between">
             <a className="inline-flex items-center gap-1 ps-1 type-callout text-primary hover:underline" href={config.androidAppUrl} target="_blank" rel="noreferrer">
               <span>Get the Android app</span>

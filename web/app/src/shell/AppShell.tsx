@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react';
 import { resumeSession } from '@/party/listenTogether';
 import { startPartySync } from '@/party/partySync';
 import { useDiscordPresence } from '@/playback/discordPresence';
 import { startHistoryReporting } from '@/playback/historyReporting';
 import { startLivePresence } from '@/playback/livePresence';
 import { startListeningRecorder } from '@/replay/recorder';
-import { Outlet } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { config } from '@/config';
 import { useExtension } from '@/extension/useExtension';
@@ -17,8 +17,30 @@ import { MobileTopBar } from './MobileTopBar';
 import { PlayerBar } from './PlayerBar';
 import { SidePanel } from './SidePanel';
 import { Sidebar } from './Sidebar';
+import { tabOf } from './tabs';
+import { TopBar } from './TopBar';
+import './pageTransition.css';
 
 const mobile = isMobileBrowser();
+
+// Artwork-led pages run their art up under the top bar, as the phone's do (FrostedTopBar's floating chrome).
+const FULL_BLEED = /^\/artist\//;
+
+/**
+ * Where the browser has no view transitions, a pushed or popped page fades in
+ * over the same 180ms (pageTransition.css); tab to tab stays instant.
+ */
+function usePageFadeFallback(pathname: string) {
+  const content = useRef<HTMLDivElement>(null);
+  const previous = useRef(pathname);
+  useLayoutEffect(() => {
+    const from = previous.current;
+    previous.current = pathname;
+    if (from === pathname || 'startViewTransition' in document || (tabOf(from) >= 0 && tabOf(pathname) >= 0)) return;
+    content.current?.animate({ opacity: [0, 1] }, { duration: 180, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
+  }, [pathname]);
+  return content;
+}
 
 // It carries am-lyrics; loaded the first time it opens, as the side panel's lyrics are.
 const FullScreenPlayer = lazy(() => import('./FullScreenPlayer').then((m) => ({ default: m.FullScreenPlayer })));
@@ -45,6 +67,10 @@ export function AppShell() {
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);
   const fullScreen = useUi((s) => s.fullScreen);
+  const { pathname } = useLocation();
+  const content = usePageFadeFallback(pathname);
+  // A pushed page starts below the bar, so its back button never sits on its heading.
+  const clearTopBar = tabOf(pathname) < 0 && !FULL_BLEED.test(pathname);
 
   let banner = null;
   if (mobile) {
@@ -85,8 +111,9 @@ export function AppShell() {
           id="scrollable-page"
           className="absolute inset-0 overflow-x-hidden overflow-y-auto pl-(--web-navigation-width) [scrollbar-gutter:stable] data-tint:bg-(--page-tint) data-tint:transition-[background-color] data-tint:duration-300 data-tint:ease-in max-sm:pt-(--mobile-top-bar-height) max-sm:pl-0"
         >
+          <TopBar />
           {/* Clears the floating pill: its height, its offset, and some air. */}
-          <div className="min-h-full pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)]">
+          <div ref={content} className={`min-h-full pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)] ${clearTopBar ? 'sm:pt-13' : ''}`}>
             <Outlet />
           </div>
         </main>

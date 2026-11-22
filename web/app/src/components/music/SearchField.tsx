@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useSuggestions } from '@/data/music/queries';
 import type { MusicItem } from '@/data/music/types';
+import { SEARCH_RESET_EVENT } from '@/shell/tabs';
 import { usePlayer } from '@/state/player';
 import { Artwork } from './Artwork';
 import { hrefFor } from './links';
@@ -43,6 +44,15 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
   }, []);
 
   useEffect(() => setValue(initial), [initial]);
+  // The Search tab clicked again starts over (shell/tabs.ts).
+  useEffect(() => {
+    const reset = () => {
+      setValue('');
+      input.current?.focus();
+    };
+    window.addEventListener(SEARCH_RESET_EVENT, reset);
+    return () => window.removeEventListener(SEARCH_RESET_EVENT, reset);
+  }, []);
 
   const options: Option[] = [
     ...(suggestions.data?.queries ?? []).map((q) => ({ kind: 'query' as const, ...q })),

@@ -1,0 +1,13 @@
+/*
+ * Push and pop: the page crossfades over 180ms on the standard curve, as the
+ * phone's navigator does (MainActivity AnimatedContent: fadeIn(tween(180))
+ * togetherWith fadeOut(tween(180)); tween's default easing is
+ * FastOutSlowIn). Tab to tab swaps instantly, so those navigations don't ask
+ * for a view transition at all. A crossfade has no travel, so it stays under
+ * reduced motion.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

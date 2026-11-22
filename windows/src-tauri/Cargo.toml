@@ -11,8 +11,22 @@ tauri-build = { version = "2", features = [] }
 # unstable: child webviews (Window::add_child), which the sign-in sheet is made of.
 tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-single-instance = "2"
-# Already in the graph through Tauri; this only turns on the title bar's DWM calls.
-windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm"] }
+# These are all already in the graph through Tauri; listing them only turns on what the shell calls.
+# windows-sys: the title bar (DWM) and the process's app identity (Shell).
+windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_UI_Shell"] }
+# windows: WinRT for the media session (SMTC), update notifications and the release check.
+windows = { version = "0.62", features = [
+    "Data_Xml_Dom",
+    "Foundation",
+    "Media",
+    "Storage_Streams",
+    "UI_Notifications",
+    "Web_Http",
+    "Web_Http_Headers",
+    "Win32_System_WinRT",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [profile.release]
 codegen-units = 1

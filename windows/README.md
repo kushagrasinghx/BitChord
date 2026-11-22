@@ -96,6 +96,36 @@ Only a change to how the page and extension find each other would need work
 here: a new origin rule in `web/extension/site.config.ts`, or a new extension
 permission that WebView2 does not support.
 
+## Releases and updates
+
+Nothing to do by hand. Publishing a GitHub release runs `.github/workflows/windows.yml`,
+which builds the installer from the release's tag and attaches it as
+`BitChord-<tag>-windows-setup.exe`, next to the APKs.
+
+The app checks for updates the way the phone does (`AppUpdateChecker.kt`): the
+same "latest release" and the same version rule, at launch and every 12 hours
+(`src/update.rs`). When a newer release carries the Windows installer, it shows a
+Windows notification once for that version; its **Download** opens the installer,
+which upgrades in place and keeps sign-ins and settings (they live in
+`%LOCALAPPDATA%\com.music.bitchord.windows`). No signing key or secret is involved.
+
+Installing also replaces upstream's retired Compose desktop app (1.7 to 1.8.x)
+if it is there (`installer-hooks.nsh`), found by its MSI upgrade code. It
+registered per machine, so Windows may ask for permission to remove it. Its own
+settings and sign-ins don't carry over (different storage).
+
+## Media controls
+
+The media keys, the volume flyout and Quick Settings control the player as
+**BitChord**. Chromium's own integration would register them for
+`msedgewebview2.exe`, which Windows shows as "Unknown app", so it is turned off
+(`HardwareMediaKeyHandling`). `src/media_session.rs` registers the controls for
+BitChord's window instead, fed by `shell/media-session.js`, which mirrors the
+player's Media Session (title, artist, album, artwork, state) and runs the
+player's own handlers when a button is pressed. Windows takes the name and icon
+from the installer's shortcuts, so a copy run without installing shows "Unknown
+app" there.
+
 ## Known limits
 
 - **Sign-in** lives in the app's WebView2 profile, not your browser's: you sign in once inside the app.

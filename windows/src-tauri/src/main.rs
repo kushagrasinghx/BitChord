@@ -8,10 +8,22 @@
 //! in a browser. WebView2 is Chromium, so it loads the same MV3 build the
 //! Chrome zip holds; this file only hosts the two together.
 
+mod media_session;
 mod sign_in;
 mod title_bar;
+mod update;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+
+/// Every webview in the app gets these (WebView2 refuses a second webview whose
+/// options differ). Tauri's defaults, which setting any replaces: its disabled
+/// features, and autoplay without a click, which media keys rely on (their Play
+/// reaches the page with no user gesture). Plus Chromium's own media-key handling
+/// off, because media_session.rs registers Windows' media controls as BitChord.
+pub const BROWSER_ARGS: &str = concat!(
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HardwareMediaKeyHandling",
+    " --autoplay-policy=no-user-gesture-required",
+);
 
 fn main() {
     tauri::Builder::default()
@@ -23,12 +35,18 @@ fn main() {
             }
         }))
         .register_uri_scheme_protocol(sign_in::SCHEME, |_ctx, _request| sign_in::serve())
+        .invoke_handler(tauri::generate_handler![media_session::media_session])
         .on_window_event(|window, event| {
             if let WindowEvent::Resized(_) = event {
                 sign_in::relayout(window.app_handle());
             }
         })
         .setup(|app| {
+            // The identity the installer gives the Start menu and desktop shortcuts, so Windows
+            // names the media controls and update notifications "BitChord", with its icon.
+            let app_id: Vec<u16> = app.config().identifier.encode_utf16().chain([0]).collect();
+            unsafe { windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(app_id.as_ptr()) };
+
             // scripts/build.mjs bundles the built extension at resources/extensions/bitchord.
             let extensions = app.path().resource_dir()?.join("extensions");
             let handle = app.handle().clone();
@@ -36,6 +54,7 @@ fn main() {
                 .title("BitChord")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(400.0, 600.0)
+                .additional_browser_args(BROWSER_ARGS)
                 .browser_extensions_enabled(true)
                 .extensions_path(extensions)
                 // Google's and Spotify's sign-in become a sheet over the player; other links open in the browser.
@@ -45,10 +64,13 @@ fn main() {
                     "{{ const s = new CSSStyleSheet(); s.replaceSync({:?}); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; }}",
                     include_str!("../shell/scrollbars.css")
                 ))
+                .initialization_script(include_str!("../shell/media-session.js"))
                 .build()?;
             if let Some(window) = app.get_window("main") {
                 title_bar::apply(&window);
+                media_session::init(app.handle(), &window)?;
             }
+            update::spawn(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -3,6 +3,11 @@ name: Windows
 # The Windows app (windows/): the web player and its extension, built as they
 # are for the site, inside a Tauri shell. Runs when the shell or either of the
 # web packages it hosts changes, and uploads the installer.
+#
+# Publishing a GitHub release also attaches the installer to it, built from the
+# release's tag, as BitChord-<tag>-windows-setup.exe next to the APKs. That is the
+# whole Windows release step: the app's update check (windows/src-tauri/src/update.rs)
+# looks for that file on the latest release.
 on:
   push:
     branches: [main]
@@ -15,11 +20,16 @@ on:
       - 'windows/**'
       - 'web/**'
       - '.github/workflows/windows.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
   group: windows-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   windows:
@@ -44,3 +54,23 @@ jobs:
         with:
           name: bitchord-windows
           path: windows/src-tauri/target/release/bundle/nsis/*.exe
+
+  release:
+    name: Windows · attach installer to the release
+    needs: windows
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bitchord-windows
+
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cp ./*-setup.exe "BitChord-$TAG-windows-setup.exe"
+          gh release upload "$TAG" "BitChord-$TAG-windows-setup.exe" --clobber --repo "$GITHUB_REPOSITORY"

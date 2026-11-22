@@ -140,6 +140,7 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: Url, provider: &'static Provider) {
     let frame = WebviewBuilder::new(FRAME, WebviewUrl::CustomProtocol(frame_url))
         .transparent(true)
         // WebView2 refuses a second webview in this profile unless its environment matches main's.
+        .additional_browser_args(crate::BROWSER_ARGS)
         .browser_extensions_enabled(true)
         // The sheet's buttons navigate the frame: /close (close, Esc, the scrim) and /back ("Back to sign-in").
         .on_navigation(move |url| match url.path() {
@@ -172,6 +173,7 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: Url, provider: &'static Provider) {
     let page = WebviewBuilder::new(PAGE, WebviewUrl::External(url))
         .transparent(true)
         // WebView2 refuses a second webview in this profile unless its environment matches main's.
+        .additional_browser_args(crate::BROWSER_ARGS)
         .browser_extensions_enabled(true)
         .on_navigation(move |url| {
             let mut current = CURRENT.lock().unwrap();

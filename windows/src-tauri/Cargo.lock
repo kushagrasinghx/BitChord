@@ -259,9 +259,12 @@ checksum = "72503af1e72be411d74ca45cd6b309878fcb35354e252fc2a3a8bda3a97082a0"
 name = "bitchord-windows"
 version = "0.0.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-single-instance",
+ "windows",
  "windows-sys 0.61.2",
 ]
 

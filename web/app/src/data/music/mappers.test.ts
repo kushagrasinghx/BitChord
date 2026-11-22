@@ -63,6 +63,10 @@ describe('album', () => {
     expect(album.playlistId).toMatch(/^OLAK/);
   });
 
+  it('names the album on every track, as the phone does', () => {
+    album.tracks.forEach((track) => expect(track.album).toEqual({ name: album.title, id: 'MPREb_test' }));
+  });
+
   it('reads numbered tracks with durations', () => {
     expect(album.tracks.length).toBeGreaterThan(3);
     album.tracks.forEach((track, i) => {

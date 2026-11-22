@@ -249,10 +249,17 @@ function headerInfo(header: YTNodes.MusicResponsiveHeader | null | undefined): H
 
 export function mapAlbum(id: string, album: Pick<YTMusic.Album, 'header' | 'contents' | 'sections' | 'url'>): AlbumPage {
   const listId = album.url ? new URL(album.url).searchParams.get('list') : null;
+  const header = headerInfo(album.header as YTNodes.MusicResponsiveHeader | undefined);
+  // An album's rows don't name their album; the phone gives each the page's (InnertubeParser
+  // parseResponsiveListItem's page fallback), so Song info, Go to album and the queue know it.
+  const self: AlbumRef = { name: header.title, id };
   return {
     id,
-    ...headerInfo(album.header as YTNodes.MusicResponsiveHeader | undefined),
-    tracks: album.contents.map(mapTrack).filter((t): t is Track => !!t),
+    ...header,
+    tracks: album.contents
+      .map(mapTrack)
+      .filter((t): t is Track => !!t)
+      .map((t) => (t.album ? t : { ...t, album: self })),
     playlistId: listId,
     more: mapShelves(album.sections),
   };

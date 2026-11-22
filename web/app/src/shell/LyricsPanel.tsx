@@ -122,6 +122,20 @@ const FULL_FALLOFF =
   blurred(':not(.post-active-line):not(.next-active-line):not(.prev-2):not(.next-2):not(.prev-3):not(.next-3)', 2.4);
 
 /**
+ * The side panel keeps am-lyrics' own header: romanize, translate, and a
+ * download format picker that only says "Auto". A word before the picker says
+ * what it is for, and its tooltip says what Auto picks (am-lyrics'
+ * downloadLyrics: TTML when any line is synced by word, else LRC).
+ */
+const HEADER_LABEL =
+  ".download-controls::before { content: 'Download'; margin-inline-end: 4px; font-size: 11px; color: color-mix(in srgb, var(--lyplus-text-primary) 55%, transparent); }";
+const FORMAT_TITLE = 'Download format. Auto saves TTML when the lyrics are synced by word, LRC when by line.';
+function labelHeader(el: AmLyricsElement) {
+  const select = el.shadowRoot?.querySelector<HTMLSelectElement>('.format-select');
+  if (select) select.title = FORMAT_TITLE;
+}
+
+/**
  * am-lyrics, exactly as it is, fed our TTML and a steered clock (prompt §10.2).
  * The clock reads the media time each frame, stamps the reading with when it
  * was taken, and is told about every seek and track change: the "lyric clock
@@ -161,8 +175,9 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
       const root = el.shadowRoot;
       if (!root) return;
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE + FULL_FALLOFF);
+      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE + FULL_FALLOFF + HEADER_LABEL);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+      labelHeader(el);
       onElement?.(el);
     });
     return () => {
@@ -176,7 +191,11 @@ function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; on
   }, []);
 
   useEffect(() => {
-    if (element.current && element.current.ttml !== ttml) element.current.ttml = ttml;
+    const el = element.current;
+    if (!el || el.ttml === ttml) return;
+    el.ttml = ttml;
+    // The header is drawn again with the new lyrics.
+    void Promise.resolve(el.updateComplete).then(() => labelHeader(el));
   }, [ttml]);
 
   useEffect(() => {
@@ -265,6 +284,7 @@ function useUngranted(): string[] {
 const NO_STATES: Partial<Record<LyricsSourceId, SourceState>> = {};
 
 const headerButton = 'grid size-7 place-items-center rounded-[8px] text-secondary hover:bg-quinary';
+const PICKER_TITLE = 'Choose where the lyrics come from';
 
 // The share sheet (its card renderer and recorder) loads the first time it opens.
 const ShareLyricsSheet = lazy(() => import('@/lyrics/share/ShareLyricsSheet'));
@@ -284,6 +304,7 @@ function AmToggle({ element, which, label, icon }: { element: AmLyricsElement | 
   useEffect(read, [element]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <button
+      title={label}
       className="grid size-[34px] place-items-center rounded-full bg-white/18 text-white/78 transition-colors duration-200 hover:bg-white/24 aria-pressed:bg-white/34 aria-pressed:text-white disabled:text-white/42"
       aria-label={label}
       aria-pressed={on}
@@ -319,15 +340,18 @@ function ProviderPicker({
   const [sharing, setSharing] = useState(false);
   const close = useCallback(() => setAnchor(null), []);
   const closeSharing = useCallback(() => setSharing(false), []);
-  const label = current ? sourceById(current)?.label : 'Lyrics';
+  // In the side panel the provider is the title's second line; with none yet, the picker still names itself.
+  const label = current ? sourceById(current)?.label : full ? 'Lyrics' : 'Choose provider';
 
   const picker = (
     <button
       className={
         full
           ? 'inline-flex min-w-0 items-center gap-1 rounded-pill px-2 py-1 type-label-medium text-white/55 hover:bg-white/10 hover:text-white/80'
-          : 'inline-flex items-center gap-1 rounded-[8px] px-2 py-1 type-callout-emphasized text-secondary hover:bg-quinary'
+          : '-ms-1.5 inline-flex max-w-full items-center gap-0.5 self-start rounded-[6px] px-1.5 py-0.5 type-footnote text-secondary hover:bg-quinary'
       }
+      title={PICKER_TITLE}
+      aria-label={current ? `Lyrics provider: ${label}` : 'Lyrics provider'}
       aria-haspopup="menu"
       onClick={(e) => setAnchor(e.currentTarget)}
     >
@@ -338,11 +362,11 @@ function ProviderPicker({
   const actions = (
     <span className="flex gap-0.5">
       {lines && (
-        <button className={headerButton} aria-label="Share lyrics" onClick={() => setSharing(true)}>
+        <button className={headerButton} aria-label="Share lyrics" title="Share lyrics" onClick={() => setSharing(true)}>
           <Share size={16} />
         </button>
       )}
-      <button className={headerButton} aria-label="Lyric settings" onClick={() => setSettings(true)}>
+      <button className={headerButton} aria-label="Lyric settings" title="Lyric settings" onClick={() => setSettings(true)}>
         <Settings2 size={16} />
       </button>
     </span>
@@ -354,7 +378,8 @@ function ProviderPicker({
         full
           ? // LandscapeLyricsPane's bar under the column: romanize and translate in fixed 34px slots either side, so the provider stays centred.
             'grid grid-cols-[34px_minmax(0,1fr)_34px] items-center gap-3 pt-2.5'
-          : 'flex items-center justify-between px-4 pt-4 pb-1'
+          : // The panel's title, as the queue's "Queue" heads its panel, with the provider under it.
+            'flex items-start justify-between gap-2 px-5 pt-[23px] pb-1'
       }
     >
       {full ? (
@@ -363,7 +388,7 @@ function ProviderPicker({
           <span className="flex min-w-0 items-center justify-center gap-1">
             {picker}
             {lines && (
-              <button className="grid size-7 flex-none place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white/80" aria-label="Share lyrics" onClick={() => setSharing(true)}>
+              <button className="grid size-7 flex-none place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white/80" aria-label="Share lyrics" title="Share lyrics" onClick={() => setSharing(true)}>
                 <Share size={15} />
               </button>
             )}
@@ -372,7 +397,10 @@ function ProviderPicker({
         </>
       ) : (
         <>
-          {picker}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h3 className="truncate type-title-large text-primary">Lyrics</h3>
+            {picker}
+          </div>
           {actions}
         </>
       )}

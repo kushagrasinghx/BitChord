@@ -25,18 +25,102 @@ object YtDlpDownloader {
     private var initialized = false
     private val initLock = Any()
 
+    @Volatile
+    var lastInitError: Throwable? = null
+        private set
+
+    /**
+     * Ensures native binaries and zip archives exist on disk.
+     * On devices or custom ROMs where PackageManager did not extract .zip.so files into nativeLibraryDir,
+     * this extracts them directly from the APK into internal storage and points nativeLibraryDir to it.
+     */
+    private fun ensureNativeLibraries(app: Context) {
+        val nativeLibDir = File(app.applicationInfo.nativeLibraryDir)
+        val pythonZip = File(nativeLibDir, "libpython.zip.so")
+        val ffmpegZip = File(nativeLibDir, "libffmpeg.zip.so")
+        if (pythonZip.exists() && pythonZip.length() > 0 && ffmpegZip.exists() && ffmpegZip.length() > 0) {
+            return
+        }
+
+        // Fallback: extract directly from the APK file(s) into no_backup/youtubedl-bin
+        val fallbackBinDir = File(app.noBackupFilesDir, "youtubedl-bin").apply { mkdirs() }
+        val fallbackPythonZip = File(fallbackBinDir, "libpython.zip.so")
+        val fallbackFfmpegZip = File(fallbackBinDir, "libffmpeg.zip.so")
+
+        if (!fallbackPythonZip.exists() || fallbackPythonZip.length() == 0L ||
+            !fallbackFfmpegZip.exists() || fallbackFfmpegZip.length() == 0L
+        ) {
+            val apkPaths = mutableListOf<String>()
+            app.applicationInfo.sourceDir?.let { apkPaths.add(it) }
+            app.applicationInfo.splitSourceDirs?.let { apkPaths.addAll(it) }
+
+            val supportedAbis = android.os.Build.SUPPORTED_ABIS
+            val neededLibs = listOf(
+                "libpython.zip.so",
+                "libffmpeg.zip.so",
+                "libpython.so",
+                "libffmpeg.so",
+                "libqjs.so",
+            )
+
+            for (apkPath in apkPaths) {
+                val apkFile = File(apkPath)
+                if (!apkFile.exists()) continue
+                runCatching {
+                    java.util.zip.ZipFile(apkFile).use { zip ->
+                        for (libName in neededLibs) {
+                            val targetFile = File(fallbackBinDir, libName)
+                            if (targetFile.exists() && targetFile.length() > 0) continue
+
+                            for (abi in supportedAbis) {
+                                val entry = zip.getEntry("lib/$abi/$libName")
+                                if (entry != null) {
+                                    zip.getInputStream(entry).use { input ->
+                                        targetFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                    targetFile.setExecutable(true, false)
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }.onFailure {
+                    android.util.Log.w(TAG, "Fallback extraction from $apkPath failed: ${it.message}")
+                }
+            }
+        }
+
+        if (fallbackPythonZip.exists() && fallbackPythonZip.length() > 0) {
+            app.applicationInfo.nativeLibraryDir = fallbackBinDir.absolutePath
+            runCatching {
+                val field = YoutubeDL::class.java.getDeclaredField("binDir").apply { isAccessible = true }
+                field.set(null, fallbackBinDir)
+            }
+            runCatching {
+                val field = FFmpeg::class.java.getDeclaredField("binDir").apply { isAccessible = true }
+                field.set(null, fallbackBinDir)
+            }
+            android.util.Log.i(TAG, "Using fallback native library directory: ${fallbackBinDir.absolutePath}")
+        }
+    }
+
     fun init(context: Context) {
         if (initialized) return
         synchronized(initLock) {
             if (!initialized) {
                 try {
                     val app = context.applicationContext
+                    // Ensure native libraries exist before initializing
+                    ensureNativeLibraries(app)
+
                     // Ensure the latest bundled yt-dlp binary is installed in no_backup/youtubedl-android/yt-dlp
                     runCatching {
                         val ytdlpDir = File(app.noBackupFilesDir, "youtubedl-android/yt-dlp")
                         val ytdlpFile = File(ytdlpDir, "yt-dlp")
                         val rawStream = app.resources.openRawResource(com.music.bitchord.R.raw.ytdlp)
-                        val rawBytes = rawStream.readBytes()
+                        val rawBytes = rawStream.use { it.readBytes() }
                         if (!ytdlpFile.exists() || ytdlpFile.length() != rawBytes.size.toLong()) {
                             ytdlpDir.mkdirs()
                             ytdlpFile.writeBytes(rawBytes)
@@ -50,6 +134,7 @@ object YtDlpDownloader {
                     YoutubeDL.getInstance().init(app)
                     FFmpeg.getInstance().init(app)
                     initialized = true
+                    lastInitError = null
                     android.util.Log.i(TAG, "yt-dlp and FFmpeg successfully initialized")
                     Log.d(TAG, "yt-dlp and FFmpeg successfully initialized")
 
@@ -62,8 +147,10 @@ object YtDlpDownloader {
                         }
                     }
                 } catch (e: Throwable) {
+                    lastInitError = e
                     android.util.Log.e(TAG, "Failed to initialize yt-dlp / FFmpeg", e)
                     Log.e(TAG, "Failed to initialize yt-dlp / FFmpeg", e)
+                    throw e
                 }
             }
         }
@@ -116,7 +203,17 @@ object YtDlpDownloader {
         videoId: String,
         onProgress: (fraction: Float) -> Unit,
     ): File = withContext(Dispatchers.IO) {
-        init(context)
+        try {
+            init(context)
+        } catch (e: Throwable) {
+            val msg = e.message ?: e.javaClass.simpleName
+            error("yt-dlp initialization failed: $msg")
+        }
+
+        if (!initialized) {
+            val msg = lastInitError?.message ?: lastInitError?.javaClass?.simpleName ?: "initialization not complete"
+            error("yt-dlp is not ready: $msg")
+        }
 
         val tempDir = File(context.cacheDir, "ytdlp_downloads").apply { mkdirs() }
         val outputTemplate = "${tempDir.absolutePath}/$videoId.%(ext)s"

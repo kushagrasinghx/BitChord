@@ -92,6 +92,10 @@
 -keep class com.yausername.** { *; }
 -keep class io.github.junkfood02.youtubedl_android.** { *; }
 -keep class org.apache.commons.io.** { *; }
+-keep class org.apache.commons.compress.** { *; }
+-dontwarn org.apache.commons.compress.**
+-keep class com.fasterxml.jackson.** { *; }
+-dontwarn com.fasterxml.jackson.**
 -keepclassmembers class * implements com.yausername.youtubedl_android.interfaces.* { *; }
 
 # ---- Application & WorkManager ----

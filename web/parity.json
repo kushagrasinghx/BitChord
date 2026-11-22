@@ -167,9 +167,9 @@
     },
     {
       "id": "liked-offline",
-      "name": "Keep liked songs downloaded",
-      "android": ["app/src/main/java/com/music/bitchord/download/PlaylistSync.kt"],
-      "web": ["web/app/src/playback/offline/"]
+      "name": "Downloads: keep liked songs downloaded, and single songs from the menu",
+      "android": ["app/src/main/java/com/music/bitchord/download/PlaylistSync.kt", "app/src/main/java/com/music/bitchord/download/Downloads.kt"],
+      "web": ["web/app/src/playback/offline/", "web/app/src/playback/offline/downloads.ts"]
     },
     {
       "id": "stream-resolution",

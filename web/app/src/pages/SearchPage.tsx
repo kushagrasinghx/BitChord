@@ -11,6 +11,7 @@ import { PlaylistPicker } from '@/components/music/PlaylistPicker';
 import { SearchField } from '@/components/music/SearchField';
 import { isPlayable, ItemRow, rowButton, SongActions, subtitleOf } from '@/components/music/SearchRow';
 import { LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
+import { itemContextMenu } from '@/components/music/actionMenu';
 import { TrackMenu } from '@/components/music/TrackMenu';
 import { useLoadMore } from '@/components/music/useLoadMore';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -133,7 +134,7 @@ function TopResultCard({ item, query }: { item: MusicItem; query: string }) {
       <h2 id="top-result" className="type-callout-medium text-primary">
         Top result
       </h2>
-      <div className="mt-2.5 flex items-center gap-2">
+      <div className="mt-2.5 flex items-center gap-2" onContextMenu={itemContextMenu(item)}>
         {href ? (
           <PrefetchLink to={href} className={open} onClick={() => record(item)}>
             {heading}

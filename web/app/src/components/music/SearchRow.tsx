@@ -6,6 +6,7 @@ import { usePlayer } from '@/state/player';
 import { Artwork } from './Artwork';
 import { ExplicitBadge } from './ExplicitBadge';
 import { toTrack } from './play';
+import { itemContextMenu } from './actionMenu';
 import { TrackMenu } from './TrackMenu';
 
 export const isPlayable = (item: MusicItem) => item.kind === 'song' || item.kind === 'video';
@@ -130,7 +131,7 @@ export function ItemRow({
   divided?: boolean;
 }) {
   return (
-    <li className={divided ? `${row} ${divider}` : row} data-active={active || undefined} {...option} onClick={option ? onPick : undefined}>
+    <li className={divided ? `${row} ${divider}` : row} data-active={active || undefined} {...option} onClick={option ? onPick : undefined} onContextMenu={itemContextMenu(item)}>
       {option ? (
         <span className="col-span-2 grid cursor-default grid-cols-subgrid items-center">
           <RowBody item={item} />

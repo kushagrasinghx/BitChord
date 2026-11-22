@@ -1,4 +1,4 @@
-import type { Rgb } from '@/lib/meshPalette';
+import { GRID, type Rgb } from '@/lib/meshPalette';
 
 function toHsl([r, g, b]: Rgb): [number, number, number] {
   const [rn, gn, bn] = [r / 255, g / 255, b / 255];
@@ -14,6 +14,47 @@ function toHsl([r, g, b]: Rgb): [number, number, number] {
 
 export function hsl(h: number, s: number, l: number): string {
   return `hsl(${((h % 360) + 360) % 360} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
+}
+
+/** `0xFA2D48` as a colour, for palettes copied from the Kotlin. */
+export const rgbOf = (hex: number): Rgb => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+
+/** A blob's colour (MeshGradient.kt tuned): saturation ×1.35, lightness held to .28–.58. */
+export function meshTuned(rgb: Rgb): string {
+  const [h, s, l] = toHsl(rgb);
+  return hsl(h, Math.min(1, s * 1.35), Math.min(0.58, Math.max(0.28, l)));
+}
+
+/** The mesh's ground under the blobs (MeshGradient.kt dimmed): the colour at 12% lightness. */
+export function meshDimmed(rgb: Rgb): string {
+  const [h, s] = toHsl(rgb);
+  return hsl(h, s, 0.12);
+}
+
+/**
+ * The artwork's GRID² cells as the mesh's four colours: each quarter of the
+ * sleeve averaged, in the blobs' order (top left, top right, bottom right,
+ * bottom left), so each colour sits roughly where it is on the cover.
+ */
+export function meshSlots(cells: Rgb[]): Rgb[] {
+  const half = GRID / 2;
+  return [
+    [0, 0],
+    [0, half],
+    [half, half],
+    [half, 0],
+  ].map(([row, col]) => {
+    const sum: Rgb = [0, 0, 0];
+    for (let r = row!; r < row! + half; r++) {
+      for (let c = col!; c < col! + half; c++) {
+        const cell = cells[r * GRID + c] ?? [0, 0, 0];
+        sum[0] += cell[0];
+        sum[1] += cell[1];
+        sum[2] += cell[2];
+      }
+    }
+    return sum.map((v) => v / (half * half)) as Rgb;
+  });
 }
 
 /** [rgb] turned [degrees] round the colour wheel, saturation and lightness kept (the story's per-card hue). */

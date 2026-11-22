@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { resumeSession } from '@/party/listenTogether';
 import { startPartySync } from '@/party/partySync';
 import { useDiscordPresence } from '@/playback/discordPresence';
@@ -45,6 +45,9 @@ export function AppShell() {
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);
   const fullScreen = useUi((s) => s.fullScreen);
+  // Kept mounted from its first open: the player slides itself away before it goes.
+  const [playerLoaded, setPlayerLoaded] = useState(false);
+  if (fullScreen && !playerLoaded) setPlayerLoaded(true);
 
   let banner = null;
   if (mobile) {
@@ -94,7 +97,7 @@ export function AppShell() {
         <SidePanel />
       </div>
       {banner}
-      {fullScreen && (
+      {playerLoaded && (
         <Suspense fallback={null}>
           <FullScreenPlayer />
         </Suspense>

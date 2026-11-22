@@ -74,6 +74,17 @@ Terms (which open in the sheet rather than a new window), the footer becomes
 "You've left sign-in" with a **Back to sign-in** button in the player's
 key-colour pill, which returns to the last sign-in step.
 
+## Look
+
+The window takes the web player's glass (the player pill, the sidebar):
+
+- **Title bar:** Windows 11's Acrylic backdrop (`src/title_bar.rs`), the system's tinted, saturated
+  blur, which is what the player's `glass-pill` and `glass-material` draw in CSS. The bar stays
+  native (snap layouts, resize, caption buttons) and follows the system's light/dark setting.
+- **Scrollbars:** a floating capsule with the pill's glass fill and 0.5px inner stroke on a
+  transparent track (`shell/scrollbars.css`), added to the page at load as a constructed
+  stylesheet, so upstream's page is untouched. Its colours are upstream's tokens.
+
 ## Keeping it current
 
 There is nothing to port per release. The page and the extension are built

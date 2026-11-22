@@ -9,6 +9,7 @@
 //! Chrome zip holds; this file only hosts the two together.
 
 mod sign_in;
+mod title_bar;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
@@ -39,7 +40,15 @@ fn main() {
                 .extensions_path(extensions)
                 // Google's and Spotify's sign-in become a sheet over the player; other links open in the browser.
                 .on_new_window(move |url, _features| sign_in::on_new_window(&handle, url))
+                // Glass scrollbars (shell/scrollbars.css), as a constructed sheet so upstream's page is untouched.
+                .initialization_script(format!(
+                    "{{ const s = new CSSStyleSheet(); s.replaceSync({:?}); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; }}",
+                    include_str!("../shell/scrollbars.css")
+                ))
                 .build()?;
+            if let Some(window) = app.get_window("main") {
+                title_bar::apply(&window);
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

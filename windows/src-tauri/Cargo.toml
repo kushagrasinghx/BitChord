@@ -11,6 +11,8 @@ tauri-build = { version = "2", features = [] }
 # unstable: child webviews (Window::add_child), which the sign-in sheet is made of.
 tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-single-instance = "2"
+# Already in the graph through Tauri; this only turns on the title bar's DWM calls.
+windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm"] }
 
 [profile.release]
 codegen-units = 1

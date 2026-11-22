@@ -12,6 +12,7 @@ import { useHistorySettings } from '@/playback/historyReporting';
 import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
+import { AppearanceSettings } from './AppearanceSettings';
 import { DataSettings, PremiumAudioToggle } from './DataSettings';
 import { PlayerSettings } from './PlayerSettings';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
@@ -141,6 +142,8 @@ export default function SettingsPage() {
             value={party.code ? `In party ${party.code}` : 'Listen in sync with friends'}
           />
         </section>
+
+        <AppearanceSettings />
 
         <h2 className={settingsUi.sectionHeader}>Playback</h2>
         <section className={settingsUi.group}>

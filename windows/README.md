@@ -50,7 +50,7 @@ Verified on Windows 11 (26300) with v1.10: the extension loads with its pinned
 id, the page reaches it over `externally_connectable`, search and playback work
 (InnerTube and googlevideo through the extension's header rules), lyrics come
 through `lyrics.fetch`, and the Google and Spotify sign-in pages open in the
-sign-in sheet, which closes itself when the provider hands back.
+sign-in sheet, which closes itself once signed in.
 
 ## Sign-in
 
@@ -64,9 +64,15 @@ The provider's page inside the sheet is the real one, unmodified. The header
 shows the site it is on and follows every navigation ("Continue with Google"
 on Spotify's page changes it), so the padlock never names a site you are not
 on. The sheet is a webview in the player's own profile, so the session lands in
-the cookie jar the extension reads, and it closes itself once the provider
-hands back to its own site (`music.youtube.com`, `open.spotify.com`). Other
-links the player opens go to the default browser.
+the cookie jar the extension reads.
+
+It closes itself as soon as sign-in is done: when the session cookies the
+extension signs with appear or change (`SAPISID`, `SID` and their secure
+variants on youtube.com; `sp_dc` on open.spotify.com), or when the provider
+hands back to its own site, whichever comes first. The cookies matter because a
+provider's page doesn't always move on: Google's "check your phone" step can sit
+there after the approval. The values are only hashed and compared, never kept.
+Other links the player opens go to the default browser.
 
 Each provider lists the sites its sign-in passes through (`flow` in
 `sign_in.rs`). If the page leaves them, for example through Help, Privacy or

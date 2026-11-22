@@ -4,10 +4,13 @@
 //! Spotify's with `tabs.create`. Both arrive here and show as a BitChord modal
 //! (shell/sign-in.html, drawn with upstream's tokens.css) with the provider's
 //! own page inside it, untouched. It is a webview in this same profile, so the
-//! session lands in the cookie jar the extension reads, and the sheet closes
-//! itself once the provider hands back to its own site.
+//! session lands in the cookie jar the extension reads. The sheet closes itself
+//! as soon as that session exists (the cookies the extension signs with change),
+//! or when the provider hands back to its own site, whichever comes first.
 
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
@@ -33,6 +36,10 @@ pub struct Provider {
     /// Every site the sign-in itself passes through. Anywhere else (help, privacy,
     /// terms) and the sheet offers the way back.
     flow: &'static [&'static str],
+    /// Where the extension reads the session, and the cookies that make it up
+    /// (web/extension/lib/ytAuth.ts, spotify.ts): when they change, sign-in is done.
+    session_url: &'static str,
+    pub(crate) session_cookies: &'static [&'static str],
 }
 
 const PROVIDERS: &[Provider] = &[
@@ -42,6 +49,8 @@ const PROVIDERS: &[Provider] = &[
         done_host: "music.youtube.com",
         // Sign-in, the YouTube session hand-off (SetSID), cookie consent, and the recovery-options step.
         flow: &["accounts.google.com", "accounts.youtube.com", "consent.google.com", "consent.youtube.com", "gds.google.com"],
+        session_url: "https://music.youtube.com/",
+        session_cookies: &["SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID", "SID", "__Secure-1PSID", "__Secure-3PSID"],
     },
     Provider {
         host: "accounts.spotify.com",
@@ -56,6 +65,8 @@ const PROVIDERS: &[Provider] = &[
             "m.facebook.com",
             "appleid.apple.com",
         ],
+        session_url: "https://open.spotify.com/",
+        session_cookies: &["sp_dc"],
     },
 ];
 
@@ -97,6 +108,8 @@ pub(crate) fn open_in_browser(url: &Url) -> bool {
 
 /// The open sheet: which provider, and the last sign-in step "Back to sign-in" returns to.
 struct Session {
+    /// Which sheet this is, so a watcher from an earlier one never closes a later one.
+    id: u64,
     provider: &'static Provider,
     resume: Url,
     /// A link that asked for a new window (help, privacy, terms) was opened in the sheet;
@@ -105,6 +118,54 @@ struct Session {
 }
 
 static CURRENT: Mutex<Option<Session>> = Mutex::new(None);
+static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+fn current_id() -> Option<u64> {
+    CURRENT.lock().unwrap().as_ref().map(|s| s.id)
+}
+
+/// Closes sheet [id] once [provider]'s session cookies change: sign-in is done, whatever
+/// the page does next. (Google's "check your phone" page can stay put after approval.)
+fn watch_session<R: Runtime>(app: &AppHandle<R>, id: u64, provider: &'static Provider) {
+    let app = app.clone();
+    // Its own thread: reading WebView2's cookies from an event handler deadlocks.
+    thread::spawn(move || {
+        let url = Url::parse(provider.session_url).expect("static url");
+        let before = session_fingerprint(&app, &url, provider);
+        while current_id() == Some(id) {
+            thread::sleep(Duration::from_secs(1));
+            let now = session_fingerprint(&app, &url, provider);
+            if now.is_some() && now != before {
+                // Lets the provider's last redirects land before the sheet goes.
+                thread::sleep(Duration::from_millis(800));
+                if current_id() == Some(id) {
+                    close(&app);
+                }
+                return;
+            }
+        }
+    });
+}
+
+/// A hash of the session cookies, or None when there are none. Only compared, never
+/// kept or logged: the values themselves don't leave this function.
+fn session_fingerprint<R: Runtime>(app: &AppHandle<R>, url: &Url, provider: &Provider) -> Option<u64> {
+    let mut session: Vec<(String, String)> = app
+        .get_webview("main")?
+        .cookies_for_url(url.clone())
+        .ok()?
+        .into_iter()
+        .filter(|c| provider.session_cookies.contains(&c.name()))
+        .map(|c| (c.name().to_owned(), c.value().to_owned()))
+        .collect();
+    if session.is_empty() {
+        return None;
+    }
+    session.sort();
+    let mut hasher = DefaultHasher::new();
+    session.hash(&mut hasher);
+    Some(hasher.finish())
+}
 
 /// Tells the sheet's header which site it is on (it follows every navigation), and whether that is off the sign-in.
 fn show<R: Runtime>(app: &AppHandle<R>, provider: &Provider, host: &str, away: bool) {
@@ -125,7 +186,9 @@ fn navigate<R: Runtime>(app: &AppHandle<R>, url: Url) {
 }
 
 fn open<R: Runtime>(app: &AppHandle<R>, url: Url, provider: &'static Provider) {
-    *CURRENT.lock().unwrap() = Some(Session { provider, resume: url.clone(), left: false });
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    *CURRENT.lock().unwrap() = Some(Session { id, provider, resume: url.clone(), left: false });
+    watch_session(app, id, provider);
     if let Some(page) = app.get_webview(PAGE) {
         show(app, provider, provider.host, false);
         let _ = page.navigate(url);

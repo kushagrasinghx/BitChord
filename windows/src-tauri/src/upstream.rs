@@ -52,6 +52,24 @@ fn spotify_sign_in_opens_in_the_sheet() {
 }
 
 #[test]
+fn sheet_watches_the_session_cookies_the_extension_reads() {
+    // src/sign_in.rs closes the sheet when these change; the extension signs with them.
+    for (sign_in, source) in [
+        ("https://accounts.google.com/", "web/extension/lib/ytAuth.ts"),
+        ("https://accounts.spotify.com/", "web/extension/lib/spotify.ts"),
+    ] {
+        let code = upstream(source);
+        let provider = crate::sign_in::provider(&Url::parse(sign_in).unwrap()).unwrap();
+        for name in provider.session_cookies {
+            assert!(
+                code.contains(&format!("'{name}'")),
+                "{source} no longer reads the {name} cookie; update session_cookies in src/sign_in.rs"
+            );
+        }
+    }
+}
+
+#[test]
 fn design_tokens_the_shell_draws_with_exist() {
     let tokens = upstream("web/app/src/styles/tokens.css");
     for (sheet, css) in [

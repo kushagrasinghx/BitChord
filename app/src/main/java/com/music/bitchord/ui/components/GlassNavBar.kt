@@ -71,6 +71,9 @@ import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.fillMaxSize
 
+/** A half-row drag is reachable from the bottom-docked inline accessory. */
+private val INLINE_DISMISS_SWIPE_THRESHOLD = 24.dp
+
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
  * controls and the tabs are one component rather than two stacked bars.
@@ -115,6 +118,7 @@ fun GlassNavBar(
     modifier: Modifier = Modifier,
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
+    onDismiss: (() -> Boolean)? = null,
     autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
@@ -169,6 +173,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    onDismiss = onDismiss,
                     modifier = accessoryModifier.then(glassSurface()),
                     autoMixArtwork = autoMixArtwork,
                 )
@@ -191,6 +196,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    onDismiss = onDismiss,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
                     autoMixArtwork = autoMixArtwork,
                 )
@@ -313,6 +319,7 @@ private fun GlassNowPlaying(
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
+    onDismiss: (() -> Boolean)?,
     modifier: Modifier = Modifier,
     autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?,
 ) {
@@ -371,6 +378,8 @@ private fun GlassNowPlaying(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                onDismiss = onDismiss,
+                dismissThreshold = if (isInline) INLINE_DISMISS_SWIPE_THRESHOLD else null,
             )
             .graphicsLayer {
                 scaleX = pressScale

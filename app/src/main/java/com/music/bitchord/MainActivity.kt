@@ -1184,6 +1184,18 @@ private fun BitChordApp(
         locked
     }
 
+    val dismissMiniPlayer: () -> Boolean = {
+        if (refusedByHost()) {
+            false
+        } else {
+            controller?.let { activeController ->
+                activeController.stop()
+                activeController.clearMediaItems()
+                true
+            } ?: false
+        }
+    }
+
     /**
      * The one play/pause every surface presses.
      *
@@ -4406,6 +4418,7 @@ private fun BitChordApp(
                         song = player.song,
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
+                        onDismiss = dismissMiniPlayer,
                         animationsActive = !showNowPlaying,
                         onPlayPause = {
                             togglePlayPause()
@@ -4443,6 +4456,7 @@ private fun BitChordApp(
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
+                            onDismiss = dismissMiniPlayer,
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             animationsActive = !showNowPlaying,

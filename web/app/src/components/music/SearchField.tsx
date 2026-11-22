@@ -203,7 +203,7 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
 }
 
 // A suggestion row; hover or keyboard selection paints it in the key colour, white text.
-const optionRow = 'group/option mx-1.5 cursor-default rounded-[3px] data-active:bg-key-bg data-active:text-white';
+const optionRow = 'group/option mx-1.5 cursor-default rounded-[3px] data-active:bg-key-bg data-active:text-on-key';
 const hint = `${optionRow} grid grid-cols-[16px_minmax(0,1fr)] items-center p-1 type-body text-secondary`;
 const lockup = `${optionRow} mt-1.5 grid items-center gap-x-2.5 p-1.5`;
 const lockupCols = 'grid-cols-[46px_minmax(0,1fr)]';

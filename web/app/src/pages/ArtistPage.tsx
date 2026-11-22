@@ -103,7 +103,7 @@ export default function ArtistPage() {
           {data.audience && <p className="type-callout-emphasized text-secondary">{data.audience}</p>}
           <button
             // The 56px key-colour play button.
-            className="mt-2.5 grid size-14 place-items-center rounded-full bg-(--play-fill,var(--keyColorBG)) text-(--play-glyph,#fff) shadow-[0_2px_6px_-4px_#0006,inset_0_0_2px_#ffffff1a] disabled:opacity-40 enabled:hover:scale-[1.04]"
+            className="mt-2.5 grid size-14 place-items-center rounded-full bg-(--play-fill,var(--keyColorBG)) text-(--play-glyph,var(--keyColor-contrast)) shadow-[0_2px_6px_-4px_#0006,inset_0_0_2px_#ffffff1a] disabled:opacity-40 enabled:hover:scale-[1.04]"
             // Apple's fill for the Play circle, with the triangle in the page's colour,
             // as the phone cuts it out of the circle; white without a key colour.
             style={

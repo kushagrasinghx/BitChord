@@ -161,7 +161,7 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
           {selecting ? (
             // Selection's tick over the artwork's top-left, where the ✕ sits otherwise.
             <span
-              className="absolute -top-1.5 -left-1.5 grid size-[22px] place-items-center rounded-full border-[1.5px] border-white bg-black/30 text-key shadow-[0_1px_3px_#0004] data-selected:bg-white"
+              className="absolute -top-1.5 -left-1.5 grid size-[22px] place-items-center rounded-full border-[1.5px] border-white bg-black/30 text-black shadow-[0_1px_3px_#0004] data-selected:bg-white"
               data-selected={selected || undefined}
               aria-hidden="true"
             >
@@ -184,13 +184,13 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
           aria-label={selecting ? `Select ${track.title}` : `Play ${track.title}`}
           aria-pressed={selecting ? selected : undefined}
         >
-          <span className="truncate type-body text-primary group-data-selected/row:text-white">{track.title}</span>
-          <span className="truncate type-body text-secondary group-data-selected/row:text-white/80">
+          <span className="truncate type-body text-primary group-data-selected/row:text-on-key">{track.title}</span>
+          <span className="truncate type-body text-secondary group-data-selected/row:text-on-key/80">
             {track.artists.map((a) => a.name).join(', ')}
           </span>
         </button>
         <div className="relative grid items-center justify-items-end">
-          <span className="type-body tabular-nums text-secondary group-data-selected/row:text-white/80 group-hover/row:invisible group-has-[[data-open]]/row:invisible">{formatDuration(track.durationSec)}</span>
+          <span className="type-body tabular-nums text-secondary group-data-selected/row:text-on-key/80 group-hover/row:invisible group-has-[[data-open]]/row:invisible">{formatDuration(track.durationSec)}</span>
           {!selecting && (
             <button
               className="absolute inset-y-0 right-0 my-auto hidden size-7 place-items-center rounded-full text-key group-hover/row:grid data-open:grid"

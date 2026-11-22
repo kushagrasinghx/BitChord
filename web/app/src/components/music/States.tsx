@@ -5,7 +5,7 @@ export const stateStyles = {
   state: 'mx-auto my-20 flex max-w-[420px] flex-col items-center gap-2 px-(--body-gutter) text-center',
   title: 'type-title-2-emphasized',
   detail: 'type-body-tall text-secondary',
-  button: 'mt-3 inline-flex h-8 items-center rounded-pill bg-key-bg px-4 type-body-emphasized text-white',
+  button: 'mt-3 inline-flex h-8 items-center rounded-pill bg-key-bg px-4 type-body-emphasized text-on-key',
 };
 
 /** In place of a YouTube page when the extension isn't installed (prompt §1): an invitation, not an error. */

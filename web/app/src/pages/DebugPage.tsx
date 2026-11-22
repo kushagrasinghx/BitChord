@@ -83,7 +83,7 @@ export default function DebugPage() {
             placeholder="Video id or YouTube link"
             aria-label="Video id or YouTube link"
           />
-          <button className="h-9 rounded-pill bg-key-bg px-[18px] type-title-3-emphasized text-white disabled:opacity-40" type="submit" disabled={!id}>
+          <button className="h-9 rounded-pill bg-key-bg px-[18px] type-title-3-emphasized text-on-key disabled:opacity-40" type="submit" disabled={!id}>
             Play
           </button>
         </form>

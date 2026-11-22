@@ -208,7 +208,7 @@ export function Sidebar() {
             </span>
             <span className={navLabel}>BitChord Extension</span>
             {update.state === 'available' && (
-              <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-white" title={`Version ${update.latest.version} is available`}>
+              <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-on-key" title={`Version ${update.latest.version} is available`}>
                 Update
               </span>
             )}

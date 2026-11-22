@@ -1,97 +1,126 @@
-import { useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from 'react-router';
 import { PageHeader } from '@/components/PageHeader';
 import { CircleLockup, SquareLockup, VideoLockup } from '@/components/music/Lockups';
 import { EmptyState, LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
 import { TrackList } from '@/components/music/TrackList';
-import { isLibrarySection, LIBRARY_SECTIONS } from '@/data/music/library';
+import { useLoadMore } from '@/components/music/useLoadMore';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { isLibrarySection, LIBRARY_SECTIONS, type LibrarySection } from '@/data/music/library';
+import { LIBRARY_SORTS, sortedForLibrary, useLibrarySort } from '@/data/music/librarySort';
 import { useLibrary, useSignedIn, useYouTubeReady } from '@/data/music/queries';
+import type { Track } from '@/data/music/types';
 import { useYtAuth } from '@/extension/useYtAuth';
+import { offlineSupported, offlineTracks } from '@/playback/offline/store';
 import { PlainSkeleton } from '@/skeletons/PageSkeletons';
-import { seeAllGrid, seeAllTracks } from './pageStyles';
+import { seeAllTracks } from './pageStyles';
 
-/** Asks for the next page when [target] scrolls into view. */
-function useLoadMore(onVisible: (() => void) | null) {
-  const target = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = target.current;
-    if (!node || !onVisible) return;
-    const observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && onVisible(), {
-      rootMargin: '600px 0px',
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [onVisible]);
-  return target;
+/**
+ * A Show all grid (LibraryScreen.kt LibraryGridPage, Common.kt libraryGrid):
+ * cards at least 140px, never fewer than two across nor more than five, 12px
+ * apart across and 20px down.
+ */
+const libraryGrid =
+  'mx-(--body-gutter) mt-5 mb-10 grid grid-cols-[repeat(auto-fill,minmax(min(max(140px,calc((100%_-_48px)/5)),calc((100%_-_12px)/2)),1fr))] gap-x-3 gap-y-5';
+
+/** The title row, with the grid's order beside it when there is a grid to order. */
+function Header({ title, sortable }: { title: string; sortable: boolean }) {
+  const { sort, setSort } = useLibrarySort();
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pe-(--body-gutter)">
+      <PageHeader title={title} />
+      {sortable && <SegmentedControl label="Sort" className="w-[220px]" options={LIBRARY_SORTS} value={sort} onChange={setSort} />}
+    </div>
+  );
 }
 
-/** A library section (prompt §5.3): Recently Played, Artists, Albums, Songs, Made for You, All Playlists. */
-export default function LibraryPage() {
-  const section = useParams().section ?? '';
+/**
+ * Downloads (LibraryPhoneParts.kt, the Downloads folder): the songs kept in
+ * this browser, as Settings › Keep Liked Songs Downloaded fills it, newest
+ * first. They play from the copy here, online or not.
+ */
+function Downloads() {
+  const downloads = useQuery({ queryKey: ['offline', 'tracks'], queryFn: offlineTracks, enabled: offlineSupported() });
+  if (!offlineSupported()) return <Navigate to="/library" replace />;
+  if (downloads.isError) return <LoadError error={downloads.error} onRetry={() => void downloads.refetch()} />;
+  if (!downloads.data) return <PlainSkeleton />;
+  const tracks: Track[] = [...downloads.data]
+    .sort((a, b) => b.savedAt - a.savedAt)
+    .map((t) => ({
+      videoId: t.videoId,
+      title: t.title,
+      artists: [{ name: t.author, id: null }],
+      album: null,
+      durationSec: t.durationSec,
+      explicit: false,
+      thumbnail: t.thumbnail,
+      index: null,
+      plays: null,
+    }));
+  return (
+    <>
+      <PageHeader title="Downloads" />
+      {tracks.length ? (
+        <div className={seeAllTracks}>
+          <TrackList tracks={tracks} variant="playlist" source={{ title: 'Downloads', type: 'library', id: 'downloads' }} />
+        </div>
+      ) : (
+        <EmptyState title="No downloads yet" detail="Turn on Keep Liked Songs Downloaded in Settings to keep your liked songs in this browser." />
+      )}
+    </>
+  );
+}
+
+/** A library section's Show all (prompt §5.3): the Library hub's shelves, and its History folder. */
+function Section({ section }: { section: LibrarySection }) {
   const { missing } = useYouTubeReady();
   const auth = useYtAuth();
   const signedIn = useSignedIn();
-  const library = useLibrary(isLibrarySection(section) ? section : 'playlists');
-  const loadMore = useLoadMore(
-    library.hasNextPage && !library.isFetchingNextPage && !library.isFetchNextPageError
-      ? () => void library.fetchNextPage()
-      : null,
-  );
+  const sort = useLibrarySort((s) => s.sort);
+  const library = useLibrary(section);
+  const next = library.hasNextPage && !library.isFetchingNextPage && !library.isFetchNextPageError ? () => void library.fetchNextPage() : null;
+  const loadMore = useLoadMore(next);
 
-  if (!isLibrarySection(section)) return <Navigate to="/home" replace />;
   const title = LIBRARY_SECTIONS[section].title;
   if (missing) return <NeedsExtension what="your library" />;
-  if (auth.state === 'ready' && !signedIn) {
-    return (
-      <>
-        <PageHeader title={title} />
-        <EmptyState
-          title="Sign in to see your library"
-          detail="BitChord uses the YouTube Music account this browser is signed in to. Sign in on music.youtube.com, then come back."
-        />
-      </>
-    );
-  }
+  // Signed out, the Library hub has the way to sign in.
+  if (auth.state === 'ready' && !signedIn) return <Navigate to="/library" replace />;
   if (library.isError && !library.data) return <LoadError error={library.error} onRetry={() => void library.refetch()} />;
   if (!library.data) return <PlainSkeleton />;
 
-  const grid = library.data.pages.flatMap((page) => page.data.grid);
+  const grid = sortedForLibrary(
+    library.data.pages.flatMap((page) => page.data.grid),
+    sort,
+  );
   const tracks = library.data.pages.flatMap((page) => page.data.tracks);
   return (
     <>
-      <PageHeader title={title} />
+      <Header title={title} sortable={grid.length > 1} />
       {!grid.length && !tracks.length && <EmptyState title="Nothing here yet" />}
       {grid.length > 0 && (
-        <ul className={seeAllGrid} data-wide={grid.every((i) => i.wide) || undefined}>
+        <ul className={libraryGrid}>
           {grid.map((item, i) => (
             <li key={`${item.id}-${i}`}>
-              {item.kind === 'artist' ? (
-                <CircleLockup item={item} />
-              ) : item.wide ? (
-                <VideoLockup item={item} />
-              ) : (
-                <SquareLockup item={item} />
-              )}
+              {item.kind === 'artist' ? <CircleLockup item={item} /> : item.wide ? <VideoLockup item={item} /> : <SquareLockup item={item} />}
             </li>
           ))}
         </ul>
       )}
       {tracks.length > 0 && (
         <div className={seeAllTracks}>
-          <TrackList
-            tracks={tracks}
-            variant="playlist"
-            source={{ title, type: 'library', id: section }}
-            onNearEnd={
-              library.hasNextPage && !library.isFetchingNextPage && !library.isFetchNextPageError
-                ? () => void library.fetchNextPage()
-                : undefined
-            }
-          />
+          <TrackList tracks={tracks} variant="playlist" source={{ title, type: 'library', id: section }} onNearEnd={next ?? undefined} />
         </div>
       )}
       {grid.length > 0 && <div ref={loadMore} aria-hidden="true" />}
       {library.isFetchNextPageError && <LoadMoreError onRetry={() => void library.fetchNextPage()} />}
     </>
   );
+}
+
+/** /library/:section: Downloads, or one of the account's library sections. */
+export default function LibraryPage() {
+  const section = useParams().section ?? '';
+  if (section === 'downloads') return <Downloads />;
+  if (!isLibrarySection(section)) return <Navigate to="/library" replace />;
+  return <Section key={section} section={section} />;
 }

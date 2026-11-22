@@ -1,7 +1,8 @@
-import { Disc3, ListEnd, ListMusic, ListPlus, ListStart, MicVocal, Play, Share, Shuffle } from 'lucide-react';
+import { Disc3, ListEnd, ListMusic, ListPlus, ListStart, MicVocal, Pin, PinOff, Play, Share, Shuffle } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { MenuItem } from '@/components/Menu';
+import { isPinned, MAX_PINNED_PLAYLISTS, usePinnedPlaylists } from '@/data/music/pinnedPlaylists';
 import { albumQuery, playlistQuery, useSignedIn } from '@/data/music/queries';
 import type { MusicItem, Track } from '@/data/music/types';
 import { queryClient } from '@/lib/queryClient';
@@ -35,9 +36,33 @@ const releaseLink = (item: MusicItem) =>
     : `https://music.youtube.com/playlist?list=${item.id.replace(/^VL/, '')}`;
 
 /**
+ * Pin / Unpin for a playlist (BrowseActionsMenu.kt's pin row). The phone
+ * toasts when a pin past the cap is refused; with no toasts here the row
+ * says so up front and can't be chosen instead.
+ */
+export function PinMenuItem({ id, onClose }: { id: string; onClose: () => void }) {
+  const ids = usePinnedPlaylists((s) => s.ids);
+  const pinned = isPinned(ids, id);
+  const full = !pinned && ids.length >= MAX_PINNED_PLAYLISTS;
+  return (
+    <MenuItem
+      icon={pinned ? <PinOff /> : <Pin />}
+      disabled={full}
+      description={full ? `Only ${MAX_PINNED_PLAYLISTS} playlists can be pinned` : undefined}
+      onSelect={() => {
+        usePinnedPlaylists.getState().toggle(id);
+        onClose();
+      }}
+    >
+      {pinned ? 'Unpin' : 'Pin'}
+    </MenuItem>
+  );
+}
+
+/**
  * An album's or playlist's menu from its card (BrowseActionsMenu.kt): Play,
  * Shuffle, Add to playlist, Play next, Add to queue, open it, its artist,
- * and Share. A card has no other way to queue a release without opening it,
+ * Share, and Pin for a playlist. A card has no other way to queue a release without opening it,
  * which is what this menu is for.
  */
 export function BrowseMenuItems({ item }: { item: MusicItem }) {
@@ -88,6 +113,7 @@ export function BrowseMenuItems({ item }: { item: MusicItem }) {
       >
         {copied ? 'Link copied' : 'Share'}
       </MenuItem>
+      {item.kind === 'playlist' && <PinMenuItem id={item.id} onClose={close} />}
     </>
   );
 }

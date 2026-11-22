@@ -254,6 +254,22 @@ export async function setListSaved(playlistId: string, saved: boolean): Promise<
   await yt.actions.execute(saved ? '/like/like' : '/like/removelike', { target: { playlistId }, client: 'YTMUSIC' });
 }
 
+/**
+ * Subscribes to an artist's channel or unsubscribes (Innertube.setSubscribed).
+ * A YouTube-wide verb, not a `like/` one, addressed by the `UC…` channel id.
+ * Innertube answers a refused write with HTTP 200 and an `error` object, so
+ * the body is read rather than trusted.
+ */
+export async function setSubscribed(channelId: string, subscribed: boolean): Promise<void> {
+  const yt = await getSignedInnertube();
+  const response = await yt.actions.execute(subscribed ? '/subscription/subscribe' : '/subscription/unsubscribe', {
+    channelIds: [channelId],
+    client: 'YTMUSIC',
+  });
+  const error = (response.data as Raw | undefined)?.error as { message?: string } | undefined;
+  if (error) throw new Error(`YouTube Music refused the change: ${error.message ?? 'unknown error'}`);
+}
+
 export interface PlaylistOption {
   playlistId: string;
   title: string;

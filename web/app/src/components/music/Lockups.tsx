@@ -1,3 +1,4 @@
+import { Pin } from 'lucide-react';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { PlayIcon } from '@/components/icons/Transport';
 import type { MusicItem } from '@/data/music/types';
@@ -88,7 +89,7 @@ function LockupArtwork({ item, width, aspect }: { item: MusicItem; width: number
 }
 
 /** Square lockup (report §2): artwork, hover scrim with play platter, title and subtitle. */
-export function SquareLockup({ item, width = 220 }: { item: MusicItem; width?: number }) {
+export function SquareLockup({ item, width = 220, pinned = false }: { item: MusicItem; width?: number; pinned?: boolean }) {
   const href = hrefFor(item);
   return (
     <div className={lockup} onContextMenu={itemContextMenu(item)}>
@@ -103,6 +104,8 @@ export function SquareLockup({ item, width = 220 }: { item: MusicItem; width?: n
             <span>{item.title}</span>
           )}
           {item.explicit && <ExplicitBadge />}
+          {/* A pinned Library playlist's 14px pin before its title (HomeScreen.kt ShelfCard isPinned); last in the DOM so the title stays the child that truncates. */}
+          {pinned && <Pin className="order-first mr-1 size-3.5 flex-none text-on-surface-variant" aria-label="Pinned" role="img" />}
         </div>
         <div className={subtitle}>
           <Byline item={item} />

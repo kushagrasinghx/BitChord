@@ -12,6 +12,7 @@ import { CircleLockup, SquareLockup } from '@/components/music/Lockups';
 import { NeedsExtension } from '@/components/music/States';
 import { createPlaylist } from '@/data/music/api';
 import type { LibrarySection } from '@/data/music/library';
+import { isPinned, pinnedFirst, usePinnedPlaylists } from '@/data/music/pinnedPlaylists';
 import { useLibrary, useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import { spotifyPlaylistId } from '@/data/music/spotifyLink';
 import type { MusicItem } from '@/data/music/types';
@@ -113,15 +114,17 @@ function ShelfSkeleton() {
  */
 function AccountShelf({ section, title, tiles }: { section: LibrarySection; title: string; tiles?: ReactNode[] }) {
   const library = useLibrary(section);
+  const pins = usePinnedPlaylists((s) => s.ids);
   const first = library.data?.pages[0]?.data;
-  const items = first?.grid ?? [];
+  // Pinned playlists lead the cards, the make tiles still trailing them (LibraryScreen.kt pinnedFirst, PlaylistShelf).
+  const items = pinnedFirst(first?.grid ?? [], pins);
   const extra = tiles?.length ?? 0;
   if (!library.data && !library.isPending) return null;
   if (library.data && !items.length && !extra) return null;
   const more = items.length + extra > ROW_MAX || !!library.hasNextPage;
   const card = (item: MusicItem, i: number) => (
     <li key={`${item.id}-${i}`} className={shelfCard}>
-      {item.kind === 'artist' ? <CircleLockup item={item} width={150} /> : <SquareLockup item={item} width={150} />}
+      {item.kind === 'artist' ? <CircleLockup item={item} width={150} /> : <SquareLockup item={item} width={150} pinned={item.kind === 'playlist' && isPinned(pins, item.id)} />}
     </li>
   );
   return (

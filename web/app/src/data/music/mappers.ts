@@ -288,7 +288,23 @@ export function mapArtist(id: string, artist: Pick<YTMusic.Artist, 'header' | 's
     topSongs: (topShelf?.contents ?? []).map(mapTrack).filter((t): t is Track => !!t),
     topSongsSeeAll: linkOf(topShelf?.endpoint) ?? linkOf(topShelf?.bottom_button?.endpoint),
     shelves: mapShelves(sections.filter((s) => s.type !== 'MusicShelf')),
+    subscription: subscriptionOf(header),
   };
+}
+
+/**
+ * The header's subscribe button as state (InnertubeParser.subscription). The
+ * channel id comes off the button, not the browse id: a page reached through
+ * an alias is served under another id, and the button knows what it acts on.
+ */
+function subscriptionOf(header: unknown): ArtistPage['subscription'] {
+  const button = (header as { subscription_button?: unknown } | undefined)?.subscription_button as
+    | Partial<YTNodes.SubscribeButton>
+    | null
+    | undefined;
+  // No `subscribed` flag means YouTube isn't offering the toggle here.
+  if (typeof button?.subscribed !== 'boolean' || !button.channel_id) return null;
+  return { channelId: button.channel_id, subscribed: button.subscribed };
 }
 
 /**

@@ -8,6 +8,7 @@ import { useLoadMore } from '@/components/music/useLoadMore';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { isLibrarySection, LIBRARY_SECTIONS, type LibrarySection } from '@/data/music/library';
 import { LIBRARY_SORTS, sortedForLibrary, useLibrarySort } from '@/data/music/librarySort';
+import { isPinned, pinnedFirst, usePinnedPlaylists } from '@/data/music/pinnedPlaylists';
 import { useLibrary, useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
 import { useYtAuth } from '@/extension/useYtAuth';
@@ -78,6 +79,7 @@ function Section({ section }: { section: LibrarySection }) {
   const auth = useYtAuth();
   const signedIn = useSignedIn();
   const sort = useLibrarySort((s) => s.sort);
+  const pins = usePinnedPlaylists((s) => s.ids);
   const library = useLibrary(section);
   const next = library.hasNextPage && !library.isFetchingNextPage && !library.isFetchNextPageError ? () => void library.fetchNextPage() : null;
   const loadMore = useLoadMore(next);
@@ -89,8 +91,12 @@ function Section({ section }: { section: LibrarySection }) {
   if (library.isError && !library.data) return <LoadError error={library.error} onRetry={() => void library.refetch()} />;
   if (!library.data) return <PlainSkeleton />;
 
+  // Pins win over the default order; an explicit sort is the more deliberate choice and reorders them too (LibraryScreen.kt LibraryGridPage).
   const grid = sortedForLibrary(
-    library.data.pages.flatMap((page) => page.data.grid),
+    pinnedFirst(
+      library.data.pages.flatMap((page) => page.data.grid),
+      pins,
+    ),
     sort,
   );
   const tracks = library.data.pages.flatMap((page) => page.data.tracks);
@@ -102,7 +108,7 @@ function Section({ section }: { section: LibrarySection }) {
         <ul className={libraryGrid}>
           {grid.map((item, i) => (
             <li key={`${item.id}-${i}`}>
-              {item.kind === 'artist' ? <CircleLockup item={item} /> : item.wide ? <VideoLockup item={item} /> : <SquareLockup item={item} />}
+              {item.kind === 'artist' ? <CircleLockup item={item} /> : item.wide ? <VideoLockup item={item} /> : <SquareLockup item={item} pinned={item.kind === 'playlist' && isPinned(pins, item.id)} />}
             </li>
           ))}
         </ul>

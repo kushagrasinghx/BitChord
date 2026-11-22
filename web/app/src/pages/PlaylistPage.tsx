@@ -6,6 +6,7 @@ import { Dialog } from '@/components/Dialog';
 import { MenuHeader, MenuItem } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
 import { AboutSection, DetailHeader, detailButton } from '@/components/music/DetailHeader';
+import { PinMenuItem } from '@/components/music/BrowseMenu';
 import { DetailMenu } from '@/components/music/DetailMenu';
 import { DetailSearchButton, DetailSearchField, NothingMatches, useDetailFilter } from '@/components/music/DetailSearchField';
 import { AddToPlaylistsButton } from '@/components/music/PlaylistPicker';
@@ -370,6 +371,7 @@ export default function PlaylistPage() {
               {(close) => (
                 <>
                   <ShareItem id={id} onClose={close} />
+                  <PinMenuItem id={id} onClose={close} />
                   {owned && (
                     <OwnerActions
                       id={id}

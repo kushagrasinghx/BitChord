@@ -27,13 +27,14 @@ import {
   fetchSearch,
   fetchSuggestions,
   setListSaved,
+  setSubscribed,
   setTrackDisliked,
   setTrackLiked,
   type LikeStatus,
   type Paged,
 } from './api';
 import { isLibrarySection, LIKED_MUSIC_PLAYLIST, type LibrarySection } from './library';
-import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
+import type { AlbumPage, ArtistPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
 
 // TanStack Query for every browse request (prompt §1: caching, dedupe,
 // retries). YouTube requests need the extension, so every query waits for it;
@@ -265,6 +266,23 @@ export function useSetListSaved() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
     },
+  });
+}
+
+/**
+ * The artist header's subscribe star (MainViewModel.toggleSubscription):
+ * flipped in the cached page at once and put back if YouTube refuses.
+ */
+export function useSetSubscribed() {
+  const mark = (artistId: string, subscribed: boolean) =>
+    queryClient.setQueryData<ArtistPage>(artistQuery(artistId).queryKey, (page) =>
+      page?.subscription ? { ...page, subscription: { ...page.subscription, subscribed } } : page,
+    );
+  return useMutation({
+    mutationFn: ({ channelId, subscribed }: { artistId: string; channelId: string; subscribed: boolean }) =>
+      setSubscribed(channelId, subscribed),
+    onMutate: ({ artistId, subscribed }) => mark(artistId, subscribed),
+    onError: (_error, { artistId, subscribed }) => mark(artistId, !subscribed),
   });
 }
 

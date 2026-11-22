@@ -299,6 +299,8 @@ internal class LyricsCardPainter internal constructor(
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
     private val fade = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
     private val growth = CharGrowth()
+    private var cachedCanvas: Canvas? = null
+    private var cachedCanvasTarget: Bitmap? = null
 
     /** Each line's place among the sung lines (gaps don't count), for the falloff. */
     private val rank = IntArray(lines.size).also { ranks ->
@@ -310,7 +312,15 @@ internal class LyricsCardPainter internal constructor(
     fun render(positionMs: Long?, into: Bitmap? = null): Bitmap {
         val bitmap = into ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)
-        drawOn(Canvas(bitmap), positionMs)
+        val canvas = if (cachedCanvasTarget === bitmap) {
+            cachedCanvas!!
+        } else {
+            Canvas(bitmap).also {
+                cachedCanvas = it
+                cachedCanvasTarget = bitmap
+            }
+        }
+        drawOn(canvas, positionMs)
         return bitmap
     }
 
@@ -383,11 +393,6 @@ internal class LyricsCardPainter internal constructor(
             return
         }
 
-        // The unsung copy underneath, then the lit one over it up to the sweep.
-        scratch.set(row.paint)
-        scratch.alpha = (alpha * dim).roundToInt()
-        drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
-
         val size = row.paint.textSize
         val edge = placed.x + sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
         // The feather runs ahead of the sweep, into what is still to come, and
@@ -395,6 +400,18 @@ internal class LyricsCardPainter internal constructor(
         val feather = minOf(size * FEATHER_RATIO, edge - placed.x)
         val top = placed.baseline + row.paint.ascent() - size * HEADROOM_RATIO
         val bottom = placed.baseline + row.paint.descent() + size * HEADROOM_RATIO
+
+        // 1. The unsung copy ahead of the sweep (from edge onwards).
+        // Clipping to [edge, width] ensures already-lit text behind edge is never
+        // double-drawn under the lit pass, preventing anti-aliased edge thickening and pops.
+        scratch.set(row.paint)
+        scratch.alpha = (alpha * dim).roundToInt()
+        canvas.save()
+        canvas.clipRect(edge, top, layout.width.toFloat(), bottom)
+        drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
+        canvas.restore()
+
+        // 2. The lit copy up to the sweep edge + feather.
         val save = canvas.saveLayer(0f, top, layout.width.toFloat(), bottom, null)
         canvas.clipRect(0f, top, edge + feather, bottom)
         scratch.alpha = alpha.roundToInt()
@@ -456,14 +473,16 @@ internal class LyricsCardPainter internal constructor(
             if (to <= from) return
             val x1 = placed.x + paint.measureText(text, 0, from)
             val x2 = placed.x + paint.measureText(text, 0, to)
-            val pad = if (dy != 0f) size * 0.15f else 0f
-            val clipLeft = if (from == 0) placed.x - 4f else (x1 - pad)
-            val clipRight = if (to >= text.length) layout.width.toFloat() else (x2 + pad)
+            val clipLeft = if (from == 0) placed.x - 4f else x1
+            val clipRight = if (to >= text.length) layout.width.toFloat() else x2
             canvas.save()
             canvas.clipRect(clipLeft, top + minOf(0f, dy), clipRight, bottom + maxOf(0f, dy))
             canvas.drawText(text, placed.x, placed.baseline + dy, paint)
             canvas.restore()
         }
+
+        val blurFilter = if (bloom) BlurMaskFilter(size * GLOW_RATIO, BlurMaskFilter.Blur.NORMAL) else null
+        val centerY = placed.baseline + (paint.ascent() + paint.descent()) / 2f
 
         var cursor = 0
         timing.wordSpans.forEachIndexed { index, span ->
@@ -494,18 +513,13 @@ internal class LyricsCardPainter internal constructor(
                     val dy = -growth.rise * rise
                     val overhang = (charW * (growth.scale - 1f)) / 2f
                     canvas.save()
-                    canvas.clipRect(
-                        charLeft - overhang + dx,
-                        top + minOf(0f, dy),
-                        charRight + overhang + dx,
-                        bottom + maxOf(0f, dy),
-                    )
                     canvas.translate(dx, dy)
-                    canvas.scale(growth.scale, growth.scale, charLeft + charW / 2f, placed.baseline)
-                    if (bloom && growth.bloom > 0.01f) {
+                    canvas.clipRect(charLeft - overhang, top, charRight + overhang, bottom)
+                    canvas.scale(growth.scale, growth.scale, charLeft + charW / 2f, centerY)
+                    if (bloom && growth.bloom > 0.01f && blurFilter != null) {
                         glow.set(paint)
                         glow.alpha = (paint.alpha * growth.bloom.coerceAtMost(1f)).roundToInt()
-                        glow.maskFilter = BlurMaskFilter(size * GLOW_RATIO, BlurMaskFilter.Blur.NORMAL)
+                        glow.maskFilter = blurFilter
                         canvas.drawText(text, placed.x, placed.baseline, glow)
                     }
                     canvas.drawText(text, placed.x, placed.baseline, paint)

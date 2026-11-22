@@ -198,4 +198,15 @@
     <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
     <string name="search_library_hint">Brani, artisti e album</string>
     <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+    <string name="add_to_queue">Aggiungi alla coda</string>
+    <string name="queue_selected_count">Selezionati: %1$d</string>
+    <string name="queue_select_all">Seleziona tutto</string>
+    <string name="queue_select">Seleziona</string>
+    <string name="queue_close_selection">Chiudi selezione</string>
+    <string name="queue_add_to_playlist">Playlist</string>
+    <string name="queue_download">Download</string>
+    <string name="queue_selection_remove">Rimuovi</string>
+    <string name="queue_add_all_to_playlist">Aggiungi tutto alla playlist</string>
+    <string name="mixes_yours">I tuoi mix</string>
+    <string name="mixes_none">Ancora nessun mix. Continua ad ascoltare e YouTube Music ne creerà alcuni per te.</string>
 </resources>

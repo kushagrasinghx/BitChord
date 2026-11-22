@@ -8,6 +8,7 @@ import com.music.bitchord.playback.audio.AudioBlock
 import com.music.bitchord.playback.audio.FloatAudioProcessor
 import com.music.bitchord.playback.audio.PcmBoundary
 import java.nio.ByteOrder
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -47,6 +48,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     private var delayIndex = 0
     private var lowpassLeft = 0f
     private var lowpassRight = 0f
+    private val limiter = PeakLimiter()
 
     /**
      * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
@@ -54,6 +56,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     fun configure(sampleRate: Int, channelCount: Int) {
         this.sampleRate = sampleRate
         this.channelCount = channelCount
+        limiter.configure(sampleRate)
         if (channelCount != 2 || sampleRate <= 0) {
             delayLeft = FloatArray(0)
             delayRight = FloatArray(0)
@@ -154,6 +157,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         delayIndex = 0
         lowpassLeft = 0f
         lowpassRight = 0f
+        limiter.reset()
     }
 
     override fun onReset() {
@@ -164,6 +168,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         lowpassRight = 0f
         channelCount = 0
         sampleRate = 0
+        limiter.reset()
     }
 
     override fun queueInput(inputBuffer: java.nio.ByteBuffer) {
@@ -212,8 +217,13 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
             delayRight[dIdx] = right
             dIdx = (dIdx + 1) % delaySize
 
-            outputBuffer.putShort(PcmBoundary.clamp16FromFloat(widenedLeft * outputGain))
-            outputBuffer.putShort(PcmBoundary.clamp16FromFloat(widenedRight * outputGain))
+            val scaledLeft = widenedLeft * outputGain
+            val scaledRight = widenedRight * outputGain
+            val peak = maxOf(abs(scaledLeft), abs(scaledRight))
+            val limiterGain = limiter.gainFor(peak)
+
+            outputBuffer.putShort(PcmBoundary.clamp16FromFloat(scaledLeft * limiterGain))
+            outputBuffer.putShort(PcmBoundary.clamp16FromFloat(scaledRight * limiterGain))
         }
         delayIndex = dIdx
         lowpassLeft = lpL

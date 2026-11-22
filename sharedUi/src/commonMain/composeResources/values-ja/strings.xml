@@ -198,4 +198,15 @@
     <string name="search_library_empty">ローカル音楽フォルダ内の曲を検索します。</string>
     <string name="search_library_hint">曲・アーティスト・アルバム</string>
     <string name="search_library_no_results">ローカル音楽に「%1$s」に一致するものはありません。</string>
+    <string name="add_to_queue">再生キューに追加</string>
+    <string name="queue_selected_count">%1$d件選択</string>
+    <string name="queue_select_all">すべて選択</string>
+    <string name="queue_select">選択</string>
+    <string name="queue_close_selection">選択モードを終了</string>
+    <string name="queue_add_to_playlist">プレイリスト</string>
+    <string name="queue_download">ダウンロード</string>
+    <string name="queue_selection_remove">削除</string>
+    <string name="queue_add_all_to_playlist">すべてプレイリストに追加</string>
+    <string name="mixes_yours">あなたのミックス</string>
+    <string name="mixes_none">まだミックスはありません。聴き続けると、YouTube Music があなた向けのミックスを作成します。</string>
 </resources>

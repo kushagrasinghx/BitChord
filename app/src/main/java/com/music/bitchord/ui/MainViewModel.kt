@@ -60,6 +60,7 @@ import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
+import com.music.bitchord.data.model.KeyedMix
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.SubscriptionState
@@ -172,6 +173,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _explore = MutableStateFlow<UiState<List<MoodGenreSection>>>(UiState.Loading)
     val explore: StateFlow<UiState<List<MoodGenreSection>>> = _explore.asStateFlow()
+
+    /** The signed-in "Mixed for you" cards: My Mixes, Supermix, the mood mixes. */
+    private val _mixes = MutableStateFlow<UiState<List<KeyedMix>>>(UiState.Loading)
+    val mixes: StateFlow<UiState<List<KeyedMix>>> = _mixes.asStateFlow()
 
     private val _selectedMoodGenre = MutableStateFlow<MoodGenre?>(null)
     val selectedMoodGenre: StateFlow<MoodGenre?> = _selectedMoodGenre.asStateFlow()
@@ -1044,7 +1049,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         songs: List<Song>,
         onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
     ) {
-        if (!requireSignIn() || playlists.isEmpty() || songs.isEmpty()) return
+        if (songs.isEmpty()) return onResult(0, 0, 0)
+        // Answered either way: the queue's picker waits on this to close.
+        if (!requireSignIn() || playlists.isEmpty()) return onResult(0, 0, songs.size)
         viewModelScope.launch {
             var addedCount = 0
             var alreadyThereCount = 0
@@ -1110,43 +1117,105 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 videoIds = listOfNotNull(song?.videoId),
             ).fold(
                 onSuccess = { playlistId ->
-                    // Nothing to look up for a playlist this account has just
-                    // made: it is the owner by construction, so its card is
-                    // editable the moment it appears rather than one request
-                    // after someone holds it.
-                    setPlaylistOwned("VL$playlistId", true)
-                    libraryStale = true
-                    val created = UserPlaylist(
+                    publishCreatedPlaylist(
                         playlistId = playlistId,
                         title = name,
-                        // Only what this request itself establishes. Both
-                        // surfaces that draw it leave a blank one out, so an
-                        // unseeded playlist gets a card of just its name rather
-                        // than a guess at what the feed will call it.
                         subtitle = if (song != null) "1 song" else "",
                         thumbnailUrl = song?.thumbnailUrl,
                     )
-                    // Drawn from what was just sent rather than waited for: the
-                    // library feed does not have this playlist yet, and the
-                    // fetch that used to run here answered without it — see
-                    // [editPlaylistShelf]. Leads the shelf because it is the
-                    // newest, which is the order the feed itself comes in.
-                    _playlists.value = listOf(created) +
-                        _playlists.value.filterNot { it.playlistId == created.playlistId }
-                    editPlaylistShelf { items ->
-                        listOf(
-                            ShelfItem(
-                                title = created.title,
-                                subtitle = created.subtitle,
-                                thumbnailUrl = created.thumbnailUrl,
-                                videoId = null,
-                                browseId = created.browseId,
-                            ),
-                        ) + items.filterNot { it.browseId == created.browseId }
-                    }
                 },
                 onFailure = {},
             )
+        }
+    }
+
+    /** Account-only batch create; never falls back to a different destination. */
+    fun createPlaylist(
+        title: String,
+        privacy: PlaylistPrivacy,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit,
+    ) {
+        if (songs.isEmpty()) {
+            onResult(0, 0, 0)
+            return
+        }
+        if (!requireSignIn()) {
+            onResult(0, 0, songs.size)
+            return
+        }
+        val name = title.trim().ifBlank { text(R.string.new_playlist) }
+        val uniqueSongs = songs.distinctBy { it.videoId }
+        viewModelScope.launch {
+            val initial = uniqueSongs.take(50)
+            val playlistId = YtMusicRepository.createPlaylist(
+                title = name,
+                privacy = privacy,
+                videoIds = initial.map { it.videoId },
+            ).getOrNull()
+            if (playlistId == null) {
+                onResult(0, 0, songs.size)
+                return@launch
+            }
+            val accepted = initial.mapTo(HashSet()) { it.videoId }
+            // Each later chunk has its own acknowledgement; a rejected chunk
+            // cannot be counted merely because the initial create succeeded.
+            uniqueSongs.drop(50).chunked(50).forEach { chunk ->
+                if (YtMusicRepository.addToPlaylist(playlistId, chunk.map { it.videoId }).isSuccess) {
+                    accepted.addAll(chunk.map { it.videoId })
+                }
+            }
+            publishCreatedPlaylist(
+                playlistId = playlistId,
+                title = name,
+                subtitle = getApplication<Application>().resources.getQuantityString(
+                    R.plurals.song_count_plural, accepted.size, accepted.size,
+                ),
+                thumbnailUrl = uniqueSongs.firstOrNull { it.videoId in accepted }?.thumbnailUrl,
+            )
+            val counted = HashSet<String>()
+            var added = 0
+            var alreadyThere = 0
+            var failed = 0
+            songs.forEach { song ->
+                when {
+                    song.videoId !in accepted -> failed++
+                    counted.add(song.videoId) -> added++
+                    else -> alreadyThere++
+                }
+            }
+            onResult(added, alreadyThere, failed)
+        }
+    }
+
+    /** Publish only metadata established by an acknowledged account create. */
+    private fun publishCreatedPlaylist(
+        playlistId: String,
+        title: String,
+        subtitle: String,
+        thumbnailUrl: String?,
+    ) {
+        // The account owns a playlist it has just created; no lookup needed.
+        setPlaylistOwned("VL$playlistId", true)
+        libraryStale = true
+        val created = UserPlaylist(
+            playlistId = playlistId,
+            title = title,
+            subtitle = subtitle,
+            thumbnailUrl = thumbnailUrl,
+        )
+        _playlists.value = listOf(created) +
+            _playlists.value.filterNot { it.playlistId == created.playlistId }
+        editPlaylistShelf { items ->
+            listOf(
+                ShelfItem(
+                    title = created.title,
+                    subtitle = created.subtitle,
+                    thumbnailUrl = created.thumbnailUrl,
+                    videoId = null,
+                    browseId = created.browseId,
+                ),
+            ) + items.filterNot { it.browseId == created.browseId }
         }
     }
 
@@ -1641,7 +1710,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * as one flag: a pull on Library while Home is still refreshing in the
      * background shouldn't leave the wrong tab showing a loader.
      */
-    enum class Feed { HOME, EXPLORE, LIBRARY }
+    enum class Feed { HOME, EXPLORE, LIBRARY, MIXES }
 
     private val _refreshing = MutableStateFlow(emptySet<Feed>())
     val refreshing: StateFlow<Set<Feed>> = _refreshing.asStateFlow()
@@ -1654,7 +1723,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun refresh(feed: Feed) {
         if (feed in _refreshing.value) return
-        if (feed == Feed.LIBRARY && !_signedIn.value) return
+        if ((feed == Feed.LIBRARY || feed == Feed.MIXES) && !_signedIn.value) return
         val identity = listenerKey()
         _refreshing.value = _refreshing.value + feed
         viewModelScope.launch {
@@ -1662,6 +1731,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 Feed.HOME -> refreshHome(identity)
                 Feed.EXPLORE -> fetchExplore()
                 Feed.LIBRARY -> fetchLibrary(identity)
+                Feed.MIXES -> fetchMixes(identity)
             }
             _refreshing.value = _refreshing.value - feed
         }
@@ -1678,6 +1748,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Call when the Explore tab becomes visible; loads it the first time. */
     fun onExploreShown() {
         if (!exploreRequested) loadExplore()
+    }
+
+    /** Whose mixes are on screen, so an account switch loads the new listener's. */
+    private var mixesRequestedFor: String? = null
+    private var mixesRequested = false
+
+    fun loadMixes() {
+        mixesRequested = true
+        val identity = listenerKey()
+        mixesRequestedFor = identity
+        _mixes.value = UiState.Loading
+        viewModelScope.launch { fetchMixes(identity) }
+    }
+
+    /**
+     * Call when the mixes page becomes visible, and again whenever the account
+     * may have changed; loads only the first time, or for a different listener.
+     */
+    fun onMixesShown() {
+        if (!_signedIn.value) return
+        if (!mixesRequested || mixesRequestedFor != listenerKey()) loadMixes()
+    }
+
+    private suspend fun fetchMixes(identity: String?) {
+        val state: UiState<List<KeyedMix>> = YtMusicRepository.mixedForYouKeyed().fold(
+            onSuccess = { UiState.Success(it) },
+            onFailure = { UiState.Error(it.friendly()) },
+        )
+        // A switch while this was in flight has already asked for the new
+        // listener's; this answer is for someone who is no longer here.
+        if (identity == listenerKey()) _mixes.value = state
     }
 
     private suspend fun fetchExplore() {
@@ -2157,11 +2258,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         searchSubmitted = true
         _suggestions.value = emptyList()
         _typeaheadResults.value = emptyList()
-        // Picking a suggestion or history item is deliberate, but it must NOT
-        // pollute the user's YTMusic server-side search history — only an
-        // explicit keyboard submission should do that.  Use the anonymous
-        // endpoint so YouTube does not log this query against the account.
-        runSearch(anonymous = true)
+        // Signed in, like any search the user commits to: an anonymous search
+        // ranks by what is popular, not by what this account listens to. A
+        // term picked here is a whole query, the same one YouTube Music's own
+        // app files in history when its suggestion is tapped.
+        runSearch()
     }
 
     fun removeSearch(id: String) = SearchHistory.remove(id)
@@ -2208,7 +2309,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             runAddonSearch(q)
             return
         }
-        runSearch(anonymous = false)
+        runSearch(refresh = true)
     }
 
     /**
@@ -2293,10 +2394,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_filter.value == value) return
         _filter.value = value
         searchSubmitted = true
-        // Anonymous, as a filter change always was: switching chips is not a
-        // search worth filing in the account's history. Only a filter scoped
-        // to the account itself (Library) has to go signed in.
-        runSearch(anonymous = !value.requiresAuth)
+        // A tab already fetched for this query is shown from the cache rather
+        // than asked again; one that has not been is fetched signed in, so its
+        // ranking is the account's like the rest of the search.
+        runSearch()
     }
 
     /**
@@ -2305,12 +2406,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      *
      * [requestId] is what makes a late answer harmless: a response is only
      * written to the screen if its id is still the newest one asked for.
+     *
+     * [refresh] sends the request even when this exact query is cached: an
+     * explicit submit is what files the query in the account's history, and
+     * what the user reaches for to get a fresh answer.
      */
     private data class SearchRequest(
         val query: String,
         val filter: SearchFilter,
         val requestId: Long,
-        val anonymous: Boolean = true,
+        val refresh: Boolean = false,
     )
 
     private fun cacheKey(query: String, filter: SearchFilter) = "${filter.name}:$query"
@@ -2328,7 +2433,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ?.rows
     }
 
-    private fun runSearch(anonymous: Boolean = true) {
+    private fun runSearch(refresh: Boolean = false) {
         val query = _query.value
         if (query.isBlank()) {
             // Nothing in flight can still be waiting to overwrite this: the
@@ -2343,7 +2448,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _searchScrollReset.value += 1
         searchSession = null
         _searchLoadingMore.value = false
-        searchRequests.tryEmit(SearchRequest(query, _filter.value, id, anonymous))
+        searchRequests.tryEmit(SearchRequest(query, _filter.value, id, refresh))
     }
 
     /**
@@ -2376,9 +2481,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val cached = exact?.rows ?: prefixMatch(request.query, request.filter)
                 _results.value = cached?.let { UiState.Success(it) } ?: UiState.Loading
                 // An explicit submit still has to reach the server even when
-                // an anonymous lookup cached the same query: that call is what
-                // records it in the account's history.
-                if (exact != null && request.anonymous) {
+                // the same query is cached: that call is what records it in
+                // the account's history.
+                if (exact != null && !request.refresh) {
                     searchSession = SearchSession(key, request.requestId, request.filter, exact.continuation)
                     return@collectLatest
                 }
@@ -2397,8 +2502,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // see [SourceResolver.substituteForYouTube] — which upgrades
                 // the ones it holds without any of them having to be a
                 // separate row to pick between.
-                val isAnon = if (request.filter.requiresAuth) false else request.anonymous
-                val result = YtMusicRepository.searchPage(request.query, request.filter, isAnon)
+                // Signed in whenever there is an account: YouTube ranks a
+                // search by the listener's history, and an anonymous one is
+                // what filled results with songs the user never plays.
+                val result = YtMusicRepository.searchPage(request.query, request.filter, anonymous = false)
                 // A search that has been superseded shouldn't land on screen,
                 // whether it succeeded or failed.
                 if (request.requestId != newestRequestId.get()) return@collectLatest

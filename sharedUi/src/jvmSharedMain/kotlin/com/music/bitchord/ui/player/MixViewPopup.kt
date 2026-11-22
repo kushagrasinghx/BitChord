@@ -90,6 +90,7 @@ import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.utils.containSheetGestures
+import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -149,7 +150,7 @@ private const val SilentAlpha = 0.32f
  * while a popup opened by hand waits on its first plan; [visible] is what opens
  * and closes it.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalHazeApi::class)
 @Composable
 internal fun MixViewPopup(
     view: MixTransitionView?,
@@ -204,7 +205,11 @@ internal fun MixViewPopup(
                                 .optimizedHazeEffect(
                                     state = hazeState,
                                     style = HazeMaterials.regular(PopupColor),
-                                )
+                                ) {
+                                    // Laid beside the player, never in it, so every
+                                    // one of its sources — see [liveMenuFrost].
+                                    canDrawArea = { true }
+                                }
                                 .background(PopupColor.copy(alpha = 0.94f))
                         },
                     )

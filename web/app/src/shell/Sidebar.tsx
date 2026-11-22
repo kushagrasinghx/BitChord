@@ -1,5 +1,6 @@
-import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { ArrowUpRight, ListMusic, Radio, Settings } from 'lucide-react';
 import { MdOutlineExtension } from 'react-icons/md';
+import { useLocation, type NavLinkProps } from 'react-router';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
 import {
@@ -30,10 +31,20 @@ interface NavItem {
   Icon: (props: NavIconProps) => React.ReactNode;
 }
 
+/** Apple's sidebar has no Radio glyph captured (web/docs/apple-music-dom.md); the broadcast mark, at the playlists' size. */
+function RadioIcon({ className }: NavIconProps) {
+  return (
+    <span className={className}>
+      <Radio size={18} strokeWidth={1.8} />
+    </span>
+  );
+}
+
 const PRIMARY: NavItem[] = [
   { to: '/search', label: 'Search', Icon: SearchIcon },
   { to: '/home', label: 'Home', Icon: HomeIcon },
   { to: '/new', label: 'New', Icon: NewIcon },
+  { to: '/radio', label: 'Radio', Icon: RadioIcon },
 ];
 
 const LIBRARY_ICONS: Record<Exclude<LibrarySection, 'playlists'>, NavItem['Icon']> = {
@@ -60,15 +71,42 @@ const navLabel = 'min-w-0 truncate';
 const sectionHeader = 'mt-4 px-2 py-1 type-callout-emphasized text-secondary';
 const list = 'flex flex-col';
 
+/**
+ * Clicking the page already open takes it back to the top, as tapping the
+ * active tab does on the phone (MainActivity onActiveTabTap). A long way down,
+ * it jumps most of the way first, so the eased part is a screen, not a playlist.
+ */
+function scrollPageToTop() {
+  const page = document.getElementById('scrollable-page');
+  if (!page) return;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!still && page.scrollTop > page.clientHeight * 3) page.scrollTop = page.clientHeight;
+  page.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+}
+
+/** A sidebar link, which is also the way back to the top of the page it opens. */
+function SidebarLink({ onClick, ...props }: NavLinkProps) {
+  const { pathname } = useLocation();
+  return (
+    <PrefetchNavLink
+      {...props}
+      onClick={(event) => {
+        if (pathname === props.to) scrollPageToTop();
+        onClick?.(event);
+      }}
+    />
+  );
+}
+
 function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate: () => void }) {
   return (
     <ul className={list}>
       {items.map(({ to, label, Icon }) => (
         <li key={to}>
-          <PrefetchNavLink to={to} className={item} onClick={onNavigate}>
+          <SidebarLink to={to} className={item} onClick={onNavigate}>
             <Icon size={24} className={icon} />
             <span className={navLabel}>{label}</span>
-          </PrefetchNavLink>
+          </SidebarLink>
         </li>
       ))}
     </ul>
@@ -85,19 +123,19 @@ function LibraryNav({ onNavigate }: { onNavigate: () => void }) {
       <h2 className={sectionHeader}>Playlists</h2>
       <ul className={list}>
         <li>
-          <PrefetchNavLink to="/library/playlists" className={item} onClick={onNavigate}>
+          <SidebarLink to="/library/playlists" className={item} onClick={onNavigate}>
             <AllPlaylistsIcon size={24} className={icon} />
             <span className={navLabel}>{LIBRARY_SECTIONS.playlists.title}</span>
-          </PrefetchNavLink>
+          </SidebarLink>
         </li>
         {playlists.data?.map((playlist) => (
           <li key={playlist.id}>
-            <PrefetchNavLink to={hrefFor(playlist) ?? '/library/playlists'} className={item} onClick={onNavigate}>
+            <SidebarLink to={hrefFor(playlist) ?? '/library/playlists'} className={item} onClick={onNavigate}>
               <span className={icon}>
                 <ListMusic size={17} strokeWidth={1.8} />
               </span>
               <span className={navLabel}>{playlist.title}</span>
-            </PrefetchNavLink>
+            </SidebarLink>
           </li>
         ))}
       </ul>
@@ -113,19 +151,19 @@ function SpotifyNav({ onNavigate }: { onNavigate: () => void }) {
       <h2 className={sectionHeader}>Spotify</h2>
       <ul className={list}>
         <li>
-          <PrefetchNavLink to="/spotify" end className={item} onClick={onNavigate}>
+          <SidebarLink to="/spotify" end className={item} onClick={onNavigate}>
             <AllPlaylistsIcon size={24} className={icon} />
             <span className={navLabel}>All Spotify Playlists</span>
-          </PrefetchNavLink>
+          </SidebarLink>
         </li>
         {playlists.data?.map((playlist) => (
           <li key={playlist.id}>
-            <PrefetchNavLink to={`/spotify/playlist/${encodeURIComponent(playlist.id)}`} className={item} onClick={onNavigate}>
+            <SidebarLink to={`/spotify/playlist/${encodeURIComponent(playlist.id)}`} className={item} onClick={onNavigate}>
               <span className={icon}>
                 <ListMusic size={17} strokeWidth={1.8} />
               </span>
               <span className={navLabel}>{playlist.name}</span>
-            </PrefetchNavLink>
+            </SidebarLink>
           </li>
         ))}
       </ul>
@@ -163,7 +201,7 @@ export function Sidebar() {
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
         </div>
         <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5">
-          <PrefetchNavLink to="/extension" className={item} onClick={close}>
+          <SidebarLink to="/extension" className={item} onClick={close}>
             {/* Chrome's own toolbar glyph for extensions (Material "extension"). */}
             <span className={icon}>
               <MdOutlineExtension size={18} />
@@ -174,16 +212,16 @@ export function Sidebar() {
                 Update
               </span>
             )}
-          </PrefetchNavLink>
+          </SidebarLink>
           <AccountButton />
           <div className="flex items-center justify-between">
             <a className="inline-flex items-center gap-1 ps-1 type-callout text-primary hover:underline" href={config.androidAppUrl} target="_blank" rel="noreferrer">
               <span>Get the Android app</span>
               <ArrowUpRight size={14} strokeWidth={2} />
             </a>
-            <PrefetchNavLink to="/settings" className="grid size-7 place-items-center rounded-nav text-secondary hover:bg-quinary hover:text-primary aria-[current=page]:bg-quinary aria-[current=page]:text-primary" aria-label="Settings" title="Settings" onClick={close}>
+            <SidebarLink to="/settings" className="grid size-7 place-items-center rounded-nav text-secondary hover:bg-quinary hover:text-primary aria-[current=page]:bg-quinary aria-[current=page]:text-primary" aria-label="Settings" title="Settings" onClick={close}>
               <Settings size={17} strokeWidth={1.9} />
-            </PrefetchNavLink>
+            </SidebarLink>
           </div>
         </div>
       </nav>

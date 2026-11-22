@@ -67,6 +67,7 @@ import {
   charSequenceGet1vxk1y5n17t1z as charSequenceGet,
   contains2el4s70rdq4ld as contains_0,
   multiply18i3gv3wlmcjg as multiply,
+  getBooleanHashCode1bbj3u6b3v0a7 as getBooleanHashCode,
   substringAfter35b3qhto7hchb as substringAfter,
   substringBefore3n7kj60w69hju as substringBefore,
   endsWith3cq61xxngobwh as endsWith,
@@ -102,11 +103,26 @@ import {
   get_indices3txodfl5wuu5j as get_indices,
   abs22kdeprm0tm5i as abs,
   coerceAtMostmgknbongtqt as coerceAtMost_0,
+  Collection1k04j3hzsbod0 as Collection,
+  StringCompanionObject_instance1v0ht40fz3tq0 as StringCompanionObject_instance,
+  get_CASE_INSENSITIVE_ORDER2lgrnzi9ynxf0 as get_CASE_INSENSITIVE_ORDER,
+  LinkedHashMap_init_$Create$2tibire69n089 as LinkedHashMap_init_$Create$_0,
+  toInt2q8uldh7sc951 as toInt,
+  equals2v6cggk171b6e as equals_0,
+  singleo93pzdgfc557 as single,
+  UnsupportedOperationException_init_$Create$3aa11d5glk6yi as UnsupportedOperationException_init_$Create$,
+  commonPrefixWith1ni2eltc34azu as commonPrefixWith,
+  isLettere1qnx5bysxbd as isLetter,
+  charSequenceSubSequence1iwpdba8s3jc7 as charSequenceSubSequence,
+  listOf1jh22dvmctj1r as listOf_0,
+  RegexOption_IGNORE_CASE_getInstance2w0ledfi08t5k as RegexOption_IGNORE_CASE_getInstance,
+  Regex_init_$Create$b9g8jwxgv7kc as Regex_init_$Create$_0,
   Companion_instance1xjg859pd52fi as Companion_instance,
   _Result___init__impl__xyqfz823vatsdepqb9n as _Result___init__impl__xyqfz8,
   createFailure8paxfkfa5dc7 as createFailure,
   _Result___get_value__impl__bjfvqg316j9v81zgqwq as _Result___get_value__impl__bjfvqg,
   _Result___get_isFailure__impl__jpiriv2lptaeb4c2198 as _Result___get_isFailure__impl__jpiriv,
+  get_indicesc04v40g017hw as get_indices_0,
   copyToArray2j022khrow2yi as copyToArray,
   toList383f556t1dixk as toList_1,
 } from './kotlin-kotlin-stdlib.mjs';
@@ -127,34 +143,45 @@ initMetadataForObject(SongCredits, 'SongCredits');
 initMetadataForClass(LyricAlignment, 'LyricAlignment', VOID, Enum);
 initMetadataForClass(LyricLine, 'LyricLine');
 initMetadataForClass(GrowingWord, 'GrowingWord');
+initMetadataForClass(QueueTier, 'QueueTier', VOID, Enum);
+initMetadataForClass(Song, 'Song');
 initMetadataForClass(SearchFilter, 'SearchFilter', VOID, Enum);
+initMetadataForClass(ShelfItem, 'ShelfItem');
+initMetadataForClass(KeyedMix, 'KeyedMix');
 initMetadataForClass(PlaylistMove, 'PlaylistMove');
+initMetadataForClass(SongSort, 'SongSort', VOID, Enum);
 initMetadataForClass(Heatmap, 'Heatmap');
 initMetadataForClass(Source, 'Source', VOID, Enum);
 initMetadataForClass(BestPartStart, 'BestPartStart');
 initMetadataForClass(sam$kotlin_Comparator$0, 'sam$kotlin_Comparator$0', VOID, VOID, [Comparator, FunctionAdapter]);
 initMetadataForClass(BestPart$chorusMs$$inlined$groupingBy$1);
 initMetadataForObject(BestPart, 'BestPart');
+initMetadataForClass(sam$kotlin_Comparator$0_0, 'sam$kotlin_Comparator$0', VOID, VOID, [Comparator, FunctionAdapter]);
+initMetadataForClass(MoodMixes, 'MoodMixes');
+initMetadataForClass(MixSections, 'MixSections');
+initMetadataForClass(sam$kotlin_Comparator$0_1, 'sam$kotlin_Comparator$0', VOID, VOID, [Comparator, FunctionAdapter]);
 initMetadataForClass(BestPartLine, 'BestPartLine');
 initMetadataForClass(BestPartPick, 'BestPartPick');
+initMetadataForClass(MixMood, 'MixMood');
+initMetadataForClass(MixGroups, 'MixGroups');
 initMetadataForClass(SongCreditGroup, 'SongCreditGroup');
 initMetadataForClass(CreditsBrowse, 'CreditsBrowse');
 initMetadataForClass(PlaylistMove_0, 'PlaylistMove');
 initMetadataForClass(SearchFilterOption, 'SearchFilterOption');
 //endregion
 function SongCredit(role, names) {
-  this.b13_1 = role;
-  this.c13_1 = names;
+  this.f13_1 = role;
+  this.g13_1 = names;
 }
-protoOf(SongCredit).d13 = function () {
-  return joinToString(this.c13_1, ', ');
+protoOf(SongCredit).h13 = function () {
+  return joinToString(this.g13_1, ', ');
 };
 protoOf(SongCredit).toString = function () {
-  return 'SongCredit(role=' + this.b13_1 + ', names=' + toString(this.c13_1) + ')';
+  return 'SongCredit(role=' + this.f13_1 + ', names=' + toString(this.g13_1) + ')';
 };
 protoOf(SongCredit).hashCode = function () {
-  var result = getStringHashCode(this.b13_1);
-  result = imul(result, 31) + hashCode(this.c13_1) | 0;
+  var result = getStringHashCode(this.f13_1);
+  result = imul(result, 31) + hashCode(this.g13_1) | 0;
   return result;
 };
 protoOf(SongCredit).equals = function (other) {
@@ -162,9 +189,9 @@ protoOf(SongCredit).equals = function (other) {
     return true;
   if (!(other instanceof SongCredit))
     return false;
-  if (!(this.b13_1 === other.b13_1))
+  if (!(this.f13_1 === other.f13_1))
     return false;
-  if (!equals(this.c13_1, other.c13_1))
+  if (!equals(this.g13_1, other.g13_1))
     return false;
   return true;
 };
@@ -207,12 +234,12 @@ function runsText($this, $receiver) {
       tmp = joinToString($receiver, '', VOID, VOID, VOID, VOID, SongCredits$runsText$lambda);
     } else {
       if ($receiver instanceof JsonObject) {
-        var tmp_0 = $receiver.ab('simpleText');
+        var tmp_0 = $receiver.eb('simpleText');
         var tmp1_safe_receiver = tmp_0 instanceof JsonPrimitive ? tmp_0 : null;
         var tmp2_elvis_lhs = tmp1_safe_receiver == null ? null : get_contentOrNull(tmp1_safe_receiver);
         var tmp_1;
         if (tmp2_elvis_lhs == null) {
-          var tmp_2 = $receiver.ab('runs');
+          var tmp_2 = $receiver.eb('runs');
           var tmp3_safe_receiver = tmp_2 instanceof JsonArray ? tmp_2 : null;
           var tmp_3;
           if (tmp3_safe_receiver == null) {
@@ -227,7 +254,7 @@ function runsText($this, $receiver) {
         var tmp4_elvis_lhs = tmp_1;
         var tmp_4;
         if (tmp4_elvis_lhs == null) {
-          var tmp5_safe_receiver = $receiver.ab('text');
+          var tmp5_safe_receiver = $receiver.eb('text');
           tmp_4 = tmp5_safe_receiver == null ? null : runsText($this, tmp5_safe_receiver);
         } else {
           tmp_4 = tmp4_elvis_lhs;
@@ -247,7 +274,7 @@ function splitNames($this, strings) {
     return emptyList();
   // Inline function 'kotlin.text.split' call
   // Inline function 'kotlin.collections.map' call
-  var this_0 = Regex_init_$Create$('\\r?\\n+|\\s*[\u2022\xB7]\\s*|\\s*,\\s+(?=[\\p{Lu}"\'])').xa(joined, 0);
+  var this_0 = Regex_init_$Create$('\\r?\\n+|\\s*[\u2022\xB7]\\s*|\\s*,\\s+(?=[\\p{Lu}"\'])').ya(joined, 0);
   // Inline function 'kotlin.collections.mapTo' call
   var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
   var _iterator__ex2g4s = this_0.h();
@@ -284,7 +311,7 @@ function objectsNamed($this, root, name) {
   return sequence(SongCredits$objectsNamed$slambda_0(root, name, null));
 }
 function findCreditsEndpoint$pageType(_this__u8e3s4) {
-  var tmp0_safe_receiver = _this__u8e3s4.ab('browseEndpointContextSupportedConfigs');
+  var tmp0_safe_receiver = _this__u8e3s4.eb('browseEndpointContextSupportedConfigs');
   var tmp;
   if (tmp0_safe_receiver == null) {
     tmp = null;
@@ -293,7 +320,7 @@ function findCreditsEndpoint$pageType(_this__u8e3s4) {
     tmp = tmp0_safe_receiver instanceof JsonObject ? tmp0_safe_receiver : null;
   }
   var tmp1_safe_receiver = tmp;
-  var tmp2_safe_receiver = tmp1_safe_receiver == null ? null : tmp1_safe_receiver.ab('browseEndpointContextMusicConfig');
+  var tmp2_safe_receiver = tmp1_safe_receiver == null ? null : tmp1_safe_receiver.eb('browseEndpointContextMusicConfig');
   var tmp_0;
   if (tmp2_safe_receiver == null) {
     tmp_0 = null;
@@ -302,7 +329,7 @@ function findCreditsEndpoint$pageType(_this__u8e3s4) {
     tmp_0 = tmp2_safe_receiver instanceof JsonObject ? tmp2_safe_receiver : null;
   }
   var tmp3_safe_receiver = tmp_0;
-  var tmp4_safe_receiver = tmp3_safe_receiver == null ? null : tmp3_safe_receiver.ab('pageType');
+  var tmp4_safe_receiver = tmp3_safe_receiver == null ? null : tmp3_safe_receiver.eb('pageType');
   var tmp_1;
   if (tmp4_safe_receiver == null) {
     tmp_1 = null;
@@ -316,7 +343,7 @@ function findCreditsEndpoint$pageType(_this__u8e3s4) {
   return tmp0_elvis_lhs == null ? '' : tmp0_elvis_lhs;
 }
 function findCreditsEndpoint$isCreditsBrowse(browse) {
-  var tmp = browse.ab('browseId');
+  var tmp = browse.eb('browseId');
   var tmp0_safe_receiver = tmp instanceof JsonPrimitive ? tmp : null;
   // Inline function 'kotlin.text.orEmpty' call
   var tmp0_elvis_lhs = tmp0_safe_receiver == null ? null : get_contentOrNull(tmp0_safe_receiver);
@@ -325,7 +352,7 @@ function findCreditsEndpoint$isCreditsBrowse(browse) {
 }
 function SongCredits$findCreditsEndpoint$lambda($videoId) {
   return function (it) {
-    var tmp = it.ab('videoId');
+    var tmp = it.eb('videoId');
     var tmp0_safe_receiver = tmp instanceof JsonPrimitive ? tmp : null;
     return (tmp0_safe_receiver == null ? null : get_contentOrNull(tmp0_safe_receiver)) === $videoId;
   };
@@ -335,25 +362,25 @@ function SongCredits$runsText$lambda(it) {
 }
 function SongCredits$runsText$lambda_0(run) {
   var tmp0_safe_receiver = run instanceof JsonObject ? run : null;
-  var tmp = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.ab('text');
+  var tmp = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.eb('text');
   var tmp1_safe_receiver = tmp instanceof JsonPrimitive ? tmp : null;
   // Inline function 'kotlin.text.orEmpty' call
   var tmp0_elvis_lhs = tmp1_safe_receiver == null ? null : get_contentOrNull(tmp1_safe_receiver);
   return tmp0_elvis_lhs == null ? '' : tmp0_elvis_lhs;
 }
 function SongCredits$objectsNamed$slambda($root, $name, resultContinuation) {
-  this.m13_1 = $root;
-  this.n13_1 = $name;
+  this.q13_1 = $root;
+  this.r13_1 = $name;
   CoroutineImpl.call(this, resultContinuation);
 }
-protoOf(SongCredits$objectsNamed$slambda).s13 = function ($this$sequence, $completion) {
-  var tmp = this.t13($this$sequence, $completion);
+protoOf(SongCredits$objectsNamed$slambda).w13 = function ($this$sequence, $completion) {
+  var tmp = this.x13($this$sequence, $completion);
   tmp.l7_1 = Unit_instance;
   tmp.m7_1 = null;
   return tmp.r7();
 };
 protoOf(SongCredits$objectsNamed$slambda).j8 = function (p1, $completion) {
-  return this.s13(p1 instanceof SequenceScope ? p1 : THROW_CCE(), $completion);
+  return this.w13(p1 instanceof SequenceScope ? p1 : THROW_CCE(), $completion);
 };
 protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
   var suspendResult = this.l7_1;
@@ -363,15 +390,15 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
       switch (tmp) {
         case 0:
           this.k7_1 = 10;
-          var tmp0_subject = this.m13_1;
+          var tmp0_subject = this.q13_1;
           if (tmp0_subject instanceof JsonObject) {
             var tmp_0 = this;
-            tmp_0.q13_1 = this.m13_1.v1().h();
+            tmp_0.u13_1 = this.q13_1.w1().h();
             this.j7_1 = 4;
             continue $sm;
           } else {
             if (tmp0_subject instanceof JsonArray) {
-              this.r13_1 = this.m13_1.h();
+              this.v13_1 = this.q13_1.h();
               this.j7_1 = 1;
               continue $sm;
             } else {
@@ -381,14 +408,14 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
           }
 
         case 1:
-          if (!this.r13_1.i()) {
+          if (!this.v13_1.i()) {
             this.j7_1 = 3;
             continue $sm;
           }
 
-          var value = this.r13_1.j();
+          var value = this.v13_1.j();
           this.j7_1 = 2;
-          suspendResult = this.o13_1.fd(objectsNamed(SongCredits_instance, value, this.n13_1), this);
+          suspendResult = this.s13_1.hd(objectsNamed(SongCredits_instance, value, this.r13_1), this);
           if (suspendResult === get_COROUTINE_SUSPENDED()) {
             return suspendResult;
           }
@@ -401,18 +428,18 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
           this.j7_1 = 9;
           continue $sm;
         case 4:
-          if (!this.q13_1.i()) {
+          if (!this.u13_1.i()) {
             this.j7_1 = 8;
             continue $sm;
           }
 
-          var _destruct__k2r9zo = this.q13_1.j();
-          var key = _destruct__k2r9zo.o1();
+          var _destruct__k2r9zo = this.u13_1.j();
+          var key = _destruct__k2r9zo.p1();
           var tmp_1 = this;
-          tmp_1.p13_1 = _destruct__k2r9zo.p1();
+          tmp_1.t13_1 = _destruct__k2r9zo.q1();
           var tmp_2;
-          if (key === this.n13_1) {
-            var tmp_3 = this.p13_1;
+          if (key === this.r13_1) {
+            var tmp_3 = this.t13_1;
             tmp_2 = tmp_3 instanceof JsonObject;
           } else {
             tmp_2 = false;
@@ -420,7 +447,7 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
 
           if (tmp_2) {
             this.j7_1 = 5;
-            suspendResult = this.o13_1.dd(this.p13_1, this);
+            suspendResult = this.s13_1.fd(this.t13_1, this);
             if (suspendResult === get_COROUTINE_SUSPENDED()) {
               return suspendResult;
             }
@@ -435,7 +462,7 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
           continue $sm;
         case 6:
           this.j7_1 = 7;
-          suspendResult = this.o13_1.fd(objectsNamed(SongCredits_instance, this.p13_1, this.n13_1), this);
+          suspendResult = this.s13_1.hd(objectsNamed(SongCredits_instance, this.t13_1, this.r13_1), this);
           if (suspendResult === get_COROUTINE_SUSPENDED()) {
             return suspendResult;
           }
@@ -463,22 +490,22 @@ protoOf(SongCredits$objectsNamed$slambda).r7 = function () {
     }
    while (true);
 };
-protoOf(SongCredits$objectsNamed$slambda).t13 = function ($this$sequence, completion) {
-  var i = new SongCredits$objectsNamed$slambda(this.m13_1, this.n13_1, completion);
-  i.o13_1 = $this$sequence;
+protoOf(SongCredits$objectsNamed$slambda).x13 = function ($this$sequence, completion) {
+  var i = new SongCredits$objectsNamed$slambda(this.q13_1, this.r13_1, completion);
+  i.s13_1 = $this$sequence;
   return i;
 };
 function SongCredits$objectsNamed$slambda_0($root, $name, resultContinuation) {
   var i = new SongCredits$objectsNamed$slambda($root, $name, resultContinuation);
   var l = function ($this$sequence, $completion) {
-    return i.s13($this$sequence, $completion);
+    return i.w13($this$sequence, $completion);
   };
   l.$arity = 1;
   return l;
 }
 function SongCredits() {
 }
-protoOf(SongCredits).u13 = function (root, videoId) {
+protoOf(SongCredits).y13 = function (root, videoId) {
   var tmp = objectsNamed(this, root, 'playlistPanelVideoRenderer');
   // Inline function 'kotlin.collections.ifEmpty' call
   var this_0 = toList(filter(tmp, SongCredits$findCreditsEndpoint$lambda(videoId)));
@@ -502,9 +529,9 @@ protoOf(SongCredits).u13 = function (root, videoId) {
         var element = _iterator__ex2g4s_0.j();
         var tmp$ret$3;
         $l$block: {
-          var tmp_1 = element.ab('navigationEndpoint');
+          var tmp_1 = element.eb('navigationEndpoint');
           var tmp0_safe_receiver = tmp_1 instanceof JsonObject ? tmp_1 : null;
-          var tmp_2 = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.ab('browseEndpoint');
+          var tmp_2 = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.eb('browseEndpoint');
           var tmp1_elvis_lhs = tmp_2 instanceof JsonObject ? tmp_2 : null;
           var tmp_3;
           if (tmp1_elvis_lhs == null) {
@@ -535,9 +562,9 @@ protoOf(SongCredits).u13 = function (root, videoId) {
           var element_0 = _iterator__ex2g4s_1.j();
           var tmp$ret$5;
           $l$block_1: {
-            var tmp_5 = element_0.ab('navigationEndpoint');
+            var tmp_5 = element_0.eb('navigationEndpoint');
             var tmp0_safe_receiver_0 = tmp_5 instanceof JsonObject ? tmp_5 : null;
-            var tmp_6 = tmp0_safe_receiver_0 == null ? null : tmp0_safe_receiver_0.ab('browseEndpoint');
+            var tmp_6 = tmp0_safe_receiver_0 == null ? null : tmp0_safe_receiver_0.eb('browseEndpoint');
             var tmp1_elvis_lhs_0 = tmp_6 instanceof JsonObject ? tmp_6 : null;
             var tmp_7;
             if (tmp1_elvis_lhs_0 == null) {
@@ -581,13 +608,13 @@ protoOf(SongCredits).u13 = function (root, videoId) {
   }
   return tmp$ret$6;
 };
-protoOf(SongCredits).v13 = function (root) {
+protoOf(SongCredits).z13 = function (root) {
   // Inline function 'kotlin.collections.mutableListOf' call
   var credits = ArrayList_init_$Create$_0();
   var _iterator__ex2g4s = objectsNamed(this, root, 'dismissableDialogContentSectionRenderer').h();
   while (_iterator__ex2g4s.i()) {
     var section = _iterator__ex2g4s.j();
-    var tmp0_safe_receiver = section.ab('title');
+    var tmp0_safe_receiver = section.eb('title');
     var tmp1_safe_receiver = tmp0_safe_receiver == null ? null : runsText(this, tmp0_safe_receiver);
     var tmp;
     if (tmp1_safe_receiver == null) {
@@ -599,7 +626,7 @@ protoOf(SongCredits).v13 = function (root) {
     // Inline function 'kotlin.text.orEmpty' call
     var tmp0_elvis_lhs = tmp;
     var role = tmp0_elvis_lhs == null ? '' : tmp0_elvis_lhs;
-    var tmp2_safe_receiver = section.ab('subtitle');
+    var tmp2_safe_receiver = section.eb('subtitle');
     // Inline function 'kotlin.text.orEmpty' call
     var tmp0_elvis_lhs_0 = tmp2_safe_receiver == null ? null : runsText(this, tmp2_safe_receiver);
     var tmp$ret$3 = tmp0_elvis_lhs_0 == null ? '' : tmp0_elvis_lhs_0;
@@ -628,10 +655,10 @@ protoOf(SongCredits).v13 = function (root) {
       var e = _iterator__ex2g4s_0.j();
       // Inline function 'kotlin.text.lowercase' call
       // Inline function 'kotlin.js.asDynamic' call
-      var tmp_1 = e.b13_1.toLowerCase();
+      var tmp_1 = e.f13_1.toLowerCase();
       // Inline function 'kotlin.text.lowercase' call
       // Inline function 'kotlin.js.asDynamic' call
-      var tmp$ret$12 = e.d13().toLowerCase();
+      var tmp$ret$12 = e.h13().toLowerCase();
       var key = to(tmp_1, tmp$ret$12);
       if (set.e(key)) {
         list.e(e);
@@ -642,7 +669,7 @@ protoOf(SongCredits).v13 = function (root) {
   var _iterator__ex2g4s_1 = objectsNamed(this, root, 'musicResponsiveListItemRenderer').h();
   while (_iterator__ex2g4s_1.i()) {
     var item = _iterator__ex2g4s_1.j();
-    var tmp_2 = item.ab('flexColumns');
+    var tmp_2 = item.eb('flexColumns');
     var tmp3_elvis_lhs = tmp_2 instanceof JsonArray ? tmp_2 : null;
     var flex = toList_0(tmp3_elvis_lhs == null ? new JsonArray(emptyList()) : tmp3_elvis_lhs);
     var tmp4_safe_receiver = getOrNull(flex, 0);
@@ -671,7 +698,7 @@ protoOf(SongCredits).v13 = function (root) {
       }
       tmp_4 = destination;
     } else {
-      var tmp6_safe_receiver = item.ab('subtitle');
+      var tmp6_safe_receiver = item.eb('subtitle');
       // Inline function 'kotlin.text.orEmpty' call
       var tmp0_elvis_lhs_2 = tmp6_safe_receiver == null ? null : runsText(this, tmp6_safe_receiver);
       var tmp$ret$19 = tmp0_elvis_lhs_2 == null ? '' : tmp0_elvis_lhs_2;
@@ -702,10 +729,10 @@ protoOf(SongCredits).v13 = function (root) {
       var e_0 = _iterator__ex2g4s_3.j();
       // Inline function 'kotlin.text.lowercase' call
       // Inline function 'kotlin.js.asDynamic' call
-      var tmp_6 = e_0.b13_1.toLowerCase();
+      var tmp_6 = e_0.f13_1.toLowerCase();
       // Inline function 'kotlin.text.lowercase' call
       // Inline function 'kotlin.js.asDynamic' call
-      var tmp$ret$28 = e_0.d13().toLowerCase();
+      var tmp$ret$28 = e_0.h13().toLowerCase();
       var key_0 = to(tmp_6, tmp$ret$28);
       if (set_0.e(key_0)) {
         list_1.e(e_0);
@@ -716,7 +743,7 @@ protoOf(SongCredits).v13 = function (root) {
   var _iterator__ex2g4s_4 = plus_0(objectsNamed(this, root, 'musicShelfRenderer'), objectsNamed(this, root, 'musicCarouselShelfRenderer')).h();
   while (_iterator__ex2g4s_4.i()) {
     var shelf = _iterator__ex2g4s_4.j();
-    var tmp_7 = shelf.ab('header');
+    var tmp_7 = shelf.eb('header');
     var header = tmp_7 instanceof JsonObject ? tmp_7 : null;
     var tmp8_safe_receiver = header == null ? null : runsText(this, header);
     var tmp_8;
@@ -729,7 +756,7 @@ protoOf(SongCredits).v13 = function (root) {
     // Inline function 'kotlin.text.orEmpty' call
     var tmp0_elvis_lhs_3 = tmp_8;
     var role_1 = tmp0_elvis_lhs_3 == null ? '' : tmp0_elvis_lhs_3;
-    var tmp_9 = shelf.ab('contents');
+    var tmp_9 = shelf.eb('contents');
     var tmp9_elvis_lhs = tmp_9 instanceof JsonArray ? tmp_9 : null;
     var contents = toList_0(tmp9_elvis_lhs == null ? new JsonArray(emptyList()) : tmp9_elvis_lhs);
     // Inline function 'kotlin.collections.flatMap' call
@@ -769,10 +796,10 @@ protoOf(SongCredits).v13 = function (root) {
     var e_1 = _iterator__ex2g4s_6.j();
     // Inline function 'kotlin.text.lowercase' call
     // Inline function 'kotlin.js.asDynamic' call
-    var tmp_12 = e_1.b13_1.toLowerCase();
+    var tmp_12 = e_1.f13_1.toLowerCase();
     // Inline function 'kotlin.text.lowercase' call
     // Inline function 'kotlin.js.asDynamic' call
-    var tmp$ret$43 = e_1.d13().toLowerCase();
+    var tmp$ret$43 = e_1.h13().toLowerCase();
     var key_1 = to(tmp_12, tmp$ret$43);
     if (set_1.e(key_1)) {
       list_3.e(e_1);
@@ -801,14 +828,14 @@ function LyricLine$wordSpans$delegate$lambda(this$0) {
   return function () {
     var offset = 0;
     // Inline function 'kotlin.collections.map' call
-    var this_0 = this$0.y13_1;
+    var this_0 = this$0.c14_1;
     // Inline function 'kotlin.collections.mapTo' call
     var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
     var _iterator__ex2g4s = this_0.h();
     while (_iterator__ex2g4s.i()) {
       var item = _iterator__ex2g4s.j();
       // Inline function 'kotlin.takeIf' call
-      var this_1 = indexOf(this$0.x13_1, item.k14_1, offset);
+      var this_1 = indexOf(this$0.b14_1, item.o14_1, offset);
       var tmp;
       if (this_1 >= 0) {
         tmp = this_1;
@@ -817,7 +844,7 @@ function LyricLine$wordSpans$delegate$lambda(this$0) {
       }
       var tmp0_elvis_lhs = tmp;
       var start = tmp0_elvis_lhs == null ? offset : tmp0_elvis_lhs;
-      var end = start + item.k14_1.length | 0;
+      var end = start + item.o14_1.length | 0;
       offset = end;
       var tmp$ret$2 = until(start, end);
       destination.e(tmp$ret$2);
@@ -827,13 +854,13 @@ function LyricLine$wordSpans$delegate$lambda(this$0) {
 }
 function LyricLine$_get_wordSpans_$ref_a1hnww() {
   return function (p0) {
-    return p0.m14();
+    return p0.q14();
   };
 }
 function LyricLine$sweepSpans$delegate$lambda(this$0) {
   return function () {
     // Inline function 'kotlin.collections.flatMapIndexed' call
-    var tmp0 = this$0.y13_1;
+    var tmp0 = this$0.c14_1;
     // Inline function 'kotlin.collections.flatMapIndexedTo' call
     var destination = ArrayList_init_$Create$_0();
     var index = 0;
@@ -843,19 +870,19 @@ function LyricLine$sweepSpans$delegate$lambda(this$0) {
       var _unary__edvuaz = index;
       index = _unary__edvuaz + 1 | 0;
       var index_0 = checkIndexOverflow(_unary__edvuaz);
-      var span = this$0.m14().p(index_0);
+      var span = this$0.q14().p(index_0);
       var tmp;
-      if (element.l14_1.r()) {
+      if (element.p14_1.r()) {
         tmp = listOf(span);
       } else {
         // Inline function 'kotlin.collections.map' call
-        var this_0 = element.l14_1;
+        var this_0 = element.p14_1;
         // Inline function 'kotlin.collections.mapTo' call
         var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
         var _iterator__ex2g4s_0 = this_0.h();
         while (_iterator__ex2g4s_0.i()) {
           var item = _iterator__ex2g4s_0.j();
-          var tmp$ret$5 = until(span.u_1 + item.p14_1 | 0, span.u_1 + item.q14_1 | 0);
+          var tmp$ret$5 = until(span.u_1 + item.t14_1 | 0, span.u_1 + item.u14_1 | 0);
           destination_0.e(tmp$ret$5);
         }
         tmp = destination_0;
@@ -868,27 +895,27 @@ function LyricLine$sweepSpans$delegate$lambda(this$0) {
 }
 function LyricLine$animatesFromMs$delegate$lambda(this$0) {
   return function () {
-    var tmp0 = this$0.w13_1;
-    var tmp0_safe_receiver = firstOrNull(this$0.y13_1);
-    var tmp1_elvis_lhs = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.i14_1;
+    var tmp0 = this$0.a14_1;
+    var tmp0_safe_receiver = firstOrNull(this$0.c14_1);
+    var tmp1_elvis_lhs = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.m14_1;
     // Inline function 'kotlin.comparisons.minOf' call
-    var b = tmp1_elvis_lhs == null ? this$0.w13_1 : tmp1_elvis_lhs;
+    var b = tmp1_elvis_lhs == null ? this$0.a14_1 : tmp1_elvis_lhs;
     return compare(tmp0, b) <= 0 ? tmp0 : b;
   };
 }
 function LyricLine$animatesUntilMs$delegate$lambda(this$0) {
   return function () {
-    var tmp0_safe_receiver = lastOrNull(this$0.y13_1);
+    var tmp0_safe_receiver = lastOrNull(this$0.c14_1);
     var tmp;
     if (tmp0_safe_receiver == null) {
       tmp = null;
     } else {
       // Inline function 'kotlin.let' call
-      tmp = add(tmp0_safe_receiver.j14_1, numberToLong(700.0));
+      tmp = add(tmp0_safe_receiver.n14_1, numberToLong(700.0));
     }
     var tmp1_elvis_lhs = tmp;
-    var settled = tmp1_elvis_lhs == null ? this$0.r14() : tmp1_elvis_lhs;
-    var tmp0 = this$0.s14();
+    var settled = tmp1_elvis_lhs == null ? this$0.v14() : tmp1_elvis_lhs;
+    var tmp0 = this$0.w14();
     var tmp$ret$2;
     $l$block: {
       // Inline function 'kotlin.collections.maxOfOrNull' call
@@ -897,9 +924,9 @@ function LyricLine$animatesUntilMs$delegate$lambda(this$0) {
         tmp$ret$2 = null;
         break $l$block;
       }
-      var maxValue = iterator.j().b15_1;
+      var maxValue = iterator.j().f15_1;
       while (iterator.i()) {
-        var v = iterator.j().b15_1;
+        var v = iterator.j().f15_1;
         if (compareTo(maxValue, v) < 0) {
           maxValue = v;
         }
@@ -909,7 +936,7 @@ function LyricLine$animatesUntilMs$delegate$lambda(this$0) {
     var tmp2_elvis_lhs = tmp$ret$2;
     var grown = tmp2_elvis_lhs == null ? new Long(0, -2147483648) : tmp2_elvis_lhs;
     // Inline function 'kotlin.comparisons.maxOf' call
-    var tmp0_0 = this$0.r14();
+    var tmp0_0 = this$0.v14();
     // Inline function 'kotlin.comparisons.maxOf' call
     // Inline function 'kotlin.comparisons.maxOf' call
     var b = compare(settled, grown) >= 0 ? settled : grown;
@@ -919,7 +946,7 @@ function LyricLine$animatesUntilMs$delegate$lambda(this$0) {
 function LyricLine$growingWords$delegate$lambda(this$0) {
   return function () {
     // Inline function 'kotlin.collections.mapIndexedNotNull' call
-    var tmp0 = this$0.y13_1;
+    var tmp0 = this$0.c14_1;
     // Inline function 'kotlin.collections.mapIndexedNotNullTo' call
     var destination = ArrayList_init_$Create$_0();
     // Inline function 'kotlin.collections.forEachIndexed' call
@@ -943,7 +970,7 @@ function LyricLine$growingWords$delegate$lambda(this$0) {
 }
 function LyricLine$_get_growingWords_$ref_hfol5b() {
   return function (p0) {
-    return p0.s14();
+    return p0.w14();
   };
 }
 function LyricLine(timeMs, text, words, sungUntilMs, background, alignment, timingSource) {
@@ -952,70 +979,70 @@ function LyricLine(timeMs, text, words, sungUntilMs, background, alignment, timi
   background = background === VOID ? null : background;
   alignment = alignment === VOID ? LyricAlignment_Start_getInstance() : alignment;
   timingSource = timingSource === VOID ? null : timingSource;
-  this.w13_1 = timeMs;
-  this.x13_1 = text;
-  this.y13_1 = words;
-  this.z13_1 = sungUntilMs;
-  this.a14_1 = background;
-  this.b14_1 = alignment;
-  this.c14_1 = timingSource;
+  this.a14_1 = timeMs;
+  this.b14_1 = text;
+  this.c14_1 = words;
+  this.d14_1 = sungUntilMs;
+  this.e14_1 = background;
+  this.f14_1 = alignment;
+  this.g14_1 = timingSource;
   var tmp = this;
   var tmp_0 = LazyThreadSafetyMode_NONE_getInstance();
-  tmp.d14_1 = lazy(tmp_0, LyricLine$wordSpans$delegate$lambda(this));
+  tmp.h14_1 = lazy(tmp_0, LyricLine$wordSpans$delegate$lambda(this));
   var tmp_1 = this;
   var tmp_2 = LazyThreadSafetyMode_NONE_getInstance();
-  tmp_1.e14_1 = lazy(tmp_2, LyricLine$sweepSpans$delegate$lambda(this));
+  tmp_1.i14_1 = lazy(tmp_2, LyricLine$sweepSpans$delegate$lambda(this));
   var tmp_3 = this;
   var tmp_4 = LazyThreadSafetyMode_NONE_getInstance();
-  tmp_3.f14_1 = lazy(tmp_4, LyricLine$animatesFromMs$delegate$lambda(this));
+  tmp_3.j14_1 = lazy(tmp_4, LyricLine$animatesFromMs$delegate$lambda(this));
   var tmp_5 = this;
   var tmp_6 = LazyThreadSafetyMode_NONE_getInstance();
-  tmp_5.g14_1 = lazy(tmp_6, LyricLine$animatesUntilMs$delegate$lambda(this));
+  tmp_5.k14_1 = lazy(tmp_6, LyricLine$animatesUntilMs$delegate$lambda(this));
   var tmp_7 = this;
   var tmp_8 = LazyThreadSafetyMode_NONE_getInstance();
-  tmp_7.h14_1 = lazy(tmp_8, LyricLine$growingWords$delegate$lambda(this));
+  tmp_7.l14_1 = lazy(tmp_8, LyricLine$growingWords$delegate$lambda(this));
 }
-protoOf(LyricLine).c15 = function () {
+protoOf(LyricLine).g15 = function () {
   // Inline function 'kotlin.text.isEmpty' call
-  var this_0 = this.x13_1;
+  var this_0 = this.b14_1;
   return charSequenceLength(this_0) === 0;
 };
-protoOf(LyricLine).m14 = function () {
-  var tmp0 = this.d14_1;
+protoOf(LyricLine).q14 = function () {
+  var tmp0 = this.h14_1;
   var tmp = KProperty1;
   // Inline function 'kotlin.getValue' call
   getPropertyCallableRef('wordSpans', 1, tmp, LyricLine$_get_wordSpans_$ref_a1hnww(), null);
-  return tmp0.p1();
+  return tmp0.q1();
 };
-protoOf(LyricLine).r14 = function () {
-  var tmp0_safe_receiver = lastOrNull(this.y13_1);
-  var tmp1_elvis_lhs = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.j14_1;
-  var tmp2_elvis_lhs = tmp1_elvis_lhs == null ? this.z13_1 : tmp1_elvis_lhs;
-  var lead = tmp2_elvis_lhs == null ? this.w13_1 : tmp2_elvis_lhs;
-  var tmp3_safe_receiver = this.a14_1;
-  var tmp4_elvis_lhs = tmp3_safe_receiver == null ? null : tmp3_safe_receiver.r14();
+protoOf(LyricLine).v14 = function () {
+  var tmp0_safe_receiver = lastOrNull(this.c14_1);
+  var tmp1_elvis_lhs = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.n14_1;
+  var tmp2_elvis_lhs = tmp1_elvis_lhs == null ? this.d14_1 : tmp1_elvis_lhs;
+  var lead = tmp2_elvis_lhs == null ? this.a14_1 : tmp2_elvis_lhs;
+  var tmp3_safe_receiver = this.e14_1;
+  var tmp4_elvis_lhs = tmp3_safe_receiver == null ? null : tmp3_safe_receiver.v14();
   // Inline function 'kotlin.comparisons.maxOf' call
   var b = tmp4_elvis_lhs == null ? lead : tmp4_elvis_lhs;
   return compare(lead, b) >= 0 ? lead : b;
 };
-protoOf(LyricLine).s14 = function () {
-  var tmp0 = this.h14_1;
+protoOf(LyricLine).w14 = function () {
+  var tmp0 = this.l14_1;
   var tmp = KProperty1;
   // Inline function 'kotlin.getValue' call
   getPropertyCallableRef('growingWords', 1, tmp, LyricLine$_get_growingWords_$ref_hfol5b(), null);
-  return tmp0.p1();
+  return tmp0.q1();
 };
 protoOf(LyricLine).toString = function () {
-  return 'LyricLine(timeMs=' + this.w13_1.toString() + ', text=' + this.x13_1 + ', words=' + toString(this.y13_1) + ', sungUntilMs=' + toString_0(this.z13_1) + ', background=' + toString_0(this.a14_1) + ', alignment=' + this.b14_1.toString() + ', timingSource=' + toString_0(this.c14_1) + ')';
+  return 'LyricLine(timeMs=' + this.a14_1.toString() + ', text=' + this.b14_1 + ', words=' + toString(this.c14_1) + ', sungUntilMs=' + toString_0(this.d14_1) + ', background=' + toString_0(this.e14_1) + ', alignment=' + this.f14_1.toString() + ', timingSource=' + toString_0(this.g14_1) + ')';
 };
 protoOf(LyricLine).hashCode = function () {
-  var result = this.w13_1.hashCode();
-  result = imul(result, 31) + getStringHashCode(this.x13_1) | 0;
-  result = imul(result, 31) + hashCode(this.y13_1) | 0;
-  result = imul(result, 31) + (this.z13_1 == null ? 0 : this.z13_1.hashCode()) | 0;
-  result = imul(result, 31) + (this.a14_1 == null ? 0 : this.a14_1.hashCode()) | 0;
-  result = imul(result, 31) + this.b14_1.hashCode() | 0;
-  result = imul(result, 31) + (this.c14_1 == null ? 0 : this.c14_1.hashCode()) | 0;
+  var result = this.a14_1.hashCode();
+  result = imul(result, 31) + getStringHashCode(this.b14_1) | 0;
+  result = imul(result, 31) + hashCode(this.c14_1) | 0;
+  result = imul(result, 31) + (this.d14_1 == null ? 0 : this.d14_1.hashCode()) | 0;
+  result = imul(result, 31) + (this.e14_1 == null ? 0 : this.e14_1.hashCode()) | 0;
+  result = imul(result, 31) + this.f14_1.hashCode() | 0;
+  result = imul(result, 31) + (this.g14_1 == null ? 0 : this.g14_1.hashCode()) | 0;
   return result;
 };
 protoOf(LyricLine).equals = function (other) {
@@ -1023,70 +1050,70 @@ protoOf(LyricLine).equals = function (other) {
     return true;
   if (!(other instanceof LyricLine))
     return false;
-  if (!equalsLong(this.w13_1, other.w13_1))
+  if (!equalsLong(this.a14_1, other.a14_1))
     return false;
-  if (!(this.x13_1 === other.x13_1))
-    return false;
-  if (!equals(this.y13_1, other.y13_1))
-    return false;
-  if (!equals(this.z13_1, other.z13_1))
-    return false;
-  if (!equals(this.a14_1, other.a14_1))
-    return false;
-  if (!this.b14_1.equals(other.b14_1))
+  if (!(this.b14_1 === other.b14_1))
     return false;
   if (!equals(this.c14_1, other.c14_1))
+    return false;
+  if (!equals(this.d14_1, other.d14_1))
+    return false;
+  if (!equals(this.e14_1, other.e14_1))
+    return false;
+  if (!this.f14_1.equals(other.f14_1))
+    return false;
+  if (!equals(this.g14_1, other.g14_1))
     return false;
   return true;
 };
 function GrowingWord(index, word) {
-  this.t14_1 = index;
-  this.u14_1 = word.i14_1;
-  this.v14_1 = word.j14_1;
-  this.w14_1 = word.k14_1.length;
-  this.x14_1 = new Float32Array(this.w14_1);
-  this.y14_1 = new Float32Array(this.w14_1);
-  this.z14_1 = new Float32Array(this.w14_1);
-  this.a15_1 = new Float32Array(this.w14_1);
-  var held = toNumber(coerceAtLeast(subtract(this.v14_1, this.u14_1), new Long(1, 0)));
+  this.x14_1 = index;
+  this.y14_1 = word.m14_1;
+  this.z14_1 = word.n14_1;
+  this.a15_1 = word.o14_1.length;
+  this.b15_1 = new Float32Array(this.a15_1);
+  this.c15_1 = new Float32Array(this.a15_1);
+  this.d15_1 = new Float32Array(this.a15_1);
+  this.e15_1 = new Float32Array(this.a15_1);
+  var held = toNumber(coerceAtLeast(subtract(this.z14_1, this.y14_1), new Long(1, 0)));
   // Inline function 'kotlin.let' call
   var it = coerceIn((held - 400.0) / (3000.0 - 400.0), 0.0, 1.0);
   var earned = it * it * it;
-  var decay = decayRate(this.w14_1, held);
+  var decay = decayRate(this.a15_1, held);
   // Inline function 'kotlin.comparisons.minOf' call
   var b = held / 1500.0;
   var bloomPace = Math.min(1.1, b);
-  var bloomSpread = this.w14_1 <= 3 ? 0.85 : this.w14_1 >= 6 ? 1.1 : 1.0;
-  var base = this.w14_1 <= 3 ? 0.05 : 0.04;
+  var bloomSpread = this.a15_1 <= 3 ? 0.85 : this.a15_1 >= 6 ? 1.1 : 1.0;
+  var base = this.a15_1 <= 3 ? 0.05 : 0.04;
   var liftPace = coerceIn(held / 2000.0, 0.3, 1.0);
   var inductionVariable = 0;
-  var last = this.w14_1;
+  var last = this.a15_1;
   if (inductionVariable < last)
     do {
       var i = inductionVariable;
       inductionVariable = inductionVariable + 1 | 0;
-      var place = this.w14_1 > 1 ? i / (this.w14_1 - 1 | 0) : 0.0;
+      var place = this.a15_1 > 1 ? i / (this.a15_1 - 1 | 0) : 0.0;
       var reach = earned * (1.0 - place * decay);
       var scale = 1.0 + base + reach * 0.08;
-      this.x14_1[i] = scale * 0.98;
-      this.a15_1[i] = (0.35 + reach * 0.45) * bloomPace * bloomSpread;
-      this.z14_1[i] = (scale - 1.0) / 0.1 * liftPace;
-      var centre = (i + 0.5) / this.w14_1;
-      this.y14_1[i] = (centre - 0.5) * 2.0 * (scale - 1.0) * 0.7352941 * 0.98;
+      this.b15_1[i] = scale * 0.98;
+      this.e15_1[i] = (0.35 + reach * 0.45) * bloomPace * bloomSpread;
+      this.d15_1[i] = (scale - 1.0) / 0.1 * liftPace;
+      var centre = (i + 0.5) / this.a15_1;
+      this.c15_1[i] = (centre - 0.5) * 2.0 * (scale - 1.0) * 0.7352941 * 0.98;
     }
      while (inductionVariable < last);
-  var last_0 = coerceAtLeast_0(this.w14_1 - 1 | 0, 0) * 0.09 + 1.5;
-  this.b15_1 = add(this.u14_1, numberToLong(held * last_0));
+  var last_0 = coerceAtLeast_0(this.a15_1 - 1 | 0, 0) * 0.09 + 1.5;
+  this.f15_1 = add(this.y14_1, numberToLong(held * last_0));
 }
 function canGrow(_this__u8e3s4) {
-  var length = _this__u8e3s4.k14_1.length;
+  var length = _this__u8e3s4.o14_1.length;
   if (length === 0 || length > 7)
     return false;
   var tmp;
-  if (contains_0(_this__u8e3s4.k14_1, _Char___init__impl__6a9atx(45))) {
+  if (contains_0(_this__u8e3s4.o14_1, _Char___init__impl__6a9atx(45))) {
     tmp = true;
   } else {
-    var tmp0 = _this__u8e3s4.k14_1;
+    var tmp0 = _this__u8e3s4.o14_1;
     var tmp$ret$0;
     $l$block: {
       // Inline function 'kotlin.text.any' call
@@ -1105,7 +1132,7 @@ function canGrow(_this__u8e3s4) {
   }
   if (tmp)
     return false;
-  var held = subtract(_this__u8e3s4.j14_1, _this__u8e3s4.i14_1);
+  var held = subtract(_this__u8e3s4.n14_1, _this__u8e3s4.m14_1);
   return length === 1 ? compare(held, new Long(1100, 0)) >= 0 : length <= 3 ? compare(held, add(new Long(1360, 0), multiply(numberToLong(length - 2 | 0), new Long(140, 0)))) >= 0 : length === 4 ? compare(held, new Long(1050, 0)) >= 0 : compare(held, new Long(900, 0)) >= 0 && compare(held, multiply(numberToLong(length), new Long(200, 0))) >= 0;
 }
 function decayRate(length, heldMs) {
@@ -1160,6 +1187,172 @@ function get_PARAM_SIZE_HINT() {
   return PARAM_SIZE_HINT;
 }
 var PARAM_SIZE_HINT;
+var QueueTier_USER_QUEUE_instance;
+var QueueTier_CONTEXT_instance;
+var QueueTier_AUTOPLAY_instance;
+var QueueTier_entriesInitialized;
+function QueueTier_initEntries() {
+  if (QueueTier_entriesInitialized)
+    return Unit_instance;
+  QueueTier_entriesInitialized = true;
+  QueueTier_USER_QUEUE_instance = new QueueTier('USER_QUEUE', 0);
+  QueueTier_CONTEXT_instance = new QueueTier('CONTEXT', 1);
+  QueueTier_AUTOPLAY_instance = new QueueTier('AUTOPLAY', 2);
+}
+function QueueTier(name, ordinal) {
+  Enum.call(this, name, ordinal);
+}
+function Song(videoId, title, artist, thumbnailUrl, durationText, artistId, artists, albumId, albumName, isVideo, isVideoOrigin, setVideoId, queueTier, queueEntryId, radioName, localUri, downloadFormat, localPath, localDateAddedSeconds, localDateModifiedSeconds, trackNumber, sourceQuality, sourceHiRes, isExplicit, playbackSource, playbackSourceType, playbackSourceId, feedbackToken) {
+  durationText = durationText === VOID ? null : durationText;
+  artistId = artistId === VOID ? null : artistId;
+  artists = artists === VOID ? emptyList() : artists;
+  albumId = albumId === VOID ? null : albumId;
+  albumName = albumName === VOID ? null : albumName;
+  isVideo = isVideo === VOID ? false : isVideo;
+  isVideoOrigin = isVideoOrigin === VOID ? isVideo : isVideoOrigin;
+  setVideoId = setVideoId === VOID ? null : setVideoId;
+  queueTier = queueTier === VOID ? QueueTier_CONTEXT_getInstance() : queueTier;
+  queueEntryId = queueEntryId === VOID ? null : queueEntryId;
+  radioName = radioName === VOID ? null : radioName;
+  localUri = localUri === VOID ? null : localUri;
+  downloadFormat = downloadFormat === VOID ? null : downloadFormat;
+  localPath = localPath === VOID ? null : localPath;
+  localDateAddedSeconds = localDateAddedSeconds === VOID ? null : localDateAddedSeconds;
+  localDateModifiedSeconds = localDateModifiedSeconds === VOID ? null : localDateModifiedSeconds;
+  trackNumber = trackNumber === VOID ? null : trackNumber;
+  sourceQuality = sourceQuality === VOID ? null : sourceQuality;
+  sourceHiRes = sourceHiRes === VOID ? false : sourceHiRes;
+  isExplicit = isExplicit === VOID ? null : isExplicit;
+  playbackSource = playbackSource === VOID ? null : playbackSource;
+  playbackSourceType = playbackSourceType === VOID ? null : playbackSourceType;
+  playbackSourceId = playbackSourceId === VOID ? null : playbackSourceId;
+  feedbackToken = feedbackToken === VOID ? null : feedbackToken;
+  this.h15_1 = videoId;
+  this.i15_1 = title;
+  this.j15_1 = artist;
+  this.k15_1 = thumbnailUrl;
+  this.l15_1 = durationText;
+  this.m15_1 = artistId;
+  this.n15_1 = artists;
+  this.o15_1 = albumId;
+  this.p15_1 = albumName;
+  this.q15_1 = isVideo;
+  this.r15_1 = isVideoOrigin;
+  this.s15_1 = setVideoId;
+  this.t15_1 = queueTier;
+  this.u15_1 = queueEntryId;
+  this.v15_1 = radioName;
+  this.w15_1 = localUri;
+  this.x15_1 = downloadFormat;
+  this.y15_1 = localPath;
+  this.z15_1 = localDateAddedSeconds;
+  this.a16_1 = localDateModifiedSeconds;
+  this.b16_1 = trackNumber;
+  this.c16_1 = sourceQuality;
+  this.d16_1 = sourceHiRes;
+  this.e16_1 = isExplicit;
+  this.f16_1 = playbackSource;
+  this.g16_1 = playbackSourceType;
+  this.h16_1 = playbackSourceId;
+  this.i16_1 = feedbackToken;
+}
+protoOf(Song).toString = function () {
+  return 'Song(videoId=' + this.h15_1 + ', title=' + this.i15_1 + ', artist=' + this.j15_1 + ', thumbnailUrl=' + this.k15_1 + ', durationText=' + this.l15_1 + ', artistId=' + this.m15_1 + ', artists=' + toString(this.n15_1) + ', albumId=' + this.o15_1 + ', albumName=' + this.p15_1 + ', isVideo=' + this.q15_1 + ', isVideoOrigin=' + this.r15_1 + ', setVideoId=' + this.s15_1 + ', queueTier=' + this.t15_1.toString() + ', queueEntryId=' + this.u15_1 + ', radioName=' + this.v15_1 + ', localUri=' + this.w15_1 + ', downloadFormat=' + this.x15_1 + ', localPath=' + this.y15_1 + ', localDateAddedSeconds=' + toString_0(this.z15_1) + ', localDateModifiedSeconds=' + toString_0(this.a16_1) + ', trackNumber=' + this.b16_1 + ', sourceQuality=' + this.c16_1 + ', sourceHiRes=' + this.d16_1 + ', isExplicit=' + this.e16_1 + ', playbackSource=' + this.f16_1 + ', playbackSourceType=' + toString_0(this.g16_1) + ', playbackSourceId=' + this.h16_1 + ', feedbackToken=' + this.i16_1 + ')';
+};
+protoOf(Song).hashCode = function () {
+  var result = getStringHashCode(this.h15_1);
+  result = imul(result, 31) + getStringHashCode(this.i15_1) | 0;
+  result = imul(result, 31) + getStringHashCode(this.j15_1) | 0;
+  result = imul(result, 31) + (this.k15_1 == null ? 0 : getStringHashCode(this.k15_1)) | 0;
+  result = imul(result, 31) + (this.l15_1 == null ? 0 : getStringHashCode(this.l15_1)) | 0;
+  result = imul(result, 31) + (this.m15_1 == null ? 0 : getStringHashCode(this.m15_1)) | 0;
+  result = imul(result, 31) + hashCode(this.n15_1) | 0;
+  result = imul(result, 31) + (this.o15_1 == null ? 0 : getStringHashCode(this.o15_1)) | 0;
+  result = imul(result, 31) + (this.p15_1 == null ? 0 : getStringHashCode(this.p15_1)) | 0;
+  result = imul(result, 31) + getBooleanHashCode(this.q15_1) | 0;
+  result = imul(result, 31) + getBooleanHashCode(this.r15_1) | 0;
+  result = imul(result, 31) + (this.s15_1 == null ? 0 : getStringHashCode(this.s15_1)) | 0;
+  result = imul(result, 31) + this.t15_1.hashCode() | 0;
+  result = imul(result, 31) + (this.u15_1 == null ? 0 : getStringHashCode(this.u15_1)) | 0;
+  result = imul(result, 31) + (this.v15_1 == null ? 0 : getStringHashCode(this.v15_1)) | 0;
+  result = imul(result, 31) + (this.w15_1 == null ? 0 : getStringHashCode(this.w15_1)) | 0;
+  result = imul(result, 31) + (this.x15_1 == null ? 0 : getStringHashCode(this.x15_1)) | 0;
+  result = imul(result, 31) + (this.y15_1 == null ? 0 : getStringHashCode(this.y15_1)) | 0;
+  result = imul(result, 31) + (this.z15_1 == null ? 0 : this.z15_1.hashCode()) | 0;
+  result = imul(result, 31) + (this.a16_1 == null ? 0 : this.a16_1.hashCode()) | 0;
+  result = imul(result, 31) + (this.b16_1 == null ? 0 : this.b16_1) | 0;
+  result = imul(result, 31) + (this.c16_1 == null ? 0 : getStringHashCode(this.c16_1)) | 0;
+  result = imul(result, 31) + getBooleanHashCode(this.d16_1) | 0;
+  result = imul(result, 31) + (this.e16_1 == null ? 0 : getBooleanHashCode(this.e16_1)) | 0;
+  result = imul(result, 31) + (this.f16_1 == null ? 0 : getStringHashCode(this.f16_1)) | 0;
+  result = imul(result, 31) + (this.g16_1 == null ? 0 : this.g16_1.hashCode()) | 0;
+  result = imul(result, 31) + (this.h16_1 == null ? 0 : getStringHashCode(this.h16_1)) | 0;
+  result = imul(result, 31) + (this.i16_1 == null ? 0 : getStringHashCode(this.i16_1)) | 0;
+  return result;
+};
+protoOf(Song).equals = function (other) {
+  if (this === other)
+    return true;
+  if (!(other instanceof Song))
+    return false;
+  if (!(this.h15_1 === other.h15_1))
+    return false;
+  if (!(this.i15_1 === other.i15_1))
+    return false;
+  if (!(this.j15_1 === other.j15_1))
+    return false;
+  if (!(this.k15_1 == other.k15_1))
+    return false;
+  if (!(this.l15_1 == other.l15_1))
+    return false;
+  if (!(this.m15_1 == other.m15_1))
+    return false;
+  if (!equals(this.n15_1, other.n15_1))
+    return false;
+  if (!(this.o15_1 == other.o15_1))
+    return false;
+  if (!(this.p15_1 == other.p15_1))
+    return false;
+  if (!(this.q15_1 === other.q15_1))
+    return false;
+  if (!(this.r15_1 === other.r15_1))
+    return false;
+  if (!(this.s15_1 == other.s15_1))
+    return false;
+  if (!this.t15_1.equals(other.t15_1))
+    return false;
+  if (!(this.u15_1 == other.u15_1))
+    return false;
+  if (!(this.v15_1 == other.v15_1))
+    return false;
+  if (!(this.w15_1 == other.w15_1))
+    return false;
+  if (!(this.x15_1 == other.x15_1))
+    return false;
+  if (!(this.y15_1 == other.y15_1))
+    return false;
+  if (!equals(this.z15_1, other.z15_1))
+    return false;
+  if (!equals(this.a16_1, other.a16_1))
+    return false;
+  if (!(this.b16_1 == other.b16_1))
+    return false;
+  if (!(this.c16_1 == other.c16_1))
+    return false;
+  if (!(this.d16_1 === other.d16_1))
+    return false;
+  if (!(this.e16_1 == other.e16_1))
+    return false;
+  if (!(this.f16_1 == other.f16_1))
+    return false;
+  if (!equals(this.g16_1, other.g16_1))
+    return false;
+  if (!(this.h16_1 == other.h16_1))
+    return false;
+  if (!(this.i16_1 == other.i16_1))
+    return false;
+  return true;
+};
 function artworkAt(_this__u8e3s4, px) {
   _init_properties_Models_kt__qy51oq();
   if (_this__u8e3s4 == null)
@@ -1167,13 +1360,13 @@ function artworkAt(_this__u8e3s4, px) {
   var tmp2 = get_SIZE_HINT();
   // Inline function 'kotlin.text.replace' call
   var replacement = 'w' + px + '-h' + px;
-  var sized = tmp2.pa(_this__u8e3s4, replacement);
+  var sized = tmp2.qa(_this__u8e3s4, replacement);
   var tmp;
   if (isGoogleImageHost(_this__u8e3s4)) {
     var tmp2_0 = get_PARAM_SIZE_HINT();
     // Inline function 'kotlin.text.replace' call
     var replacement_0 = '=s' + px;
-    tmp = tmp2_0.pa(sized, replacement_0);
+    tmp = tmp2_0.qa(sized, replacement_0);
   } else if (isYouTubeThumbnailHost(_this__u8e3s4)) {
     tmp = upgradeYouTubeThumbnail(sized, px);
   } else {
@@ -1225,7 +1418,7 @@ function upgradeYouTubeThumbnail(url, px) {
     tmp = tmp0_elvis_lhs;
   }
   var match = tmp;
-  var current = match.ob().p(1);
+  var current = match.pb().p(1);
   var tmp_0;
   if (px >= 480) {
     tmp_0 = 'maxresdefault';
@@ -1241,7 +1434,7 @@ function upgradeYouTubeThumbnail(url, px) {
 }
 function withRendition(url, match, rendition) {
   _init_properties_Models_kt__qy51oq();
-  return substringBefore(substring(url, 0, match.ra().u_1) + ('/' + rendition + '.' + match.ob().p(2)) + substring_0(url, match.ra().v_1 + 1 | 0), _Char___init__impl__6a9atx(63));
+  return substringBefore(substring(url, 0, match.sa().u_1) + ('/' + rendition + '.' + match.pb().p(2)) + substring_0(url, match.sa().v_1 + 1 | 0), _Char___init__impl__6a9atx(63));
 }
 var SearchFilter_ALL_instance;
 var SearchFilter_SONGS_instance;
@@ -1275,9 +1468,76 @@ var $ENTRIES;
 function SearchFilter(name, ordinal, label, params, requiresAuth) {
   requiresAuth = requiresAuth === VOID ? false : requiresAuth;
   Enum.call(this, name, ordinal);
-  this.f15_1 = label;
-  this.g15_1 = params;
-  this.h15_1 = requiresAuth;
+  this.l16_1 = label;
+  this.m16_1 = params;
+  this.n16_1 = requiresAuth;
+}
+function ShelfItem(title, subtitle, thumbnailUrl, videoId, browseId, isVideo) {
+  isVideo = isVideo === VOID ? false : isVideo;
+  this.o16_1 = title;
+  this.p16_1 = subtitle;
+  this.q16_1 = thumbnailUrl;
+  this.r16_1 = videoId;
+  this.s16_1 = browseId;
+  this.t16_1 = isVideo;
+}
+protoOf(ShelfItem).toString = function () {
+  return 'ShelfItem(title=' + this.o16_1 + ', subtitle=' + this.p16_1 + ', thumbnailUrl=' + this.q16_1 + ', videoId=' + this.r16_1 + ', browseId=' + this.s16_1 + ', isVideo=' + this.t16_1 + ')';
+};
+protoOf(ShelfItem).hashCode = function () {
+  var result = getStringHashCode(this.o16_1);
+  result = imul(result, 31) + getStringHashCode(this.p16_1) | 0;
+  result = imul(result, 31) + (this.q16_1 == null ? 0 : getStringHashCode(this.q16_1)) | 0;
+  result = imul(result, 31) + (this.r16_1 == null ? 0 : getStringHashCode(this.r16_1)) | 0;
+  result = imul(result, 31) + (this.s16_1 == null ? 0 : getStringHashCode(this.s16_1)) | 0;
+  result = imul(result, 31) + getBooleanHashCode(this.t16_1) | 0;
+  return result;
+};
+protoOf(ShelfItem).equals = function (other) {
+  if (this === other)
+    return true;
+  if (!(other instanceof ShelfItem))
+    return false;
+  if (!(this.o16_1 === other.o16_1))
+    return false;
+  if (!(this.p16_1 === other.p16_1))
+    return false;
+  if (!(this.q16_1 == other.q16_1))
+    return false;
+  if (!(this.r16_1 == other.r16_1))
+    return false;
+  if (!(this.s16_1 == other.s16_1))
+    return false;
+  if (!(this.t16_1 === other.t16_1))
+    return false;
+  return true;
+};
+function KeyedMix(item, englishTitle) {
+  this.u16_1 = item;
+  this.v16_1 = englishTitle;
+}
+protoOf(KeyedMix).toString = function () {
+  return 'KeyedMix(item=' + this.u16_1.toString() + ', englishTitle=' + this.v16_1 + ')';
+};
+protoOf(KeyedMix).hashCode = function () {
+  var result = this.u16_1.hashCode();
+  result = imul(result, 31) + getStringHashCode(this.v16_1) | 0;
+  return result;
+};
+protoOf(KeyedMix).equals = function (other) {
+  if (this === other)
+    return true;
+  if (!(other instanceof KeyedMix))
+    return false;
+  if (!this.u16_1.equals(other.u16_1))
+    return false;
+  if (!(this.v16_1 === other.v16_1))
+    return false;
+  return true;
+};
+function QueueTier_CONTEXT_getInstance() {
+  QueueTier_initEntries();
+  return QueueTier_CONTEXT_instance;
 }
 function SearchFilter_ALL_getInstance() {
   SearchFilter_initEntries();
@@ -1318,15 +1578,15 @@ function _init_properties_Models_kt__qy51oq() {
   }
 }
 function PlaylistMove(setVideoId, before) {
-  this.i15_1 = setVideoId;
-  this.j15_1 = before;
+  this.w16_1 = setVideoId;
+  this.x16_1 = before;
 }
 protoOf(PlaylistMove).toString = function () {
-  return 'PlaylistMove(setVideoId=' + this.i15_1 + ', before=' + this.j15_1 + ')';
+  return 'PlaylistMove(setVideoId=' + this.w16_1 + ', before=' + this.x16_1 + ')';
 };
 protoOf(PlaylistMove).hashCode = function () {
-  var result = getStringHashCode(this.i15_1);
-  result = imul(result, 31) + (this.j15_1 == null ? 0 : getStringHashCode(this.j15_1)) | 0;
+  var result = getStringHashCode(this.w16_1);
+  result = imul(result, 31) + (this.x16_1 == null ? 0 : getStringHashCode(this.x16_1)) | 0;
   return result;
 };
 protoOf(PlaylistMove).equals = function (other) {
@@ -1334,9 +1594,9 @@ protoOf(PlaylistMove).equals = function (other) {
     return true;
   if (!(other instanceof PlaylistMove))
     return false;
-  if (!(this.i15_1 === other.i15_1))
+  if (!(this.w16_1 === other.w16_1))
     return false;
-  if (!(this.j15_1 == other.j15_1))
+  if (!(this.x16_1 == other.x16_1))
     return false;
   return true;
 };
@@ -1354,11 +1614,11 @@ function playlistMoves(current, target) {
   var _iterator__ex2g4s = this_0.h();
   while (_iterator__ex2g4s.i()) {
     var element = _iterator__ex2g4s.j();
-    var index = element.lc();
-    var id = element.mc();
+    var index = element.nc();
+    var id = element.oc();
     // Inline function 'kotlin.collections.plusAssign' call
     var pair = to(id, index);
-    destination.w1(pair.uc_1, pair.vc_1);
+    destination.x1(pair.wc_1, pair.xc_1);
   }
   var position = destination;
   // Inline function 'kotlin.collections.map' call
@@ -1443,22 +1703,76 @@ function longestIncreasingRun(values) {
   }
   return asReversed(run);
 }
-function Heatmap(segmentMs, intensity) {
-  this.k15_1 = segmentMs;
-  this.l15_1 = intensity;
+var SongSort_DEFAULT_instance;
+var SongSort_TRACK_NUMBER_instance;
+var SongSort_TITLE_ASC_instance;
+var SongSort_TITLE_DESC_instance;
+var SongSort_DATE_ADDED_ASC_instance;
+var SongSort_DATE_ADDED_DESC_instance;
+function values_0() {
+  return [SongSort_DEFAULT_getInstance(), SongSort_TRACK_NUMBER_getInstance(), SongSort_TITLE_ASC_getInstance(), SongSort_TITLE_DESC_getInstance(), SongSort_DATE_ADDED_ASC_getInstance(), SongSort_DATE_ADDED_DESC_getInstance()];
 }
-protoOf(Heatmap).m15 = function () {
-  var tmp0 = this.k15_1;
+function get_entries_0() {
+  if ($ENTRIES_0 == null)
+    $ENTRIES_0 = enumEntries(values_0());
+  return $ENTRIES_0;
+}
+var SongSort_entriesInitialized;
+function SongSort_initEntries() {
+  if (SongSort_entriesInitialized)
+    return Unit_instance;
+  SongSort_entriesInitialized = true;
+  SongSort_DEFAULT_instance = new SongSort('DEFAULT', 0);
+  SongSort_TRACK_NUMBER_instance = new SongSort('TRACK_NUMBER', 1);
+  SongSort_TITLE_ASC_instance = new SongSort('TITLE_ASC', 2);
+  SongSort_TITLE_DESC_instance = new SongSort('TITLE_DESC', 3);
+  SongSort_DATE_ADDED_ASC_instance = new SongSort('DATE_ADDED_ASC', 4);
+  SongSort_DATE_ADDED_DESC_instance = new SongSort('DATE_ADDED_DESC', 5);
+}
+var $ENTRIES_0;
+function SongSort(name, ordinal) {
+  Enum.call(this, name, ordinal);
+}
+function SongSort_DEFAULT_getInstance() {
+  SongSort_initEntries();
+  return SongSort_DEFAULT_instance;
+}
+function SongSort_TRACK_NUMBER_getInstance() {
+  SongSort_initEntries();
+  return SongSort_TRACK_NUMBER_instance;
+}
+function SongSort_TITLE_ASC_getInstance() {
+  SongSort_initEntries();
+  return SongSort_TITLE_ASC_instance;
+}
+function SongSort_TITLE_DESC_getInstance() {
+  SongSort_initEntries();
+  return SongSort_TITLE_DESC_instance;
+}
+function SongSort_DATE_ADDED_ASC_getInstance() {
+  SongSort_initEntries();
+  return SongSort_DATE_ADDED_ASC_instance;
+}
+function SongSort_DATE_ADDED_DESC_getInstance() {
+  SongSort_initEntries();
+  return SongSort_DATE_ADDED_DESC_instance;
+}
+function Heatmap(segmentMs, intensity) {
+  this.y16_1 = segmentMs;
+  this.z16_1 = intensity;
+}
+protoOf(Heatmap).a17 = function () {
+  var tmp0 = this.y16_1;
   // Inline function 'kotlin.Long.times' call
-  var other = this.l15_1.k();
+  var other = this.z16_1.k();
   return multiply(tmp0, fromInt(other));
 };
 protoOf(Heatmap).toString = function () {
-  return 'Heatmap(segmentMs=' + this.k15_1.toString() + ', intensity=' + toString(this.l15_1) + ')';
+  return 'Heatmap(segmentMs=' + this.y16_1.toString() + ', intensity=' + toString(this.z16_1) + ')';
 };
 protoOf(Heatmap).hashCode = function () {
-  var result = this.k15_1.hashCode();
-  result = imul(result, 31) + hashCode(this.l15_1) | 0;
+  var result = this.y16_1.hashCode();
+  result = imul(result, 31) + hashCode(this.z16_1) | 0;
   return result;
 };
 protoOf(Heatmap).equals = function (other) {
@@ -1466,9 +1780,9 @@ protoOf(Heatmap).equals = function (other) {
     return true;
   if (!(other instanceof Heatmap))
     return false;
-  if (!equalsLong(this.k15_1, other.k15_1))
+  if (!equalsLong(this.y16_1, other.y16_1))
     return false;
-  if (!equals(this.l15_1, other.l15_1))
+  if (!equals(this.z16_1, other.z16_1))
     return false;
   return true;
 };
@@ -1500,15 +1814,15 @@ function Source_FALLBACK_getInstance() {
   return Source_FALLBACK_instance;
 }
 function BestPartStart(startMs, source) {
-  this.n15_1 = startMs;
-  this.o15_1 = source;
+  this.b17_1 = startMs;
+  this.c17_1 = source;
 }
 protoOf(BestPartStart).toString = function () {
-  return 'BestPartStart(startMs=' + this.n15_1.toString() + ', source=' + this.o15_1.toString() + ')';
+  return 'BestPartStart(startMs=' + this.b17_1.toString() + ', source=' + this.c17_1.toString() + ')';
 };
 protoOf(BestPartStart).hashCode = function () {
-  var result = this.n15_1.hashCode();
-  result = imul(result, 31) + this.o15_1.hashCode() | 0;
+  var result = this.b17_1.hashCode();
+  result = imul(result, 31) + this.c17_1.hashCode() | 0;
   return result;
 };
 protoOf(BestPartStart).equals = function (other) {
@@ -1516,9 +1830,9 @@ protoOf(BestPartStart).equals = function (other) {
     return true;
   if (!(other instanceof BestPartStart))
     return false;
-  if (!equalsLong(this.n15_1, other.n15_1))
+  if (!equalsLong(this.b17_1, other.b17_1))
     return false;
-  if (!this.o15_1.equals(other.o15_1))
+  if (!this.c17_1.equals(other.c17_1))
     return false;
   return true;
 };
@@ -1552,32 +1866,32 @@ function findAll($this, element, key) {
   return this_0.d4();
 }
 function obj($this, $receiver, key) {
-  var tmp = $receiver.ab(key);
+  var tmp = $receiver.eb(key);
   return tmp instanceof JsonObject ? tmp : null;
 }
 function str($this, $receiver, key) {
-  var tmp = $receiver.ab(key);
+  var tmp = $receiver.eb(key);
   var tmp0_safe_receiver = tmp instanceof JsonPrimitive ? tmp : null;
   return tmp0_safe_receiver == null ? null : get_contentOrNull(tmp0_safe_receiver);
 }
 function sam$kotlin_Comparator$0(function_0) {
-  this.p15_1 = function_0;
+  this.d17_1 = function_0;
 }
-protoOf(sam$kotlin_Comparator$0).qb = function (a, b) {
-  return this.p15_1(a, b);
+protoOf(sam$kotlin_Comparator$0).rb = function (a, b) {
+  return this.d17_1(a, b);
 };
 protoOf(sam$kotlin_Comparator$0).compare = function (a, b) {
-  return this.qb(a, b);
+  return this.rb(a, b);
 };
-protoOf(sam$kotlin_Comparator$0).h2 = function () {
-  return this.p15_1;
+protoOf(sam$kotlin_Comparator$0).i2 = function () {
+  return this.d17_1;
 };
 protoOf(sam$kotlin_Comparator$0).equals = function (other) {
   var tmp;
   if (!(other == null) ? isInterface(other, Comparator) : false) {
     var tmp_0;
     if (!(other == null) ? isInterface(other, FunctionAdapter) : false) {
-      tmp_0 = equals(this.h2(), other.h2());
+      tmp_0 = equals(this.i2(), other.i2());
     } else {
       tmp_0 = false;
     }
@@ -1588,40 +1902,40 @@ protoOf(sam$kotlin_Comparator$0).equals = function (other) {
   return tmp;
 };
 protoOf(sam$kotlin_Comparator$0).hashCode = function () {
-  return hashCode(this.h2());
+  return hashCode(this.i2());
 };
 function BestPart$parseHeatmap$lambda(a, b) {
   // Inline function 'kotlin.comparisons.compareValuesBy' call
-  var tmp = a.kg_1;
-  var tmp$ret$2 = b.kg_1;
+  var tmp = a.ng_1;
+  var tmp$ret$2 = b.ng_1;
   return compareValues(tmp, tmp$ret$2);
 }
 function peakMs$rise(smooth, trend, i) {
   return smooth[i] / coerceAtLeast_1(trend[i], 0.05) - 1.0;
 }
 function BestPart$chorusMs$$inlined$groupingBy$1($this) {
-  this.q15_1 = $this;
+  this.e17_1 = $this;
 }
-protoOf(BestPart$chorusMs$$inlined$groupingBy$1).v2 = function () {
-  return this.q15_1.h();
+protoOf(BestPart$chorusMs$$inlined$groupingBy$1).w2 = function () {
+  return this.e17_1.h();
 };
-protoOf(BestPart$chorusMs$$inlined$groupingBy$1).r15 = function (element) {
+protoOf(BestPart$chorusMs$$inlined$groupingBy$1).f17 = function (element) {
   return element;
 };
-protoOf(BestPart$chorusMs$$inlined$groupingBy$1).w2 = function (element) {
-  return this.r15(element);
+protoOf(BestPart$chorusMs$$inlined$groupingBy$1).x2 = function (element) {
+  return this.f17(element);
 };
 function findAll$walk($key, $this_buildList, e) {
   if (e instanceof JsonObject) {
     // Inline function 'kotlin.collections.forEach' call
     // Inline function 'kotlin.collections.iterator' call
-    var _iterator__ex2g4s = e.v1().h();
+    var _iterator__ex2g4s = e.w1().h();
     while (_iterator__ex2g4s.i()) {
       var element = _iterator__ex2g4s.j();
       // Inline function 'kotlin.collections.component1' call
-      var k = element.o1();
+      var k = element.p1();
       // Inline function 'kotlin.collections.component2' call
-      var v = element.p1();
+      var v = element.q1();
       if (k === $key)
         $this_buildList.e(v);
       else {
@@ -1641,20 +1955,20 @@ function findAll$walk($key, $this_buildList, e) {
 }
 function BestPart() {
   BestPart_instance = this;
-  this.s15_1 = new Long(5000, 0);
-  this.t15_1 = new Long(30000, 0);
-  this.u15_1 = new Long(60000, 0);
-  this.v15_1 = 10;
-  this.w15_1 = 0.08;
-  this.x15_1 = 0.03;
-  this.y15_1 = 4500.0;
-  this.z15_1 = 45000.0;
-  this.a16_1 = 0.05;
-  this.b16_1 = 0.3;
-  this.c16_1 = new Long(20000, 0);
-  this.d16_1 = new Long(45000, 0);
+  this.g17_1 = new Long(5000, 0);
+  this.h17_1 = new Long(30000, 0);
+  this.i17_1 = new Long(60000, 0);
+  this.j17_1 = 10;
+  this.k17_1 = 0.08;
+  this.l17_1 = 0.03;
+  this.m17_1 = 4500.0;
+  this.n17_1 = 45000.0;
+  this.o17_1 = 0.05;
+  this.p17_1 = 0.3;
+  this.q17_1 = new Long(20000, 0);
+  this.r17_1 = new Long(45000, 0);
 }
-protoOf(BestPart).e16 = function (answer) {
+protoOf(BestPart).s17 = function (answer) {
   // Inline function 'kotlin.collections.filterIsInstance' call
   var tmp0 = findAll(this, answer, 'macroMarkersListEntity');
   // Inline function 'kotlin.collections.filterIsInstanceTo' call
@@ -1689,7 +2003,7 @@ protoOf(BestPart).e16 = function (answer) {
   }
   var entity = tmp;
   var tmp1_safe_receiver = obj(this, entity, 'markersList');
-  var tmp_0 = tmp1_safe_receiver == null ? null : tmp1_safe_receiver.ab('markers');
+  var tmp_0 = tmp1_safe_receiver == null ? null : tmp1_safe_receiver.eb('markers');
   var tmp2_safe_receiver = tmp_0 instanceof JsonArray ? tmp_0 : null;
   var tmp_1;
   if (tmp2_safe_receiver == null) {
@@ -1791,7 +2105,7 @@ protoOf(BestPart).e16 = function (answer) {
   var _iterator__ex2g4s_2 = markers.h();
   while (_iterator__ex2g4s_2.i()) {
     var item = _iterator__ex2g4s_2.j();
-    var tmp$ret$18 = item.lg_1;
+    var tmp$ret$18 = item.og_1;
     destination_1.e(tmp$ret$18);
   }
   var segment = sorted(destination_1).p(markers.k() / 2 | 0);
@@ -1803,12 +2117,12 @@ protoOf(BestPart).e16 = function (answer) {
   var _iterator__ex2g4s_3 = markers.h();
   while (_iterator__ex2g4s_3.i()) {
     var item_0 = _iterator__ex2g4s_3.j();
-    var tmp$ret$21 = item_0.mg_1;
+    var tmp$ret$21 = item_0.pg_1;
     destination_2.e(tmp$ret$21);
   }
   return new Heatmap(segment, destination_2);
 };
-protoOf(BestPart).f16 = function (heat, durationMs) {
+protoOf(BestPart).t17 = function (heat, durationMs) {
   // Inline function 'kotlin.takeIf' call
   var tmp;
   if (compare(durationMs, new Long(0, 0)) > 0) {
@@ -1817,11 +2131,11 @@ protoOf(BestPart).f16 = function (heat, durationMs) {
     tmp = null;
   }
   var tmp0_elvis_lhs = tmp;
-  var duration = tmp0_elvis_lhs == null ? heat.m15() : tmp0_elvis_lhs;
-  var n = heat.l15_1.k();
+  var duration = tmp0_elvis_lhs == null ? heat.a17() : tmp0_elvis_lhs;
+  var n = heat.z16_1.k();
   if (compare(duration, new Long(60000, 0)) < 0 || n < 10)
     return null;
-  var seg = heat.k15_1;
+  var seg = heat.y16_1;
   var half = coerceAtLeast_0(roundToInt(4500.0 / toNumber(seg)), 1);
   var tmp_0 = 0;
   var tmp_1 = new Float32Array(n);
@@ -1835,7 +2149,7 @@ protoOf(BestPart).f16 = function (heat, durationMs) {
       do {
         var j = inductionVariable;
         inductionVariable = inductionVariable + 1 | 0;
-        sum = sum + heat.l15_1.p(j);
+        sum = sum + heat.z16_1.p(j);
         count = count + 1 | 0;
       }
        while (!(j === last));
@@ -1930,7 +2244,7 @@ protoOf(BestPart).f16 = function (heat, durationMs) {
     $l$loop: do {
       var i_0 = inductionVariable_2;
       inductionVariable_2 = inductionVariable_2 + 1 | 0;
-      if (heat.l15_1.p(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
+      if (heat.z16_1.p(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
         jump = i_0;
         break $l$loop;
       }
@@ -1938,7 +2252,7 @@ protoOf(BestPart).f16 = function (heat, durationMs) {
      while (!(i_0 === peak));
   return multiply(numberToLong(jump), seg);
 };
-protoOf(BestPart).g16 = function (lines, durationMs) {
+protoOf(BestPart).u17 = function (lines, durationMs) {
   if (compare(new Long(1, 0), durationMs) <= 0 ? compare(durationMs, new Long(60000, 0)) < 0 : false)
     return null;
   // Inline function 'kotlin.collections.filter' call
@@ -1948,9 +2262,9 @@ protoOf(BestPart).g16 = function (lines, durationMs) {
   while (_iterator__ex2g4s.i()) {
     var element = _iterator__ex2g4s.j();
     var tmp;
-    if (compare(element.w13_1, new Long(0, 0)) >= 0 && !element.c15()) {
+    if (compare(element.a14_1, new Long(0, 0)) >= 0 && !element.g15()) {
       // Inline function 'kotlin.text.isNotBlank' call
-      var this_0 = element.x13_1;
+      var this_0 = element.b14_1;
       tmp = !isBlank(this_0);
     } else {
       tmp = false;
@@ -1968,7 +2282,7 @@ protoOf(BestPart).g16 = function (lines, durationMs) {
   var _iterator__ex2g4s_0 = timed.h();
   while (_iterator__ex2g4s_0.i()) {
     var item = _iterator__ex2g4s_0.j();
-    var tmp$ret$6 = normalize(BestPart_getInstance(), item.x13_1);
+    var tmp$ret$6 = normalize(BestPart_getInstance(), item.b14_1);
     destination_0.e(tmp$ret$6);
   }
   var keys = destination_0;
@@ -1985,7 +2299,7 @@ protoOf(BestPart).g16 = function (lines, durationMs) {
   // Inline function 'kotlin.collections.groupingBy' call
   var tmp$ret$10 = new BestPart$chorusMs$$inlined$groupingBy$1(destination_1);
   var counts = eachCount(tmp$ret$10);
-  var tmp0_elvis_lhs = maxOrNull(counts.u1());
+  var tmp0_elvis_lhs = maxOrNull(counts.v1());
   var tmp_0;
   if (tmp0_elvis_lhs == null) {
     return null;
@@ -2007,7 +2321,7 @@ protoOf(BestPart).g16 = function (lines, durationMs) {
         var element_1 = inductionVariable;
         inductionVariable = inductionVariable + 1 | 0;
         var i = element_1;
-        if (counts.s1(keys.p(i)) === most && compare(timed.p(i).w13_1, new Long(5000, 0)) >= 0 && compare(timed.p(i).w13_1, limit) <= 0) {
+        if (counts.t1(keys.p(i)) === most && compare(timed.p(i).a14_1, new Long(5000, 0)) >= 0 && compare(timed.p(i).a14_1, limit) <= 0) {
           tmp$ret$11 = element_1;
           break $l$block;
         }
@@ -2025,17 +2339,17 @@ protoOf(BestPart).g16 = function (lines, durationMs) {
   var first = tmp_1;
   var start = first;
   $l$loop_0: while ((start - 1 | 0) >= 0) {
-    var tmp2_elvis_lhs = counts.s1(keys.p(start - 1 | 0));
+    var tmp2_elvis_lhs = counts.t1(keys.p(start - 1 | 0));
     var count = tmp2_elvis_lhs == null ? 0 : tmp2_elvis_lhs;
     if (count < 2 || count < (most - 1 | 0))
       break $l$loop_0;
-    if (compare(timed.p(start - 1 | 0).w13_1, new Long(5000, 0)) < 0 || (first - start | 0) >= 4)
+    if (compare(timed.p(start - 1 | 0).a14_1, new Long(5000, 0)) < 0 || (first - start | 0) >= 4)
       break $l$loop_0;
     start = start - 1 | 0;
   }
-  return timed.p(start).w13_1;
+  return timed.p(start).a14_1;
 };
-protoOf(BestPart).h16 = function (targetMs, lineStarts) {
+protoOf(BestPart).v17 = function (targetMs, lineStarts) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
@@ -2101,7 +2415,7 @@ protoOf(BestPart).h16 = function (targetMs, lineStarts) {
   var tmp$ret$13 = subtract(targetMs, fromInt(1000));
   return coerceAtLeast(tmp$ret$13, new Long(0, 0));
 };
-protoOf(BestPart).i16 = function (durationMs) {
+protoOf(BestPart).w17 = function (durationMs) {
   var tmp;
   if (compare(durationMs, new Long(0, 0)) <= 0) {
     tmp = new Long(45000, 0);
@@ -2118,14 +2432,14 @@ protoOf(BestPart).i16 = function (durationMs) {
   }
   return tmp;
 };
-protoOf(BestPart).j16 = function (heat, lines, durationMs) {
+protoOf(BestPart).x17 = function (heat, lines, durationMs) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
   var _iterator__ex2g4s = lines.h();
   while (_iterator__ex2g4s.i()) {
     var element = _iterator__ex2g4s.j();
-    if (compare(element.w13_1, new Long(0, 0)) >= 0 && !element.c15()) {
+    if (compare(element.a14_1, new Long(0, 0)) >= 0 && !element.g15()) {
       destination.e(element);
     }
   }
@@ -2135,7 +2449,7 @@ protoOf(BestPart).j16 = function (heat, lines, durationMs) {
   var _iterator__ex2g4s_0 = destination.h();
   while (_iterator__ex2g4s_0.i()) {
     var item = _iterator__ex2g4s_0.j();
-    var tmp$ret$5 = item.w13_1;
+    var tmp$ret$5 = item.a14_1;
     destination_0.e(tmp$ret$5);
   }
   var lineStarts = destination_0;
@@ -2144,23 +2458,23 @@ protoOf(BestPart).j16 = function (heat, lines, durationMs) {
     tmp = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp = BestPart_getInstance().f16(heat, durationMs);
+    tmp = BestPart_getInstance().t17(heat, durationMs);
   }
   var tmp1_safe_receiver = tmp;
   if (tmp1_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().h16(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
+    return new BestPartStart(BestPart_getInstance().v17(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
   }
-  var tmp2_safe_receiver = this.g16(lines, durationMs);
+  var tmp2_safe_receiver = this.u17(lines, durationMs);
   if (tmp2_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().h16(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
+    return new BestPartStart(BestPart_getInstance().v17(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
   }
-  return new BestPartStart(this.i16(durationMs), Source_FALLBACK_getInstance());
+  return new BestPartStart(this.w17(durationMs), Source_FALLBACK_getInstance());
 };
 var BestPart_instance;
 function BestPart_getInstance() {
@@ -2168,24 +2482,642 @@ function BestPart_getInstance() {
     new BestPart();
   return BestPart_instance;
 }
+function sortedForDetail(_this__u8e3s4, sort) {
+  var tmp;
+  switch (sort.z1_1) {
+    case 0:
+      tmp = _this__u8e3s4;
+      break;
+    case 1:
+      var tmp_0;
+      var tmp$ret$0;
+      $l$block_0: {
+        // Inline function 'kotlin.collections.none' call
+        var tmp_1;
+        if (isInterface(_this__u8e3s4, Collection)) {
+          tmp_1 = _this__u8e3s4.r();
+        } else {
+          tmp_1 = false;
+        }
+        if (tmp_1) {
+          tmp$ret$0 = true;
+          break $l$block_0;
+        }
+        var _iterator__ex2g4s = _this__u8e3s4.h();
+        while (_iterator__ex2g4s.i()) {
+          var element = _iterator__ex2g4s.j();
+          if (!(element.b16_1 == null)) {
+            tmp$ret$0 = false;
+            break $l$block_0;
+          }
+        }
+        tmp$ret$0 = true;
+      }
+
+      if (tmp$ret$0) {
+        tmp_0 = _this__u8e3s4;
+      } else {
+        var tmp_2 = withIndex(_this__u8e3s4);
+        // Inline function 'kotlin.comparisons.compareBy' call
+        var tmp_3 = sortedForDetail$lambda;
+        // Inline function 'kotlin.comparisons.thenBy' call
+        var this_0 = new sam$kotlin_Comparator$0_0(tmp_3);
+        var tmp_4 = sortedForDetail$lambda_0(this_0);
+        var tmp$ret$3 = new sam$kotlin_Comparator$0_0(tmp_4);
+        // Inline function 'kotlin.collections.map' call
+        var this_1 = sortedWith(tmp_2, tmp$ret$3);
+        // Inline function 'kotlin.collections.mapTo' call
+        var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_1, 10));
+        var _iterator__ex2g4s_0 = this_1.h();
+        while (_iterator__ex2g4s_0.i()) {
+          var item = _iterator__ex2g4s_0.j();
+          var tmp$ret$6 = item.mc_1;
+          destination.e(tmp$ret$6);
+        }
+        tmp_0 = destination;
+      }
+
+      tmp = tmp_0;
+      break;
+    case 2:
+      // Inline function 'kotlin.comparisons.compareBy' call
+
+      var comparator = get_CASE_INSENSITIVE_ORDER(StringCompanionObject_instance);
+      var tmp_5 = sortedForDetail$lambda_1(comparator);
+      var tmp$ret$7 = new sam$kotlin_Comparator$0_0(tmp_5);
+      tmp = sortedWith(_this__u8e3s4, tmp$ret$7);
+      break;
+    case 3:
+      // Inline function 'kotlin.comparisons.compareByDescending' call
+
+      var comparator_0 = get_CASE_INSENSITIVE_ORDER(StringCompanionObject_instance);
+      var tmp_6 = sortedForDetail$lambda_2(comparator_0);
+      var tmp$ret$8 = new sam$kotlin_Comparator$0_0(tmp_6);
+      tmp = sortedWith(_this__u8e3s4, tmp$ret$8);
+      break;
+    case 4:
+      var tmp_7 = withIndex(_this__u8e3s4);
+      // Inline function 'kotlin.comparisons.compareBy' call
+
+      var tmp_8 = sortedForDetail$lambda_3;
+      // Inline function 'kotlin.comparisons.thenBy' call
+
+      var this_2 = new sam$kotlin_Comparator$0_0(tmp_8);
+      var tmp_9 = sortedForDetail$lambda_4(this_2);
+      var tmp$ret$10 = new sam$kotlin_Comparator$0_0(tmp_9);
+      // Inline function 'kotlin.collections.map' call
+
+      var this_3 = sortedWith(tmp_7, tmp$ret$10);
+      // Inline function 'kotlin.collections.mapTo' call
+
+      var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(this_3, 10));
+      var _iterator__ex2g4s_1 = this_3.h();
+      while (_iterator__ex2g4s_1.i()) {
+        var item_0 = _iterator__ex2g4s_1.j();
+        var tmp$ret$13 = item_0.mc_1;
+        destination_0.e(tmp$ret$13);
+      }
+
+      tmp = destination_0;
+      break;
+    case 5:
+      var tmp_10 = withIndex(_this__u8e3s4);
+      // Inline function 'kotlin.comparisons.compareByDescending' call
+
+      var tmp_11 = sortedForDetail$lambda_5;
+      // Inline function 'kotlin.comparisons.thenByDescending' call
+
+      var this_4 = new sam$kotlin_Comparator$0_0(tmp_11);
+      var tmp_12 = sortedForDetail$lambda_6(this_4);
+      var tmp$ret$15 = new sam$kotlin_Comparator$0_0(tmp_12);
+      // Inline function 'kotlin.collections.map' call
+
+      var this_5 = sortedWith(tmp_10, tmp$ret$15);
+      // Inline function 'kotlin.collections.mapTo' call
+
+      var destination_1 = ArrayList_init_$Create$(collectionSizeOrDefault(this_5, 10));
+      var _iterator__ex2g4s_2 = this_5.h();
+      while (_iterator__ex2g4s_2.i()) {
+        var item_1 = _iterator__ex2g4s_2.j();
+        var tmp$ret$18 = item_1.mc_1;
+        destination_1.e(tmp$ret$18);
+      }
+
+      tmp = destination_1;
+      break;
+    default:
+      noWhenBranchMatchedException();
+      break;
+  }
+  return tmp;
+}
+function sam$kotlin_Comparator$0_0(function_0) {
+  this.y17_1 = function_0;
+}
+protoOf(sam$kotlin_Comparator$0_0).rb = function (a, b) {
+  return this.y17_1(a, b);
+};
+protoOf(sam$kotlin_Comparator$0_0).compare = function (a, b) {
+  return this.rb(a, b);
+};
+protoOf(sam$kotlin_Comparator$0_0).i2 = function () {
+  return this.y17_1;
+};
+protoOf(sam$kotlin_Comparator$0_0).equals = function (other) {
+  var tmp;
+  if (!(other == null) ? isInterface(other, Comparator) : false) {
+    var tmp_0;
+    if (!(other == null) ? isInterface(other, FunctionAdapter) : false) {
+      tmp_0 = equals(this.i2(), other.i2());
+    } else {
+      tmp_0 = false;
+    }
+    tmp = tmp_0;
+  } else {
+    tmp = false;
+  }
+  return tmp;
+};
+protoOf(sam$kotlin_Comparator$0_0).hashCode = function () {
+  return hashCode(this.i2());
+};
+function sortedForDetail$lambda(a, b) {
+  // Inline function 'kotlin.comparisons.compareValuesBy' call
+  var song = a.oc();
+  var tmp0_elvis_lhs = song.b16_1;
+  var tmp = tmp0_elvis_lhs == null ? 2147483647 : tmp0_elvis_lhs;
+  var song_0 = b.oc();
+  var tmp0_elvis_lhs_0 = song_0.b16_1;
+  var tmp$ret$2 = tmp0_elvis_lhs_0 == null ? 2147483647 : tmp0_elvis_lhs_0;
+  return compareValues(tmp, tmp$ret$2);
+}
+function sortedForDetail$lambda_0($this) {
+  return function (a, b) {
+    var previousCompare = $this.compare(a, b);
+    var tmp;
+    if (!(previousCompare === 0)) {
+      tmp = previousCompare;
+    } else {
+      // Inline function 'kotlin.comparisons.compareValuesBy' call
+      var position = a.nc();
+      var tmp_0 = position;
+      var position_0 = b.nc();
+      tmp = compareValues(tmp_0, position_0);
+    }
+    return tmp;
+  };
+}
+function sortedForDetail$lambda_1($comparator) {
+  return function (a, b) {
+    // Inline function 'kotlin.comparisons.compareValuesBy' call
+    var comparator = $comparator;
+    var tmp = a.i15_1;
+    var tmp$ret$2 = b.i15_1;
+    return comparator.compare(tmp, tmp$ret$2);
+  };
+}
+function sortedForDetail$lambda_2($comparator) {
+  return function (a, b) {
+    // Inline function 'kotlin.comparisons.compareValuesBy' call
+    var comparator = $comparator;
+    var tmp = b.i15_1;
+    var tmp$ret$2 = a.i15_1;
+    return comparator.compare(tmp, tmp$ret$2);
+  };
+}
+function sortedForDetail$lambda_3(a, b) {
+  // Inline function 'kotlin.comparisons.compareValuesBy' call
+  var song = a.oc();
+  var tmp0_elvis_lhs = song.z15_1;
+  var tmp = tmp0_elvis_lhs == null ? new Long(-1, 2147483647) : tmp0_elvis_lhs;
+  var song_0 = b.oc();
+  var tmp0_elvis_lhs_0 = song_0.z15_1;
+  var tmp$ret$2 = tmp0_elvis_lhs_0 == null ? new Long(-1, 2147483647) : tmp0_elvis_lhs_0;
+  return compareValues(tmp, tmp$ret$2);
+}
+function sortedForDetail$lambda_4($this) {
+  return function (a, b) {
+    var previousCompare = $this.compare(a, b);
+    var tmp;
+    if (!(previousCompare === 0)) {
+      tmp = previousCompare;
+    } else {
+      // Inline function 'kotlin.comparisons.compareValuesBy' call
+      var position = a.nc();
+      var tmp_0 = position;
+      var position_0 = b.nc();
+      tmp = compareValues(tmp_0, position_0);
+    }
+    return tmp;
+  };
+}
+function sortedForDetail$lambda_5(a, b) {
+  // Inline function 'kotlin.comparisons.compareValuesBy' call
+  var song = b.oc();
+  var tmp0_elvis_lhs = song.z15_1;
+  var tmp = tmp0_elvis_lhs == null ? new Long(0, -2147483648) : tmp0_elvis_lhs;
+  var song_0 = a.oc();
+  var tmp0_elvis_lhs_0 = song_0.z15_1;
+  var tmp$ret$2 = tmp0_elvis_lhs_0 == null ? new Long(0, -2147483648) : tmp0_elvis_lhs_0;
+  return compareValues(tmp, tmp$ret$2);
+}
+function sortedForDetail$lambda_6($this) {
+  return function (a, b) {
+    var previousCompare = $this.compare(a, b);
+    var tmp;
+    if (!(previousCompare === 0)) {
+      tmp = previousCompare;
+    } else {
+      // Inline function 'kotlin.comparisons.compareValuesBy' call
+      var position = b.nc();
+      var tmp_0 = position;
+      var position_0 = a.nc();
+      tmp = compareValues(tmp_0, position_0);
+    }
+    return tmp;
+  };
+}
+function get_SIGNATURE_MIXES() {
+  _init_properties_MixGroups_kt__hbw97m();
+  return SIGNATURE_MIXES;
+}
+var SIGNATURE_MIXES;
+function get_MOOD_SUPERMIX() {
+  _init_properties_MixGroups_kt__hbw97m();
+  return MOOD_SUPERMIX;
+}
+var MOOD_SUPERMIX;
+function get_NUMBERED_MIX() {
+  _init_properties_MixGroups_kt__hbw97m();
+  return NUMBERED_MIX;
+}
+var NUMBERED_MIX;
+function MoodMixes(key, name, items) {
+  this.z17_1 = key;
+  this.a18_1 = name;
+  this.b18_1 = items;
+}
+protoOf(MoodMixes).toString = function () {
+  return 'MoodMixes(key=' + this.z17_1 + ', name=' + this.a18_1 + ', items=' + toString(this.b18_1) + ')';
+};
+protoOf(MoodMixes).hashCode = function () {
+  var result = getStringHashCode(this.z17_1);
+  result = imul(result, 31) + getStringHashCode(this.a18_1) | 0;
+  result = imul(result, 31) + hashCode(this.b18_1) | 0;
+  return result;
+};
+protoOf(MoodMixes).equals = function (other) {
+  if (this === other)
+    return true;
+  if (!(other instanceof MoodMixes))
+    return false;
+  if (!(this.z17_1 === other.z17_1))
+    return false;
+  if (!(this.a18_1 === other.a18_1))
+    return false;
+  if (!equals(this.b18_1, other.b18_1))
+    return false;
+  return true;
+};
+function MixSections(stations, yours, moods) {
+  this.c18_1 = stations;
+  this.d18_1 = yours;
+  this.e18_1 = moods;
+}
+function groupMixes(mixes) {
+  _init_properties_MixGroups_kt__hbw97m();
+  // Inline function 'kotlin.collections.distinctBy' call
+  var set = HashSet_init_$Create$();
+  var list = ArrayList_init_$Create$_0();
+  var _iterator__ex2g4s = mixes.h();
+  while (_iterator__ex2g4s.i()) {
+    var e = _iterator__ex2g4s.j();
+    var tmp0_elvis_lhs = e.u16_1.s16_1;
+    var key = tmp0_elvis_lhs == null ? e.u16_1.o16_1 : tmp0_elvis_lhs;
+    if (set.e(key)) {
+      list.e(e);
+    }
+  }
+  var unique = list;
+  // Inline function 'kotlin.collections.mutableListOf' call
+  var stations = ArrayList_init_$Create$_0();
+  // Inline function 'kotlin.collections.mutableListOf' call
+  var yours = ArrayList_init_$Create$_0();
+  var moods = LinkedHashMap_init_$Create$_0();
+  // Inline function 'kotlin.collections.forEach' call
+  var _iterator__ex2g4s_0 = unique.h();
+  while (_iterator__ex2g4s_0.i()) {
+    var element = _iterator__ex2g4s_0.j();
+    // Inline function 'kotlin.text.trim' call
+    var this_0 = element.v16_1;
+    var key_0 = toString(trim(isCharSequence(this_0) ? this_0 : THROW_CCE()));
+    var tmp = get_SIGNATURE_MIXES();
+    // Inline function 'kotlin.text.lowercase' call
+    // Inline function 'kotlin.js.asDynamic' call
+    var tmp$ret$7 = key_0.toLowerCase();
+    var rank = tmp.n1(tmp$ret$7);
+    var supermix = get_MOOD_SUPERMIX().pa(key_0);
+    var numbered = get_NUMBERED_MIX().pa(key_0);
+    if (rank >= 0) {
+      // Inline function 'kotlin.collections.plusAssign' call
+      var element_0 = to(rank, element.u16_1);
+      stations.e(element_0);
+    } else if (!(supermix == null)) {
+      groupMixes$addMood(moods, supermix.pb().p(1), 0, element.u16_1);
+    } else if (!(numbered == null) && !equals_0(numbered.pb().p(1), 'My', true)) {
+      groupMixes$addMood(moods, numbered.pb().p(1), toInt(numbered.pb().p(2)), element.u16_1);
+    } else {
+      // Inline function 'kotlin.collections.plusAssign' call
+      var element_1 = element.u16_1;
+      yours.e(element_1);
+    }
+  }
+  // Inline function 'kotlin.collections.associate' call
+  var capacity = coerceAtLeast_0(mapCapacity(collectionSizeOrDefault(unique, 10)), 16);
+  // Inline function 'kotlin.collections.associateTo' call
+  var destination = LinkedHashMap_init_$Create$(capacity);
+  var _iterator__ex2g4s_1 = unique.h();
+  while (_iterator__ex2g4s_1.i()) {
+    var element_2 = _iterator__ex2g4s_1.j();
+    // Inline function 'kotlin.text.trim' call
+    var this_1 = element_2.v16_1;
+    var tmp$ret$14 = toString(trim(isCharSequence(this_1) ? this_1 : THROW_CCE()));
+    // Inline function 'kotlin.collections.plusAssign' call
+    var pair = to(element_2.u16_1, tmp$ret$14);
+    destination.x1(pair.wc_1, pair.xc_1);
+  }
+  var englishByItem = destination;
+  // Inline function 'kotlin.collections.sortedBy' call
+  // Inline function 'kotlin.comparisons.compareBy' call
+  var tmp_0 = groupMixes$lambda;
+  var tmp$ret$17 = new sam$kotlin_Comparator$0_1(tmp_0);
+  // Inline function 'kotlin.collections.map' call
+  var this_2 = sortedWith(stations, tmp$ret$17);
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(this_2, 10));
+  var _iterator__ex2g4s_2 = this_2.h();
+  while (_iterator__ex2g4s_2.i()) {
+    var item = _iterator__ex2g4s_2.j();
+    var tmp$ret$20 = item.xc_1;
+    destination_0.e(tmp$ret$20);
+  }
+  var tmp_1 = destination_0;
+  // Inline function 'kotlin.collections.map' call
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination_1 = ArrayList_init_$Create$(moods.k());
+  // Inline function 'kotlin.collections.iterator' call
+  var _iterator__ex2g4s_3 = moods.w1().h();
+  while (_iterator__ex2g4s_3.i()) {
+    var item_0 = _iterator__ex2g4s_3.j();
+    // Inline function 'kotlin.collections.component1' call
+    var key_1 = item_0.p1();
+    // Inline function 'kotlin.collections.component2' call
+    var entry = item_0.q1();
+    var englishName = entry.nc();
+    var members = entry.oc();
+    // Inline function 'kotlin.collections.sortedBy' call
+    // Inline function 'kotlin.comparisons.compareBy' call
+    var tmp_2 = groupMixes$lambda_0;
+    var tmp$ret$28 = new sam$kotlin_Comparator$0_1(tmp_2);
+    var sorted = sortedWith(members, tmp$ret$28);
+    var tmp_3 = moodHeading(englishName, sorted, englishByItem);
+    // Inline function 'kotlin.collections.map' call
+    // Inline function 'kotlin.collections.mapTo' call
+    var destination_2 = ArrayList_init_$Create$(collectionSizeOrDefault(sorted, 10));
+    var _iterator__ex2g4s_4 = sorted.h();
+    while (_iterator__ex2g4s_4.i()) {
+      var item_1 = _iterator__ex2g4s_4.j();
+      var tmp$ret$31 = item_1.xc_1;
+      destination_2.e(tmp$ret$31);
+    }
+    var tmp$ret$24 = new MoodMixes(key_1, tmp_3, destination_2);
+    destination_1.e(tmp$ret$24);
+  }
+  return new MixSections(tmp_1, yours, destination_1);
+}
+function moodHeading(englishName, members, englishByItem) {
+  _init_properties_MixGroups_kt__hbw97m();
+  var tmp$ret$0;
+  $l$block_0: {
+    // Inline function 'kotlin.collections.all' call
+    var tmp;
+    if (isInterface(members, Collection)) {
+      tmp = members.r();
+    } else {
+      tmp = false;
+    }
+    if (tmp) {
+      tmp$ret$0 = true;
+      break $l$block_0;
+    }
+    var _iterator__ex2g4s = members.h();
+    while (_iterator__ex2g4s.i()) {
+      var element = _iterator__ex2g4s.j();
+      var item = element.oc();
+      // Inline function 'kotlin.text.trim' call
+      var this_0 = item.o16_1;
+      if (!(toString(trim(isCharSequence(this_0) ? this_0 : THROW_CCE())) === englishByItem.t1(item))) {
+        tmp$ret$0 = false;
+        break $l$block_0;
+      }
+    }
+    tmp$ret$0 = true;
+  }
+  var shownInEnglish = tmp$ret$0;
+  if (shownInEnglish)
+    return englishName;
+  // Inline function 'kotlin.collections.filter' call
+  // Inline function 'kotlin.collections.filterTo' call
+  var destination = ArrayList_init_$Create$_0();
+  var _iterator__ex2g4s_0 = members.h();
+  while (_iterator__ex2g4s_0.i()) {
+    var element_0 = _iterator__ex2g4s_0.j();
+    if (element_0.wc_1 > 0) {
+      destination.e(element_0);
+    }
+  }
+  // Inline function 'kotlin.collections.map' call
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(destination, 10));
+  var _iterator__ex2g4s_1 = destination.h();
+  while (_iterator__ex2g4s_1.i()) {
+    var item_0 = _iterator__ex2g4s_1.j();
+    // Inline function 'kotlin.text.trim' call
+    var this_1 = item_0.xc_1.o16_1;
+    var tmp$ret$8 = toString(trim(isCharSequence(this_1) ? this_1 : THROW_CCE()));
+    destination_0.e(tmp$ret$8);
+  }
+  var numbered = destination_0;
+  var tmp_0;
+  if (numbered.k() >= 2) {
+    // Inline function 'kotlin.collections.reduce' call
+    var iterator = numbered.h();
+    if (!iterator.i())
+      throw UnsupportedOperationException_init_$Create$("Empty collection can't be reduced.");
+    var accumulator = iterator.j();
+    while (iterator.i()) {
+      var tmp0 = accumulator;
+      var title = iterator.j();
+      accumulator = commonPrefixWith(tmp0, title);
+    }
+    tmp_0 = accumulator;
+  } else if (numbered.k() === 1) {
+    tmp_0 = single(numbered);
+  } else {
+    var tmp0_safe_receiver = firstOrNull(members);
+    var tmp1_safe_receiver = tmp0_safe_receiver == null ? null : tmp0_safe_receiver.xc_1;
+    var tmp2_safe_receiver = tmp1_safe_receiver == null ? null : tmp1_safe_receiver.o16_1;
+    var tmp_1;
+    if (tmp2_safe_receiver == null) {
+      tmp_1 = null;
+    } else {
+      // Inline function 'kotlin.text.trim' call
+      tmp_1 = toString(trim(isCharSequence(tmp2_safe_receiver) ? tmp2_safe_receiver : THROW_CCE()));
+    }
+    // Inline function 'kotlin.text.orEmpty' call
+    var tmp0_elvis_lhs = tmp_1;
+    tmp_0 = tmp0_elvis_lhs == null ? '' : tmp0_elvis_lhs;
+  }
+  // Inline function 'kotlin.text.trimEnd' call
+  var this_2 = tmp_0;
+  var tmp0_0 = isCharSequence(this_2) ? this_2 : THROW_CCE();
+  var tmp$ret$15;
+  $l$block_1: {
+    // Inline function 'kotlin.text.trimEnd' call
+    var inductionVariable = charSequenceLength(tmp0_0) - 1 | 0;
+    if (0 <= inductionVariable)
+      do {
+        var index = inductionVariable;
+        inductionVariable = inductionVariable + -1 | 0;
+        var it = charSequenceGet(tmp0_0, index);
+        if (!!isLetter(it)) {
+          tmp$ret$15 = charSequenceSubSequence(tmp0_0, 0, index + 1 | 0);
+          break $l$block_1;
+        }
+      }
+       while (0 <= inductionVariable);
+    tmp$ret$15 = '';
+  }
+  var heading = toString(tmp$ret$15);
+  // Inline function 'kotlin.takeIf' call
+  var tmp_2;
+  if (heading.length >= 2) {
+    tmp_2 = heading;
+  } else {
+    tmp_2 = null;
+  }
+  var tmp3_elvis_lhs = tmp_2;
+  var tmp_3;
+  if (tmp3_elvis_lhs == null) {
+    var tmp4_safe_receiver = firstOrNull(members);
+    var tmp5_safe_receiver = tmp4_safe_receiver == null ? null : tmp4_safe_receiver.xc_1;
+    var tmp6_safe_receiver = tmp5_safe_receiver == null ? null : tmp5_safe_receiver.o16_1;
+    var tmp_4;
+    if (tmp6_safe_receiver == null) {
+      tmp_4 = null;
+    } else {
+      // Inline function 'kotlin.text.trim' call
+      tmp_4 = toString(trim(isCharSequence(tmp6_safe_receiver) ? tmp6_safe_receiver : THROW_CCE()));
+    }
+    tmp_3 = tmp_4;
+  } else {
+    tmp_3 = tmp3_elvis_lhs;
+  }
+  var tmp7_elvis_lhs = tmp_3;
+  return tmp7_elvis_lhs == null ? englishName : tmp7_elvis_lhs;
+}
+function sam$kotlin_Comparator$0_1(function_0) {
+  this.f18_1 = function_0;
+}
+protoOf(sam$kotlin_Comparator$0_1).rb = function (a, b) {
+  return this.f18_1(a, b);
+};
+protoOf(sam$kotlin_Comparator$0_1).compare = function (a, b) {
+  return this.rb(a, b);
+};
+protoOf(sam$kotlin_Comparator$0_1).i2 = function () {
+  return this.f18_1;
+};
+protoOf(sam$kotlin_Comparator$0_1).equals = function (other) {
+  var tmp;
+  if (!(other == null) ? isInterface(other, Comparator) : false) {
+    var tmp_0;
+    if (!(other == null) ? isInterface(other, FunctionAdapter) : false) {
+      tmp_0 = equals(this.i2(), other.i2());
+    } else {
+      tmp_0 = false;
+    }
+    tmp = tmp_0;
+  } else {
+    tmp = false;
+  }
+  return tmp;
+};
+protoOf(sam$kotlin_Comparator$0_1).hashCode = function () {
+  return hashCode(this.i2());
+};
+function groupMixes$addMood(moods, name, order, item) {
+  // Inline function 'kotlin.text.lowercase' call
+  // Inline function 'kotlin.js.asDynamic' call
+  // Inline function 'kotlin.collections.getOrPut' call
+  var key = name.toLowerCase();
+  var value = moods.t1(key);
+  var tmp;
+  if (value == null) {
+    // Inline function 'kotlin.collections.mutableListOf' call
+    var tmp$ret$4 = ArrayList_init_$Create$_0();
+    var answer = to(name, tmp$ret$4);
+    moods.x1(key, answer);
+    tmp = answer;
+  } else {
+    tmp = value;
+  }
+  var tmp0 = tmp.xc_1;
+  // Inline function 'kotlin.collections.plusAssign' call
+  var element = to(order, item);
+  tmp0.e(element);
+}
+function groupMixes$lambda(a, b) {
+  _init_properties_MixGroups_kt__hbw97m();
+  // Inline function 'kotlin.comparisons.compareValuesBy' call
+  var tmp = a.wc_1;
+  var tmp$ret$2 = b.wc_1;
+  return compareValues(tmp, tmp$ret$2);
+}
+function groupMixes$lambda_0(a, b) {
+  _init_properties_MixGroups_kt__hbw97m();
+  // Inline function 'kotlin.comparisons.compareValuesBy' call
+  var tmp = a.wc_1;
+  var tmp$ret$2 = b.wc_1;
+  return compareValues(tmp, tmp$ret$2);
+}
+var properties_initialized_MixGroups_kt_vxbqps;
+function _init_properties_MixGroups_kt__hbw97m() {
+  if (!properties_initialized_MixGroups_kt_vxbqps) {
+    properties_initialized_MixGroups_kt_vxbqps = true;
+    SIGNATURE_MIXES = listOf_0(['my supermix', 'discover mix', 'new release mix', 'replay mix', 'archive mix', 'liked music']);
+    MOOD_SUPERMIX = Regex_init_$Create$_0('^(.+?)\\s+supermix$', RegexOption_IGNORE_CASE_getInstance());
+    NUMBERED_MIX = Regex_init_$Create$_0('^(.+?)\\s+mix\\s*(\\d+)$', RegexOption_IGNORE_CASE_getInstance());
+  }
+}
 function BestPartLine(timeMs, text) {
   this.timeMs = timeMs;
   this.text = text;
 }
-protoOf(BestPartLine).k16 = function () {
+protoOf(BestPartLine).g18 = function () {
   return this.timeMs;
 };
-protoOf(BestPartLine).d13 = function () {
+protoOf(BestPartLine).h13 = function () {
   return this.text;
 };
 function BestPartPick(startMs, source) {
   this.startMs = startMs;
   this.source = source;
 }
-protoOf(BestPartPick).l16 = function () {
+protoOf(BestPartPick).h18 = function () {
   return this.startMs;
 };
-protoOf(BestPartPick).f12 = function () {
+protoOf(BestPartPick).j12 = function () {
   return this.source;
 };
 function bestPart(nextResponse, lines, durationMs) {
@@ -2197,7 +3129,7 @@ function bestPart(nextResponse, lines, durationMs) {
     // Inline function 'kotlin.runCatching' call
     var tmp_0;
     try {
-      var tmp_1 = Default_getInstance().tu(nextResponse);
+      var tmp_1 = Default_getInstance().wu(nextResponse);
       // Inline function 'kotlin.Companion.success' call
       var value = tmp_1 instanceof JsonObject ? tmp_1 : null;
       tmp_0 = _Result___init__impl__xyqfz8(value);
@@ -2222,7 +3154,7 @@ function bestPart(nextResponse, lines, durationMs) {
     tmp_3 = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp_3 = BestPart_getInstance().e16(tmp1_safe_receiver);
+    tmp_3 = BestPart_getInstance().s17(tmp1_safe_receiver);
   }
   var heat = tmp_3;
   var tmp_4 = BestPart_getInstance();
@@ -2237,27 +3169,185 @@ function bestPart(nextResponse, lines, durationMs) {
     var tmp$ret$11 = new LyricLine(numberToLong(item.timeMs), item.text);
     destination.e(tmp$ret$11);
   }
-  var pick = tmp_4.j16(heat, destination, numberToLong(durationMs));
-  return new BestPartPick(toNumber(pick.n15_1), pick.o15_1.x1_1);
+  var pick = tmp_4.x17(heat, destination, numberToLong(durationMs));
+  return new BestPartPick(toNumber(pick.b17_1), pick.c17_1.y1_1);
+}
+function MixMood(key, name, items) {
+  this.key = key;
+  this.name = name;
+  this.items = items;
+}
+protoOf(MixMood).p1 = function () {
+  return this.key;
+};
+protoOf(MixMood).i18 = function () {
+  return this.name;
+};
+protoOf(MixMood).j18 = function () {
+  return this.items;
+};
+function MixGroups(stations, yours, moods) {
+  this.stations = stations;
+  this.yours = yours;
+  this.moods = moods;
+}
+protoOf(MixGroups).k18 = function () {
+  return this.stations;
+};
+protoOf(MixGroups).l18 = function () {
+  return this.yours;
+};
+protoOf(MixGroups).m18 = function () {
+  return this.moods;
+};
+function groupMixes_0(ids, titles, englishTitles) {
+  // Inline function 'kotlin.collections.map' call
+  var this_0 = get_indices_0(ids);
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
+  var inductionVariable = this_0.u_1;
+  var last = this_0.v_1;
+  if (inductionVariable <= last)
+    do {
+      var item = inductionVariable;
+      inductionVariable = inductionVariable + 1 | 0;
+      var i = item;
+      var tmp = titles[i];
+      // Inline function 'kotlin.text.ifEmpty' call
+      var this_1 = ids[i];
+      var tmp_0;
+      // Inline function 'kotlin.text.isEmpty' call
+      if (charSequenceLength(this_1) === 0) {
+        tmp_0 = null;
+      } else {
+        tmp_0 = this_1;
+      }
+      var tmp$ret$3 = tmp_0;
+      var tmp$ret$2 = new ShelfItem(tmp, '', null, null, tmp$ret$3);
+      destination.e(tmp$ret$2);
+    }
+     while (!(item === last));
+  var items = destination;
+  // Inline function 'kotlin.collections.mapIndexed' call
+  // Inline function 'kotlin.collections.mapIndexedTo' call
+  var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(items, 10));
+  var index = 0;
+  var _iterator__ex2g4s = items.h();
+  while (_iterator__ex2g4s.i()) {
+    var item_0 = _iterator__ex2g4s.j();
+    var _unary__edvuaz = index;
+    index = _unary__edvuaz + 1 | 0;
+    var i_0 = checkIndexOverflow(_unary__edvuaz);
+    var tmp$ret$8 = new KeyedMix(item_0, englishTitles[i_0]);
+    destination_0.e(tmp$ret$8);
+  }
+  var sections = groupMixes(destination_0);
+  var tmp_1 = groupMixes$positions(sections.c18_1, items);
+  var tmp_2 = groupMixes$positions(sections.d18_1, items);
+  // Inline function 'kotlin.collections.map' call
+  var this_2 = sections.e18_1;
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination_1 = ArrayList_init_$Create$(collectionSizeOrDefault(this_2, 10));
+  var _iterator__ex2g4s_0 = this_2.h();
+  while (_iterator__ex2g4s_0.i()) {
+    var item_1 = _iterator__ex2g4s_0.j();
+    var tmp$ret$11 = new MixMood(item_1.z17_1, item_1.a18_1, groupMixes$positions(item_1.b18_1, items));
+    destination_1.e(tmp$ret$11);
+  }
+  // Inline function 'kotlin.collections.toTypedArray' call
+  var tmp$ret$12 = copyToArray(destination_1);
+  return new MixGroups(tmp_1, tmp_2, tmp$ret$12);
+}
+function songSorts() {
+  // Inline function 'kotlin.collections.map' call
+  var this_0 = get_entries_0();
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
+  var _iterator__ex2g4s = this_0.h();
+  while (_iterator__ex2g4s.i()) {
+    var item = _iterator__ex2g4s.j();
+    var tmp$ret$2 = item.y1_1;
+    destination.e(tmp$ret$2);
+  }
+  // Inline function 'kotlin.collections.toTypedArray' call
+  return copyToArray(destination);
+}
+function detailSortOrder(titles, sort) {
+  // Inline function 'kotlin.collections.mapIndexed' call
+  // Inline function 'kotlin.collections.mapIndexedTo' call
+  var destination = ArrayList_init_$Create$(titles.length);
+  var index = 0;
+  var inductionVariable = 0;
+  var last = titles.length;
+  while (inductionVariable < last) {
+    var item = titles[inductionVariable];
+    inductionVariable = inductionVariable + 1 | 0;
+    var _unary__edvuaz = index;
+    index = _unary__edvuaz + 1 | 0;
+    var tmp$ret$2 = new Song(_unary__edvuaz.toString(), item, '', null);
+    destination.e(tmp$ret$2);
+  }
+  var songs = destination;
+  var tmp0 = get_entries_0();
+  var tmp$ret$3;
+  $l$block: {
+    // Inline function 'kotlin.collections.firstOrNull' call
+    var _iterator__ex2g4s = tmp0.h();
+    while (_iterator__ex2g4s.i()) {
+      var element = _iterator__ex2g4s.j();
+      if (element.y1_1 === sort) {
+        tmp$ret$3 = element;
+        break $l$block;
+      }
+    }
+    tmp$ret$3 = null;
+  }
+  var tmp0_elvis_lhs = tmp$ret$3;
+  var order = tmp0_elvis_lhs == null ? SongSort_DEFAULT_getInstance() : tmp0_elvis_lhs;
+  // Inline function 'kotlin.collections.map' call
+  var this_0 = sortedForDetail(songs, order);
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination_0 = ArrayList_init_$Create$(collectionSizeOrDefault(this_0, 10));
+  var _iterator__ex2g4s_0 = this_0.h();
+  while (_iterator__ex2g4s_0.i()) {
+    var item_0 = _iterator__ex2g4s_0.j();
+    var tmp$ret$7 = toInt(item_0.h15_1);
+    destination_0.e(tmp$ret$7);
+  }
+  // Inline function 'kotlin.collections.toTypedArray' call
+  return copyToArray(destination_0);
+}
+function groupMixes$positions(_this__u8e3s4, items) {
+  // Inline function 'kotlin.collections.map' call
+  // Inline function 'kotlin.collections.mapTo' call
+  var destination = ArrayList_init_$Create$(collectionSizeOrDefault(_this__u8e3s4, 10));
+  var _iterator__ex2g4s = _this__u8e3s4.h();
+  while (_iterator__ex2g4s.i()) {
+    var item = _iterator__ex2g4s.j();
+    var tmp$ret$2 = items.n1(item);
+    destination.e(tmp$ret$2);
+  }
+  // Inline function 'kotlin.collections.toTypedArray' call
+  return copyToArray(destination);
 }
 function SongCreditGroup(role, names) {
   this.role = role;
   this.names = names;
 }
-protoOf(SongCreditGroup).m16 = function () {
+protoOf(SongCreditGroup).n18 = function () {
   return this.role;
 };
-protoOf(SongCreditGroup).n16 = function () {
+protoOf(SongCreditGroup).o18 = function () {
   return this.names;
 };
 function CreditsBrowse(browseId, params) {
   this.browseId = browseId;
   this.params = params;
 }
-protoOf(CreditsBrowse).o16 = function () {
+protoOf(CreditsBrowse).p18 = function () {
   return this.browseId;
 };
-protoOf(CreditsBrowse).p16 = function () {
+protoOf(CreditsBrowse).q18 = function () {
   return this.params;
 };
 function songCredits(browseResponse) {
@@ -2265,7 +3355,7 @@ function songCredits(browseResponse) {
   var tmp;
   try {
     // Inline function 'kotlin.Companion.success' call
-    var value = Default_getInstance().tu(browseResponse);
+    var value = Default_getInstance().wu(browseResponse);
     tmp = _Result___init__impl__xyqfz8(value);
   } catch ($p) {
     var tmp_0;
@@ -2290,16 +3380,16 @@ function songCredits(browseResponse) {
   }
   var root = tmp_1;
   // Inline function 'kotlin.collections.map' call
-  var this_1 = SongCredits_instance.v13(root);
+  var this_1 = SongCredits_instance.z13(root);
   // Inline function 'kotlin.collections.mapTo' call
   var destination = ArrayList_init_$Create$(collectionSizeOrDefault(this_1, 10));
   var _iterator__ex2g4s = this_1.h();
   while (_iterator__ex2g4s.i()) {
     var item = _iterator__ex2g4s.j();
     // Inline function 'kotlin.collections.toTypedArray' call
-    var this_2 = item.c13_1;
+    var this_2 = item.g13_1;
     var tmp$ret$9 = copyToArray(this_2);
-    var tmp$ret$8 = new SongCreditGroup(item.b13_1, tmp$ret$9);
+    var tmp$ret$8 = new SongCreditGroup(item.f13_1, tmp$ret$9);
     destination.e(tmp$ret$8);
   }
   // Inline function 'kotlin.collections.toTypedArray' call
@@ -2310,7 +3400,7 @@ function creditsBrowse(nextResponse, videoId) {
   var tmp;
   try {
     // Inline function 'kotlin.Companion.success' call
-    var value = Default_getInstance().tu(nextResponse);
+    var value = Default_getInstance().wu(nextResponse);
     tmp = _Result___init__impl__xyqfz8(value);
   } catch ($p) {
     var tmp_0;
@@ -2333,7 +3423,7 @@ function creditsBrowse(nextResponse, videoId) {
     tmp_1 = tmp0_elvis_lhs;
   }
   var root = tmp_1;
-  var tmp1_elvis_lhs = SongCredits_instance.u13(root, videoId);
+  var tmp1_elvis_lhs = SongCredits_instance.y13(root, videoId);
   var tmp_2;
   if (tmp1_elvis_lhs == null) {
     return null;
@@ -2341,7 +3431,7 @@ function creditsBrowse(nextResponse, videoId) {
     tmp_2 = tmp1_elvis_lhs;
   }
   var endpoint = tmp_2;
-  var tmp_3 = endpoint.ab('browseId');
+  var tmp_3 = endpoint.eb('browseId');
   var tmp2_safe_receiver = tmp_3 instanceof JsonPrimitive ? tmp_3 : null;
   var tmp3_elvis_lhs = tmp2_safe_receiver == null ? null : get_contentOrNull(tmp2_safe_receiver);
   var tmp_4;
@@ -2351,7 +3441,7 @@ function creditsBrowse(nextResponse, videoId) {
     tmp_4 = tmp3_elvis_lhs;
   }
   var browseId = tmp_4;
-  var tmp_5 = endpoint.ab('params');
+  var tmp_5 = endpoint.eb('params');
   var tmp4_safe_receiver = tmp_5 instanceof JsonPrimitive ? tmp_5 : null;
   return new CreditsBrowse(browseId, tmp4_safe_receiver == null ? null : get_contentOrNull(tmp4_safe_receiver));
 }
@@ -2362,10 +3452,10 @@ function PlaylistMove_0(setVideoId, before) {
   this.setVideoId = setVideoId;
   this.before = before;
 }
-protoOf(PlaylistMove_0).q16 = function () {
+protoOf(PlaylistMove_0).r18 = function () {
   return this.setVideoId;
 };
-protoOf(PlaylistMove_0).r16 = function () {
+protoOf(PlaylistMove_0).s18 = function () {
   return this.before;
 };
 function playlistMoves_0(current, target) {
@@ -2376,7 +3466,7 @@ function playlistMoves_0(current, target) {
   var _iterator__ex2g4s = this_0.h();
   while (_iterator__ex2g4s.i()) {
     var item = _iterator__ex2g4s.j();
-    var tmp$ret$2 = new PlaylistMove_0(item.i15_1, item.j15_1);
+    var tmp$ret$2 = new PlaylistMove_0(item.w16_1, item.x16_1);
     destination.e(tmp$ret$2);
   }
   // Inline function 'kotlin.collections.toTypedArray' call
@@ -2388,16 +3478,16 @@ function SearchFilterOption(id, label, params, requiresAuth) {
   this.params = params;
   this.requiresAuth = requiresAuth;
 }
-protoOf(SearchFilterOption).s16 = function () {
+protoOf(SearchFilterOption).t18 = function () {
   return this.id;
 };
-protoOf(SearchFilterOption).t16 = function () {
+protoOf(SearchFilterOption).u18 = function () {
   return this.label;
 };
-protoOf(SearchFilterOption).p16 = function () {
+protoOf(SearchFilterOption).q18 = function () {
   return this.params;
 };
-protoOf(SearchFilterOption).u16 = function () {
+protoOf(SearchFilterOption).v18 = function () {
   return this.requiresAuth;
 };
 function searchFilters() {
@@ -2408,7 +3498,7 @@ function searchFilters() {
   var _iterator__ex2g4s = this_0.h();
   while (_iterator__ex2g4s.i()) {
     var item = _iterator__ex2g4s.j();
-    var tmp$ret$2 = new SearchFilterOption(item.x1_1, item.f15_1, item.g15_1, item.h15_1);
+    var tmp$ret$2 = new SearchFilterOption(item.y1_1, item.l16_1, item.m16_1, item.n16_1);
     destination.e(tmp$ret$2);
   }
   // Inline function 'kotlin.collections.toTypedArray' call
@@ -2422,6 +3512,11 @@ export {
   BestPartLine as BestPartLine,
   BestPartPick as BestPartPick,
   bestPart as bestPart,
+  MixMood as MixMood,
+  MixGroups as MixGroups,
+  groupMixes_0 as groupMixes,
+  songSorts as songSorts,
+  detailSortOrder as detailSortOrder,
   SongCreditGroup as SongCreditGroup,
   CreditsBrowse as CreditsBrowse,
   songCredits as songCredits,

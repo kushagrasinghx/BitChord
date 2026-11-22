@@ -168,7 +168,7 @@ export async function fetchBrowse({ browseId, params }: BrowseLink): Promise<Bro
 type Raw = Record<string, unknown>;
 
 /** Every object stored under [key], anywhere inside a raw response. */
-function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
+export function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
   if (Array.isArray(root)) for (const item of root) collect(item, key, out);
   else if (root && typeof root === 'object') {
     for (const [k, v] of Object.entries(root)) {
@@ -179,7 +179,7 @@ function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
   return out;
 }
 
-function runsText(node: unknown): string {
+export function runsText(node: unknown): string {
   const n = node as { runs?: { text?: string }[]; simpleText?: string } | undefined;
   return n?.runs?.map((r) => r.text ?? '').join('') ?? n?.simpleText ?? '';
 }

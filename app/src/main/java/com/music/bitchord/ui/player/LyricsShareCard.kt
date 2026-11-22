@@ -355,36 +355,29 @@ internal class LyricsCardPainter internal constructor(
     private fun activeRank(positionMs: Long): Float {
         if (sungStarts.isEmpty()) return -1f
         val lastIndex = sungStarts.lastIndex
-        if (lastIndex == 0 || sungStarts.first() >= sungStarts[lastIndex] || positionMs <= sungStarts[0]) {
-            return 0f
-        }
-        if (positionMs >= sungStarts[lastIndex]) {
-            val sLast = sungStarts[lastIndex]
-            val prevSeg = (sLast - sungStarts[lastIndex - 1]).coerceAtLeast(1L)
-            val handover = minOf(LINE_CROSSFADE_MS, prevSeg * 0.45f).coerceAtLeast(1f)
-            if (positionMs < sLast + handover) {
-                val p = ((positionMs - sLast) / handover).coerceIn(0f, 1f)
-                return (lastIndex - 1).toFloat() + smootherstep(p)
+        if (lastIndex == 0) return 0f
+
+        val sFirst = sungStarts[0]
+        if (positionMs <= sFirst) return 0f
+
+        for (i in 1..lastIndex) {
+            val sPrev = sungStarts[i - 1]
+            val sCurr = sungStarts[i]
+            val seg = (sCurr - sPrev).coerceAtLeast(1L)
+            val handover = minOf(LINE_CROSSFADE_MS, seg * 0.5f).coerceAtLeast(1f)
+            val half = handover / 2f
+            val hStart = sCurr - half
+            val hEnd = sCurr + half
+
+            if (positionMs < hStart) {
+                return (i - 1).toFloat()
             }
-            return lastIndex.toFloat()
+            if (positionMs <= hEnd) {
+                val p = ((positionMs - hStart) / handover).coerceIn(0f, 1f)
+                return (i - 1).toFloat() + smootherstep(p)
+            }
         }
 
-        for (i in 0 until lastIndex) {
-            val s0 = sungStarts[i]
-            val s1 = sungStarts[i + 1]
-            if (positionMs < s1) {
-                if (i > 0) {
-                    val prevSeg = (s0 - sungStarts[i - 1]).coerceAtLeast(1L)
-                    val nextSeg = (s1 - s0).coerceAtLeast(1L)
-                    val handover = minOf(LINE_CROSSFADE_MS, nextSeg * 0.45f, prevSeg * 0.45f).coerceAtLeast(1f)
-                    if (positionMs < s0 + handover) {
-                        val p = ((positionMs - s0) / handover).coerceIn(0f, 1f)
-                        return (i - 1).toFloat() + smootherstep(p)
-                    }
-                }
-                return i.toFloat()
-            }
-        }
         return lastIndex.toFloat()
     }
 
@@ -408,17 +401,42 @@ internal class LyricsCardPainter internal constructor(
 
         if (!swept) {
             // No word timings (or a script the sweep can't follow): the line
-            // fades in as it starts and fades out on handover.
-            val litProgress = if (positionMs < start) 0f else {
-                ((positionMs - start).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+            // smoothly fades in as it starts and fades out on handover / line end.
+            val lineEnd = line.endMs
+                ?: lines.getOrNull(row.line + 1)?.let { it.startMs ?: it.timing?.timeMs }
+                ?: (start + LINE_CROSSFADE_MS * 4).toLong()
+
+            val lit = when {
+                positionMs < start -> {
+                    val before = start - positionMs
+                    if (before <= LINE_CROSSFADE_MS) {
+                        val p = 1f - (before.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+                        UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(p)
+                    } else {
+                        UNSUNG_ALPHA
+                    }
+                }
+                positionMs < lineEnd -> {
+                    val sinceStart = positionMs - start
+                    if (sinceStart < LINE_CROSSFADE_MS) {
+                        val p = (sinceStart.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+                        UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(p)
+                    } else {
+                        1f
+                    }
+                }
+                else -> {
+                    val fadeOut = ((positionMs - lineEnd).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+                    UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * (1f - smootherstep(fadeOut))
+                }
             }
-            val lit = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(litProgress)
+
             scratch.set(row.paint)
             scratch.alpha = (alpha * lit).roundToInt()
             canvas.drawText(row.text, placed.x, placed.baseline, scratch)
             return
         }
-        timing!!
+
         // How far the sweep has got, in this row's own characters.
         val revealedInLine = if (row.isSub) {
             val lead = timing.text.length.coerceAtLeast(1)
@@ -428,17 +446,22 @@ internal class LyricsCardPainter internal constructor(
         }
         val revealed = (revealedInLine - row.start).coerceIn(0f, row.text.length.toFloat())
         val sung = positionMs >= timing.endMs
-        val dim = if (sung) {
-            val fadeAfter = ((positionMs - timing.endMs).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
-            1f - (1f - UNSUNG_ALPHA) * smootherstep(fadeAfter)
+
+        // When the line finishes singing, the bright lit overlay smoothly fades down to
+        // resting unsung alpha over LINE_CROSSFADE_MS, giving a buttery line change fade-out.
+        val fadeOut = if (sung) {
+            ((positionMs - timing.endMs).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
         } else {
-            UNSUNG_ALPHA
+            0f
         }
+        val overlayFactor = if (sung) 1f - smootherstep(fadeOut) else 1f
         val lifts = !row.isSub
 
-        if (revealed <= 0f || (sung && revealed >= row.text.length && dim <= UNSUNG_ALPHA + 0.01f)) {
+        // If the row hasn't started revealing yet, or if it has finished singing and
+        // the lit overlay has completely faded out: draw base dim pass directly and return.
+        if (revealed <= 0f || (sung && overlayFactor <= 0.001f)) {
             scratch.set(row.paint)
-            scratch.alpha = (alpha * dim).roundToInt()
+            scratch.alpha = (alpha * UNSUNG_ALPHA).roundToInt()
             drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
             return
         }
@@ -453,20 +476,19 @@ internal class LyricsCardPainter internal constructor(
 
         // 1. Draw the complete row at the base dim alpha (unclipped, unbroken native font anti-aliasing).
         scratch.set(row.paint)
-        scratch.alpha = (alpha * dim).roundToInt()
+        scratch.alpha = (alpha * UNSUNG_ALPHA).roundToInt()
         drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
 
         // 2. Overlay the lit pass up to (edge + feather) on top.
-        // Inside saveLayer, text is drawn at full line alpha.
-        // The fade shader (LinearGradient with DST_IN) fades the overlay from 1.0 down to 0.0
-        // across [edge, edge + feather]. Composited with SRC_OVER, this produces a perfectly
-        // smooth, monotonic transition from 1.0 (lit) down to base dim alpha (0.45) with
-        // zero over-brightness spike, zero under-brightness dip, and zero slicing of base glyphs.
-        if (alpha > 0.001f && edge + feather > placed.x) {
+        // Inside saveLayer, the lit overlay's opacity is scaled by overlayFactor, so that
+        // as the line finishes, the bright white letters and their glowing bloom smoothly
+        // fade out from 1.0 down to 0.0, leaving the resting dim line underneath.
+        val overlayAlpha = alpha * overlayFactor
+        if (overlayAlpha > 0.001f && edge + feather > placed.x) {
             val save = canvas.saveLayer(0f, top, edge + feather + 1f, bottom, null)
             canvas.clipRect(0f, top, edge + feather, bottom)
             scratch.set(row.paint)
-            scratch.alpha = alpha.roundToInt()
+            scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
             drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
             if (feather > 0.5f) {
                 fade.shader = LinearGradient(
@@ -960,8 +982,8 @@ private const val SUB_FLOOR = 24f
 /** The words not yet sung: the panel's UNSUNG_ALPHA. */
 private const val UNSUNG_ALPHA = 0.45f
 
-/** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA. */
-private val LINE_FALLOFF = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
+/** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA_PHONE. */
+private val LINE_FALLOFF = floatArrayOf(1f, 0.74f, 0.58f, 0.46f, 0.36f)
 
 /** How long a line change takes to hand over: crossfade window in milliseconds. */
 private const val LINE_CROSSFADE_MS = 400f

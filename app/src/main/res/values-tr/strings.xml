@@ -97,7 +97,7 @@
     <string name="youtube_premium_audio">YouTube Premium sesi</string>
     <string name="youtube_premium_audio_subtitle">Premium\'um var: standart 160 kbps yerine daha yüksek kaliteli ~256 kbps Opus akışı</string>
     <string name="account_scrobbling">Hesap ve scrobbling</string>
-    <string name="rich_presence">Zengin varlık</string>
+    <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Şu an çalıyor</string>
     <string name="selected">Seçildi</string>
@@ -216,6 +216,10 @@
     <string name="crossfade">Çapraz geçiş</string>
     <string name="crossfade_subtitle">Bir parçayı diğerine karıştırır</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_art_transition">Kapak geçişi</string>
+    <string name="automix_art_transition_subtitle">AutoMix sırasında parçalar arasında kapak resimlerini yumuşak bir şekilde harmanlar.</string>
+    <string name="automix_mini_art_transition">Mini oynatıcı kapak geçişi</string>
+    <string name="automix_mini_art_transition_subtitle">AutoMix sırasında mini oynatıcıda kapak geçişlerini gösterir.</string>
     <string name="automix_overview">Automix genel bakışı</string>
     <string name="automix_performance">Automix performansı</string>
     <string name="automix_performance_subtitle">Arka plan analizinin ne kadar CPU kullanabileceğini ayarlar</string>
@@ -230,7 +234,9 @@
     <string name="skip_silence_subtitle">Bir saniyeden uzun boşlukları kırp</string>
     <string name="skip_silence_float_subtitle">32 bit float çıkışta kullanılamaz</string>
     <string name="equalizer">Ekolayzır</string>
-    <string name="equalizer_subtitle">Cihazınızın sistem paneli</string>
+    <string name="equalizer_subtitle">Ton, yedi bant ve denge</string>
+    <string name="show_best_part">En İyi Bölüm düğmesi</string>
+    <string name="show_best_part_subtitle">Kapak görselinin üzerinde şarkının en çok tekrar dinlenen bölümüne atlayan bir düğme gösterir</string>
     <string name="show_nerd_stats">Meraklılar için istatistikleri göster</string>
     <string name="show_nerd_stats_subtitle">Oynatıcıda codec, bit hızı ve örnekleme oranı</string>
     <string name="theme">Tema</string>
@@ -241,7 +247,7 @@
     <string name="disable_blend_effects">Karışım efektlerini kapat</string>
     <string name="disable_blend_effects_subtitle">Oynatıcı simgelerini, metni ve koyu menüleri kapak rengiyle boyamak yerine düz beyaz gösterir</string>
     <string name="liquid_glass">Liquid Glass</string>
-    <string name="liquid_glass_subtitle">Yüzen gezinme çubuğunda gerçek kırılan cam. Yalnızca Android 12+; daha fazla GPU kullanır.</string>
+    <string name="liquid_glass_subtitle">Yüzen gezinme çubuğunda gerçek ışık kıran cam efekti. Yalnızca Android 12+; daha fazla GPU kullanır.</string>
     <string name="liquid_glass_unavailable">Android 12 veya daha yenisini gerektirir</string>
     <string name="full_screen_cover_art">Tam ekran kapak resmi</string>
     <string name="animated_cover_art">Hareketli kapak resmi</string>
@@ -272,10 +278,10 @@
     <string name="system">Sistem</string>
     <string name="light">Açık</string>
     <string name="dark">Koyu</string>
-    <string name="full_screen_cover_art_subtitle">Kapağı kare bir kılıf yerine oynatıcının kenarlarına kadar uzatır</string>
+    <string name="full_screen_cover_art_subtitle">Kapağı kare bir çerçeve yerine oynatıcının kenarlarına kadar uzatır</string>
     <string name="full_screen_detail_cover">Tam ekran albüm/çalma listesi kapağı</string>
     <string name="full_screen_detail_cover_subtitle">Albüm ve çalma listesi kapaklarını çerçeve yerine sayfanın kenarlarına kadar uzatır</string>
-    <string name="animated_cover_art_subtitle">Bazı sürümlerin geldiği döngülü videoyu sabit bir kılıf yerine oynatır</string>
+    <string name="animated_cover_art_subtitle">Bazı albümlerde bulunan döngülü videoyu sabit bir kapak yerine oynatır</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay bu oturumda zaten çalınmış veya önerilmiş bir şarkıyı önermez</string>
     <string name="download_quality_subtitle">Bağlantı ne olursa olsun parça başına %1$s</string>
     <string name="filter_non_music_audio">Müzik olmayan sesleri filtrele</string>
@@ -309,7 +315,7 @@
     <string name="buttons">Düğmeler</string>
     <string name="clear_name">Adı temizle</string>
     <string name="connect_account_first">Önce bir hesap bağlayın</string>
-    <string name="connected_presence_off">Bağlandı, varlık kapalı</string>
+    <string name="connected_presence_off">Bağlandı, durum paylaşımı kapalı</string>
     <string name="copy_log">Günlüğü kopyala</string>
     <string name="couldnt_find">%1$s bulunamadı</string>
     <string name="couldnt_open_link">Bu bağlantı açılamadı</string>
@@ -325,11 +331,11 @@
     <string name="discord_presence_footer">Parça, konum veya çalma durumu değiştiğinde kart güncellenir. Çalma durduğunda temizlenir.</string>
     <string name="discord_show_audio_quality">Ses kalitesini göster</string>
     <string name="discord_show_audio_quality_subtitle">Durum kartında Hi-Res, kayıpsız ve Dolby bilgileri</string>
-    <string name="discord_sign_in_footer">Giriş yapmak Discord\'un giriş sayfasını açar. BitChord\'a hiçbir şey yazılmaz.</string>
+    <string name="discord_sign_in_footer">Giriş yapmak Discord\'un giriş sayfasını açar. BitChord\'a hiçbir bilgi girilmez.</string>
     <string name="discord_token">Discord belirteci</string>
     <string name="discord_token_description">Discord hesap belirtecinizi yapıştırın. Bu cihazda şifreli kalır ve yalnızca Discord\'a gönderilir.</string>
     <string name="discord_token_rejected">Discord bu belirteci reddetti.</string>
-    <string name="discord_token_warning">Discord, uygulamaların varlığınızı ayarlamasına izin veren bir API sunmuyor, bu yüzden bu özellik hesabınız olarak giriş yapar ve Discord\'un protokolünü kullanır. Belirteciniz bu cihazda şifreli kalır ve yalnızca Discord\'a gönderilir. Tüm hesabınıza erişim sağlar ve hesap otomasyonu Discord\'un hizmet şartlarını ihlal eder. Yalnızca bu riski kabul ediyorsanız kullanın.</string>
+    <string name="discord_token_warning">Discord, uygulamaların durumunuzu ayarlamasına izin veren bir API sunmuyor, bu yüzden bu özellik hesabınız olarak giriş yapar ve Discord\'un protokolünü kullanır. Belirteciniz bu cihazda şifreli kalır ve yalnızca Discord\'a gönderilir. Tüm hesabınıza erişim sağlar ve hesap otomasyonu Discord\'un hizmet şartlarını ihlal eder. Yalnızca bu riski kabul ediyorsanız kullanın.</string>
     <string name="dislike">Beğenme</string>
     <string name="done">Tamam</string>
     <string name="download">İndir</string>
@@ -428,8 +434,8 @@
     <string name="lastfm_now_playing_subtitle">Last.fm\'i ne dinlediğinle güncelle</string>
     <string name="scrobble_primary_artist_only">Yalnızca birincil sanatçıyı scrobble et</string>
     <string name="scrobble_primary_artist_only_subtitle">Bir parçanın birden fazla sanatçısı olduğunda ilk sanatçıyı kullan</string>
-    <string name="lead_with_song">Şarkıyla başla</string>
-    <string name="lead_with_song_subtitle">Kalın satıra sanatçı yerine başlığı koyar</string>
+    <string name="lead_with_song">Önce şarkı adını göster</string>
+    <string name="lead_with_song_subtitle">Kalın satıra sanatçı yerine şarkı adını koyar</string>
     <string name="like">Beğen</string>
     <string name="listenbrainz_token">ListenBrainz belirteci</string>
     <string name="listenbrainz_token_description">Scrobbling\'i etkinleştirmek için ListenBrainz kullanıcı belirtecinizi yapıştırın.</string>
@@ -452,10 +458,10 @@
     <string name="pause_countdown">Çalma duraklatılana kadar %1$s</string>
     <string name="play_to_preview">Önizlemeyi doldurmak için bir şey çal.</string>
     <string name="playlist_name">Çalma listesi adı</string>
-    <string name="presence">Varlık</string>
+    <string name="presence">Durum paylaşımı</string>
     <string name="preview">Önizleme</string>
     <string name="prioritize_syllable_lyrics">Heceli sözlere öncelik ver</string>
-    <string name="prioritize_syllable_lyrics_subtitle">Kelime kelime sözler için satır senkronlu bir eşleşmeyi geçtikten sonra aramaya devam et</string>
+    <string name="prioritize_syllable_lyrics_subtitle">Satır senkronlu bir eşleşme bulunsa bile kelime kelime sözler için aramaya devam et</string>
     <string name="quality_hourly">%1$s · %2$s</string>
     <string name="quality_per_track">%1$s · parça başına %2$s</string>
     <string name="queued">Sırada</string>
@@ -492,7 +498,7 @@
     <string name="sleep_timer_custom">Özel</string>
     <string name="start_sleep_timer">Zamanlayıcıyı başlat</string>
     <string name="sources_no_lossless">Etkin hiçbir kaynak kayıpsız ses sağlayamıyor. Yeniden kodlama yapmadan mevcut kayıpsız dosyaları çalmak için özel bir modül ekleyin.</string>
-    <string name="sources_order_footer">Bir kaynakta parça yoksa veya ulaşılamıyorsa BitChord bir sonrakini dener. YouTube üzerindeki kaynaklar daha iyi bir sürüm döndürdüklerinde onun kaydının yerini alabilir.</string>
+    <string name="sources_order_footer">Bir kaynakta parça yoksa veya ulaşılamıyorsa BitChord bir sonrakini dener. Sıralamada YouTube\'un üstünde yer alan kaynaklar daha iyi bir sürüm döndürdüğünde onun kaydının yerini alabilir.</string>
     <string name="sources_order_header">Kaynaklar, bu sırayla denenir</string>
     <string name="sources_quality_capped">Bu bağlantı Yüksek kalitenin altına ayarlandığından, akışlar bu sınıra uyacak şekilde yeniden kodlanır. İndirmeler etkilenmez.</string>
     <string name="jiosaavn_mismatch_warning">Bir şarkının yanlış sürümünü eşleştirebilir. Riski sana ait olmak üzere etkinleştir.</string>
@@ -501,7 +507,7 @@
     <string name="sources_subtitle">Sesin nereden geldiği ve kullanılan sıra</string>
     <string name="source_matching">Kaynak eşleştirme</string>
     <string name="upgrade_length_slack">Parça süresi toleransı</string>
-    <string name="upgrade_length_slack_subtitle">Yedek akış için izin verilen en fazla süre farkı</string>
+    <string name="upgrade_length_slack_subtitle">Değiştirilen akış için izin verilen en fazla süre farkı</string>
     <string name="upgrade_length_slack_footer">Daha büyük tolerans daha fazla kaynak eşleşmesi kabul eder; daha küçük tolerans daha katıdır. Varsayılan 5 saniyedir.</string>
     <string name="seconds_short">%1$d sn</string>
     <string name="spdc_token">sp_dc belirteci</string>
@@ -513,7 +519,7 @@
     <string name="prioritize_spotify_canvas">Spotify Canvas\'a öncelik ver</string>
     <string name="prioritize_spotify_canvas_subtitle">Apple Music ve diğer hareketli kapak sağlayıcılarından önce Spotify\'ı dene</string>
     <string name="status">Durum</string>
-    <string name="status_dialog_message">Varlık aktifken hesabının gösterdiği şey.</string>
+    <string name="status_dialog_message">Durum paylaşımı etkinken hesabının gösterdiği şey.</string>
     <string name="status_dnd">Rahatsız etmeyin</string>
     <string name="status_dnd_detail">Kırmızı çizgi. Bildirimleri de bastırır.</string>
     <string name="status_idle">Boşta</string>
@@ -567,7 +573,7 @@
     <string name="not_enough_listening">Henüz yeterli dinleme yok</string>
     <string name="not_enough_this_month">Replay\'ini açmak için bu ay birkaç şarkı daha çal.</string>
     <string name="pinned">Sabitlendi</string>
-    <string name="replay_across"> üzerinde </string>
+    <string name="replay_across">Toplamda </string>
     <string name="replay_album_end"> ilgini çekti.</string>
     <string name="replay_album_focus">Bir albüm</string>
     <string name="replay_album_start">Bu sefer, </string>
@@ -578,8 +584,8 @@
     <string name="replay_genre_end"> tarzını şekillendirdi.</string>
     <string name="replay_genre_focus">Türlerin</string>
     <string name="replay_genre_start">Birlikte, </string>
-    <string name="replay_habits_middle"> kaynağından </string>
-    <string name="replay_habits_start">Keşfettin: </string>
+    <string name="replay_habits_middle"> · </string>
+    <string name="replay_habits_start">Keşfedilen: </string>
     <string name="replay_hours_across">%1$s saat</string>
     <string name="replay_intro_end"> hazır.</string>
     <string name="replay_intro_start">Senin </string>
@@ -590,12 +596,12 @@
         <item quantity="one">%1$s dakika</item>
         <item quantity="other">%1$s dakika</item>
     </plurals>
-    <string name="replay_mostly_around">, çoğunlukla %1$s civarında.</string>
+    <string name="replay_mostly_around">%1$s</string>
     <string name="replay_private_counting">Bu cihazdaki dinleme geçmişinden gizlice oluşturuldu</string>
     <string name="replay_share_card_description">Ana dinleme öne çıkanlarını içeren şık bir kart.</string>
     <string name="replay_share_summary_description">Şarkılar, sanatçılar, albümler, türler ve alışkanlıklarla dolu tam bir tablo.</string>
     <string name="replay_songs_end"> ayını doldurdu.</string>
-    <string name="replay_songs_start">Toplamda, </string>
+    <string name="replay_songs_start">Toplamda </string>
     <string name="replay_summary_start">Dinlemende bir </string>
     <string name="saved">Kaydedildi</string>
     <string name="saved_bang">Kaydedildi!</string>
@@ -659,7 +665,7 @@
     <string name="smb_description">BitChord\'u paylaşılan bir müzik klasörüne yönlendir — SMB kullanan bir NAS ya da Windows paylaşımı.</string>
     <string name="smb_server_hint">nas.local veya 192.168.1.10:4445</string>
     <string name="smb_share_hint">Paylaşım adı, ör. Music</string>
-    <string name="smb_folder_hint">Klasör (isteğe bağlı)</string>
+    <string name="smb_folder_hint">Paylaşım içindeki klasör, ör. media/music (isteğe bağlı)</string>
     <string name="smb_disconnect">Bağlantıyı kes</string>
     <string name="smb_test_failed">Ulaşılamadı: %1$s</string>
     <string name="playlist">çalma listesi</string>
@@ -680,8 +686,8 @@
     <string name="version_cut_fetching">getiriliyor</string>
     <string name="version_cut_measuring">analiz ediliyor</string>
     <string name="version_cut_aligned">hizalandı</string>
-    <string name="automix_enabled_subtitle">Her geçişin zamanlamasını ve karışımını parçaların kendisinden yapar. Telefon ısınırsa veya çalma takılırsa kapat.</string>
-    <string name="automix_disabled_subtitle">Geçişlerin zamanlamasını ve karışımını kaydırıcı olmadan otomatik olarak yapar. Performans daha yavaş cihazlarda değişebilir.</string>
+    <string name="automix_enabled_subtitle">Her geçişin zamanlamasını ve karışımını doğrudan parçalara göre ayarlar. Telefon ısınırsa veya çalma takılırsa kapat.</string>
+    <string name="automix_disabled_subtitle">Geçişlerin zamanlamasını ve karışımını süre kaydırıcısı olmadan otomatik olarak yapar. Performans daha yavaş cihazlarda değişebilir.</string>
     <string name="automix_models_downloading">Automix indiriliyor (%1$d MB)… %2$d%%. Bitene kadar şarkılar normal geçişle değişir.</string>
     <string name="automix_model">Automix modeli</string>
     <string name="automix_model_missing">İndirilmedi. Automix açıldığında indirir ya da şimdi indirin.</string>
@@ -786,7 +792,7 @@
     <string name="listen_together_now_playing">Şu an çalıyor</string>
     <string name="listen_together_nothing_playing">Henüz bir şey çalmıyor</string>
     <string name="listen_together_listening">Dinliyor · %1$d / %2$d</string>
-    <string name="listen_together_members_footer">Bir parti %1$d cihaz alır. İçindeki herkes müziği kontrol edebilir.</string>
+    <string name="listen_together_members_footer">Bir parti en fazla %1$d cihazı destekler. Partideki herkes müziği kontrol edebilir.</string>
     <string name="listen_together_you">Sen</string>
     <string name="listen_together_host">Kurucu</string>
     <string name="listen_together_away">Uzakta — yeri tutuluyor</string>
@@ -814,7 +820,7 @@
     <string name="listen_together_leave_subtitle">Diğerleri dinlemeye devam eder</string>
     <string name="listen_together_reconnecting">Yeniden bağlanılıyor…</string>
     <string name="listen_together_syncing_clock">Saat ölçülüyor…</string>
-    <string name="listen_together_in_sync">Eşzamanlı · %1$d ms gidiş dönüş</string>
+    <string name="listen_together_in_sync">Eşzamanlı · %1$d ms gecikme</string>
     <string name="listen_together_custom_server_dialog_title">Özel sunucudaki partiye katılınsın mı?</string>
     <string name="listen_together_custom_server_dialog_message">Bu parti harici bir sunucuda barındırılıyor:\n\n%1$s\n\nParti sunucunu değiştirip %2$s partisine katılmak istiyor musun?</string>
     <string name="listen_together_custom_server_switch_and_join">Değiştir ve katıl</string>
@@ -842,28 +848,19 @@
 
     <string name="miscellaneous_footer">Etkinleştirildiğinde, uygulamayı son kullanılanlar ekranından kapatmak müzik çalmayı da durdurur.</string>
 
-
     <string name="add_addon">Eklenti ekle</string>
-
     <string name="add_addon_detail">BitChord\'u barındırdığınız veya bağlantısını aldığınız bir eklenti sunucusuna yönlendirin</string>
-
-    <string name="addon_url_description">Eklentinin URL\'sini yapıştırın — kök dizin veya manifest.json. BitChord arama ve oynatma yeteneklerini okur.</string>
-
+    <string name="addon_url_description">Eklentinin URL\'sini yapıştırın — kök adresi veya manifest.json. BitChord neyi arayıp çalabildiğini okur ve ardından düz HTTP üzerinden parça ister.</string>
 
     <string name="blur_unfocused_lyrics">Odaklanmamış şarkı sözlerini bulanıklaştır</string>
-
     <string name="blur_unfocused_lyrics_subtitle">Geçerli satırı vurgular</string>
 
     <string name="card_plays_format">%1$s oynatma</string>
-
     <string name="card_songs_format">%1$s şarkı</string>
-
     <string name="card_views_format">%1$s görüntüleme</string>
 
     <string name="dolby_atmos">Dolby Atmos</string>
-
     <string name="dolby_atmos_subtitle">Varsa parçanın daha etkileyici surround versiyonunu oynatır.</string>
-
     <string name="dolby_atmos_unavailable">Bu cihaz Atmos\'u desteklemiyor, parçalar normal versiyonda çalınacak</string>
 
     <string name="export_compatible_downloads">Uyumlu indirmeleri dışa aktar</string>
@@ -880,13 +877,11 @@
     <string name="player_theme_default">Varsayılan</string>
     <string name="player_theme_legacy">Eski</string>
     <string name="player_theme_simple">Sade</string>
-    <string name="player_theme_default_subtitle">Kapağın renkleri altında devam eder</string>
+    <string name="player_theme_default_subtitle">Kapağın kendi renkleri alt kısımda devam eder</string>
     <string name="player_theme_simple_subtitle">Tüm oynatıcının arkasında bulanık kapak</string>
-
     <string name="player_theme_legacy_subtitle">v1.5\'teki oynatıcı arkasındaki akıcı renk geçişlerini geri getirir</string>
 
     <string name="lyrics_debug_logs">Şarkı sözü hata ayıklama günlükleri</string>
-
     <string name="lyrics_debug_logs_subtitle">Şarkı sözü panelinde canlı API sorgularını ve kazıyıcı etkinliğini gösterir</string>
 
     <string name="output_precision">Çıkış hassasiyeti</string>
@@ -907,320 +902,178 @@
     <string name="loudness_lufs">%1$s LUFS</string>
 
     <string name="shelf_100_on_repeat">Sürekli tekrarda</string>
-
     <string name="shelf_artists_on_the_rise">Yükselen sanatçılar</string>
-
     <string name="shelf_chart">Liste</string>
-
     <string name="shelf_charts">Listeler</string>
-
     <string name="shelf_commute">Yolculuk</string>
-
     <string name="shelf_concerts">Konserler</string>
-
     <string name="shelf_energy_boosters">Enerji verici</string>
-
     <string name="shelf_featured_playlists_for_you">Sizin için öne çıkan çalma listeleri</string>
-
     <string name="shelf_feel_good">Keyifli</string>
-
     <string name="shelf_focus">Odaklanma</string>
-
     <string name="shelf_for_you">Sizin için</string>
-
     <string name="shelf_forgotten_favorites">Unutulmuş favoriler</string>
-
     <string name="shelf_from_the_community">Topluluktan</string>
-
     <string name="shelf_from_your_library">Kitaplığınızdan</string>
-
     <string name="shelf_hits_today">Günün hitleri</string>
-
     <string name="shelf_listen_again">Tekrar dinle</string>
-
     <string name="shelf_mixed_for_you">Sizin için karışık</string>
-
     <string name="shelf_new_albums_singles">Yeni albümler ve tekliler</string>
-
     <string name="shelf_new_releases">Yeni çıkanlar</string>
-
     <string name="shelf_party">Parti</string>
-
     <string name="shelf_quick_picks">Hızlı seçimler</string>
-
     <string name="shelf_recents">Son dinlenenler</string>
-
     <string name="shelf_recommended_music_videos">Önerilen müzik videoları</string>
-
     <string name="shelf_relax">Rahatlama</string>
-
     <string name="shelf_romance">Romantik</string>
-
     <string name="shelf_sad">Hüzünlü</string>
-
     <string name="shelf_shorts">Shorts</string>
-
     <string name="shelf_similar_to">%1$s benzeri</string>
-
     <string name="shelf_single">Tekli</string>
-
     <string name="shelf_sleep">Uyku</string>
-
     <string name="shelf_song_item">Şarkı</string>
-
     <string name="shelf_top_music_videos">En popüler müzik videoları</string>
-
     <string name="shelf_top_tunes_right_now">Şu anın popüler parçaları</string>
-
     <string name="shelf_trending">Trendler</string>
-
     <string name="shelf_trending_community_playlists">Popüler topluluk çalma listeleri</string>
-
     <string name="shelf_workout">Antrenman</string>
-
     <string name="shelf_youtube_charts">YouTube Listeleri</string>
-
     <string name="subscriptions">Abonelikler</string>
-
     <string name="sort_date_added_toggle">Eklenme tarihi</string>
-
     <string name="sort_library">Sırala</string>
-
     <string name="source_unrecognised">BitChord bu bağlantıyı tanıyamadı</string>
-
     <string name="source_skipped_by_quality">%1$s üzerinde kullanılmıyor · kalite %2$s olarak ayarlandı</string>
-
     <string name="subscribe">Abone ol</string>
-
     <string name="sort_date_added_oldest">Eklenme tarihi (en eski önce)</string>
-
     <string name="source_already_added">Zaten %1$s olarak eklendi</string>
-
     <string name="sort_songs">Şarkıları sırala</string>
-
     <string name="sort_default">Varsayılan sıra</string>
     <string name="sort_track_number">Parça numarası</string>
-
     <string name="unsubscribe">Abonelikten çık</string>
-
     <string name="upgrade_quality">Kaliteyi yükselt</string>
-
 
     <string name="lyrics_offset">Söz zamanlama ayarı</string>
 
-
-
-
-
     <string name="auto_quick_picks">Hızlı seçimler</string>
-
     <string name="auto_recents">Son dinlenenler</string>
-
     <string name="auto_liked">Beğenilen şarkılar</string>
-
     <string name="auto_login_title">Telefonunuzda YouTube\'a giriş yapın</string>
-
     <string name="auto_login_subtitle">Giriş yapmak için telefonunuzda BitChord\'u açın</string>
-
     <string name="auto_empty_recents_title">Son çalınan şarkı yok</string>
-
     <string name="auto_empty_recents_subtitle">Çaldığınız şarkılar burada görünür</string>
-
     <string name="auto_empty_quick_picks_title">Öneri yok</string>
-
     <string name="auto_empty_quick_picks_subtitle">Bağlantınızı kontrol edip tekrar deneyin</string>
-
     <string name="auto_empty_playlists_title">Kullanılabilir çalma listesi yok</string>
-
     <string name="auto_empty_playlists_subtitle">Bağlantınızı kontrol edip tekrar deneyin</string>
-
     <string name="auto_empty_liked_title">Beğenilen şarkı yok</string>
-
     <string name="auto_empty_liked_subtitle">Bir şarkıyı buraya kaydetmek için kalbe dokunun</string>
-
     <string name="auto_empty_offline_title">Çevrimdışı şarkı yok</string>
-
     <string name="auto_empty_offline_subtitle">Burada dinlemek için telefonunuzdan şarkı indirin</string>
-
     <string name="auto_unavailable_title">İçerik kullanılamıyor</string>
-
     <string name="auto_unavailable_subtitle">Klasörü yeniden açıp tekrar deneyin</string>
-
     <string name="settings_search_hint">Ayarlarda ara</string>
-
     <string name="settings_search_empty">“%1$s” ile eşleşen ayar yok</string>
 
-
-    <string name="content_preferences">Content Preferences</string>
-    <string name="hide_recents">Hide Recents</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
-    <string name="hide_top_picks">Hide Top Picks for You</string>
-    <string name="hide_home_moods">Hide Find Your Mood</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="prefer_music_only">Prefer music-only version</string>
-    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
+    <string name="content_preferences">İçerik Tercihleri</string>
+    <string name="hide_recents">Son Dinlenenleri Gizle</string>
+    <string name="hide_home_videos">Ana Sayfadan videoları gizle</string>
+    <string name="hide_home_videos_subtitle">Yalnızca videolardan oluşan raflar da gizlenir. Arama, sanatçılar ve çalma listeleri yine gösterir</string>
+    <string name="hide_top_picks">Sizin İçin En İyi Seçimleri Gizle</string>
+    <string name="hide_home_moods">Ruh Halini Bul\'u Gizle</string>
+    <string name="square_video_thumbnails">Kare video küçük resimleri</string>
+    <string name="square_video_thumbnails_subtitle">Müzik videolarını oynatıcı da dahil olmak üzere her yerde kare olarak göster</string>
+    <string name="prefer_music_only">Yalnızca müzik sürümünü tercih et</string>
+    <string name="prefer_music_only_subtitle">Müzik videoları ses sürümü olarak çalınır; Automix ve çapraz geçişin çalışması için sıradaki bir sonraki parça önceden dönüştürülür</string>
     <string name="smart_version_alignment">Akıllı ses hizalama</string>
     <string name="smart_version_alignment_subtitle">Tam karşılık gelen çalma anını bulmak için ses dalga biçimlerini analiz eder</string>
 
     <string name="equalizer_footer">BitChord içindeki sesi, sisteme ulaşmadan önce şekillendirir.</string>
-
     <string name="equalizer_dynamic">Dinamik</string>
-
     <string name="equalizer_manual">Manuel</string>
-
     <string name="equalizer_tone">Ton</string>
-
     <string name="equalizer_tilt">Eğim</string>
-
     <string name="equalizer_contour">Kontur</string>
-
     <string name="equalizer_broad">Geniş</string>
-
     <string name="equalizer_focused">Odaklı</string>
-
-    <string name="equalizer_broad_footer">Daha sıcak bir ses için sola, daha parlak bir ses için sağa sürükleyin; aşağı orta frekansları kısar, yukarı öne çıkarır. Geniş mod, spektrumun geniş aralıklarını aynı anda kaydırır.</string>
-
-    <string name="equalizer_focused_footer">Daha sıcak bir ses için sola, daha parlak bir ses için sağa sürükleyin; aşağı orta frekansları kısar, yukarı öne çıkarır. Odaklı mod daha dar aralıklarda çalışır, bu yüzden dokunduğu bölgenin çevresini daha az etkiler.</string>
-
+    <string name="equalizer_broad_footer">Daha sıcak bir ses için sola, daha parlak bir ses için sağa sürükleyin; aşağı çekmek orta frekansları kısar, yukarı çekmek öne çıkarır. Geniş mod, spektrumun geniş aralıklarını aynı anda kaydırır.</string>
+    <string name="equalizer_focused_footer">Daha sıcak bir ses için sola, daha parlak bir ses için sağa sürükleyin; aşağı çekmek orta frekansları kısar, yukarı çekmek öne çıkarır. Odaklı mod daha dar aralıklarda çalışır, bu yüzden dokunduğu bölgenin çevresini daha az etkiler.</string>
     <string name="equalizer_preset">Ön ayar</string>
-
     <string name="equalizer_bands">Bantlar</string>
-
-    <string name="equalizer_bands_footer">Bir bandı oynattığınızda ön ayar devre dışı kalır ve eğri size özel olur.</string>
-
+    <string name="equalizer_bands_footer">Bir bandı kaydırdığınızda ön ayar devre dışı kalır ve eğri size özel olur.</string>
     <string name="equalizer_reset">Tüm bantları sıfırla</string>
-
     <string name="equalizer_balance">Denge</string>
-
     <string name="equalizer_balance_left">L</string>
-
     <string name="equalizer_balance_right">R</string>
-
     <string name="equalizer_balance_footer">Diğer kulağı kısarak sesi bir kulağa doğru kaydırır.</string>
     <string name="equalizer_bitstream_title">Şu anda çalışmıyor</string>
     <string name="equalizer_bitstream_subtitle">Bu parça çıkışa çözülmeden gönderiliyor</string>
     <string name="equalizer_bitstream_footer">Ekolayzır çözülmüş ses üzerinde çalışır. Bu parça, cihazının çözmesi için bitstream olarak aktarılıyor; bu yüzden burada filtrelenecek örnek yok.</string>
 
     <string name="system_equalizer">Sistem ekolayzırı</string>
-
     <string name="system_equalizer_subtitle">Cihazınızın kendi paneli</string>
-
     <string name="system_equalizer_footer">BitChord\'unkinden sonra, tüm ses oturumunda çalışır. İkisini birden kullanmak ikisini de uygular.</string>
 
     <string name="eq_preset_flat">Düz</string>
-
     <string name="eq_preset_acoustic">Akustik</string>
-
     <string name="eq_preset_bass_boost">Bas artırma</string>
-
     <string name="eq_preset_bass_cut">Bas kısma</string>
-
     <string name="eq_preset_vocal">Vokal</string>
-
     <string name="eq_preset_treble_boost">Tiz artırma</string>
-
     <string name="eq_preset_treble_cut">Tiz kısma</string>
-
     <string name="eq_preset_loudness">Loudness</string>
-
     <string name="eq_preset_spoken_word">Konuşma</string>
-
     <string name="eq_preset_electronic">Elektronik</string>
-
     <string name="eq_preset_rock">Rock</string>
-
     <string name="eq_preset_hip_hop">Hip-hop</string>
-
     <string name="eq_preset_jazz">Caz</string>
-
     <string name="eq_preset_classical">Klasik</string>
-
     <string name="eq_preset_small_speakers">Küçük hoparlörler</string>
-
     <string name="eq_preset_late_night">Gece dinlemesi</string>
-
     <string name="eq_preset_custom">Özel</string>
 
     <string name="translation_language">Çeviri dili</string>
-
     <string name="translation_language_description">Çeviri düğmesinin sözleri çevirdiği dil.</string>
-
     <string name="translation_language_app_default">Uygulama dili</string>
-
     <string name="translation_language_subtitle">Uygulama dilini izler</string>
-
     <string name="search_languages">Dil ara</string>
-
     <string name="no_languages_match">Eşleşen dil yok</string>
 
-
-
-
-
     <string name="audio_pipeline">Ses Hattı</string>
-    <string name="cast_dialog_title">Cast</string>
-    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
-    <string name="cast_searching">Looking for devices…</string>
-    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
-    <string name="cast_device_connecting">Connecting…</string>
-    <string name="cast_device_connected">Casting</string>
-    <string name="cast_stop">Stop casting</string>
-    <string name="cast_track_unsupported">This track can\'t be cast</string>
-    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
+    <string name="cast_dialog_title">Yayınla</string>
+    <string name="cast_dialog_subtitle">Bir Chromecast veya Google Cast hoparlöründe çal</string>
+    <string name="cast_searching">Cihazlar aranıyor…</string>
+    <string name="cast_searching_hint">Telefonunuzun ve alıcının aynı Wi-Fi ağında olması gerekir.</string>
+    <string name="cast_device_connecting">Bağlanıyor…</string>
+    <string name="cast_device_connected">Yayınlanıyor</string>
+    <string name="cast_stop">Yayını durdur</string>
+    <string name="cast_track_unsupported">Bu parça yayınlanamıyor</string>
+    <string name="cast_connect_failed">Alıcıya bağlanılamadı</string>
     <string name="audio_pipeline_subtitle">Kod çözücüden çıkışa canlı sinyal yolu</string>
-
     <string name="pipeline_track_info">Parça Bilgisi</string>
-
     <string name="pipeline_decoder">Kod Çözücü</string>
-
     <string name="pipeline_resampler">Yeniden Örnekleyici</string>
-
     <string name="pipeline_dsp">DSP</string>
-
     <string name="pipeline_output_device">Çıkış Cihazı</string>
-
     <string name="pipeline_source">Kaynak</string>
-
     <string name="pipeline_format">Biçim</string>
-
     <string name="pipeline_bit_depth">Bit Derinliği</string>
-
     <string name="pipeline_sample_rate">Örnekleme Oranı</string>
-
     <string name="pipeline_bitrate">Bit Hızı</string>
-
     <string name="pipeline_channels">Kanallar</string>
-
     <string name="pipeline_decoder_name">Kod Çözücü Adı</string>
-
     <string name="pipeline_io_rate">G/Ç Hızı</string>
-
     <string name="pipeline_type">Tür</string>
-
     <string name="pipeline_cutoff">Kesme Frekansı</string>
-
     <string name="pipeline_quality">Kalite</string>
-
     <string name="pipeline_pcm_format">PCM Biçimi</string>
-
     <string name="pipeline_eq_preset">EQ Ön Ayarı</string>
-
     <string name="pipeline_stereo_expand">Stereo Genişletme</string>
-
     <string name="pipeline_buffers">Tamponlar</string>
-
     <string name="pipeline_output_api">Çıkış API\'si</string>
-
     <string name="pipeline_device_name">Cihaz Adı</string>
 
-
-
     <string name="shared_link">Paylaşılan bağlantı</string>
-
     <string name="song_will_play_next">Şarkı sonra çalacak</string>
-
     <string name="song_added_to_queue">Şarkı sıraya eklendi</string>
     <string name="song_added_to_playlist">Çalma listesine eklendi</string>
     <string name="song_already_in_playlist">Zaten çalma listesinde</string>
@@ -1235,20 +1088,8 @@
     <string name="party_queue_full">Sıra dolu (partide en fazla %d şarkı)</string>
 
     <string name="paxsenix_api_key">PaxSenix API anahtarı</string>
-
     <string name="paxsenix_api_key_configured">PaxSenix API anahtarı — yapılandırıldı</string>
-
     <string name="paxsenix_api_key_missing">PaxSenix API anahtarı — isteğe bağlı, yapılandırılmadı</string>
-
-
-
-
-
-
-
-
-
-
 
     <string name="source_needs_lossless_output">Kayıpsız çıkış gerekir · kayıpsız sesi destekleyen bir cihaz kullanın</string>
     <string name="source_needs_lossless_bt_codec">Kayıpsız çıkış gerekir · Bluetooth %1$s kullanıyor; kayıpsız sesi destekleyen bir cihaz kullanın</string>
@@ -1256,7 +1097,7 @@
     <string name="source_downloads_on">İndirmeye izin veriliyor</string>
     <string name="source_downloads_off">Yalnızca akış</string>
     <string name="lossless_output_permission">Bluetooth kodeğini kontrol et</string>
-    <string name="lossless_output_permission_detail">LDAC veya LHDC kulaklıkların kayıpsız eklentileri açabilmesi için Yakındaki cihazlar iznini verin</string>
+    <string name="lossless_output_permission_detail">LDAC, LHDC veya Samsung UHQ kulaklıkların yalnızca kayıpsız eklentileri açabilmesi için Yakındaki cihazlar iznini verin</string>
     <string name="cached_songs">Önbellekteki şarkılar</string>
     <string name="cached_songs_subtitle">Şarkı önbelleğindeki YouTube ve JioSaavn şarkıları</string>
     <string name="cached_songs_empty">Henüz önbellekte şarkı yok. YouTube veya JioSaavn üzerinden çaldığın şarkılar burada görünecek.</string>
@@ -1270,11 +1111,11 @@
     <string name="song_cache_unlimited_subtitle">Sınır yok. Önbellekteki ses, depolama alanı dolana kadar büyüyebilir.</string>
     <string name="clear_song_cache_title">Şarkı önbelleği temizlensin mi?</string>
     <string name="clear_song_cache_warning">Önbellekteki tüm şarkılar silinecek ve önbellekteki şarkılar klasörü boşaltılacak. Bir sonraki çalışta yeniden akışla oynatılacaklar.</string>
-    <string name="import_spotify">Spotify’den içe aktar</string>
+    <string name="import_spotify">Spotify\'dan içe aktar</string>
     <string name="import_spotify_subtitle">Bir çalma listesi bağlantısından</string>
     <string name="local_playlist_subtitle">%1$d şarkı · Bu cihazda</string>
     <string name="lossless_output_permission_denied">Yakındaki cihazlar izni kapalı</string>
-    <string name="lossless_output_permission_denied_detail">Ayarlar’ı açmak ve Yakındaki cihazlara izin vermek için dokunun — olmadan Bluetooth kodunuzu okuyamayız</string>
+    <string name="lossless_output_permission_denied_detail">Ayarlar’ı açmak ve Yakındaki cihazlara izin vermek için dokunun — bu izin olmadan Bluetooth kodeğinizi okuyamayız</string>
     <string name="recent_album">Son albüm</string>
     <string name="recent_ep">Son EP</string>
     <string name="recent_single">Son single</string>
@@ -1311,7 +1152,7 @@
     <string name="song_info_error">Bazı bilgiler yüklenemedi.</string>
     <string name="song_info_retry">Tekrar dene</string>
     <string name="artist_signatures">Sanatçı imzaları</string>
-    <string name="artist_signatures_subtitle">Apple Music\'te başlık logosu yokken el yazısı imza gösterir</string>
+    <string name="artist_signatures_subtitle">Apple Music\'te başlık logosu olmadığında el yazısı imza gösterir</string>
     <string name="artist_signatures_url">İmza API URL\'si</string>
     <string name="artist_signatures_url_hint">https://signatures.example.com</string>
     <string name="artist_signatures_unconfigured">Yapılandırılmadı — API URL\'sini ayarlamak için dokunun</string>
@@ -1375,9 +1216,9 @@
     <string name="wear_os_code_hint">Eşleme kodu</string>
     <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
-    <string name="no_audio_version">No audio version found for this video</string>
-    <string name="no_video_version">No video version found for this song</string>
-    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="no_audio_version">Bu video için ses sürümü bulunamadı</string>
+    <string name="no_video_version">Bu şarkı için video sürümü bulunamadı</string>
+    <string name="version_switch_in_party">Birlikte Dinle\'deki herkes aynı sürümü duyar</string>
     <string name="opened_file">Açılan dosya</string>
     <string name="folders">Klasörler</string>
     <string name="folder">Klasör</string>
@@ -1414,7 +1255,7 @@
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14, DAC\'ı her parçanın kendi hızında ve bit derinliğinde, miksleme veya yeniden örnekleme olmadan açar.</string>
     <string name="bit_perfect_requires_android_14">Android 14 veya üstü gerekir</string>
     <string name="bit_perfect_mode_dap_exclusive">Dahili DAC (AAudio özel)</string>
-    <string name="bit_perfect_mode_dap_exclusive_subtitle">Kendi DAC\'ı olan müzik çalarlar için. Kulaklık veya hat çıkışını her parçanın kendi hızında özel olarak açar. Her cihaz özel moda izin vermez.</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">Kendi DAC\'ı olan müzik çalarlar için. Kulaklık veya hat çıkışını her parçanın kendi hızında özel (exclusive) modda açar. Her cihaz özel moda izin vermez.</string>
     <string name="bit_perfect_requires_android_8_1">Android 8.1 veya üstü gerekir</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (doğrudan sürücü)</string>
     <string name="bit_perfect_mode_usb_direct_subtitle">BitChord, DAC\'ı her Android sürümünde kendisi yönetir ve ses düzeyini DAC üzerinde ayarlar. USB izni ister. Normal çıkıştan çok daha yüksek ses verebilir.</string>
@@ -1510,11 +1351,72 @@
     <string name="drive_sync_uploading">%1$d / %2$d ay yükleniyor</string>
     <string name="drive_this_phone">Bu telefon</string>
     <string name="drive_this_phone_header">Bu telefon</string>
-    <string name="drive_this_phone_subtitle">Bu telefonun yedeklendiği cihaz</string>
+    <string name="drive_this_phone_subtitle">Bu telefonun yedeklenirken kullandığı cihaz</string>
     <string name="drive_restore_confirm_title">%1$s olarak geri yüklensin mi?</string>
     <string name="drive_restore_confirm_body">Bu telefon %1$s olur. Onun dinleme geçmişi ve ayarları bu telefonunkilerin yerini alır ve bundan sonra bu telefon %1$s olarak eşitlenir. Oturum bilgileri dahil değildir.</string>
     <string name="drive_disconnect_confirm_body">Eşitleme durur. Drive\'ınızdaki her şey korunur ve yeniden bağlanana kadar diğer cihazlarınızın dinlemeleri bu telefonda Replay\'den çıkarılır.</string>
     <string name="drive_backup_row_subtitle">Replay\'i tüm cihazlarınızda yedekleyin ve eşitleyin</string>
     <string name="drive_over_cellular">Mobil veriyle eşitle</string>
     <string name="drive_over_cellular_subtitle">Kapalıyken otomatik eşitlemeler Wi-Fi\'ı bekler</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">%1$s Replay\'ini aç</string>
+    <string name="replay_year_building">Yılın hazırlanıyor…</string>
+    <string name="replay_year_opener_start">BitChord\'da</string>
+    <string name="replay_year_opener_end">yılın</string>
+    <string name="replay_year_opener_detail">Neler dinlediğine bir göz atalım.</string>
+    <string name="replay_year_minutes_start">Bu yıl dinleme süren:</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">dakika</item>
+        <item quantity="other">dakika</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">Bu da</string>
+    <string name="replay_year_minutes_days_value">%1$s gün</string>
+    <string name="replay_year_minutes_hours_value">%1$s saat</string>
+    <string name="replay_year_minutes_days_end">müzik demek.</string>
+    <string name="replay_year_busiest_start">En yoğun günün:</string>
+    <string name="replay_year_busiest_minutes">Tek günde %1$s dakika müzik</string>
+    <string name="replay_year_busiest_song">Çoğunlukla %1$s</string>
+    <string name="replay_year_clock_start">En çok canlandığın zaman:</string>
+    <string name="replay_year_night_owl">Gece Kuşu</string>
+    <string name="replay_year_night_owl_detail">Dinlemelerinin büyük kısmı saat 22.00\'den sonra gerçekleşti.</string>
+    <string name="replay_year_early_bird">Erkenci Kuş</string>
+    <string name="replay_year_early_bird_detail">Günlerin saat 10.00\'dan önce müzikle başladı.</string>
+    <string name="replay_year_golden_hour">Altın Saatler</string>
+    <string name="replay_year_golden_hour_detail">Müziğin sesi en çok akşamları yükseldi.</string>
+    <string name="replay_year_daytime">Gündüz Gezgini</string>
+    <string name="replay_year_daytime_detail">Müziği gün boyu açık tuttun.</string>
+    <string name="replay_year_all_day">7/24 Müzik</string>
+    <string name="replay_year_all_day_detail">Sabah, öğle veya gece fark etmeksizin hep bir şeyler çaldı.</string>
+    <string name="replay_year_genres_start">Bu yılki tarzın</string>
+    <string name="replay_year_artist_start">Bu yıl en çok dinlediğin sanatçı…</string>
+    <string name="replay_year_minutes_together">Birlikte %1$s dakika</string>
+    <string name="replay_year_top_artists">En çok dinlediğin sanatçılar</string>
+    <string name="replay_year_song_start">Ve yılın şarkısı…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">%1$s kez çalındı</item>
+        <item quantity="other">%1$s kez çalındı</item>
+    </plurals>
+    <string name="replay_year_top_songs">En çok dinlediğin diğer şarkılar</string>
+    <string name="replay_year_albums">İçinde yaşadığın albümler</string>
+    <string name="replay_year_months">Ay ay yılın</string>
+    <string name="replay_year_discovery_start">Bu yıl keşfettiklerin:</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">şarkı</item>
+        <item quantity="other">şarkı</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">sanatçı</item>
+        <item quantity="other">sanatçı</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">albüm</item>
+        <item quantity="other">albüm</item>
+    </plurals>
+    <string name="replay_year_summary_title">%1$s Yılın</string>
+    <string name="replay_year_summary_artists">En çok dinlenen sanatçılar</string>
+    <string name="replay_year_summary_songs">En çok dinlenen şarkılar</string>
+    <string name="replay_year_summary_minutes">Dinlenen dakika</string>
+    <string name="replay_year_mute">Hikâyenin sesini kapat</string>
+    <string name="replay_year_unmute">Hikâyenin sesini aç</string>
 </resources>

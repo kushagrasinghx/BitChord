@@ -1497,4 +1497,27 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
+    <string name="sync_local_lyrics">Synchronizuj lokalne teksty</string>
+    <string name="sync_local_lyrics_subtitle">Zapisuj zsynchronizowane pliki .lrc obok muzyki na tym urządzeniu</string>
+    <string name="sync_all">Synchronizuj wszystko</string>
+    <string name="sync_all_subtitle">Sprawdź wszystkie lokalne utwory i zachowaj już zapisane teksty</string>
+    <string name="sync_missing">Synchronizuj brakujące</string>
+    <string name="sync_missing_subtitle">Tylko utwory bez zsynchronizowanych tekstów</string>
+    <string name="retry_failed">Ponów nieudane</string>
+    <string name="retry_failed_subtitle">Ponów utwory, których nie udało się zapisać</string>
+    <string name="sync_preparing">Przygotowywanie…</string>
+    <string name="sync_progress">%1$d z %2$d</string>
+    <string name="sync_runs_in_background">Działa dalej po opuszczeniu aplikacji.</string>
+    <string name="sync_done">Synchronizacja zakończona</string>
+    <string name="sync_status_synced">Zapisano</string>
+    <string name="sync_status_already_saved">Już zapisano</string>
+    <string name="sync_status_no_lyrics">Brak zsynchronizowanych tekstów</string>
+    <string name="sync_status_failed">Niepowodzenie</string>
+    <string name="sync_failed_tracks">Nie udało się zapisać</string>
+    <string name="download_synced_lyrics">Pobierz zsynchronizowane teksty</string>
+    <string name="synced_lyrics_downloaded">Zsynchronizowane teksty zapisano obok utworu</string>
+    <string name="synced_lyrics_already_saved">Teksty są już zapisane obok tego utworu</string>
+    <string name="synced_lyrics_none_found">Nie znaleziono zsynchronizowanych tekstów</string>
+    <string name="synced_lyrics_failed">Nie udało się zapisać zsynchronizowanych tekstów</string>
+    <string name="playlist_name_exists">Playlista o tej nazwie już istnieje</string>
 </resources>

@@ -118,6 +118,11 @@ fun SongActionsMenu(
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    /**
+     * Fetches synchronized lyrics and writes them beside this local file as
+     * `.lrc`. Null hides the row — a stream has no file to put one beside.
+     */
+    onDownloadLyrics: (() -> Unit)? = null,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -329,6 +334,14 @@ fun SongActionsMenu(
             onClick = onAddToQueue,
         )
         DownloadRow(song, palette, isOffline, onDownload)
+        onDownloadLyrics?.let {
+            ActionRow(
+                icon = SfIcons.Notes,
+                label = stringResource(R.string.download_synced_lyrics),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
         onRemoveFromCache?.let {
             ActionRow(
                 icon = SfIcons.Trash,

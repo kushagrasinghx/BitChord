@@ -1414,4 +1414,27 @@
     <string name="bit_perfect_status_inexact">%1$s · tam değil: bu kaynak kayıpsız PCM değil</string>
     <string name="bit_perfect_status_waiting">Desteklenen bir çıkışta kayıpsız parça bekleniyor</string>
     <string name="bit_perfect_status_unavailable">Bu parça için kullanılamıyor (%1$s)</string>
+    <string name="sync_local_lyrics">Yerel şarkı sözlerini eşitle</string>
+    <string name="sync_local_lyrics_subtitle">Bu cihazdaki müziğin yanına eşitlenmiş .lrc dosyaları kaydet</string>
+    <string name="sync_all">Tümünü eşitle</string>
+    <string name="sync_all_subtitle">Tüm yerel parçaları denetle ve kayıtlı sözleri koru</string>
+    <string name="sync_missing">Eksikleri eşitle</string>
+    <string name="sync_missing_subtitle">Yalnızca eşitlenmiş sözü olmayan parçalar</string>
+    <string name="retry_failed">Başarısızları yeniden dene</string>
+    <string name="retry_failed_subtitle">Kaydedilemeyen parçaları yeniden dene</string>
+    <string name="sync_preparing">Hazırlanıyor…</string>
+    <string name="sync_progress">%1$d / %2$d</string>
+    <string name="sync_runs_in_background">Uygulamadan çıksanız da devam eder.</string>
+    <string name="sync_done">Eşitleme tamamlandı</string>
+    <string name="sync_status_synced">Kaydedildi</string>
+    <string name="sync_status_already_saved">Zaten kayıtlı</string>
+    <string name="sync_status_no_lyrics">Eşitlenmiş söz yok</string>
+    <string name="sync_status_failed">Başarısız</string>
+    <string name="sync_failed_tracks">Kaydedilemedi</string>
+    <string name="download_synced_lyrics">Eşitlenmiş şarkı sözlerini indir</string>
+    <string name="synced_lyrics_downloaded">Eşitlenmiş sözler parçanın yanına kaydedildi</string>
+    <string name="synced_lyrics_already_saved">Bu parçanın yanında zaten sözler kayıtlı</string>
+    <string name="synced_lyrics_none_found">Eşitlenmiş şarkı sözü bulunamadı</string>
+    <string name="synced_lyrics_failed">Eşitlenmiş şarkı sözleri kaydedilemedi</string>
+    <string name="playlist_name_exists">Bu adda bir çalma listesi zaten var</string>
 </resources>

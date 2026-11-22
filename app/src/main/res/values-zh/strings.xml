@@ -1434,4 +1434,27 @@
     <string name="bit_perfect_status_inexact">%1$s · 不精确：此音源不是无损 PCM</string>
     <string name="bit_perfect_status_waiting">正在等待受支持输出上的无损曲目</string>
     <string name="bit_perfect_status_unavailable">此曲目不可用（%1$s）</string>
+    <string name="sync_local_lyrics">同步本地歌词</string>
+    <string name="sync_local_lyrics_subtitle">将同步的 .lrc 文件保存在本设备音乐旁边</string>
+    <string name="sync_all">全部同步</string>
+    <string name="sync_all_subtitle">检查所有本地曲目，保留已保存的歌词</string>
+    <string name="sync_missing">同步缺失项</string>
+    <string name="sync_missing_subtitle">仅同步尚无同步歌词的曲目</string>
+    <string name="retry_failed">重试失败项</string>
+    <string name="retry_failed_subtitle">重试上次无法保存的曲目</string>
+    <string name="sync_preparing">正在准备…</string>
+    <string name="sync_progress">第 %1$d 首，共 %2$d 首</string>
+    <string name="sync_runs_in_background">离开应用后仍会继续。</string>
+    <string name="sync_done">同步完成</string>
+    <string name="sync_status_synced">已保存</string>
+    <string name="sync_status_already_saved">已存在</string>
+    <string name="sync_status_no_lyrics">无同步歌词</string>
+    <string name="sync_status_failed">失败</string>
+    <string name="sync_failed_tracks">无法保存</string>
+    <string name="download_synced_lyrics">下载同步歌词</string>
+    <string name="synced_lyrics_downloaded">同步歌词已保存在曲目旁边</string>
+    <string name="synced_lyrics_already_saved">此曲目旁边已有歌词</string>
+    <string name="synced_lyrics_none_found">未找到同步歌词</string>
+    <string name="synced_lyrics_failed">无法保存同步歌词</string>
+    <string name="playlist_name_exists">已存在同名播放列表</string>
 </resources>

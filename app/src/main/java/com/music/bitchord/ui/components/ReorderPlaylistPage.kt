@@ -88,11 +88,17 @@ fun ReorderPlaylistPage(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    /**
+     * What identifies a row while dragging. A YouTube playlist uses the
+     * per-entry [Song.setVideoId]; a device playlist has no such id and uses
+     * the file uri it already keys its rows by.
+     */
+    keyOf: (Song) -> String = { it.setVideoId ?: it.localUri ?: it.videoId },
 ) {
     BackHandler(onBack = onClose)
     val original = (entries as? UiState.Success)?.data.orEmpty()
     val order = remember(original) { mutableStateListOf<Song>().apply { addAll(original) } }
-    val changed = order.map { it.setVideoId } != original.map { it.setVideoId }
+    val changed = order.map(keyOf) != original.map(keyOf)
 
     Column(modifier.fillMaxSize().padding(top = topBarContentPadding())) {
         Row(
@@ -167,7 +173,7 @@ fun ReorderPlaylistPage(
                 modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
             )
 
-            is UiState.Success -> ReorderableSongList(order, enabled = !saving, palette, contentPadding)
+            is UiState.Success -> ReorderableSongList(order, enabled = !saving, palette, contentPadding, keyOf)
         }
     }
 }
@@ -188,6 +194,7 @@ private fun ReorderableSongList(
     enabled: Boolean,
     palette: ArtworkPalette,
     contentPadding: PaddingValues,
+    keyOf: (Song) -> String,
 ) {
     val listState = rememberLazyListState()
     var held by remember { mutableStateOf<String?>(null) }
@@ -255,8 +262,8 @@ private fun ReorderableSongList(
     }
 
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = contentPadding) {
-        itemsIndexed(order, key = { _, song -> song.setVideoId ?: song.videoId }) { _, song ->
-            val key = song.setVideoId ?: song.videoId
+        itemsIndexed(order, key = { _, song -> keyOf(song) }) { _, song ->
+            val key = keyOf(song)
             val dragging = held == key
             val start: () -> Unit = {
                 held = key

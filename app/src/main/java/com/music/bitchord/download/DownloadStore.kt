@@ -7,6 +7,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
+import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import androidx.annotation.RequiresApi
@@ -54,6 +57,7 @@ import java.util.Locale
 object DownloadStore {
 
     private const val TAG = "BitChord"
+    private const val IO_BUFFER_SIZE = 256 * 1024
 
     /** The subfolder of Music that everything lands in. */
     const val FOLDER = "BitChord"
@@ -145,14 +149,41 @@ object DownloadStore {
      * taps download twice gets two copies rather than being told they already
      * have one.
      */
-    fun existing(context: Context, name: String): Uri? =
-        if (!AppSettings.exportDownloads.value) {
+    fun existing(context: Context, name: String): Uri? {
+        val customFolder = AppSettings.downloadFolderUri.value
+        if (customFolder.isNotBlank()) {
+            val treeUri = Uri.parse(customFolder)
+            // 1. Direct filesystem check (instant, 0ms)
+            resolveFilePath(treeUri, name)?.let { path ->
+                val file = File(path)
+                if (file.exists() && file.length() > 0L) {
+                    return Uri.fromFile(file)
+                }
+            }
+            // 2. Fast targeted SAF document query (1ms, avoids scanning directory)
+            findDocumentFast(context, treeUri, name)?.let { return it }
+
+            // 3. Fallback to SAF document scan ONLY if provider is not ExternalStorageProvider
+            if (treeUri.authority != "com.android.externalstorage.documents") {
+                val treeDir = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull()
+                if (treeDir != null && treeDir.exists()) {
+                    val doc = runCatching { treeDir.findFile(name) }.getOrNull()
+                    if (doc != null && doc.exists()) {
+                        return doc.uri
+                    }
+                }
+            }
+            return null
+        }
+
+        return if (!AppSettings.exportDownloads.value) {
             privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mediaStoreEntry(context, name)
         } else {
             legacyFile(name).takeIf { it.exists() }?.let(Uri::fromFile)
         }
+    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
@@ -194,7 +225,11 @@ object DownloadStore {
                 } else file.delete()
             } == true
         } else {
-            context.contentResolver.delete(uri, null, null) > 0
+            if (DocumentsContract.isDocumentUri(context, uri)) {
+                DocumentsContract.deleteDocument(context.contentResolver, uri)
+            } else {
+                context.contentResolver.delete(uri, null, null) > 0
+            }
         }
     }.onFailure { Log.w(TAG, "could not delete $uri: ${it.message}") }.getOrDefault(false)
 
@@ -211,12 +246,15 @@ object DownloadStore {
         private val context: Context,
         val uri: Uri,
         val name: String,
-        /** Set on the legacy path only: the `.part` file being written. */
+        /** Set on legacy or SAF staging paths: the `.part` file being written. */
         private val part: File?,
-        /** Set on the legacy path only: what [part] is renamed to. */
+        /** Set on legacy path only: what [part] is renamed to. */
         private val target: File?,
+        /** Set on custom SAF folder path: the destination DocumentFile directory and MIME type. */
+        private val safTreeDir: DocumentFile? = null,
+        private val mimeType: String? = null,
     ) {
-        /** The bytes being built, whether this is a MediaStore row or a legacy `.part` file. */
+        /** The bytes being built, whether this is a MediaStore row, a legacy `.part` file, or a SAF staging file. */
         val tagUri: Uri get() = part?.let(Uri::fromFile) ?: uri
 
         fun openStream(): OutputStream =
@@ -226,6 +264,50 @@ object DownloadStore {
 
         /** @return the uri the finished file can be reached at. */
         fun commit(): Uri {
+            val dir = safTreeDir
+            val stagingFile = part
+            if (dir != null && stagingFile != null) {
+                if (!stagingFile.exists() || stagingFile.length() == 0L) {
+                    error("Download file was empty or missing: $name")
+                }
+                // Check if file already exists in SAF folder and remove it so createFile doesn't create "name (1)"
+                val existingUri = findDocumentFast(context, dir.uri, name)
+                if (existingUri != null) {
+                    runCatching { DocumentsContract.deleteDocument(context.contentResolver, existingUri) }
+                } else if (dir.uri.authority != "com.android.externalstorage.documents") {
+                    val fallbackExisting = runCatching { dir.findFile(name) }.getOrNull()
+                    fallbackExisting?.delete()
+                }
+
+                val doc = dir.createFile(mimeType ?: "audio/mpeg", name)
+                    ?: error("Could not create $name in selected folder")
+
+                val totalExpected = stagingFile.length()
+                val written = runCatching {
+                    stagingFile.inputStream().buffered(IO_BUFFER_SIZE).use { input ->
+                        context.contentResolver.openOutputStream(doc.uri, "wt")?.buffered(IO_BUFFER_SIZE)?.use { output ->
+                            input.copyTo(output, bufferSize = IO_BUFFER_SIZE)
+                        } ?: error("Could not open $name for writing in selected folder")
+                    }
+                }.getOrElse { ex ->
+                    doc.delete()
+                    throw ex
+                }
+
+                if (written != totalExpected) {
+                    doc.delete()
+                    error("Write incomplete: wrote $written of $totalExpected bytes to $name")
+                }
+                stagingFile.delete()
+
+                // Trigger MediaScanner scan if a filesystem path can be resolved
+                resolveFilePath(dir.uri, name)?.let { path ->
+                    MediaScannerConnection.scanFile(context, arrayOf(path), arrayOf(mimeType ?: "audio/mpeg"), null)
+                }
+
+                return doc.uri
+            }
+
             if (part != null && target != null) {
                 if (!part.renameTo(target)) error("Could not finish writing $name")
                 // Nothing indexes a file that simply appeared; without this it
@@ -249,7 +331,9 @@ object DownloadStore {
 
         fun abort() {
             part?.delete()
-            if (part == null) runCatching { context.contentResolver.delete(uri, null, null) }
+            if (part == null && safTreeDir == null) {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+            }
         }
     }
 
@@ -261,6 +345,32 @@ object DownloadStore {
      *   download cannot start rather than that it might not finish.
      */
     fun begin(context: Context, name: String, mimeType: String): Pending {
+        val customFolder = AppSettings.downloadFolderUri.value
+        if (customFolder.isNotBlank()) {
+            val treeUri = Uri.parse(customFolder)
+            val hasPerm = runCatching {
+                context.contentResolver.persistedUriPermissions.any {
+                    it.uri == treeUri && it.isWritePermission
+                }
+            }.getOrDefault(false)
+            val treeDir = runCatching { DocumentFile.fromTreeUri(context, treeUri) }.getOrNull()
+            if (!hasPerm || treeDir == null || !treeDir.exists() || !treeDir.canWrite()) {
+                error("Selected download folder is unavailable or permission was revoked. Please select a valid folder in Settings.")
+            }
+            val stagingDir = File(context.cacheDir, "download_staging").apply { mkdirs() }
+            val part = File(stagingDir, "$name.part")
+            part.delete()
+            return Pending(
+                context = context,
+                uri = treeUri,
+                name = name,
+                part = part,
+                target = null,
+                safTreeDir = treeDir,
+                mimeType = mimeType,
+            )
+        }
+
         if (!AppSettings.exportDownloads.value) {
             val target = privateFile(context, name)
             val folder = target.parentFile ?: error("No download folder")
@@ -308,4 +418,62 @@ object DownloadStore {
 
     private fun privateFile(context: Context, name: String) =
         File(File(context.filesDir, "downloads"), name)
+
+    fun isFolderAccessible(context: Context, treeUriString: String): Boolean {
+        if (treeUriString.isBlank()) return true
+        return runCatching {
+            val uri = Uri.parse(treeUriString)
+            val hasPerm = context.contentResolver.persistedUriPermissions.any {
+                it.uri == uri && it.isWritePermission
+            }
+            val dir = DocumentFile.fromTreeUri(context, uri)
+            hasPerm && dir != null && dir.exists() && dir.canWrite()
+        }.getOrDefault(false)
+    }
+
+    fun folderLabel(context: Context, treeUriString: String): String {
+        if (treeUriString.isBlank()) {
+            return if (AppSettings.exportDownloads.value) {
+                "${Environment.DIRECTORY_MUSIC}/$FOLDER"
+            } else {
+                "Private storage"
+            }
+        }
+        val niceLabel = LocalMediaRepository.selectedFolderLabel(treeUriString)
+        if (!niceLabel.isNullOrBlank()) return niceLabel
+
+        val docName = runCatching {
+            DocumentFile.fromTreeUri(context, Uri.parse(treeUriString))?.name
+        }.getOrNull()
+        if (!docName.isNullOrBlank()) return docName
+
+        return treeUriString
+    }
+
+    fun resolveFilePath(treeUri: Uri, name: String): String? = runCatching {
+        val selected = LocalMediaRepository.selectedFolder(treeUri.toString())
+        if (selected != null) {
+            File(selected.absolutePath, name).absolutePath
+        } else {
+            null
+        }
+    }.getOrNull()
+
+    /**
+     * Fast targeted document lookup without scanning the entire directory.
+     * Works with ExternalStorageProvider and standard document providers.
+     */
+    fun findDocumentFast(context: Context, treeUri: Uri, name: String): Uri? = runCatching {
+        val treeDocId = DocumentsContract.getTreeDocumentId(treeUri) ?: return null
+        val childDocId = if (treeDocId.endsWith('/') || treeDocId.endsWith(':')) "$treeDocId$name" else "$treeDocId/$name"
+        val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
+        val exists = context.contentResolver.query(
+            childUri,
+            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+            null,
+            null,
+            null,
+        )?.use { cursor -> cursor.moveToFirst() } == true
+        if (exists) childUri else null
+    }.getOrNull()
 }

@@ -1396,4 +1396,27 @@
     <string name="bit_perfect_status_inexact">%1$s · non esatto: questa sorgente non è PCM lossless</string>
     <string name="bit_perfect_status_waiting">In attesa di un brano lossless su un\'uscita supportata</string>
     <string name="bit_perfect_status_unavailable">Non disponibile per questo brano (%1$s)</string>
+    <string name="sync_local_lyrics">Sincronizza testi locali</string>
+    <string name="sync_local_lyrics_subtitle">Salva file .lrc sincronizzati accanto alla musica di questo dispositivo</string>
+    <string name="sync_all">Sincronizza tutto</string>
+    <string name="sync_all_subtitle">Controlla ogni brano locale e mantieni i testi già salvati</string>
+    <string name="sync_missing">Sincronizza mancanti</string>
+    <string name="sync_missing_subtitle">Solo i brani senza testi sincronizzati</string>
+    <string name="retry_failed">Riprova falliti</string>
+    <string name="retry_failed_subtitle">Riprova i brani che non è stato possibile salvare</string>
+    <string name="sync_preparing">Preparazione…</string>
+    <string name="sync_progress">%1$d di %2$d</string>
+    <string name="sync_runs_in_background">Continua se esci dall\'app.</string>
+    <string name="sync_done">Sincronizzazione completata</string>
+    <string name="sync_status_synced">Salvato</string>
+    <string name="sync_status_already_saved">Già salvato</string>
+    <string name="sync_status_no_lyrics">Nessun testo sincronizzato</string>
+    <string name="sync_status_failed">Non riuscito</string>
+    <string name="sync_failed_tracks">Impossibile salvare</string>
+    <string name="download_synced_lyrics">Scarica testi sincronizzati</string>
+    <string name="synced_lyrics_downloaded">Testi sincronizzati salvati accanto al brano</string>
+    <string name="synced_lyrics_already_saved">I testi sono già salvati accanto a questo brano</string>
+    <string name="synced_lyrics_none_found">Nessun testo sincronizzato trovato</string>
+    <string name="synced_lyrics_failed">Impossibile salvare i testi sincronizzati</string>
+    <string name="playlist_name_exists">Esiste già una playlist con questo nome</string>
 </resources>

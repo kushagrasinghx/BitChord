@@ -1440,4 +1440,27 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="sync_local_lyrics">ซิงค์เนื้อเพลงในเครื่อง</string>
+    <string name="sync_local_lyrics_subtitle">บันทึกไฟล์ .lrc ที่ซิงค์แล้วข้างเพลงบนอุปกรณ์นี้</string>
+    <string name="sync_all">ซิงค์ทั้งหมด</string>
+    <string name="sync_all_subtitle">ตรวจสอบเพลงในเครื่องทั้งหมดและเก็บเนื้อเพลงที่บันทึกไว้แล้ว</string>
+    <string name="sync_missing">ซิงค์ที่ยังขาด</string>
+    <string name="sync_missing_subtitle">เฉพาะเพลงที่ยังไม่มีเนื้อเพลงซิงค์</string>
+    <string name="retry_failed">ลองใหม่รายการที่ล้มเหลว</string>
+    <string name="retry_failed_subtitle">ลองเพลงที่บันทึกไม่สำเร็จอีกครั้ง</string>
+    <string name="sync_preparing">กำลังเตรียม…</string>
+    <string name="sync_progress">%1$d จาก %2$d</string>
+    <string name="sync_runs_in_background">ทำงานต่อแม้ออกจากแอป</string>
+    <string name="sync_done">ซิงค์เสร็จแล้ว</string>
+    <string name="sync_status_synced">บันทึกแล้ว</string>
+    <string name="sync_status_already_saved">บันทึกไว้แล้ว</string>
+    <string name="sync_status_no_lyrics">ไม่มีเนื้อเพลงซิงค์</string>
+    <string name="sync_status_failed">ล้มเหลว</string>
+    <string name="sync_failed_tracks">บันทึกไม่ได้</string>
+    <string name="download_synced_lyrics">ดาวน์โหลดเนื้อเพลงซิงค์</string>
+    <string name="synced_lyrics_downloaded">บันทึกเนื้อเพลงซิงค์ข้างเพลงแล้ว</string>
+    <string name="synced_lyrics_already_saved">มีเนื้อเพลงบันทึกไว้ข้างเพลงนี้แล้ว</string>
+    <string name="synced_lyrics_none_found">ไม่พบเนื้อเพลงซิงค์</string>
+    <string name="synced_lyrics_failed">บันทึกเนื้อเพลงซิงค์ไม่ได้</string>
+    <string name="playlist_name_exists">มีเพลย์ลิสต์ชื่อนี้อยู่แล้ว</string>
 </resources>

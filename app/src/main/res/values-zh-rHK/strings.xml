@@ -1434,4 +1434,27 @@
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
     <string name="source_downloads_on">允許下載</string>
+    <string name="sync_local_lyrics">同步本機歌詞</string>
+    <string name="sync_local_lyrics_subtitle">將已同步的 .lrc 檔案儲存在此裝置的音樂旁</string>
+    <string name="sync_all">全部同步</string>
+    <string name="sync_all_subtitle">檢查所有本機曲目，保留已儲存的歌詞</string>
+    <string name="sync_missing">同步缺少項目</string>
+    <string name="sync_missing_subtitle">僅限尚無同步歌詞的曲目</string>
+    <string name="retry_failed">重試失敗項目</string>
+    <string name="retry_failed_subtitle">重試上次無法儲存的曲目</string>
+    <string name="sync_preparing">正在準備…</string>
+    <string name="sync_progress">第 %1$d 首，共 %2$d 首</string>
+    <string name="sync_runs_in_background">離開應用程式後仍會繼續。</string>
+    <string name="sync_done">同步完成</string>
+    <string name="sync_status_synced">已儲存</string>
+    <string name="sync_status_already_saved">已存在</string>
+    <string name="sync_status_no_lyrics">沒有同步歌詞</string>
+    <string name="sync_status_failed">失敗</string>
+    <string name="sync_failed_tracks">無法儲存</string>
+    <string name="download_synced_lyrics">下載同步歌詞</string>
+    <string name="synced_lyrics_downloaded">同步歌詞已儲存在曲目旁</string>
+    <string name="synced_lyrics_already_saved">此曲目旁已有歌詞</string>
+    <string name="synced_lyrics_none_found">找不到同步歌詞</string>
+    <string name="synced_lyrics_failed">無法儲存同步歌詞</string>
+    <string name="playlist_name_exists">已有同名播放清單</string>
 </resources>

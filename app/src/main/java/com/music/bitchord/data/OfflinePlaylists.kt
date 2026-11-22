@@ -109,15 +109,31 @@ object OfflinePlaylists {
         return nowLiked
     }
 
-    /** A new, empty playlist — or one holding [songs], when it was made to take them. */
+    /**
+     * A new, empty playlist — or one holding [songs], when it was made to take them.
+     *
+     * Titles are kept distinct: two playlists called "Road trip" are
+     * indistinguishable in the picker, so a second one becomes "Road trip 2"
+     * rather than silently duplicating the name.
+     */
     fun create(title: String, songs: List<Song> = emptyList()): OfflinePlaylist {
         val playlist = OfflinePlaylist(
-            id = "p" + System.currentTimeMillis().toString(36),
-            title = title.trim(),
+            id = newId(),
+            title = uniqueTitle(title, _playlists.value.map { it.title }),
             songs = songs.filter { it.localUri != null }.distinctBy { it.localUri }.map { it.stored() },
         )
         mutate { it + playlist }
         return playlist
+    }
+
+    private var idCounter = 0
+
+    private fun newId(): String {
+        // The clock alone collides when two playlists are made in the same
+        // millisecond (a picker and a create form, say); the counter makes the
+        // id unique even then.
+        idCounter += 1
+        return "p" + System.currentTimeMillis().toString(36) + idCounter.toString(36)
     }
 
     class AddResult(val added: Int, val alreadyThere: Int)
@@ -155,17 +171,64 @@ object OfflinePlaylists {
         }
     }
 
-    /** Liked is the app's, not the user's: it can't be renamed or deleted. */
-    fun rename(browseId: String, title: String) {
+    /**
+     * Renames one of the listener's playlists.
+     *
+     * Returns false when the name is blank or already belongs to another
+     * playlist — a duplicate is a decision the listener has to make, not one
+     * this store can make for them by quietly appending a number.
+     */
+    fun rename(browseId: String, title: String): Boolean {
         val id = browseId.removePrefix(PREFIX)
-        if (id == LIKED_ID || title.isBlank()) return
-        mutate { list -> list.map { if (it.id == id) it.copy(title = title.trim()) else it } }
+        val trimmed = title.trim()
+        if (id == LIKED_ID || trimmed.isBlank()) return false
+        if (isTitleTaken(trimmed, excludingId = id)) return false
+        mutate { list -> list.map { if (it.id == id) it.copy(title = trimmed) else it } }
+        return true
+    }
+
+    fun isTitleTaken(title: String, excludingId: String? = null): Boolean =
+        _playlists.value.any { it.id != excludingId && it.title.equals(title.trim(), ignoreCase = true) }
+
+    /**
+     * Puts the tracks of one playlist in [ordered]'s order.
+     *
+     * The caller hands back the rows it drew, so the set has to match exactly:
+     * a stale page that lost or gained a track must not be allowed to drop the
+     * missing row from the playlist. Returns whether the order was applied.
+     */
+    fun reorder(browseId: String, ordered: List<Song>): Boolean {
+        val id = browseId.removePrefix(PREFIX)
+        val playlist = _playlists.value.firstOrNull { it.id == id } ?: return false
+        val current = playlist.songs.mapNotNull { it.localUri }
+        val wanted = ordered.mapNotNull { it.localUri }
+        if (current.size != wanted.size || current.toSet() != wanted.toSet()) return false
+        mutate { list ->
+            list.map {
+                if (it.id == id) it.copy(songs = ordered.map { song -> song.stored() }) else it
+            }
+        }
+        return true
     }
 
     fun delete(browseId: String) {
         val id = browseId.removePrefix(PREFIX)
         if (id == LIKED_ID) return
         mutate { list -> list.filterNot { it.id == id } }
+    }
+
+    /**
+     * [title], or the first free variant of it — "Road trip 2", "Road trip 3".
+     *
+     * Case-insensitive because "Road trip" and "road trip" read as the same
+     * name in a list, even though they are different strings.
+     */
+    internal fun uniqueTitle(title: String, taken: Collection<String>): String {
+        val base = title.trim().ifBlank { "Playlist" }
+        if (taken.none { it.equals(base, ignoreCase = true) }) return base
+        var number = 2
+        while (taken.any { it.equals("$base $number", ignoreCase = true) }) number += 1
+        return "$base $number"
     }
 
     private inline fun mutate(change: (List<OfflinePlaylist>) -> List<OfflinePlaylist>) {

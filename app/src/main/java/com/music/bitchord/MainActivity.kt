@@ -229,6 +229,7 @@ import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.MediaTagger
 import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.LocalLyricsSync
 import com.music.bitchord.ui.components.BrowseActionsMenu
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
@@ -262,6 +263,7 @@ import com.music.bitchord.ui.components.FrostedTopBar
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
+import com.music.bitchord.ui.components.LocalLyricsSyncSheet
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
@@ -295,6 +297,7 @@ import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.components.WebDavConflictAlert
 import com.music.bitchord.ui.components.FieldConfig
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.icons.SfIcons
 import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.TopPicks
@@ -661,6 +664,7 @@ private fun BitChordApp(
     var editingSignatureApi by remember { mutableStateOf(false) }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
+    var showLocalLyricsSync by remember { mutableStateOf(false) }
     var showAppLanguage by remember { mutableStateOf(false) }
     var showTranslationLanguage by remember { mutableStateOf(false) }
     var showAccountSelector by remember { mutableStateOf(false) }
@@ -739,9 +743,10 @@ private fun BitChordApp(
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
-    // The same two, over the device's own playlists — for a track that is a
-    // file on it, and for "New playlist" on Local Music's Playlists tab.
-    var offlinePlaylistTarget by remember { mutableStateOf<Song?>(null) }
+    // The same two, over the device's own playlists — for one track or a
+    // selection of files, and for "New playlist" on Local Music's Playlists
+    // tab.
+    var offlinePlaylistTargets by remember { mutableStateOf<List<Song>>(emptyList()) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
@@ -757,6 +762,11 @@ private fun BitChordApp(
     var browseRenameInSheet by remember { mutableStateOf(false) }
     /** The playlist being rearranged, or null when the reorder page is shut. */
     var reorderTarget by remember { mutableStateOf<UserPlaylist?>(null) }
+    /**
+     * The page the reorder belongs to. A device playlist's [reorderTarget] is
+     * a display-only [UserPlaylist] and carries no `VL` browse id of its own.
+     */
+    var reorderPageId by remember { mutableStateOf<String?>(null) }
     /** Its entries as YouTube has them now — fetched fresh when the sheet opens. */
     var reorderEntries by remember { mutableStateOf<UiState<List<Song>>>(UiState.Loading) }
     var reorderSaving by remember { mutableStateOf(false) }
@@ -841,7 +851,10 @@ private fun BitChordApp(
     // The reorder list lives on its playlist's page; leaving that page by any
     // route — Back, a tab, another page over it — puts the list away with it.
     LaunchedEffect(detail?.browseId) {
-        if (reorderTarget?.browseId != detail?.browseId) reorderTarget = null
+        if (reorderPageId != detail?.browseId) {
+            reorderTarget = null
+            reorderPageId = null
+        }
     }
 
     SystemBarIcons(
@@ -993,6 +1006,10 @@ private fun BitChordApp(
     // surface that draws a heart — the player and the track menu alike.
     val offlineLiked by OfflinePlaylists.liked.collectAsStateWithLifecycle()
     val offlinePlaylists by OfflinePlaylists.playlists.collectAsStateWithLifecycle()
+    // The same two gates the download path uses before it may ask a lyrics
+    // service: the feature switch and at least one source the user left on.
+    val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val lyricsSourcesEnabled by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val offlinePlaylistGroups = remember(offlinePlaylists) { offlinePlaylists.map { it.toGroup() } }
     val likeStatusOf: (Song) -> LikeStatus = { song ->
         val uri = song.localUri
@@ -1037,6 +1054,15 @@ private fun BitChordApp(
     // in the app's own store, and sit on the same shelf as the downloaded ones.
     val localPlaylists by com.music.bitchord.data.spotify.LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
     val localPlaylistItems = localPlaylists.map { playlist ->
+        ShelfItem(
+            title = playlist.title,
+            subtitle = stringResource(R.string.local_playlist_subtitle, playlist.songs.size),
+            thumbnailUrl = playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl,
+            videoId = null,
+            browseId = playlist.browseId,
+        )
+    }
+    val offlinePlaylistItems = offlinePlaylists.filter { !it.isLiked || it.songs.isNotEmpty() }.map { playlist ->
         ShelfItem(
             title = playlist.title,
             subtitle = stringResource(R.string.local_playlist_subtitle, playlist.songs.size),
@@ -1193,7 +1219,6 @@ private fun BitChordApp(
     // Keyed on the lyric settings too, so turning a source on or off, reordering
     // them or changing the syllable preference applies to the track already
     // playing rather than only the next one.
-    val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val lyricsSourceOrder by AppSettings.lyricsSourceOrder.collectAsStateWithLifecycle()
     val prioritizeSyllableSync by AppSettings.prioritizeSyllableSync.collectAsStateWithLifecycle()
@@ -3130,6 +3155,7 @@ private fun BitChordApp(
                                     navigator.push(AppRoute.Replay)
                                 },
                                 onLyricsSources = { showLyricsSources = true },
+                                onSyncLocalLyrics = { showLocalLyricsSync = true },
                                 onTranslationLanguage = { showTranslationLanguage = true },
                                 onSources = { navigator.push(AppRoute.Sources) },
                                 onListenTogether = { navigator.push(AppRoute.ListenTogether) },
@@ -3168,7 +3194,10 @@ private fun BitChordApp(
                                     sort = folderSortOf(page.browseId),
                                     viewType = folderViewTypeOf(page.browseId),
                                     collections = downloadCollections,
-                                    selectable = isDownloads || isCache,
+                                    // Local Music is where a playlist is made from:
+                                    // holding a track or an album selects it, and
+                                    // the bar offers the device's playlists.
+                                    selectable = isDownloads || isCache || isDevice,
                                     onOpenGroup = viewModel::openLocalGroup,
                                     onGroupLongPress = { group ->
                                         openBrowseMenu(
@@ -3201,6 +3230,11 @@ private fun BitChordApp(
                                     },
                                     onDownload = if (isCache) downloadFromCache else null,
                                     onRemoveFromCache = if (isCache) removeFromCache else null,
+                                    onAddToPlaylist = if (isDevice || isDownloads) {
+                                        { selected -> offlinePlaylistTargets = selected }
+                                    } else {
+                                        null
+                                    },
                                     tabs = if (isDevice) LocalFolderTab.DEVICE else LocalFolderTab.BASIC,
                                     playlists = if (isDevice) offlinePlaylistGroups else emptyList(),
                                     onCreatePlaylist = if (isDevice) ({ creatingOfflinePlaylist = true }) else null,
@@ -3268,7 +3302,7 @@ private fun BitChordApp(
                                 )
                             }
                             // This page's songs being rearranged, drawn in place of its list.
-                            val reordering = reorderTarget?.takeIf { it.browseId == page.browseId }
+                            val reordering = reorderTarget?.takeIf { reorderPageId == page.browseId }
                             DetailScreen(
                                 page = page,
                                 currentSong = player.song,
@@ -3355,18 +3389,32 @@ private fun BitChordApp(
                                             contentPadding = PaddingValues(
                                                 bottom = listPadding.calculateBottomPadding(),
                                             ),
-                                            onClose = { reorderTarget = null },
+                                            keyOf = { song -> song.localUri ?: song.videoId },
+                                            onClose = {
+                                                reorderTarget = null
+                                                reorderPageId = null
+                                            },
                                             onSave = { reordered ->
                                                 val original = (reorderEntries as? UiState.Success)?.data.orEmpty()
                                                 reorderSaving = true
-                                                viewModel.reorderPlaylist(reordering, original, reordered) { saved ->
+                                                fun done(saved: Boolean) {
                                                     reorderSaving = false
                                                     showQueueNotice(
                                                         context.getString(
                                                             if (saved) R.string.playlist_reordered else R.string.reorder_failed,
                                                         ),
                                                     )
-                                                    if (saved && reorderTarget == reordering) reorderTarget = null
+                                                    if (saved && reorderPageId == page.browseId) {
+                                                        reorderTarget = null
+                                                        reorderPageId = null
+                                                    }
+                                                }
+                                                if (OfflinePlaylists.isOfflinePlaylist(page.browseId)) {
+                                                    val saved = OfflinePlaylists.reorder(page.browseId, reordered)
+                                                    if (saved) viewModel.reloadLocalDetail(page.browseId)
+                                                    done(saved)
+                                                } else {
+                                                    viewModel.reorderPlaylist(reordering, original, reordered, ::done)
                                                 }
                                             },
                                         )
@@ -3695,7 +3743,7 @@ private fun BitChordApp(
                                 pullState = libraryPull,
                                 contentPadding = listPadding,
                                 links = libraryLinks(),
-                                deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems,
+                                deviceItems = libraryDeviceItems(downloadedReleases) + localPlaylistItems + offlinePlaylistItems,
                             )
                         }
                     }
@@ -4495,10 +4543,30 @@ private fun BitChordApp(
                 onAddToPlaylist = {
                     songActions = null
                     if (song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
-                        offlinePlaylistTarget = song
+                        offlinePlaylistTargets = listOf(song)
                     } else {
                         viewModel.loadPlaylists()
                         playlistTarget = song
+                    }
+                },
+                onDownloadLyrics = song.localUri?.takeIf { lyricsSourcesEnabled.isNotEmpty() }?.let {
+                    {
+                        songActions = null
+                        scope.launch {
+                            val status = LocalLyricsSync.syncOne(context, song)
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    when (status.state) {
+                                        LocalLyricsSync.State.SYNCED -> R.string.synced_lyrics_downloaded
+                                        LocalLyricsSync.State.ALREADY_PRESENT -> R.string.synced_lyrics_already_saved
+                                        LocalLyricsSync.State.NO_LYRICS -> R.string.synced_lyrics_none_found
+                                        else -> R.string.synced_lyrics_failed
+                                    },
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     }
                 },
                 onRemoveFromPlaylist = editable?.let {
@@ -4953,10 +5021,10 @@ private fun BitChordApp(
         // The sheet above over the offline player's own playlists, for a track
         // that is a file on this device. Nothing here waits on a network, so
         // there is no loading state and the outcome is known on the tap.
-        if (offlinePlaylistTarget != null || creatingOfflinePlaylist) {
-            val target = offlinePlaylistTarget
+        if (offlinePlaylistTargets.isNotEmpty() || creatingOfflinePlaylist) {
+            val targets = offlinePlaylistTargets
             val dismiss = {
-                offlinePlaylistTarget = null
+                offlinePlaylistTargets = emptyList()
                 creatingOfflinePlaylist = false
             }
             val choices = remember(offlinePlaylists) {
@@ -4977,13 +5045,15 @@ private fun BitChordApp(
             PlaylistPickerSheet(
                 playlists = choices,
                 loading = false,
-                song = target,
-                startCreating = target == null,
+                // A single track gets its own header; a multi-selection speaks
+                // for itself through the count on the confirm button.
+                song = targets.singleOrNull(),
+                startCreating = targets.isEmpty(),
                 offline = true,
                 onDismiss = dismiss,
                 onAdd = { picked ->
-                    target?.let { song ->
-                        val result = OfflinePlaylists.add(picked.mapTo(HashSet()) { it.playlistId }, listOf(song))
+                    if (targets.isNotEmpty()) {
+                        val result = OfflinePlaylists.add(picked.mapTo(HashSet()) { it.playlistId }, targets)
                         showQueueNotice(
                             when {
                                 result.added > 1 -> context.resources.getQuantityString(
@@ -4997,8 +5067,8 @@ private fun BitChordApp(
                     }
                 },
                 onCreate = { title, _ ->
-                    OfflinePlaylists.create(title, listOfNotNull(target))
-                    if (target != null) showQueueNotice(context.getString(R.string.song_added_to_playlist))
+                    OfflinePlaylists.create(title, targets)
+                    if (targets.isNotEmpty()) showQueueNotice(context.getString(R.string.song_added_to_playlist))
                 },
             )
         }
@@ -5193,8 +5263,11 @@ private fun BitChordApp(
                 } ?: offlineEditable?.let { p ->
                     { name: String ->
                         browseActions = null
-                        OfflinePlaylists.rename(p.browseId, name)
-                        viewModel.retitleDetail(p.browseId, name.trim())
+                        if (OfflinePlaylists.rename(p.browseId, name)) {
+                            viewModel.retitleDetail(p.browseId, name.trim())
+                        } else {
+                            showQueueNotice(context.getString(R.string.playlist_name_exists))
+                        }
                     }
                 },
                 onReorder = playlist?.let { p ->
@@ -5213,15 +5286,42 @@ private fun BitChordApp(
                         }
                         detailSearching = false
                         reorderTarget = p
+                        reorderPageId = p.browseId
                         reorderEntries = UiState.Loading
                         reorderSaving = false
                         viewModel.loadPlaylistEntries(p) { result ->
-                            if (reorderTarget != p) return@loadPlaylistEntries
+                            if (reorderPageId != p.browseId) return@loadPlaylistEntries
                             reorderEntries = result.fold(
                                 onSuccess = { UiState.Success(it) },
                                 onFailure = { UiState.Error(context.getString(R.string.failed)) },
                             )
                         }
+                    }
+                } ?: offlineEditable?.let { p ->
+                    {
+                        browseActions = null
+                        // A device playlist already holds whole song rows, so
+                        // there is nothing to fetch: its page and its order are
+                        // both ready on the tap.
+                        if (detail?.browseId != p.browseId) {
+                            viewModel.openDetail(
+                                browseId = p.browseId,
+                                title = p.title,
+                                subtitle = "",
+                                thumbnailUrl = null,
+                                type = BrowseType.PLAYLIST,
+                            )
+                        }
+                        detailSearching = false
+                        reorderTarget = UserPlaylist(
+                            playlistId = p.id,
+                            title = p.title,
+                            subtitle = "",
+                            thumbnailUrl = null,
+                        )
+                        reorderPageId = p.browseId
+                        reorderEntries = UiState.Success(p.songs)
+                        reorderSaving = false
                     }
                 },
                 onDelete = playlist?.let { p ->
@@ -5469,6 +5569,11 @@ private fun BitChordApp(
             )
         }
 
+        if (showLocalLyricsSync) {
+            BackHandler { showLocalLyricsSync = false }
+            LocalLyricsSyncSheet(onDismiss = { showLocalLyricsSync = false })
+        }
+
         if (songSortMenuOpen) {
             BackHandler { songSortMenuOpen = false }
             FrostedSortMenu(
@@ -5515,6 +5620,10 @@ private fun BitChordApp(
                     if (downloadsFolder) AppSettings.setDownloadedMusicViewType(next)
                     else AppSettings.setLocalMusicViewType(next)
                     folderMenuOpen = false
+                },
+                onSyncLyrics = {
+                    folderMenuOpen = false
+                    showLocalLyricsSync = true
                 },
                 onDismiss = { folderMenuOpen = false },
             )
@@ -6056,6 +6165,7 @@ private fun FrostedFolderMenu(
     viewType: LibraryViewType,
     onSort: (LocalMusicSort) -> Unit,
     onToggleViewType: () -> Unit,
+    onSyncLyrics: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     FrostedMenuPanel(hazeState = hazeState, onDismiss = onDismiss) {
@@ -6066,6 +6176,19 @@ private fun FrostedFolderMenu(
             onClick = onToggleViewType,
             icon = if (grid) BitChordIcons.ListView else BitChordIcons.GridView,
         )
+        onSyncLyrics?.let { sync ->
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+            FrostedMenuRow(
+                label = stringResource(R.string.sync_local_lyrics),
+                checked = false,
+                onClick = sync,
+                icon = SfIcons.Notes,
+            )
+        }
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 4.dp),
             thickness = 0.5.dp,

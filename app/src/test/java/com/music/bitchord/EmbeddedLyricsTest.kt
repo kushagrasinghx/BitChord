@@ -202,12 +202,19 @@ class EmbeddedLyricsTest {
     }
 
     @Test
-    fun `a package with no lyrics, and an ordinary file, are left to the container reader`() {
+    fun `an ordinary track reads its own named sidecar`() {
+        val root = packageDir("song.lrc" to lrc)
+        File(root, "song.flac").writeText("")
+        assertEquals(lrc, EmbeddedLyrics.sidecar(File(root, "song.flac").path))
+    }
+
+    @Test
+    fun `a package with no lyrics, and an ordinary file without one, are left to the container reader`() {
         // Saved without lyrics — the empty file the writer leaves behind must
         // not read as "there are lyrics, they are blank".
         assertNull(EmbeddedLyrics.sidecar(File(packageDir("lyrics.lrc" to "  \n"), "playlist.m3u8").path))
         assertNull(EmbeddedLyrics.sidecar(File(packageDir(), "playlist.m3u8").path))
-        // A downloaded .flac has no sidecar and never should be given one.
+        // A file with no same-named .lrc has nothing to read beside it.
         assertNull(EmbeddedLyrics.sidecar(File(packageDir("lyrics.lrc" to lrc), "song.flac").path))
         assertNull(EmbeddedLyrics.sidecar(null))
     }

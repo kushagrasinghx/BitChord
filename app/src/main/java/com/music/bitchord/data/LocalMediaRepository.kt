@@ -94,8 +94,14 @@ object LocalMediaRepository {
                     MediaStore.Audio.Media.DATE_ADDED,
                     MediaStore.Audio.Media.DATE_MODIFIED,
                 )
-                val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-                val selectionArgs = arrayOf("%${DownloadStore.FOLDER}%")
+                val customFolder = AppSettings.downloadFolderUri.value
+                val customRelative = if (customFolder.isNotBlank()) selectedFolder(customFolder)?.label else null
+                val (selection, selectionArgs) = if (!customRelative.isNullOrBlank() && customRelative != DownloadStore.FOLDER) {
+                    "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to
+                        arrayOf("%${DownloadStore.FOLDER}%", "%$customRelative%")
+                } else {
+                    "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to arrayOf("%${DownloadStore.FOLDER}%")
+                }
 
                 context.contentResolver.query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -451,33 +457,32 @@ object LocalMediaRepository {
 
     private fun isInFolder(path: String?, folder: SelectedFolder?): Boolean {
         if (folder == null) return false
-        val candidate = path?.normalizedPath() ?: return false
-        return candidate == folder.absolutePath || candidate.startsWith("${folder.absolutePath}/")
+        val candidate = path?.replace('\\', '/')?.trimEnd('/')?.lowercase(Locale.ROOT) ?: return false
+        val target = folder.absolutePath.replace('\\', '/').trimEnd('/').lowercase(Locale.ROOT)
+        return candidate == target || candidate.startsWith("$target/")
     }
 
-    private data class SelectedFolder(val absolutePath: String, val label: String)
+    internal data class SelectedFolder(val absolutePath: String, val label: String)
 
-    private fun selectedFolder(treeUri: String): SelectedFolder? = runCatching {
+    internal fun selectedFolder(treeUri: String): SelectedFolder? = runCatching {
         val documentId = DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
         if (documentId.startsWith("raw:")) {
-            val path = documentId.removePrefix("raw:").normalizedPath()
+            val path = documentId.removePrefix("raw:").replace('\\', '/').trimEnd('/')
             return@runCatching SelectedFolder(path, path.substringAfterLast('/'))
         }
         val volume = documentId.substringBefore(':')
-        val relative = documentId.substringAfter(':', "").trim('/')
+        val relative = documentId.substringAfter(':', "").replace('\\', '/').trim('/')
         val volumeRoot = if (volume.equals("primary", ignoreCase = true)) {
             "/storage/emulated/0"
         } else {
             "/storage/$volume"
         }
+        val fullPath = listOf(volumeRoot, relative).filter { it.isNotBlank() }.joinToString("/").trimEnd('/')
         SelectedFolder(
-            absolutePath = listOf(volumeRoot, relative).filter { it.isNotBlank() }.joinToString("/").normalizedPath(),
+            absolutePath = fullPath,
             label = relative.ifBlank { volume },
         )
     }.getOrNull()
-
-    private fun String.normalizedPath(): String =
-        replace('\\', '/').trimEnd('/').lowercase(Locale.ROOT)
 
     /**
      * MediaStore's `IS_MUSIC` flag is advisory and often includes notification

@@ -1462,4 +1462,27 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="sync_local_lyrics">סנכרון מילים מקומיות</string>
+    <string name="sync_local_lyrics_subtitle">שמירת קובצי .lrc מסונכרנים לצד המוזיקה במכשיר הזה</string>
+    <string name="sync_all">סנכרון הכול</string>
+    <string name="sync_all_subtitle">בדיקת כל הרצועות המקומיות ושמירה על מילים שכבר נשמרו</string>
+    <string name="sync_missing">סנכרון חסרים</string>
+    <string name="sync_missing_subtitle">רק רצועות בלי מילים מסונכרנות</string>
+    <string name="retry_failed">ניסיון חוזר בכשלים</string>
+    <string name="retry_failed_subtitle">ניסיון חוזר ברצועות שלא נשמרו</string>
+    <string name="sync_preparing">מכין…</string>
+    <string name="sync_progress">%1$d מתוך %2$d</string>
+    <string name="sync_runs_in_background">ממשיך גם אם יוצאים מהאפליקציה.</string>
+    <string name="sync_done">הסנכרון הושלם</string>
+    <string name="sync_status_synced">נשמר</string>
+    <string name="sync_status_already_saved">כבר נשמר</string>
+    <string name="sync_status_no_lyrics">אין מילים מסונכרנות</string>
+    <string name="sync_status_failed">נכשל</string>
+    <string name="sync_failed_tracks">לא ניתן לשמור</string>
+    <string name="download_synced_lyrics">הורדת מילים מסונכרנות</string>
+    <string name="synced_lyrics_downloaded">המילים המסונכרנות נשמרו לצד הרצועה</string>
+    <string name="synced_lyrics_already_saved">מילים כבר שמורות לצד הרצועה הזו</string>
+    <string name="synced_lyrics_none_found">לא נמצאו מילים מסונכרנות</string>
+    <string name="synced_lyrics_failed">לא ניתן לשמור מילים מסונכרנות</string>
+    <string name="playlist_name_exists">קיימת כבר פלייליסט בשם הזה</string>
 </resources>

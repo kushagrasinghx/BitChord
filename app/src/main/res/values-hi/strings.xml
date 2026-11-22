@@ -1460,4 +1460,27 @@
     <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
     <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
     <string name="diwali_cta">चलो जश्न मनाएँ</string>
+    <string name="sync_local_lyrics">स्थानीय बोल सिंक करें</string>
+    <string name="sync_local_lyrics_subtitle">इस डिवाइस के संगीत के पास सिंक किए गए .lrc फ़ाइलें सहेजें</string>
+    <string name="sync_all">सभी सिंक करें</string>
+    <string name="sync_all_subtitle">हर स्थानीय ट्रैक जाँचें और पहले से सहेजे बोल रखें</string>
+    <string name="sync_missing">छूटे हुए सिंक करें</string>
+    <string name="sync_missing_subtitle">केवल वे ट्रैक जिनमें सिंक किए बोल नहीं हैं</string>
+    <string name="retry_failed">विफल फिर आज़माएँ</string>
+    <string name="retry_failed_subtitle">जो ट्रैक पिछली बार सहेजे नहीं गए उन्हें फिर आज़माएँ</string>
+    <string name="sync_preparing">तैयारी हो रही है…</string>
+    <string name="sync_progress">%1$d / %2$d</string>
+    <string name="sync_runs_in_background">ऐप छोड़ने पर भी चलता रहेगा।</string>
+    <string name="sync_done">सिंक पूरा हुआ</string>
+    <string name="sync_status_synced">सहेजा गया</string>
+    <string name="sync_status_already_saved">पहले से सहेजा</string>
+    <string name="sync_status_no_lyrics">कोई सिंक किए बोल नहीं</string>
+    <string name="sync_status_failed">विफल</string>
+    <string name="sync_failed_tracks">सहेजा नहीं जा सका</string>
+    <string name="download_synced_lyrics">सिंक किए बोल डाउनलोड करें</string>
+    <string name="synced_lyrics_downloaded">सिंक किए बोल ट्रैक के पास सहेजे गए</string>
+    <string name="synced_lyrics_already_saved">इस ट्रैक के पास बोल पहले से सहेजे हैं</string>
+    <string name="synced_lyrics_none_found">सिंक किए बोल नहीं मिले</string>
+    <string name="synced_lyrics_failed">सिंक किए बोल सहेजे नहीं जा सके</string>
+    <string name="playlist_name_exists">इस नाम की प्लेलिस्ट पहले से मौजूद है</string>
 </resources>

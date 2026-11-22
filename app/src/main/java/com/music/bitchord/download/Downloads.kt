@@ -1278,8 +1278,8 @@ object Downloads {
                     },
                 )
                 try {
-                    mp3File.inputStream().buffered().use { input ->
-                        input.copyTo(sink)
+                    mp3File.inputStream().buffered(256 * 1024).use { input ->
+                        input.copyTo(sink, bufferSize = 256 * 1024)
                     }
                 } finally {
                     mp3File.delete()

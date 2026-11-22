@@ -1462,4 +1462,27 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
+    <string name="sync_local_lyrics">Sincronizar letras locais</string>
+    <string name="sync_local_lyrics_subtitle">Guardar ficheiros .lrc sincronizados ao lado da música neste dispositivo</string>
+    <string name="sync_all">Sincronizar tudo</string>
+    <string name="sync_all_subtitle">Verificar todas as faixas locais e manter as letras já guardadas</string>
+    <string name="sync_missing">Sincronizar em falta</string>
+    <string name="sync_missing_subtitle">Apenas faixas sem letras sincronizadas</string>
+    <string name="retry_failed">Tentar falhas novamente</string>
+    <string name="retry_failed_subtitle">Tentar novamente as faixas que não foi possível guardar</string>
+    <string name="sync_preparing">A preparar…</string>
+    <string name="sync_progress">%1$d de %2$d</string>
+    <string name="sync_runs_in_background">Continua se saíres da aplicação.</string>
+    <string name="sync_done">Sincronização concluída</string>
+    <string name="sync_status_synced">Guardado</string>
+    <string name="sync_status_already_saved">Já guardado</string>
+    <string name="sync_status_no_lyrics">Sem letras sincronizadas</string>
+    <string name="sync_status_failed">Falhou</string>
+    <string name="sync_failed_tracks">Não foi possível guardar</string>
+    <string name="download_synced_lyrics">Transferir letras sincronizadas</string>
+    <string name="synced_lyrics_downloaded">Letras sincronizadas guardadas ao lado da faixa</string>
+    <string name="synced_lyrics_already_saved">Já existem letras guardadas ao lado desta faixa</string>
+    <string name="synced_lyrics_none_found">Não foram encontradas letras sincronizadas</string>
+    <string name="synced_lyrics_failed">Não foi possível guardar as letras sincronizadas</string>
+    <string name="playlist_name_exists">Já existe uma playlist com esse nome</string>
 </resources>

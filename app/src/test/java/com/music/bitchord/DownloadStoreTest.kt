@@ -312,4 +312,23 @@ class DownloadStoreTest {
         assertNull(Downloads.estimatedKbps(9_600_000, null))
         assertNull(Downloads.estimatedKbps(9_600_000, 0))
     }
+
+    @Test
+    fun `custom download folder settings flow updates and clears correctly`() {
+        AppSettings.downloadFolderUri.value = ""
+        assertEquals("", AppSettings.downloadFolderUri.value)
+
+        val customUri = "content://com.android.externalstorage.documents/tree/primary%3AMusic%2FCustomFolder"
+        AppSettings.downloadFolderUri.value = customUri
+        assertEquals(customUri, AppSettings.downloadFolderUri.value)
+
+        AppSettings.downloadFolderUri.value = ""
+        assertEquals("", AppSettings.downloadFolderUri.value)
+    }
+
+    @Test
+    fun `default download folder is accessible`() {
+        val dummyContext = object : android.content.ContextWrapper(null) {}
+        assertTrue(DownloadStore.isFolderAccessible(dummyContext, ""))
+    }
 }

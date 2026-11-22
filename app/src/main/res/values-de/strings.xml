@@ -1457,4 +1457,27 @@
     <string name="bit_perfect_status_inexact">%1$s · nicht exakt: Diese Quelle ist kein verlustfreies PCM</string>
     <string name="bit_perfect_status_waiting">Warte auf einen verlustfreien Titel an einem unterstützten Ausgang</string>
     <string name="bit_perfect_status_unavailable">Für diesen Titel nicht verfügbar (%1$s)</string>
+    <string name="sync_local_lyrics">Lokale Songtexte synchronisieren</string>
+    <string name="sync_local_lyrics_subtitle">Synchronisierte .lrc-Dateien neben Musik auf diesem Gerät speichern</string>
+    <string name="sync_all">Alle synchronisieren</string>
+    <string name="sync_all_subtitle">Alle lokalen Titel prüfen und bereits gespeicherte Texte behalten</string>
+    <string name="sync_missing">Fehlende synchronisieren</string>
+    <string name="sync_missing_subtitle">Nur Titel ohne synchronisierte Songtexte</string>
+    <string name="retry_failed">Fehlgeschlagene wiederholen</string>
+    <string name="retry_failed_subtitle">Titel erneut versuchen, die zuletzt nicht gespeichert werden konnten</string>
+    <string name="sync_preparing">Wird vorbereitet…</string>
+    <string name="sync_progress">%1$d von %2$d</string>
+    <string name="sync_runs_in_background">Läuft weiter, wenn du die App verlässt.</string>
+    <string name="sync_done">Synchronisierung abgeschlossen</string>
+    <string name="sync_status_synced">Gespeichert</string>
+    <string name="sync_status_already_saved">Bereits gespeichert</string>
+    <string name="sync_status_no_lyrics">Keine synchronisierten Songtexte</string>
+    <string name="sync_status_failed">Fehlgeschlagen</string>
+    <string name="sync_failed_tracks">Konnten nicht gespeichert werden</string>
+    <string name="download_synced_lyrics">Synchronisierte Songtexte herunterladen</string>
+    <string name="synced_lyrics_downloaded">Synchronisierte Songtexte neben dem Titel gespeichert</string>
+    <string name="synced_lyrics_already_saved">Songtexte sind bereits neben diesem Titel gespeichert</string>
+    <string name="synced_lyrics_none_found">Keine synchronisierten Songtexte gefunden</string>
+    <string name="synced_lyrics_failed">Synchronisierte Songtexte konnten nicht gespeichert werden</string>
+    <string name="playlist_name_exists">Eine Playlist mit diesem Namen existiert bereits</string>
 </resources>

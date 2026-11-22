@@ -41,6 +41,7 @@ import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.LocalLyricsSync
 import com.music.bitchord.download.PlaylistSync
 import androidx.work.Configuration
 import kotlinx.coroutines.CoroutineScope
@@ -167,6 +168,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         Downloads.init(this)
         // After both of the things a check reads: the setting and the record.
         PlaylistSync.init(this)
+        // The batch lyrics sidecar writer reads the same settings and keeps
+        // its own per-track outcomes for the sheet.
+        LocalLyricsSync.init(this)
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.

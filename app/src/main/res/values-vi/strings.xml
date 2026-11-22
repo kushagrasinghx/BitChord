@@ -1374,4 +1374,27 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="sync_local_lyrics">Đồng bộ lời bài hát cục bộ</string>
+    <string name="sync_local_lyrics_subtitle">Lưu tệp .lrc đã đồng bộ bên cạnh nhạc trên thiết bị này</string>
+    <string name="sync_all">Đồng bộ tất cả</string>
+    <string name="sync_all_subtitle">Kiểm tra mọi bài cục bộ và giữ lời đã lưu</string>
+    <string name="sync_missing">Đồng bộ phần còn thiếu</string>
+    <string name="sync_missing_subtitle">Chỉ những bài chưa có lời đồng bộ</string>
+    <string name="retry_failed">Thử lại mục thất bại</string>
+    <string name="retry_failed_subtitle">Thử lại những bài không lưu được</string>
+    <string name="sync_preparing">Đang chuẩn bị…</string>
+    <string name="sync_progress">%1$d trên %2$d</string>
+    <string name="sync_runs_in_background">Vẫn tiếp tục khi bạn rời ứng dụng.</string>
+    <string name="sync_done">Đồng bộ xong</string>
+    <string name="sync_status_synced">Đã lưu</string>
+    <string name="sync_status_already_saved">Đã lưu sẵn</string>
+    <string name="sync_status_no_lyrics">Không có lời đồng bộ</string>
+    <string name="sync_status_failed">Thất bại</string>
+    <string name="sync_failed_tracks">Không thể lưu</string>
+    <string name="download_synced_lyrics">Tải lời bài hát đồng bộ</string>
+    <string name="synced_lyrics_downloaded">Đã lưu lời đồng bộ bên cạnh bài hát</string>
+    <string name="synced_lyrics_already_saved">Lời bài hát đã có sẵn bên cạnh bài này</string>
+    <string name="synced_lyrics_none_found">Không tìm thấy lời đồng bộ</string>
+    <string name="synced_lyrics_failed">Không thể lưu lời đồng bộ</string>
+    <string name="playlist_name_exists">Đã có danh sách phát trùng tên</string>
 </resources>

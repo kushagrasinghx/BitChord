@@ -1429,4 +1429,27 @@
     <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
     <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
     <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
+    <string name="sync_local_lyrics">Sincronizar letras locales</string>
+    <string name="sync_local_lyrics_subtitle">Guarda archivos .lrc sincronizados junto a la música de este dispositivo</string>
+    <string name="sync_all">Sincronizar todo</string>
+    <string name="sync_all_subtitle">Revisa todas las pistas locales y conserva las letras ya guardadas</string>
+    <string name="sync_missing">Sincronizar faltantes</string>
+    <string name="sync_missing_subtitle">Solo pistas sin letras sincronizadas</string>
+    <string name="retry_failed">Reintentar fallos</string>
+    <string name="retry_failed_subtitle">Reintenta las pistas que no se pudieron guardar</string>
+    <string name="sync_preparing">Preparando…</string>
+    <string name="sync_progress">%1$d de %2$d</string>
+    <string name="sync_runs_in_background">Sigue funcionando si sales de la aplicación.</string>
+    <string name="sync_done">Sincronización terminada</string>
+    <string name="sync_status_synced">Guardado</string>
+    <string name="sync_status_already_saved">Ya guardado</string>
+    <string name="sync_status_no_lyrics">Sin letras sincronizadas</string>
+    <string name="sync_status_failed">Falló</string>
+    <string name="sync_failed_tracks">No se pudo guardar</string>
+    <string name="download_synced_lyrics">Descargar letras sincronizadas</string>
+    <string name="synced_lyrics_downloaded">Letras sincronizadas guardadas junto a la pista</string>
+    <string name="synced_lyrics_already_saved">Ya hay letras guardadas junto a esta pista</string>
+    <string name="synced_lyrics_none_found">No se encontraron letras sincronizadas</string>
+    <string name="synced_lyrics_failed">No se pudieron guardar las letras sincronizadas</string>
+    <string name="playlist_name_exists">Ya existe una lista con ese nombre</string>
 </resources>

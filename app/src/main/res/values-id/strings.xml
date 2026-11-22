@@ -1434,4 +1434,27 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
+    <string name="sync_local_lyrics">Sinkronkan lirik lokal</string>
+    <string name="sync_local_lyrics_subtitle">Simpan file .lrc tersinkron di samping musik di perangkat ini</string>
+    <string name="sync_all">Sinkronkan semua</string>
+    <string name="sync_all_subtitle">Periksa setiap trek lokal dan pertahankan lirik yang sudah disimpan</string>
+    <string name="sync_missing">Sinkronkan yang belum ada</string>
+    <string name="sync_missing_subtitle">Hanya trek tanpa lirik tersinkron</string>
+    <string name="retry_failed">Coba lagi yang gagal</string>
+    <string name="retry_failed_subtitle">Coba lagi trek yang gagal disimpan</string>
+    <string name="sync_preparing">Menyiapkan…</string>
+    <string name="sync_progress">%1$d dari %2$d</string>
+    <string name="sync_runs_in_background">Tetap berjalan jika kamu keluar dari aplikasi.</string>
+    <string name="sync_done">Sinkronisasi selesai</string>
+    <string name="sync_status_synced">Tersimpan</string>
+    <string name="sync_status_already_saved">Sudah tersimpan</string>
+    <string name="sync_status_no_lyrics">Tidak ada lirik tersinkron</string>
+    <string name="sync_status_failed">Gagal</string>
+    <string name="sync_failed_tracks">Tidak dapat menyimpan</string>
+    <string name="download_synced_lyrics">Unduh lirik tersinkron</string>
+    <string name="synced_lyrics_downloaded">Lirik tersinkron disimpan di samping trek</string>
+    <string name="synced_lyrics_already_saved">Lirik sudah tersimpan di samping trek ini</string>
+    <string name="synced_lyrics_none_found">Lirik tersinkron tidak ditemukan</string>
+    <string name="synced_lyrics_failed">Tidak dapat menyimpan lirik tersinkron</string>
+    <string name="playlist_name_exists">Playlist dengan nama itu sudah ada</string>
 </resources>

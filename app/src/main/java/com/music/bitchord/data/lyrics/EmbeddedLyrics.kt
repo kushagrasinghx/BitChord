@@ -67,9 +67,16 @@ object EmbeddedLyrics {
      */
     suspend fun forUri(context: Context, uriString: String): List<LyricLine>? =
         withContext(Dispatchers.IO) {
-            val raw = runCatching { read(context, Uri.parse(uriString)) }
-                .onFailure { Log.d(TAG, "no embedded lyrics in $uriString: ${it.message}") }
+            // A sidecar first, for every kind of local track: it is the form
+            // the sync feature writes, and it is what lets a file the app
+            // never downloaded carry synchronized words. The container is
+            // still read after it, for downloads whose lyrics were tagged in.
+            val raw = runCatching { LyricsSidecar.read(context, uriString) }
+                .onFailure { Log.d(TAG, "no lyrics sidecar for $uriString: ${it.message}") }
                 .getOrNull()
+                ?: runCatching { read(context, Uri.parse(uriString)) }
+                    .onFailure { Log.d(TAG, "no embedded lyrics in $uriString: ${it.message}") }
+                    .getOrNull()
                 ?: return@withContext null
             // The same last pass the network sources get, so a downloaded track
             // and a streamed one draw their backing vocals the same way.
@@ -83,22 +90,25 @@ object EmbeddedLyrics {
             ?: open(context, uri)?.use { fromBytes(it.readAtMost(MAX_TAG_BYTES)) }
 
     /**
-     * The `lyrics.lrc` written next to the offline package playlist at [path].
+     * The LRC file written next to the track at [path].
      *
-     * Recognised by the playlist rather than by the directory it sits in: the
-     * package lives under a path this module has no business knowing, and a
-     * local `.m3u8` is only ever one of these packages — nothing else in the
-     * app saves a playlist to disk. What the sidecar holds is the enhanced A2
-     * form where the download found one, which is why it is preferred over a
-     * container search rather than used as a fallback to it.
+     * A plain audio file gets `<name>.lrc`, the convention every player reads;
+     * an offline package's playlist keeps its older `lyrics.lrc` name, because
+     * that is what the download path has always written beside a `.m3u8`.
+     * What the sidecar holds is the enhanced A2 form where the word timings
+     * were known, which is why it is preferred over a container search rather
+     * than used as a fallback to it.
      *
      * Takes the path rather than the `Uri` it came out of so the pairing with
      * the writers can be tested on a real directory, without a device.
      */
     internal fun sidecar(path: String?): String? {
-        val playlist = path?.let(::File)?.takeIf { it.name.endsWith(".m3u8", ignoreCase = true) }
-            ?: return null
-        val file = File(playlist.parentFile ?: return null, "lyrics.lrc")
+        val audio = path?.let(::File) ?: return null
+        val file = if (audio.name.endsWith(".m3u8", ignoreCase = true)) {
+            File(audio.parentFile ?: return null, "lyrics.lrc")
+        } else {
+            File(audio.parentFile ?: return null, LyricsSidecar.lrcNameFor(audio.name))
+        }
         // Bounded for the same reason [MAX_TAG_BYTES] is: this is read into a
         // string, and the size on disk is the only thing that says how big one.
         if (!file.isFile || file.length() !in 1..MAX_TAG_BYTES.toLong()) return null

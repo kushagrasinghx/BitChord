@@ -1458,4 +1458,27 @@
     <string name="bit_perfect_status_inexact">%1$s · inexact : cette source n\'est pas du PCM sans perte</string>
     <string name="bit_perfect_status_waiting">En attente d\'un morceau sans perte sur une sortie compatible</string>
     <string name="bit_perfect_status_unavailable">Indisponible pour ce morceau (%1$s)</string>
+    <string name="sync_local_lyrics">Synchroniser les paroles locales</string>
+    <string name="sync_local_lyrics_subtitle">Enregistrer des fichiers .lrc synchronisés à côté de la musique de cet appareil</string>
+    <string name="sync_all">Tout synchroniser</string>
+    <string name="sync_all_subtitle">Vérifier chaque piste locale et conserver les paroles déjà enregistrées</string>
+    <string name="sync_missing">Synchroniser les manquantes</string>
+    <string name="sync_missing_subtitle">Uniquement les pistes sans paroles synchronisées</string>
+    <string name="retry_failed">Réessayer les échecs</string>
+    <string name="retry_failed_subtitle">Réessayer les pistes qui n\'ont pas pu être enregistrées</string>
+    <string name="sync_preparing">Préparation…</string>
+    <string name="sync_progress">%1$d sur %2$d</string>
+    <string name="sync_runs_in_background">Continue si tu quittes l\'application.</string>
+    <string name="sync_done">Synchronisation terminée</string>
+    <string name="sync_status_synced">Enregistré</string>
+    <string name="sync_status_already_saved">Déjà enregistré</string>
+    <string name="sync_status_no_lyrics">Aucune parole synchronisée</string>
+    <string name="sync_status_failed">Échec</string>
+    <string name="sync_failed_tracks">Impossible d\'enregistrer</string>
+    <string name="download_synced_lyrics">Télécharger les paroles synchronisées</string>
+    <string name="synced_lyrics_downloaded">Paroles synchronisées enregistrées à côté de la piste</string>
+    <string name="synced_lyrics_already_saved">Des paroles sont déjà enregistrées à côté de cette piste</string>
+    <string name="synced_lyrics_none_found">Aucune parole synchronisée trouvée</string>
+    <string name="synced_lyrics_failed">Impossible d\'enregistrer les paroles synchronisées</string>
+    <string name="playlist_name_exists">Une playlist portant ce nom existe déjà</string>
 </resources>

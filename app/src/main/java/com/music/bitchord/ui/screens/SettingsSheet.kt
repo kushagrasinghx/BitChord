@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.FilterAlt
@@ -172,6 +173,7 @@ import com.music.bitchord.data.settings.AppFont
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
+import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -197,6 +199,7 @@ fun SettingsScreen(
     onEqualizer: () -> Unit,
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
+    onSyncLocalLyrics: () -> Unit,
     onTranslationLanguage: () -> Unit,
     onSources: () -> Unit,
     onListenTogether: () -> Unit,
@@ -281,6 +284,7 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val downloadFolderUri by AppSettings.downloadFolderUri.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
@@ -364,6 +368,20 @@ fun SettingsScreen(
             )
         }
         AppSettings.setLocalMusicFolderUri(folder.toString())
+    }
+    val downloadFolderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { folder ->
+        if (folder == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(folder, flags)
+        }.onFailure {
+            android.util.Log.w("BitChord", "Failed to take persistable URI permission for $folder: ${it.message}")
+        }
+        AppSettings.setDownloadFolderUri(folder.toString())
+        val label = DownloadStore.folderLabel(context, folder.toString())
+        Toast.makeText(context, context.getString(R.string.download_location_changed, label), Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -637,6 +655,51 @@ fun SettingsScreen(
                     onCheckedChange = AppSettings::setExportDownloads,
                     subtitle = "Music/BitChord".takeIf { exportDownloads },
                 )
+            }
+            val downloadLocationTitle = stringResource(R.string.download_location)
+            val isCustomFolder = downloadFolderUri.isNotBlank()
+            val isFolderAccessible = remember(downloadFolderUri) {
+                DownloadStore.isFolderAccessible(context, downloadFolderUri)
+            }
+            val downloadFolderDisplay = remember(downloadFolderUri, exportDownloads) {
+                DownloadStore.folderLabel(context, downloadFolderUri)
+            }
+            row(downloadLocationTitle, "download", "folder", "directory", "destination", "storage", "location") {
+                SettingsRow(
+                    icon = SfIcons.Folder,
+                    title = downloadLocationTitle,
+                    subtitle = if (isCustomFolder && !isFolderAccessible) {
+                        "$downloadFolderDisplay · " + stringResource(R.string.download_location_inaccessible)
+                    } else {
+                        downloadFolderDisplay
+                    },
+                    badge = stringResource(R.string.download_location_inaccessible).takeIf { isCustomFolder && !isFolderAccessible },
+                    onClick = { downloadFolderPicker.launch(null) },
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = TEXT_INSET, end = ROW_INSET, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(
+                        onClick = { downloadFolderPicker.launch(null) },
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text(stringResource(R.string.change_folder))
+                    }
+                    if (isCustomFolder) {
+                        TextButton(
+                            onClick = {
+                                AppSettings.setDownloadFolderUri("")
+                                Toast.makeText(context, context.getString(R.string.download_location_restored), Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text(stringResource(R.string.restore_default_location))
+                        }
+                    }
+                }
             }
             val syncPlaylistsTitle = stringResource(R.string.sync_downloaded_playlists)
             row(syncPlaylistsTitle, "playlist", "new songs", "background", "automatic") {
@@ -1301,6 +1364,16 @@ fun SettingsScreen(
                             .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
                         trailing = { Chevron() },
                         onClick = onLyricsSources,
+                    )
+                }
+                val syncLocalLyricsTitle = stringResource(R.string.sync_local_lyrics)
+                row(syncLocalLyricsTitle, "lyrics", "lrc", "offline", "local") {
+                    SettingsRow(
+                        icon = Icons.Rounded.DownloadDone,
+                        title = syncLocalLyricsTitle,
+                        subtitle = stringResource(R.string.sync_local_lyrics_subtitle),
+                        trailing = { Chevron() },
+                        onClick = onSyncLocalLyrics,
                     )
                 }
                 val translationLanguageTitle = stringResource(R.string.translation_language)

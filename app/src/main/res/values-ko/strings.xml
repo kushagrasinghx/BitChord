@@ -1307,4 +1307,27 @@
     <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
     <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
     <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
+    <string name="sync_local_lyrics">로컬 가사 동기화</string>
+    <string name="sync_local_lyrics_subtitle">이 기기의 음악 옆에 동기화된 .lrc 파일 저장</string>
+    <string name="sync_all">모두 동기화</string>
+    <string name="sync_all_subtitle">모든 로컬 트랙을 확인하고 이미 저장된 가사는 유지</string>
+    <string name="sync_missing">누락 항목 동기화</string>
+    <string name="sync_missing_subtitle">아직 동기화된 가사가 없는 트랙만</string>
+    <string name="retry_failed">실패 항목 재시도</string>
+    <string name="retry_failed_subtitle">지난번에 저장하지 못한 트랙을 다시 시도</string>
+    <string name="sync_preparing">준비 중…</string>
+    <string name="sync_progress">%1$d / %2$d</string>
+    <string name="sync_runs_in_background">앱을 나가도 계속 실행됩니다.</string>
+    <string name="sync_done">동기화 완료</string>
+    <string name="sync_status_synced">저장됨</string>
+    <string name="sync_status_already_saved">이미 저장됨</string>
+    <string name="sync_status_no_lyrics">동기화된 가사 없음</string>
+    <string name="sync_status_failed">실패</string>
+    <string name="sync_failed_tracks">저장하지 못함</string>
+    <string name="download_synced_lyrics">동기화된 가사 다운로드</string>
+    <string name="synced_lyrics_downloaded">동기화된 가사를 트랙 옆에 저장했습니다</string>
+    <string name="synced_lyrics_already_saved">이 트랙 옆에 가사가 이미 저장되어 있습니다</string>
+    <string name="synced_lyrics_none_found">동기화된 가사를 찾지 못했습니다</string>
+    <string name="synced_lyrics_failed">동기화된 가사를 저장하지 못했습니다</string>
+    <string name="playlist_name_exists">같은 이름의 플레이리스트가 이미 있습니다</string>
 </resources>

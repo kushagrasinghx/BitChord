@@ -1489,4 +1489,27 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="sync_local_lyrics">Синхронизировать локальные тексты</string>
+    <string name="sync_local_lyrics_subtitle">Сохранять синхронизированные файлы .lrc рядом с музыкой на этом устройстве</string>
+    <string name="sync_all">Синхронизировать всё</string>
+    <string name="sync_all_subtitle">Проверить все локальные треки и сохранить уже записанные тексты</string>
+    <string name="sync_missing">Синхронизировать недостающие</string>
+    <string name="sync_missing_subtitle">Только треки без синхронизированных текстов</string>
+    <string name="retry_failed">Повторить неудачные</string>
+    <string name="retry_failed_subtitle">Повторить треки, которые не удалось сохранить</string>
+    <string name="sync_preparing">Подготовка…</string>
+    <string name="sync_progress">%1$d из %2$d</string>
+    <string name="sync_runs_in_background">Продолжит работу, если выйти из приложения.</string>
+    <string name="sync_done">Синхронизация завершена</string>
+    <string name="sync_status_synced">Сохранено</string>
+    <string name="sync_status_already_saved">Уже сохранено</string>
+    <string name="sync_status_no_lyrics">Нет синхронизированных текстов</string>
+    <string name="sync_status_failed">Ошибка</string>
+    <string name="sync_failed_tracks">Не удалось сохранить</string>
+    <string name="download_synced_lyrics">Скачать синхронизированные тексты</string>
+    <string name="synced_lyrics_downloaded">Синхронизированные тексты сохранены рядом с треком</string>
+    <string name="synced_lyrics_already_saved">Рядом с этим треком уже есть текст</string>
+    <string name="synced_lyrics_none_found">Синхронизированные тексты не найдены</string>
+    <string name="synced_lyrics_failed">Не удалось сохранить синхронизированные тексты</string>
+    <string name="playlist_name_exists">Плейлист с таким названием уже существует</string>
 </resources>

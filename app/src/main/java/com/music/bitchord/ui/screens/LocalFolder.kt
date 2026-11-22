@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
@@ -138,6 +139,12 @@ class LocalFolder(
     val onDownload: ((List<Song>) -> Unit)? = null,
     /** Cached songs only: takes the selection out of the song cache. */
     val onRemoveFromCache: ((List<Song>) -> Unit)? = null,
+    /**
+     * Local Music only: files the selection under one of the device's own
+     * playlists. Nothing here needs an account, so the action is offered
+     * wherever the tracks are.
+     */
+    val onAddToPlaylist: ((List<Song>) -> Unit)? = null,
     /** Which ways of looking at the tracks this folder offers, in order. */
     val tabs: List<LocalFolderTab> = LocalFolderTab.BASIC,
     /**
@@ -842,6 +849,15 @@ internal fun LocalFolderSelectionBar(
             color = if (dark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
+        folder.onAddToPlaylist?.let { add ->
+            SelectionAction(
+                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                label = stringResource(R.string.add_to_playlist),
+                color = MaterialTheme.colorScheme.primary,
+                enabled = count > 0,
+                onClick = { add(chosen()) },
+            )
+        }
         folder.onUpload?.let { upload ->
             SelectionAction(
                 icon = Icons.Rounded.FileUpload,

@@ -1435,4 +1435,27 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="sync_local_lyrics">ローカル歌詞を同期</string>
+    <string name="sync_local_lyrics_subtitle">このデバイスの音楽の隣に同期した .lrc ファイルを保存します</string>
+    <string name="sync_all">すべて同期</string>
+    <string name="sync_all_subtitle">すべてのローカル曲を確認し、保存済みの歌詞はそのままにします</string>
+    <string name="sync_missing">未同期のみ</string>
+    <string name="sync_missing_subtitle">同期済み歌詞がない曲だけ</string>
+    <string name="retry_failed">失敗を再試行</string>
+    <string name="retry_failed_subtitle">前回保存できなかった曲を再試行します</string>
+    <string name="sync_preparing">準備中…</string>
+    <string name="sync_progress">%1$d / %2$d</string>
+    <string name="sync_runs_in_background">アプリを離れても続行します。</string>
+    <string name="sync_done">同期が完了しました</string>
+    <string name="sync_status_synced">保存済み</string>
+    <string name="sync_status_already_saved">保存済み（既存）</string>
+    <string name="sync_status_no_lyrics">同期歌詞なし</string>
+    <string name="sync_status_failed">失敗</string>
+    <string name="sync_failed_tracks">保存できませんでした</string>
+    <string name="download_synced_lyrics">同期歌詞をダウンロード</string>
+    <string name="synced_lyrics_downloaded">同期歌詞を曲の隣に保存しました</string>
+    <string name="synced_lyrics_already_saved">この曲の隣に歌詞はすでに保存されています</string>
+    <string name="synced_lyrics_none_found">同期歌詞が見つかりません</string>
+    <string name="synced_lyrics_failed">同期歌詞を保存できませんでした</string>
+    <string name="playlist_name_exists">同じ名前のプレイリストがすでにあります</string>
 </resources>

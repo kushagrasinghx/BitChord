@@ -245,6 +245,12 @@ object AppSettings {
     val exportDownloads = MutableStateFlow(true)
 
     /**
+     * Custom destination folder for music downloads selected via SAF.
+     * Empty means the default download destination is used.
+     */
+    val downloadFolderUri = MutableStateFlow("")
+
+    /**
      * Check the playlists downloaded whole for newly added songs and download
      * them, in the background. Off by default: it spends data and storage
      * without being asked each time. See [com.music.bitchord.download.PlaylistSync].
@@ -971,6 +977,7 @@ object AppSettings {
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
+        downloadFolderUri.value = prefs.getString(KEY_DOWNLOAD_FOLDER_URI, "").orEmpty()
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
@@ -1832,6 +1839,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
     }
 
+    fun setDownloadFolderUri(value: String) {
+        downloadFolderUri.value = value
+        prefs.edit().putString(KEY_DOWNLOAD_FOLDER_URI, value).apply()
+    }
+
     fun setSyncDownloadedPlaylists(value: Boolean) {
         syncDownloadedPlaylists.value = value
         prefs.edit().putBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, value).apply()
@@ -2254,6 +2266,7 @@ object AppSettings {
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
+    private const val KEY_DOWNLOAD_FOLDER_URI = "download_folder_uri"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"

@@ -15,6 +15,7 @@ import (
 
 	"github.com/KabirSinghBhatia/BitChord/backend/clock"
 	"github.com/KabirSinghBhatia/BitChord/backend/config"
+	"github.com/KabirSinghBhatia/BitChord/backend/party"
 	"github.com/KabirSinghBhatia/BitChord/backend/presence"
 	"github.com/KabirSinghBhatia/BitChord/backend/protocol"
 )
@@ -548,5 +549,24 @@ func TestWebSocketTokenAsSubprotocol(t *testing.T) {
 	bad := websocket.Dialer{Subprotocols: []string{socketProtocol, socketTokenPrefix + "nottherighttoken"}}
 	if _, resp, err := bad.Dial(u.String(), nil); err == nil || resp == nil || resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for a wrong subprotocol token, got %v", err)
+	}
+}
+
+func TestActivityDetailNeverFallsBackToTheActionName(t *testing.T) {
+	m := &party.Member{DisplayName: "Host"}
+	cases := []struct {
+		action string
+		frame  map[string]interface{}
+		want   string
+	}{
+		{protocol.ActionQueueAdd, map[string]interface{}{"track": map[string]interface{}{"videoId": "v", "title": "Song"}}, "Added \"Song\" to the queue"},
+		{protocol.ActionQueueAdd, map[string]interface{}{"tracks": []interface{}{map[string]interface{}{"title": "A"}, map[string]interface{}{"title": "B"}}}, "Added \"A\" and 1 more to the queue"},
+		{protocol.ActionSetHostOnlyControl, map[string]interface{}{"enabled": true}, "Made the music host-only"},
+		{protocol.ActionSetHostOnlyControl, map[string]interface{}{"enabled": false}, "Let everyone control the music"},
+	}
+	for _, c := range cases {
+		if got := activityFrame(m, c.action, c.frame)["detail"]; got != c.want {
+			t.Errorf("%s %v: detail %q, want %q", c.action, c.frame, got, c.want)
+		}
 	}
 }

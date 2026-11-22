@@ -242,7 +242,7 @@
       "id": "detail-pages",
       "name": "Album, artist and playlist pages; song rows",
       "android": ["app/src/main/java/com/music/bitchord/ui/screens/DetailScreen.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/Common.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/Skeletons.kt"],
-      "web": ["web/app/src/pages/AlbumPage.tsx", "web/app/src/pages/ArtistPage.tsx", "web/app/src/pages/PlaylistPage.tsx", "web/app/src/components/music/DetailHeader.tsx", "web/app/src/components/music/TrackList.tsx", "web/app/src/components/music/SongRows.tsx", "web/app/src/data/music/suggestions.ts"]
+      "web": ["web/app/src/pages/AlbumPage.tsx", "web/app/src/pages/ArtistPage.tsx", "web/app/src/pages/PlaylistPage.tsx", "web/app/src/components/music/DetailHeader.tsx", "web/app/src/components/music/TrackList.tsx", "web/app/src/components/music/SongRows.tsx", "web/app/src/components/music/SelectionBar.tsx", "web/app/src/components/music/trackSelection.ts", "web/app/src/data/music/suggestions.ts"]
     },
     {
       "id": "onboarding",

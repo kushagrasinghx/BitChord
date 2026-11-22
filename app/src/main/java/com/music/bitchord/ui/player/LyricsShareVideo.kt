@@ -61,58 +61,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The picked lines on the share video's clock: which stretches of the track
- * play, back to back, and when each line is lit in the result.
- */
-internal class ShareTimeline(
-    /** Start and end of each stretch of the track, in track milliseconds. */
-    val segments: List<Pair<Long, Long>>,
-    /** Each sung line — its index in the request — and when it is lit, in output μs. */
-    val windows: List<LineWindow>,
-    val durationMs: Long,
-) {
-    /** Where in the track the video is at [outputUs]: the stretches laid end to end. */
-    fun trackMsAt(outputUs: Long): Long {
-        var left = (outputUs / 1000).coerceAtLeast(0L)
-        for ((start, end) in segments) {
-            val length = end - start
-            if (left < length) return start + left
-            left -= length
-        }
-        return segments.lastOrNull()?.second ?: 0L
-    }
-}
-
-internal class LineWindow(val line: Int, val fromUs: Long, val toUs: Long)
-
-/**
- * The timeline for [lines], or null when they carry no timing (unsynced
- * lyrics). Lines that run on from each other share one stretch, so a verse
- * plays as one take; a skip ("(...)" on the card) cuts straight to the next.
- */
-internal fun shareTimeline(lines: List<LyricsShareLine>): ShareTimeline? {
-    val segments = mutableListOf<Pair<Long, Long>>()
-    val windows = mutableListOf<LineWindow>()
-    var cursor = 0L
-    lines.forEachIndexed { index, line ->
-        val start = line.startMs ?: return@forEachIndexed
-        val room = MAX_SHARE_MS - cursor
-        if (room <= MIN_LINE_MS) return@forEachIndexed
-        val end = minOf(line.endMs ?: return@forEachIndexed, start + room)
-        if (end - start < MIN_LINE_MS) return@forEachIndexed
-        val last = segments.lastOrNull()
-        if (last != null && last.second == start) {
-            segments[segments.lastIndex] = last.first to end
-        } else {
-            segments += start to end
-        }
-        windows += LineWindow(index, cursor * 1000, (cursor + end - start) * 1000)
-        cursor += end - start
-    }
-    return if (windows.isEmpty()) null else ShareTimeline(segments, windows, cursor)
-}
-
-/**
  * The lyrics card as an MP4, ready for a story.
  *
  * Under the card: the song's animated cover when [clip] is given — Spotify's
@@ -495,12 +443,6 @@ private const val VIDEO_MIME = "video/mp4"
 
 /** Long enough to read five lines in a story before it loops. */
 private const val MIN_LENGTH_MS = 10_000L
-
-/** Instagram's limit for one story clip. */
-private const val MAX_SHARE_MS = 60_000L
-
-/** Shorter than this and a "line" is a stamp glitch, not something sung. */
-private const val MIN_LINE_MS = 300L
 
 private const val FRAME_RATE = 30
 private const val BACKDROP_FILE_NAME = "lyrics-backdrop.png"

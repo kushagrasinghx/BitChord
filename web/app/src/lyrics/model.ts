@@ -42,6 +42,29 @@ export function line(timeMs: number, text: string, extra: Partial<LyricLine> = {
 export const isGap = (l: LyricLine) => l.text.length === 0;
 export const isWordSynced = (l: LyricLine) => l.words.length > 0;
 
+// Letters of the right-to-left scripts in the Basic Multilingual Plane (Java's directionality R and AL).
+const RTL_LETTER = /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}]/u;
+const LETTER = /\p{L}/u;
+
+/**
+ * PlayerLyrics.kt `isRtl`: whether [text] reads right to left, by its own
+ * letters rather than the app's language. More right-to-left letters than
+ * left-to-right ones, or any Hebrew presentation form; a Hebrew line with
+ * one English word in it is still Hebrew.
+ */
+export function isRtl(text: string): boolean {
+  let rtl = 0;
+  let ltr = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    if (code >= 0xfb1d && code <= 0xfb4f) return true;
+    if (!LETTER.test(ch)) continue;
+    if (RTL_LETTER.test(ch)) rtl++;
+    else ltr++;
+  }
+  return rtl > ltr;
+}
+
 /** KuGou's and QQ's "纯音乐，请欣赏" ("pure music, please enjoy"), and its longer variants. */
 export const INSTRUMENTAL_NOTICE = /纯音乐.*欣赏/;
 

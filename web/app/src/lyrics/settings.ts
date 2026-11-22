@@ -13,15 +13,18 @@ interface LyricsSettings {
   preferSyllables: boolean;
   /** PaxSenix's Spotify and Musixmatch routes need the user's own key. */
   paxsenixKey: string;
+  /** The BitChord mark on a shared lyrics card; someone who takes it off wants it off (AppSettings.lyricsCardLogo). */
+  cardLogo: boolean;
   setEnabled: (id: LyricsSourceId, on: boolean) => void;
   move: (id: LyricsSourceId, by: -1 | 1) => void;
   setPreferSyllables: (on: boolean) => void;
   setPaxsenixKey: (key: string) => void;
+  setCardLogo: (on: boolean) => void;
   reset: () => void;
 }
 
 const KEY = 'bitchord:lyrics';
-type Saved = Pick<LyricsSettings, 'order' | 'disabled' | 'preferSyllables' | 'paxsenixKey'>;
+type Saved = Pick<LyricsSettings, 'order' | 'disabled' | 'preferSyllables' | 'paxsenixKey' | 'cardLogo'>;
 
 const DEFAULTS: Saved = {
   order: LYRICS_SOURCES.map((s) => s.id),
@@ -29,6 +32,7 @@ const DEFAULTS: Saved = {
   disabled: ['paxsenix-spotify', 'paxsenix-musixmatch'],
   preferSyllables: false,
   paxsenixKey: '',
+  cardLogo: true,
 };
 
 function load(): Saved {
@@ -43,8 +47,8 @@ function load(): Saved {
 export const useLyricsSettings = create<LyricsSettings>()((set, get) => {
   const save = (change: Partial<Saved>) => {
     set(change);
-    const { order, disabled, preferSyllables, paxsenixKey } = get();
-    localStorage.setItem(KEY, JSON.stringify({ order, disabled, preferSyllables, paxsenixKey }));
+    const { order, disabled, preferSyllables, paxsenixKey, cardLogo } = get();
+    localStorage.setItem(KEY, JSON.stringify({ order, disabled, preferSyllables, paxsenixKey, cardLogo }));
   };
   return {
     ...load(),
@@ -59,6 +63,7 @@ export const useLyricsSettings = create<LyricsSettings>()((set, get) => {
     },
     setPreferSyllables: (preferSyllables) => save({ preferSyllables }),
     setPaxsenixKey: (paxsenixKey) => save({ paxsenixKey: paxsenixKey.trim() }),
+    setCardLogo: (cardLogo) => save({ cardLogo }),
     reset: () => save(DEFAULTS),
   };
 });

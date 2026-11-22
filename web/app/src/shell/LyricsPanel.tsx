@@ -1,12 +1,13 @@
 // Registers <am-lyrics>.
 import '@uimaxbai/am-lyrics/am-lyrics.js';
-import { Check, ChevronDown, Loader2, Minus, Settings2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Check, ChevronDown, Loader2, Minus, Settings2, Share } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { LyricClock } from '@bitchord/shared-kotlin';
 import { useCanvas } from '@/data/spotify/canvas';
 import { getBridge } from '@/extension/bridge';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
-import { LyricClock } from '@/lyrics/clock';
 import { onUngrantedChange, ungrantedOrigins } from '@/lyrics/http';
+import type { LyricLine } from '@/lyrics/model';
 import type { SourceState } from '@/lyrics/repository';
 import { enabledSources } from '@/lyrics/settings';
 import { sourceById, type LyricsSourceId } from '@/lyrics/sources';
@@ -76,6 +77,14 @@ const FAR_LINES =
   ':not(.prev-2):not(.prev-3):not(.next-2):not(.next-3):not(.lyrics-gap) { opacity: 0.46; }';
 
 /**
+ * A translation reads in its own direction, as the phone sets it from its own
+ * text: am-lyrics gives it the line's, so an English translation of a Hebrew
+ * line came out right to left, its punctuation at the wrong end. It still
+ * aligns with its line (am-lyrics' physical left/right).
+ */
+const TRANSLATION_DIRECTION = '.lyrics-translation-container { unicode-bidi: plaintext; }';
+
+/**
  * The full-screen player's sizing (report §7): its line size, set on the host
  * by breakpoint, replaces all three of am-lyrics' container tiers, and the
  * current line sits a third of the way down. Scoped to `data-full`, so the
@@ -125,7 +134,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
       const root = el.shadowRoot;
       if (!root) return;
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + FULL_SIZE);
+      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
       // The full-screen column fades its top edge, but am-lyrics' toolbar
       // (romanize, translate, download) sits at the top of the same scroller
@@ -170,7 +179,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
         const sec = getPlayhead()?.sec ?? last;
         if (sec < last - 0.15 || sec > last + 1) discontinuity++;
         last = sec;
-        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity);
+        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity, true);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
@@ -182,14 +191,16 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
     const tick = () => {
       const now = performance.now();
       // The reading and its stamp are taken together.
-      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity);
+      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, !audio.paused);
       frame = requestAnimationFrame(tick);
     };
+    // Paused, the sweep stays where it was drawn rather than snapping to the
+    // media time (which a running clock is a frame or two ahead of), and the
+    // resume carries on from there; a seek while paused still lands.
     const hold = () => {
       cancelAnimationFrame(frame);
-      const ms = audio.currentTime * 1000;
-      clock.hold(ms, performance.now());
-      el.currentTime = ms;
+      const now = performance.now();
+      el.currentTime = clock.observe(now, Math.trunc(audio.currentTime * 1000), now, discontinuity, false) ?? clock.displayedMs;
     };
     const resume = () => {
       cancelAnimationFrame(frame);
@@ -236,15 +247,22 @@ function useUngranted(): string[] {
 
 const NO_STATES: Partial<Record<LyricsSourceId, SourceState>> = {};
 
+const headerButton = 'grid size-7 place-items-center rounded-[8px] text-secondary hover:bg-quinary';
+
+// The share sheet (its card renderer and recorder) loads the first time it opens.
+const ShareLyricsSheet = lazy(() => import('@/lyrics/share/ShareLyricsSheet'));
+
 /** The provider picker: which provider these lyrics are from, and the others' answers for this track. */
-function ProviderPicker({ current, full }: { current: LyricsSourceId | null; full: boolean }) {
+function ProviderPicker({ current, full, lines }: { current: LyricsSourceId | null; full: boolean; lines: LyricLine[] | null }) {
   const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? '');
   const states = useLyricsUi((s) => s.states[videoId]) ?? NO_STATES;
   const picked = useLyricsUi((s) => s.picked[videoId]);
   const pick = useLyricsUi((s) => s.pick);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [settings, setSettings] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const close = useCallback(() => setAnchor(null), []);
+  const closeSharing = useCallback(() => setSharing(false), []);
   const label = current ? sourceById(current)?.label : 'Lyrics';
 
   return (
@@ -264,13 +282,16 @@ function ProviderPicker({ current, full }: { current: LyricsSourceId | null; ful
         <span>{label}</span>
         <ChevronDown size={14} />
       </button>
-      <button
-        className="grid size-7 place-items-center rounded-[8px] text-secondary hover:bg-quinary"
-        aria-label="Lyric settings"
-        onClick={() => setSettings(true)}
-      >
-        <Settings2 size={16} />
-      </button>
+      <span className="flex gap-0.5">
+        {lines && (
+          <button className={headerButton} aria-label="Share lyrics" onClick={() => setSharing(true)}>
+            <Share size={16} />
+          </button>
+        )}
+        <button className={headerButton} aria-label="Lyric settings" onClick={() => setSettings(true)}>
+          <Settings2 size={16} />
+        </button>
+      </span>
       {anchor && (
         <Menu anchor={anchor} placement="below-end" onClose={close} label="Lyrics provider">
           <MenuItem checked={!picked} onSelect={() => (close(), pick(videoId, null))}>
@@ -304,6 +325,11 @@ function ProviderPicker({ current, full }: { current: LyricsSourceId | null; ful
         </Menu>
       )}
       {settings && <LyricsSettings onClose={() => setSettings(false)} />}
+      {sharing && lines && (
+        <Suspense fallback={null}>
+          <ShareLyricsSheet lyrics={lines} onClose={closeSharing} />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -395,7 +421,7 @@ export function LyricsPanel({ variant = 'panel' }: { variant?: 'panel' | 'full' 
   return (
     <div className={full ? `${panel} ${fullSizes}` : panel}>
       {canvas && variant === 'panel' && <CanvasBackdrop url={canvas} />}
-      <ProviderPicker current={result?.source ?? null} full={full} />
+      <ProviderPicker current={result?.source ?? null} full={full} lines={result?.lines ?? null} />
       {/* Only worth raising when nothing was found: then the hosts behind the extension might have it. */}
       {ungranted.length > 0 && !result && !lyrics.isFetching && <PermissionNotice origins={ungranted} />}
       {!hasTrack ? (

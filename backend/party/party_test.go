@@ -484,3 +484,69 @@ func TestQueueIndexPrefersTheCopyAtTheNeedle(t *testing.T) {
 		t.Fatalf("expected b at 3 despite a stale index, got %d", ps.QueueIndex)
 	}
 }
+
+func TestUpcomingEditsSkipThePlayedCopy(t *testing.T) {
+	a := &Track{VideoId: "a"}
+	b := &Track{VideoId: "b"}
+	c := &Track{VideoId: "c"}
+	newState := func() *PlaybackState {
+		ps := NewPlaybackState()
+		ps.SetTrack(nil, c, 0, true, nil, nil)
+		ps.SetQueue(nil, []*Track{a, b, c, {VideoId: "a"}, {VideoId: "d"}}, 2)
+		return ps
+	}
+	ids := func(ps *PlaybackState) string {
+		s := ""
+		for _, tr := range ps.Queue {
+			s += tr.VideoId
+		}
+		return s
+	}
+
+	ps := newState()
+	if !ps.RemoveUpcoming(nil, "a") || ids(ps) != "abcd" || ps.QueueIndex != 2 {
+		t.Fatalf("removing upcoming a hit the played copy: %s, index %d", ids(ps), ps.QueueIndex)
+	}
+	if ps.RemoveUpcoming(nil, "b") {
+		t.Fatalf("a played track is not upcoming")
+	}
+
+	ps = newState()
+	if !ps.MoveUpcoming(nil, 0, 4, "a") || ids(ps) != "abcda" {
+		t.Fatalf("moving upcoming a by id failed: %s", ids(ps))
+	}
+
+	ps = newState()
+	if ps.RemoveUpcomingAt(nil, 0) || !ps.RemoveUpcomingAt(nil, 3) || ids(ps) != "abcd" {
+		t.Fatalf("RemoveUpcomingAt must take exactly the upcoming slot: %s", ids(ps))
+	}
+}
+
+func TestHostPassesToTheLongestConnectedMember(t *testing.T) {
+	p := NewParty("TEST16")
+	host, _ := p.Join("u1", "d1", "Host", nil)
+	early, _ := p.Join("u2", "d2", "Early", nil)
+	mid, _ := p.Join("u3", "d3", "Mid", nil)
+	late, _ := p.Join("u4", "d4", "Late", nil)
+	early.JoinedAtMs, mid.JoinedAtMs, late.JoinedAtMs = 1, 2, 3
+	p.MarkConnected(mid, true)
+	p.MarkConnected(late, true)
+
+	p.Remove(host.MemberId)
+	if host.IsHost {
+		t.Fatalf("the departed host's record must lose host powers")
+	}
+	if !mid.IsHost || early.IsHost || late.IsHost {
+		t.Fatalf("expected the earliest connected member to inherit, got early=%v mid=%v late=%v", early.IsHost, mid.IsHost, late.IsHost)
+	}
+
+	p.MarkConnected(late, false)
+	p.MarkConnected(mid, false)
+	p.Remove(mid.MemberId)
+	if !early.IsHost || late.IsHost {
+		t.Fatalf("with nobody connected the earliest joiner inherits")
+	}
+	if p.IsMember(mid) || !p.IsMember(early) {
+		t.Fatalf("IsMember must follow removal")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/KabirSinghBhatia/BitChord/backend/clock"
 	"github.com/KabirSinghBhatia/BitChord/backend/config"
+	"github.com/KabirSinghBhatia/BitChord/backend/party"
 	"github.com/KabirSinghBhatia/BitChord/backend/presence"
 	"github.com/KabirSinghBhatia/BitChord/backend/protocol"
 )
@@ -548,5 +550,144 @@ func TestWebSocketTokenAsSubprotocol(t *testing.T) {
 	bad := websocket.Dialer{Subprotocols: []string{socketProtocol, socketTokenPrefix + "nottherighttoken"}}
 	if _, resp, err := bad.Dial(u.String(), nil); err == nil || resp == nil || resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for a wrong subprotocol token, got %v", err)
+	}
+}
+
+func joinTestParty(t *testing.T, ts *httptest.Server, code, who string) (string, string) {
+	t.Helper()
+	b, _ := json.Marshal(map[string]string{"userId": "u_" + who, "deviceId": "d_" + who, "displayName": who})
+	path := ts.URL + "/api/parties"
+	if code != "" {
+		path = fmt.Sprintf("%s/api/parties/%s/join", ts.URL, code)
+	}
+	res, err := http.Post(path, "application/json", bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("join %s: %v", who, err)
+	}
+	defer res.Body.Close()
+	var body map[string]interface{}
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	c, _ := body["code"].(string)
+	tok, _ := body["token"].(string)
+	if c == "" || tok == "" {
+		t.Fatalf("join %s: status %d", who, res.StatusCode)
+	}
+	return c, tok
+}
+
+func dialTestParty(t *testing.T, ts *httptest.Server, code, token string) *websocket.Conn {
+	t.Helper()
+	u, _ := url.Parse(ts.URL)
+	u.Scheme = "ws"
+	u.Path = "/ws/parties/" + code
+	h := http.Header{}
+	h.Set("Authorization", "Bearer "+token)
+	ws, _, err := websocket.DefaultDialer.Dial(u.String(), h)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	return ws
+}
+
+func TestLeftMemberSocketCannotAct(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+	code, hostTok := joinTestParty(t, ts, "", "host")
+	_, _ = joinTestParty(t, ts, code, "guest")
+	ws := dialTestParty(t, ts, code, hostTok)
+	defer ws.Close()
+
+	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/parties/%s/leave", ts.URL, code), nil)
+	req.Header.Set("Authorization", "Bearer "+hostTok)
+	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("leave failed: %v", err)
+	}
+	// Leaving closes the socket, so reads run out without hanging.
+	for {
+		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var f map[string]interface{}
+		if err := ws.ReadJSON(&f); err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				t.Fatalf("socket stayed open after leave")
+			}
+			break
+		}
+	}
+
+	// Even a socket that outlived its member must be refused by the guard.
+	p, _ := store.Get(code)
+	ghost := &party.Member{MemberId: "ghost", IsHost: true}
+	if handleSocketFrame(p, ghost, nil, map[string]interface{}{"type": protocol.FrameControl, "action": protocol.ActionPause}) {
+		t.Fatalf("a removed member's frame must end the socket")
+	}
+}
+
+// pipeListener serves http over in-memory pipes, which block on every write
+// until the other side reads: a phone that has stopped reading, on demand.
+type pipeListener chan net.Conn
+
+func (l pipeListener) Accept() (net.Conn, error) {
+	c, ok := <-l
+	if !ok {
+		return nil, net.ErrClosed
+	}
+	return c, nil
+}
+func (l pipeListener) Close() error   { return nil }
+func (l pipeListener) Addr() net.Addr { return &net.TCPAddr{} }
+
+func TestStalledListenerDoesNotHoldThePartyLock(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+	code, hostTok := joinTestParty(t, ts, "", "host")
+	_, stalledTok := joinTestParty(t, ts, code, "stalled")
+
+	controller := dialTestParty(t, ts, code, hostTok)
+	defer controller.Close()
+	go func() {
+		for {
+			var f map[string]interface{}
+			if controller.ReadJSON(&f) != nil {
+				return
+			}
+		}
+	}()
+
+	pipes := make(pipeListener, 1)
+	go (&http.Server{Handler: ts.Config.Handler}).Serve(pipes)
+	dialer := websocket.Dialer{NetDial: func(string, string) (net.Conn, error) {
+		server, client := net.Pipe()
+		pipes <- server
+		return client, nil
+	}}
+	h := http.Header{}
+	h.Set("Authorization", "Bearer "+stalledTok)
+	stalled, _, err := dialer.Dial("ws://pipe/ws/parties/"+code, h)
+	if err != nil {
+		t.Fatalf("pipe dial: %v", err)
+	}
+	defer stalled.Close()
+	// Welcome and its own members frame; after that it never reads again.
+	for i := 0; i < 2; i++ {
+		var f map[string]interface{}
+		if err := stalled.ReadJSON(&f); err != nil {
+			t.Fatalf("stalled read: %v", err)
+		}
+	}
+
+	if err := controller.WriteJSON(map[string]interface{}{"type": protocol.FrameControl, "action": protocol.ActionPause}); err != nil {
+		t.Fatalf("send pause: %v", err)
+	}
+	time.Sleep(200 * time.Millisecond) // the broadcast is now stuck on the pipe
+
+	start := time.Now()
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/parties/%s", ts.URL, code), nil)
+	req.Header.Set("Authorization", "Bearer "+hostTok)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("GET party: %v", err)
+	}
+	if waited := time.Since(start); waited > time.Second {
+		t.Fatalf("GET waited %v on the party lock behind a stalled socket", waited)
 	}
 }

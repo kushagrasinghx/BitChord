@@ -121,7 +121,7 @@ function spotifyText(auth: SpotifyAuthStatus): string {
   if (auth.state === 'checking') return 'Checking…';
   if (auth.state === 'unavailable') return 'Not available in this version yet';
   const { browserSignedIn, connected, signedIn, user } = auth.auth;
-  if (!browserSignedIn) return 'Not signed in in this browser';
+  if (!browserSignedIn) return 'Not signed in';
   if (!connected) return 'Disconnected';
   return signedIn ? `Signed in as ${user?.name ?? 'your account'}` : 'Couldn’t read your account';
 }

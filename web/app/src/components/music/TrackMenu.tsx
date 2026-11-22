@@ -137,7 +137,7 @@ function DownloadRow({ track }: { track: Track }) {
 /**
  * A song's menu (SongActionsMenu.kt), in the phone's order: the rating and
  * Share as tiles; Add to playlist; Start radio, Play next, Add to queue,
- * Download (where this browser can keep files);
+ * Download (where this device can keep files);
  * Go to album, Go to artist, Song info; and in the player's own menu the
  * sleep timer, AutoMix and lyrics offset. Account rows only signed in.
  */

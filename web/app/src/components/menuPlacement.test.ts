@@ -26,4 +26,12 @@ describe('placeMenu', () => {
     const bar = { left: 300, right: 968, top: 724, bottom: 780 };
     expect(placeMenu(bar, size, viewport, 'below-end', { x: 400, y: 750 })).toMatchObject({ top: 418, origin: 'left bottom' });
   });
+
+  it('scrolls on the roomier side of a row rather than covering it when neither side fits', () => {
+    const row = { left: 0, right: 1000, top: 300, bottom: 356 };
+    const tall = { width: 256, height: 500 };
+    expect(placeMenu(row, tall, viewport, 'below-end', { x: 100, y: 320 })).toEqual({ left: 100, top: 362, maxHeight: 430, origin: 'left top' });
+    const high = { left: 0, right: 1000, top: 500, bottom: 556 };
+    expect(placeMenu(high, tall, viewport, 'below-end', { x: 100, y: 520 })).toEqual({ left: 100, top: 8, maxHeight: 486, origin: 'left bottom' });
+  });
 });

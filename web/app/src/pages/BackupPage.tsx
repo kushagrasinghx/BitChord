@@ -96,7 +96,7 @@ function BackupFileSection() {
   };
 
   const restore = async (file: File) => {
-    if (!window.confirm(`Replace this browser’s settings and listening with ${file.name}?`)) return;
+    if (!window.confirm(`Replace this device’s settings and listening with ${file.name}?`)) return;
     setBusy(true);
     try {
       const summary = await importBackup(await file.text());
@@ -116,7 +116,7 @@ function BackupFileSection() {
             Export
           </button>
         </Row>
-        <Row icon={FileDown} title="Import Backup" detail="From this browser or the BitChord app. Replaces what’s here.">
+        <Row icon={FileDown} title="Import Backup" detail="From BitChord on any device, or the Android app. Replaces what’s here.">
           <button className={settingsUi.inlineButton} disabled={busy} onClick={() => picker.current?.click()}>
             Import
           </button>
@@ -232,7 +232,7 @@ function DriveSection() {
             </button>
           </Row>
         ) : s.needsSignIn ? (
-          <Row icon={User} title={s.account} detail="Google’s sign-in lasts an hour in a browser. Sign in again to sync.">
+          <Row icon={User} title={s.account} detail="Google’s sign-in lasts an hour here. Sign in again to sync.">
             <button className={settingsUi.inlineButton} onClick={() => connect()}>
               Sign In Again
             </button>
@@ -254,13 +254,13 @@ function DriveSection() {
       {connected && (
         <>
           <Group
-            header="This Browser"
+            header="This Device"
             footer={
               choosing
                 ? 'Your other devices’ listening adds to this one’s in Replay. Or restore as one of them, below.'
                 : s.forkedTo
-                  ? `Another device restored as this one, so this browser carried on as ${s.forkedTo}.`
-                  : 'How your other devices list this browser.'
+                  ? `Another device restored as this one, so this device carried on as ${s.forkedTo}.`
+                  : 'How your other devices list this one.'
             }
           >
             {choosing ? (
@@ -289,7 +289,7 @@ function DriveSection() {
 
       <Group
         header="Auto Sync"
-        footer="While BitChord is open: when it opens, then on this schedule. Other devices’ listening comes down at least twice a day. A browser can’t sync in the background."
+        footer="While BitChord is open: when it opens, then on this schedule. Other devices’ listening comes down at least twice a day. Nothing syncs while BitChord is closed."
       >
         <ChoiceRow icon={CalendarClock} title="Back Up" options={FREQUENCIES} value={s.frequency} onChange={setFrequency} />
       </Group>
@@ -312,14 +312,14 @@ function DriveSection() {
                 const mine = device.deviceId === s.identity.deviceId;
                 return (
                   <Row key={device.deviceId} icon={MonitorSmartphone} title={device.name} detail={describe(device)}>
-                    {mine && 'This browser'}
+                    {mine && 'This device'}
                     <button
                       className={settingsUi.inlineButton}
                       disabled={running}
                       onClick={() =>
                         window.confirm(
                           mine
-                            ? 'Delete this browser’s backup from Google Drive? Its listening stays here, and auto sync turns off.'
+                            ? 'Delete this device’s backup from Google Drive? Its listening stays here, and auto sync turns off.'
                             : `Delete ${device.name}’s backup from Google Drive? Its listening leaves Replay on every device.`,
                         ) && void removeDevice(device)
                       }
@@ -334,7 +334,7 @@ function DriveSection() {
 
           <Group
             header="Restore"
-            footer="Restoring makes this browser that device, as when you move to a new phone. Use it to pick up where a device left off."
+            footer="Restoring makes this device that one, as when you move to a new phone. Use it to pick up where a device left off."
           >
             {others.length === 0 ? (
               <Row icon={MonitorSmartphone} title="No other devices to restore from" />
@@ -346,7 +346,7 @@ function DriveSection() {
                     disabled={running}
                     onClick={() =>
                       window.confirm(
-                        `Restore as ${device.name}? Its listening and settings replace this browser’s, and this browser carries on as it.`,
+                        `Restore as ${device.name}? Its listening and settings replace this device’s, and this device carries on as it.`,
                       ) && void restoreAs(device)
                     }
                   >

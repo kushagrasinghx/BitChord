@@ -115,7 +115,7 @@ export class YouTubeEngine {
   private async ensurePlayer(): Promise<shaka.Player> {
     if (this.player) return this.player;
     shaka.polyfill.installAll();
-    if (!shaka.Player.isBrowserSupported()) throw new Error('This browser can’t play YouTube streams (no Media Source Extensions)');
+    if (!shaka.Player.isBrowserSupported()) throw new Error('YouTube streams can’t play here (no Media Source Extensions)');
     const player = new shaka.Player();
     player.configure({
       manifest: { disableVideo: true, disableText: true, disableThumbnails: true },

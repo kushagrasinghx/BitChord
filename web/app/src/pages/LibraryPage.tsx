@@ -67,7 +67,7 @@ function Downloads() {
           <TrackList tracks={tracks} variant="playlist" source={{ title: 'Downloads', type: 'library', id: 'downloads' }} />
         </div>
       ) : (
-        <EmptyState title="No downloads yet" detail="Choose Download in a song’s menu, or turn on Keep Liked Songs Downloaded in Settings, to keep songs in this browser." />
+        <EmptyState title="No downloads yet" detail="Choose Download in a song’s menu, or turn on Keep Liked Songs Downloaded in Settings, to keep songs on this device." />
       )}
     </>
   );

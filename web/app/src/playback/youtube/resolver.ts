@@ -188,7 +188,7 @@ function permanentReason(status: string | undefined, reason: string | undefined,
   if (AGE_GATE.test(text)) {
     return signedIn
       ? 'YouTube won’t serve this age-restricted track to this account. Check the account’s age is verified on YouTube.'
-      : 'This track is age-restricted. Sign in to YouTube Music in this browser to play it.';
+      : 'This track is age-restricted. Sign in to YouTube Music to play it.';
   }
   if (/country|region/.test(text)) return 'This track isn’t available in your country';
   if (/private/.test(text)) return 'This track is private';

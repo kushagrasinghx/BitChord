@@ -2,6 +2,7 @@ import { fitsOnShareCard, pickShareLines, shareTimeline, ShareSourceLine } from 
 import { Download, Loader2, Share, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useCanvas } from '@/data/spotify/canvas';
 import { artworkAtPixels } from '@/lib/artwork';
 import { fetchTrackAudio } from '@/playback/automix/fetchAudio';
@@ -318,7 +319,7 @@ export default function ShareLyricsSheet({ lyrics, onClose }: { lyrics: LyricLin
                 Save
               </button>
               <button
-                className="flex flex-1 items-center justify-center gap-2 rounded-[14px] bg-key px-4 py-2 type-body-emphasized text-white disabled:opacity-40"
+                className="flex flex-1 items-center justify-center gap-2 rounded-[14px] bg-key px-4 py-2 type-body-emphasized text-on-key disabled:opacity-40"
                 disabled={!card || busy}
                 onClick={() => void run('share')}
               >
@@ -336,7 +337,7 @@ export default function ShareLyricsSheet({ lyrics, onClose }: { lyrics: LyricLin
 
 type Work = { state: 'idle' } | { state: 'busy'; label: string } | { state: 'done' | 'error'; message: string };
 
-/** Two to three choices, one of them on: the phone's SegmentedControl. */
+/** Two to three choices, one of them on: the phone's SegmentedControl, from [id, label] pairs. */
 function Segmented<T extends string>({
   label,
   options,
@@ -351,20 +352,13 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex w-full rounded-[9px] bg-quinary p-0.5" role="radiogroup" aria-label={label}>
-      {options.map(([id, text]) => (
-        <button
-          key={id}
-          className="flex-1 rounded-[7px] px-3 py-1 type-callout-emphasized text-secondary enabled:hover:text-primary aria-checked:bg-quaternary aria-checked:text-primary disabled:opacity-40"
-          role="radio"
-          aria-checked={value === id}
-          disabled={disabled.includes(id)}
-          onClick={() => onChange(id)}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label={label}
+      options={options.map(([id, text]) => ({ value: id, label: text, disabled: disabled.includes(id) }))}
+      value={value}
+      onChange={onChange}
+      className="w-full"
+    />
   );
 }
 

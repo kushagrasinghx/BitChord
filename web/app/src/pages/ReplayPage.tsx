@@ -7,6 +7,7 @@ import { Artwork } from '@/components/music/Artwork';
 import { albumHref, artistHref } from '@/components/music/links';
 import { playTrack } from '@/components/music/play';
 import { LoadError, stateStyles } from '@/components/music/States';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { Track } from '@/data/music/types';
 import { useArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
@@ -32,7 +33,7 @@ const EMPTY_DETAIL: Record<ReplayPeriod, string> = {
 };
 
 const action = 'inline-flex h-9 items-center gap-2 rounded-pill px-[18px] type-title-3-emphasized transition-[filter] hover:brightness-110';
-const primaryAction = `${action} bg-key-bg text-white`;
+const primaryAction = `${action} bg-key-bg text-on-key`;
 const secondaryAction = `${action} bg-quaternary text-primary disabled:opacity-50`;
 
 /**
@@ -108,19 +109,13 @@ export default function ReplayPage() {
  */
 function PeriodPicker({ value, onChange }: { value: ReplayPeriod; onChange: (period: ReplayPeriod) => void }) {
   return (
-    <div role="tablist" aria-label="Period" className="mx-(--body-gutter) mt-4 inline-flex rounded-[9px] bg-segmented p-0.5">
-      {PERIODS.map((p) => (
-        <button
-          key={p.id}
-          role="tab"
-          aria-selected={p.id === value}
-          className="min-w-[88px] rounded-[7px] px-3 py-1 type-body-emphasized text-primary transition-[background-color] duration-150 aria-selected:bg-segmented-selected aria-selected:shadow-[0_1px_3px_rgb(0_0_0/0.2)]"
-          onClick={() => onChange(p.id)}
-        >
-          {p.tab}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label="Period"
+      options={PERIODS.map((p) => ({ value: p.id, label: p.tab }))}
+      value={value}
+      onChange={onChange}
+      className="mx-(--body-gutter) mt-4 max-w-[440px]"
+    />
   );
 }
 

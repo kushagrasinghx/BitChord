@@ -1536,4 +1536,6 @@
     <string name="drive_backup_row_subtitle">在你的所有设备间备份并同步 Replay</string>
     <string name="drive_over_cellular">使用移动数据同步</string>
     <string name="drive_over_cellular_subtitle">关闭时，自动同步会等待 Wi-Fi</string>
+    <string name="hide_trending">隐藏热门趋势推荐</string>
+    <string name="hide_trending_subtitle">从主页移除热门趋势歌曲和社区播放列表</string>
 </resources>

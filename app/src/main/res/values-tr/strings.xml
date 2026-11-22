@@ -1517,4 +1517,6 @@
     <string name="drive_backup_row_subtitle">Replay\'i tüm cihazlarınızda yedekleyin ve eşitleyin</string>
     <string name="drive_over_cellular">Mobil veriyle eşitle</string>
     <string name="drive_over_cellular_subtitle">Kapalıyken otomatik eşitlemeler Wi-Fi\'ı bekler</string>
+    <string name="hide_trending">Trend önerilerini gizle</string>
+    <string name="hide_trending_subtitle">Ana sayfadan trend şarkıları ve topluluk çalma listelerini kaldırır</string>
 </resources>

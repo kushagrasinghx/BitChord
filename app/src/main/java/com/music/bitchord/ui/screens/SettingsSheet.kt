@@ -306,6 +306,7 @@ fun SettingsScreen(
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
     val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
     val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
+    val hideTrending by AppSettings.hideTrending.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
@@ -1096,6 +1097,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setHideHomeMoods(!hideHomeMoods) },
+                )
+            }
+            val hideTrendingTitle = stringResource(R.string.hide_trending)
+            row(hideTrendingTitle, "trending", "feed", "home", "recommendations") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideTrendingTitle,
+                    subtitle = stringResource(R.string.hide_trending_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hideTrending,
+                            onCheckedChange = AppSettings::setHideTrending,
+                        )
+                    },
+                    onClick = { AppSettings.setHideTrending(!hideTrending) },
                 )
             }
             val squareVideoThumbnailsTitle = stringResource(R.string.square_video_thumbnails)

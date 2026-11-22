@@ -1476,4 +1476,6 @@
     <string name="drive_backup_row_subtitle">Sao lưu và đồng bộ Replay trên mọi thiết bị</string>
     <string name="drive_over_cellular">Đồng bộ qua dữ liệu di động</string>
     <string name="drive_over_cellular_subtitle">Khi tắt, đồng bộ tự động sẽ chờ Wi-Fi</string>
+    <string name="hide_trending">Ẩn đề xuất thịnh hành</string>
+    <string name="hide_trending_subtitle">Xóa bài hát thịnh hành và danh sách phát cộng đồng khỏi Trang chủ</string>
 </resources>

@@ -1602,4 +1602,6 @@
     <string name="drive_backup_row_subtitle">Kopia i synchronizacja Replay na wszystkich urządzeniach</string>
     <string name="drive_over_cellular">Synchronizuj przez dane komórkowe</string>
     <string name="drive_over_cellular_subtitle">Gdy wyłączone, automatyczne synchronizacje czekają na Wi-Fi</string>
+    <string name="hide_trending">Ukryj rekomendacje z trendów</string>
+    <string name="hide_trending_subtitle">Usuwa utwory z trendów i playlisty społeczności ze strony głównej</string>
 </resources>

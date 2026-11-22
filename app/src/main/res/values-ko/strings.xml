@@ -1409,4 +1409,6 @@
     <string name="drive_backup_row_subtitle">모든 기기에서 Replay 백업 및 동기화</string>
     <string name="drive_over_cellular">모바일 데이터로 동기화</string>
     <string name="drive_over_cellular_subtitle">끄면 자동 동기화가 Wi-Fi를 기다립니다</string>
+    <string name="hide_trending">인기 급상승 추천 숨기기</string>
+    <string name="hide_trending_subtitle">홈에서 인기 급상승 곡 및 커뮤니티 재생목록을 제거합니다</string>
 </resources>

@@ -1532,4 +1532,6 @@
     <string name="drive_backup_row_subtitle">Copia y sincroniza Replay entre tus dispositivos</string>
     <string name="drive_over_cellular">Sincronizar con datos móviles</string>
     <string name="drive_over_cellular_subtitle">Si está desactivado, las sincronizaciones automáticas esperan al Wi-Fi</string>
+    <string name="hide_trending">Ocultar recomendaciones de tendencias</string>
+    <string name="hide_trending_subtitle">Elimina canciones en tendencia y listas de la comunidad de Inicio</string>
 </resources>

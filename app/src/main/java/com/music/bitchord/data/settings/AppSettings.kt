@@ -523,6 +523,7 @@ object AppSettings {
 
     /** Home's Find Your Mood shelf. Explore's moods are a page the listener opened, so they stay. */
     val hideHomeMoods = MutableStateFlow(false)
+    val hideTrending = MutableStateFlow(false)
 
     /** Music videos are square wherever they show — see [com.music.bitchord.ui.components.VideoThumbnails]. */
     val squareVideoThumbnails = MutableStateFlow(false)
@@ -1130,6 +1131,7 @@ object AppSettings {
         hideHomeVideos.value = prefs.getBoolean(KEY_HIDE_HOME_VIDEOS, false)
         hideTopPicks.value = prefs.getBoolean(KEY_HIDE_TOP_PICKS, false)
         hideHomeMoods.value = prefs.getBoolean(KEY_HIDE_HOME_MOODS, false)
+        hideTrending.value = prefs.getBoolean(KEY_HIDE_TRENDING, false)
         squareVideoThumbnails.value = prefs.getBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, false)
         VideoThumbnails.square = squareVideoThumbnails.value
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
@@ -1636,6 +1638,11 @@ object AppSettings {
     fun setHideHomeMoods(value: Boolean) {
         hideHomeMoods.value = value
         prefs.edit().putBoolean(KEY_HIDE_HOME_MOODS, value).apply()
+    }
+
+    fun setHideTrending(value: Boolean) {
+        hideTrending.value = value
+        prefs.edit().putBoolean(KEY_HIDE_TRENDING, value).apply()
     }
 
     fun setSquareVideoThumbnails(value: Boolean) {
@@ -2476,6 +2483,7 @@ object AppSettings {
     private const val KEY_HIDE_HOME_VIDEOS = "hide_home_videos"
     private const val KEY_HIDE_TOP_PICKS = "hide_top_picks"
     private const val KEY_HIDE_HOME_MOODS = "hide_home_moods"
+    private const val KEY_HIDE_TRENDING = "hide_trending"
     private const val KEY_SQUARE_VIDEO_THUMBNAILS = "square_video_thumbnails"
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"

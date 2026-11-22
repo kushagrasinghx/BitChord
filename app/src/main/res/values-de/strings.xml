@@ -1560,4 +1560,6 @@
     <string name="drive_backup_row_subtitle">Replay auf all deinen Geräten sichern und synchronisieren</string>
     <string name="drive_over_cellular">Über mobile Daten synchronisieren</string>
     <string name="drive_over_cellular_subtitle">Wenn aus, warten automatische Synchronisierungen auf WLAN</string>
+    <string name="hide_trending">Trends ausblenden</string>
+    <string name="hide_trending_subtitle">Entfernt Trends und Community-Playlists von der Startseite</string>
 </resources>

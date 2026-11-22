@@ -14,6 +14,11 @@
 
 /* Tailwind's hover: is (hover: hover)-gated; the design's hovers aren't. */
 @custom-variant hover (&:hover);
+/*
+ * Windows between the phone layout and ~900px: the sidebar folds to a rail of
+ * tab glyphs, so the page keeps most of the window rather than two thirds.
+ */
+@custom-variant rail (@media (min-width: 484px) and (max-width: 899.98px));
 
 @theme {
   /* The design is measured in px (web/docs/apple-music-dom.md): p-4 is 16px at any root font size. */
@@ -517,6 +522,24 @@
   :focus,
   :focus-visible {
     outline: none;
+  }
+
+  /*
+   * Keyboard focus is shown instead as the selected sidebar tab's fill, the
+   * key colour at 14% (FloatingBottomBar.kt), which the artwork tint recolours
+   * for its page. It is laid as an image over the control's own background, so
+   * it sits on top of a hover or a filled button rather than replacing it.
+   * Fields keep their caret and are left out; a mouse click shows nothing.
+   */
+  :where(a[href], button, summary, [role='button'], [role='link'], [role='option'], [role='menuitem'], [role='menuitemradio'], [role='tab'], [role='radio'], [role='switch'], [role='checkbox'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
+  }
+
+  /* The rail's width (see the rail variant): a 48px glyph column with 12px either side. */
+  @media (min-width: 484px) and (max-width: 899.98px) {
+    :root {
+      --web-navigation-width: 72px;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

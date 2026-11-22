@@ -48,7 +48,7 @@ function RenameForm({ id, title, onDone }: { id: string; title: string; onDone: 
     >
       <MenuHeader>Rename Playlist</MenuHeader>
       <input
-        className="mx-1 rounded-[6px] bg-quaternary px-2 py-1 type-body text-primary outline-none focus-visible:ring-2 focus-visible:ring-key"
+        className="mx-1 rounded-[6px] bg-quaternary px-2 py-1 type-body text-primary outline-none"
         aria-label="Playlist name"
         value={name}
         maxLength={150}
@@ -196,7 +196,7 @@ function Suggested({ id, title, known }: { id: string; title: string; known: Tra
 }
 
 const reorderRow =
-  'group/entry grid h-[54px] cursor-grab grid-cols-[24px_40px_minmax(0,1fr)] items-center gap-3 rounded-[12px] px-2 outline-none hover:bg-tracklist-hover focus-visible:ring-2 focus-visible:ring-key active:cursor-grabbing data-dragging:bg-quinary data-dragging:opacity-60';
+  'group/entry grid h-[54px] cursor-grab grid-cols-[24px_40px_minmax(0,1fr)] items-center gap-3 rounded-[12px] px-2 outline-none hover:bg-tracklist-hover active:cursor-grabbing data-dragging:bg-quinary data-dragging:opacity-60';
 
 /**
  * Rearranging the account's playlist (ReorderPlaylistPage), drawn in place of

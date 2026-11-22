@@ -153,13 +153,13 @@ export function SearchField({
     <>
       {/*
         Fixed at the head of the page while the results scroll under it (SearchScreen.kt).
-        It sits in the shell's 52px top bar row, the field centred in it and stopping short
+        It sits in the shell's 52px top bar row, the field matching the bar's 44px circles edge for edge and stopping short
         of the bar's account pill, which the shell measures into --top-bar-trailing-width.
       */}
-      <div className="sticky top-0 z-[calc(var(--z-default)+5)] flex flex-col gap-1 bg-page px-(--body-gutter) pt-[3px] pb-1.5">
+      <div className="sticky top-0 z-[calc(var(--z-default)+5)] flex flex-col gap-1 bg-page px-(--body-gutter) pt-1 pb-1.5">
         <form
           role="search"
-          className="me-(--top-bar-trailing-width,0px) flex h-[46px] items-center gap-1 rounded-search bg-surface-variant ps-2 pe-3"
+          className="me-(--top-bar-trailing-width,0px) flex h-11 items-center gap-1 rounded-search bg-surface-variant ps-2 pe-3"
           onSubmit={(e) => {
             e.preventDefault();
             pick(options[active]);

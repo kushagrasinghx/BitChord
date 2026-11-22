@@ -41,7 +41,7 @@ const row =
 const divider =
   "after:pointer-events-none after:absolute after:right-2.5 after:bottom-0 after:left-[78px] after:h-px after:scale-y-50 after:bg-outline after:content-[''] last:after:hidden";
 /** The row's main hit area: art and text, stretched over the whole row under its trailing buttons. */
-const hit = 'col-span-2 grid grid-cols-subgrid items-center text-left outline-none before:absolute before:inset-0 before:rounded-row focus-visible:before:ring-2 focus-visible:before:ring-key';
+const hit = 'col-span-2 grid grid-cols-subgrid items-center text-left outline-none before:absolute before:inset-0 before:rounded-row focus-visible:bg-none focus-visible:before:bg-key/14';
 
 /**
  * A round trailing button: the phone's 40px touch target around an 18px glyph

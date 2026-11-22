@@ -2,18 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
-import { shelfHeader, shelfSection } from '@/components/shelf';
 import { LogoMark } from '@/components/icons/LogoMark';
 import { Artwork } from '@/components/music/Artwork';
 import { hrefFor } from '@/components/music/links';
-import { ShelfScroller, ShelfView } from '@/components/music/ShelfView';
+import { ShelfScroller, ShelfTitle, ShelfView } from '@/components/music/ShelfView';
+import { shelfSection } from '@/components/shelf';
+import { SignInBanner } from '@/components/music/SignInBanner';
 import { EmptyState, LoadError, NeedsExtension } from '@/components/music/States';
 import { fetchMixes, groupedMixes } from '@/data/music/library';
 import { useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import type { MusicItem } from '@/data/music/types';
 import { useYtAuth } from '@/extension/useYtAuth';
 import { useArtworkColor } from '@/lib/artworkColor';
-import { HomeSkeleton } from '@/skeletons/PageSkeletons';
+import { FeedSkeleton } from '@/skeletons/PageSkeletons';
 
 const TITLE = 'Radio';
 
@@ -37,7 +38,8 @@ function StationTile({ item }: { item: MusicItem }) {
         {/* The mark at 42% of the tile's width, at its own 730:484 shape. */}
         <LogoMark className="aspect-[730/484] h-auto! w-[42%]!" />
       </span>
-      <span className="truncate px-2 pb-2.5 text-center type-callout-emphasized">{item.title}</span>
+      {/* labelMedium, semibold, 8px in and 9px off the foot. */}
+      <span className="truncate px-2 pb-[9px] text-center type-label-medium">{item.title}</span>
     </PrefetchLink>
   );
 }
@@ -45,21 +47,21 @@ function StationTile({ item }: { item: MusicItem }) {
 /**
  * A mix of the listener's own, a size up from a shelf card, with its caption
  * on a band tinted from its own artwork (MixesScreen FeatureCard, Apple
- * Music's On Air Now).
+ * Music's On Air Now): one fixed 240px wide, radius 14, title 16 over a two-line 14 credit.
  */
 function FeatureCard({ item }: { item: MusicItem }) {
   const color = useArtworkColor(item.thumbnail);
   return (
     <PrefetchLink
       to={hrefFor(item) ?? '/radio'}
-      className="flex flex-col overflow-hidden rounded-[14px] bg-joe artwork-stroke data-dark:text-white data-light:text-black"
+      className="relative flex flex-col overflow-hidden rounded-group bg-joe artwork-stroke data-dark:text-white data-light:text-black"
       style={color ? { backgroundColor: color.background } : undefined}
       data-dark={color?.dark || undefined}
       data-light={(color && !color.dark) || undefined}
     >
-      <Artwork src={item.thumbnail} displayWidth={300} radius={0} />
+      <Artwork src={item.thumbnail} displayWidth={240} radius={0} />
       <span className="flex min-w-0 flex-col px-3 py-2.5">
-        <span className="truncate type-headline">{item.title}</span>
+        <span className="truncate type-title-2-emphasized">{item.title}</span>
         {/* Two lines held even when the credit is short, so the cards stand the same height. */}
         <span className="line-clamp-2 min-h-[2lh] type-callout opacity-70">{item.subtitle}</span>
       </span>
@@ -93,10 +95,7 @@ export default function RadioPage() {
     return (
       <>
         <PageHeader title={TITLE} />
-        <EmptyState
-          title="Sign in to hear your mixes"
-          detail="BitChord uses the YouTube Music account this browser is signed in to. Sign in on music.youtube.com, then come back."
-        />
+        <SignInBanner />
       </>
     );
   }
@@ -108,27 +107,36 @@ export default function RadioPage() {
       </>
     );
   }
-  if (!sections) return <HomeSkeleton />;
+  if (!sections) {
+    return (
+      <div aria-busy="true">
+        <PageHeader title={TITLE} />
+        <FeedSkeleton />
+      </div>
+    );
+  }
 
   const empty = !sections.stations.length && !sections.yours.length && !sections.moods.length;
   return (
     <>
       <PageHeader title={TITLE} />
-      {empty && <EmptyState title="No mixes yet" detail="Keep listening and YouTube Music will make some for you." />}
+      {empty && <EmptyState title="No mixes yet. Keep listening and YouTube Music will make some for you." />}
       {sections.stations.length > 0 && (
-        // Three across, six on a wide window, as the phone's tiles go to six on a tablet.
-        <ul className="mx-(--body-gutter) mt-5 grid grid-cols-3 gap-3 md:grid-cols-6" aria-label="Stations">
-          {sections.stations.map((item) => (
-            <li key={item.id}>
-              <StationTile item={item} />
-            </li>
-          ))}
-        </ul>
+        // Three across, six once the row is 600px wide (MixesScreen.kt WIDE_GRID_WIDTH), 12px apart.
+        <div className="@container mx-(--body-gutter) mb-[26px]">
+          <ul className="grid grid-cols-3 gap-3 @min-[600px]:grid-cols-6" aria-label="Stations">
+            {sections.stations.map((item) => (
+              <li key={item.id}>
+                <StationTile item={item} />
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {sections.yours.length > 0 && (
         <section className={shelfSection} aria-label="Your Mixes">
-          <h2 className={shelfHeader}>Your Mixes</h2>
-          <ShelfScroller kind="editorial">
+          <ShelfTitle title="Your Mixes" />
+          <ShelfScroller kind="feature">
             {sections.yours.map((item) => (
               <li key={item.id}>
                 <FeatureCard item={item} />

@@ -4,8 +4,8 @@ import { prefetchPageData } from '@/data/music/queries';
 import {
   AlbumSkeleton,
   ArtistSkeleton,
+  ExploreSkeleton,
   HomeSkeleton,
-  NewSkeleton,
   PlainSkeleton,
   PlaylistSkeleton,
   SearchSkeleton,
@@ -25,9 +25,10 @@ interface PageRoute {
  */
 export const pages: PageRoute[] = [
   { path: '/home', load: () => import('@/pages/HomePage'), skeleton: <HomeSkeleton /> },
-  { path: '/explore', load: () => import('@/pages/NewPage'), skeleton: <NewSkeleton /> },
+  { path: '/explore', load: () => import('@/pages/ExplorePage'), skeleton: <ExploreSkeleton /> },
   // The page was "New" before it became the phone's Explore tab; old links still land.
   { path: '/new', load: async () => ({ default: () => <Navigate to="/explore" replace /> }), skeleton: null },
+  { path: '/moods', load: () => import('@/pages/MoodsPage'), skeleton: <PlainSkeleton /> },
   { path: '/radio', load: () => import('@/pages/RadioPage'), skeleton: <HomeSkeleton /> },
   { path: '/search', load: () => import('@/pages/SearchPage'), skeleton: <SearchSkeleton /> },
   { path: '/album/:id', load: () => import('@/pages/AlbumPage'), skeleton: <AlbumSkeleton /> },

@@ -1,8 +1,6 @@
 package com.music.bitchord.data.stats
 
 import kotlinx.serialization.json.Json
-import java.security.MessageDigest
-import java.util.Locale
 
 /**
  * Arithmetic on months of listening, for moving them between devices.
@@ -17,6 +15,9 @@ import java.util.Locale
  *
  * Nothing here mutates its arguments: every entry is copied before it is added
  * to, because [TrackEntry.absorb] and [NameEntry.absorb] add in place.
+ *
+ * Shared with the web player; the SHA-256 [hash] stays on the JVM, in the app
+ * (BucketHash.kt).
  */
 object BucketMath {
 
@@ -30,15 +31,15 @@ object BucketMath {
         require(a.month == b.month) { "Can't add ${a.month} to ${b.month}" }
         val tracks = LinkedHashMap<String, TrackEntry>()
         (a.tracks + b.tracks).forEach { entry ->
-            tracks.merge(entry.id, entry.deepCopy()) { x, y -> x.also { it.absorb(y) } }
+            tracks[entry.id]?.absorb(entry) ?: tracks.put(entry.id, entry.deepCopy())
         }
         val artists = LinkedHashMap<String, NameEntry>()
         (a.artists + b.artists).forEach { entry ->
-            artists.merge(artistKey(entry), entry.deepCopy()) { x, y -> x.also { it.absorb(y) } }
+            artistKey(entry).let { key -> artists[key]?.absorb(entry) ?: artists.put(key, entry.deepCopy()) }
         }
         val albums = LinkedHashMap<String, NameEntry>()
         (a.albums + b.albums).forEach { entry ->
-            albums.merge(albumKey(entry), entry.deepCopy()) { x, y -> x.also { it.absorb(y) } }
+            albumKey(entry).let { key -> albums[key]?.absorb(entry) ?: albums.put(key, entry.deepCopy()) }
         }
         return StoredBucket(
             version = maxOf(a.version, b.version),
@@ -101,14 +102,10 @@ object BucketMath {
      * field order, so the same month always hashes the same.
      */
     fun canonicalBytes(bucket: StoredBucket): ByteArray =
-        canonical.encodeToString(StoredBucket.serializer(), bucket).toByteArray()
+        canonical.encodeToString(StoredBucket.serializer(), bucket).encodeToByteArray()
 
     fun decode(bytes: ByteArray): StoredBucket =
         canonical.decodeFromString(StoredBucket.serializer(), bytes.decodeToString())
-
-    /** Hex SHA-256 of [bytes]: what a month is recognised by between syncs. */
-    fun hash(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     // ---- Keys -------------------------------------------------------------
 
@@ -117,10 +114,10 @@ object BucketMath {
      * artist, lower-cased; an album by its id, or by title and artist.
      */
     private fun artistKey(entry: NameEntry): String =
-        (ListeningStats.primaryArtist(entry.name) ?: entry.name).lowercase(Locale.ROOT)
+        (ListeningKeys.primaryArtist(entry.name) ?: entry.name).lowercase()
 
     private fun albumKey(entry: NameEntry): String =
-        entry.id ?: (entry.name.lowercase(Locale.ROOT) + SEPARATOR + entry.sub.orEmpty().lowercase(Locale.ROOT))
+        entry.id ?: (entry.name.lowercase() + SEPARATOR + entry.sub.orEmpty().lowercase())
 
     private val SEPARATOR = Char(31).toString()
 

@@ -4,6 +4,7 @@ import { Shelves, TrackShelf } from '@/components/music/ShelfView';
 import { LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
 import { useHome, useLibrary, useYouTubeReady } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
+import { ReplayButton } from '@/replay/ReplayButton';
 import { HomeSkeleton } from '@/skeletons/PageSkeletons';
 import { ShelfSkeleton } from '@/skeletons/ShelfSkeleton';
 
@@ -21,6 +22,18 @@ function useRecentlyPlayed(): Track[] {
   const first = history.data?.pages[0]?.data.tracks ?? [];
   const seen = new Set<string>();
   return first.filter((t) => !seen.has(t.videoId) && seen.add(t.videoId)).slice(0, RECENT_LIMIT);
+}
+
+/** The title, with the way into the Replay beside it, as the phone puts it beside the wordmark. */
+function HomeHeader() {
+  return (
+    <div className="flex items-end gap-1">
+      <PageHeader title="Home" />
+      <div className="mb-1">
+        <ReplayButton />
+      </div>
+    </div>
+  );
 }
 
 /** YouTube Music's home feed, as Apple's Home: shelf after shelf, more as you scroll. */
@@ -48,7 +61,7 @@ export default function HomePage() {
   if (missing) {
     return (
       <>
-        <PageHeader title="Home" />
+        <HomeHeader />
         <NeedsExtension />
       </>
     );
@@ -57,7 +70,7 @@ export default function HomePage() {
   if (home.isError && !home.data) {
     return (
       <>
-        <PageHeader title="Home" />
+        <HomeHeader />
         <LoadError error={home.error} onRetry={() => void home.refetch()} />
       </>
     );
@@ -70,7 +83,7 @@ export default function HomePage() {
     .filter((shelf) => !(recent.length > 0 && shelf.title.trim().toLowerCase() === RECENT_TITLE.toLowerCase()));
   return (
     <>
-      <PageHeader title="Home" />
+      <HomeHeader />
       {recent.length > 0 && <TrackShelf title={RECENT_TITLE} to="/library/recent" tracks={recent} source={RECENT_SOURCE} />}
       <Shelves shelves={shelves} />
       <div ref={sentinel} />

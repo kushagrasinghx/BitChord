@@ -1,5 +1,28 @@
 type Nullable<T> = T | null | undefined
 declare function KtSingleton<T>(): T & (abstract new() => any);
+export declare class BestPartLine {
+    constructor(timeMs: number, text: string);
+    get timeMs(): number;
+    get text(): string;
+}
+export declare namespace BestPartLine {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => BestPartLine;
+    }
+}
+export declare class BestPartPick {
+    constructor(startMs: number, source: string);
+    get startMs(): number;
+    get source(): string;
+}
+export declare namespace BestPartPick {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => BestPartPick;
+    }
+}
+export declare function bestPart(nextResponse: Nullable<string>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
 export declare function artworkAt(url: Nullable<string>, px: number): Nullable<string>;
 export declare class PlaylistMove {
     constructor(setVideoId: string, before: Nullable<string>);

@@ -48,8 +48,8 @@ export const exploreQuery = () =>
   queryOptions({ queryKey: ['music', 'explore'], queryFn: fetchExplore, staleTime: STALE });
 export const categoriesQuery = () =>
   queryOptions({ queryKey: ['music', 'categories'], queryFn: fetchCategories, staleTime: 60 * 60_000 });
-export const searchQuery = (query: string) =>
-  queryOptions({ queryKey: ['music', 'search', query], queryFn: () => fetchSearch(query), staleTime: STALE });
+export const searchQuery = (query: string, params?: string | null) =>
+  queryOptions({ queryKey: ['music', 'search', query, params ?? null], queryFn: () => fetchSearch(query, params), staleTime: STALE });
 export const browseQuery = (link: BrowseLink) =>
   queryOptions({ queryKey: ['music', 'browse', link.browseId, link.params], queryFn: () => fetchBrowse(link), staleTime: STALE });
 
@@ -110,9 +110,9 @@ export function useCategories() {
   const { ready } = useYouTubeReady();
   return useQuery({ ...categoriesQuery(), enabled: ready });
 }
-export function useSearch(query: string) {
+export function useSearch(query: string, params?: string | null) {
   const { ready } = useYouTubeReady();
-  return useQuery({ ...searchQuery(query), enabled: ready && query.trim().length > 0 });
+  return useQuery({ ...searchQuery(query, params), enabled: ready && query.trim().length > 0 });
 }
 export function useBrowse(link: BrowseLink) {
   const { ready } = useYouTubeReady();

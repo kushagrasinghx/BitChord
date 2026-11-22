@@ -78,9 +78,13 @@ export async function fetchCategories(): Promise<CategoryGroup[]> {
   return mapCategories(response.data);
 }
 
-export async function fetchSearch(query: string): Promise<SearchResults> {
+/** A search, narrowed by one of the filter chips' YouTube Music params (Models.kt SearchFilter) when given. */
+export async function fetchSearch(query: string, params?: string | null): Promise<SearchResults> {
   const yt = await getMusicClient();
-  return mapSearch(await yt.music.search(query));
+  if (!params) return mapSearch(await yt.music.search(query));
+  // YouTube.js only builds params for its own five types; Library's are YouTube Music's own.
+  const { YTMusic } = await import('youtubei.js/web');
+  return mapSearch(new YTMusic.Search(await yt.actions.execute('/search', { query, params, client: 'YTMUSIC' }), yt.actions, true));
 }
 
 /** YouTube Music's Songs shelf for [query]: what an import or a match is chosen from. */

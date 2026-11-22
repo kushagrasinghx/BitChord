@@ -1,7 +1,7 @@
 // Registers <am-lyrics>.
 import '@uimaxbai/am-lyrics/am-lyrics.js';
-import { Check, ChevronDown, Loader2, Minus, Settings2, Share } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Check, ChevronDown, Globe, Languages, Loader2, Minus, Settings2, Share } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { LyricClock } from '@bitchord/shared-kotlin';
 import { useCanvas } from '@/data/spotify/canvas';
 import { getBridge } from '@/extension/bridge';
@@ -87,13 +87,38 @@ const TRANSLATION_DIRECTION = '.lyrics-translation-container { unicode-bidi: pla
 /**
  * The full-screen player's sizing (report §7): its line size, set on the host
  * by breakpoint, replaces all three of am-lyrics' container tiers, and the
- * current line sits a third of the way down. Scoped to `data-full`, so the
- * side panel keeps the library's own sizes.
+ * line being sung sits in the middle of the column, as the phone centres it
+ * (PlayerLyrics.kt: half the viewport above the first line); am-lyrics places
+ * a line's top, so a little above half, and the first line starts there too
+ * rather than at the top of the column. Scoped to `data-full`, so the side
+ * panel keeps the library's own sizes.
  */
 const FULL_SIZE =
   ':host([data-full]) .lyrics-container { --lyplus-font-size-base: var(--bitchord-lyric-size, 34px);' +
   ' --am-lyrics-line-height: 1.2; --am-lyrics-line-spacing: calc(var(--bitchord-lyric-size, 34px) * 0.7);' +
-  ' --lyrics-scroll-padding-top: 30%; --am-lyrics-inline-padding: 0px; }';
+  ' --lyrics-scroll-padding-top: 42%; --am-lyrics-inline-padding: 0px; padding-block-start: 38vh; }';
+
+/**
+ * The phone's falloff (PlayerLyrics.kt LINE_FALLOFF_ALPHA, LINE_FALLOFF_BLUR,
+ * UNSUNG_ALPHA) in the full-screen column. am-lyrics already dims by distance
+ * as the phone does (1, .8, .7, .58, .46) and sets lines back to 98%; this
+ * gives its blur the phone's steps, 0, 1, 1, 1.7 and 2.4px, and holds the
+ * words not yet sung at 45%. The handover keeps am-lyrics' own curve, which
+ * is the phone's (.41, 0, .12, .99) over 400ms with a 350–500ms lead. Its
+ * romanize and translate buttons move to the bar under the column, so its
+ * own header goes.
+ */
+const blurred = (lines: string, px: number) =>
+  `${lines
+    .split(',')
+    .map((l) => `:host([data-full]) .lyrics-line${l}:not(.lyrics-gap):not(.active):not(.pre-active)`)
+    .join(',')} { filter: blur(${px}px); }`;
+const FULL_FALLOFF =
+  ':host([data-full]) { --lyplus-text-secondary: color-mix(in srgb, var(--lyplus-lyrics-palette), transparent 55%); --am-lyrics-inactive-scale: 0.98; }' +
+  ':host([data-full]) .lyrics-header { display: none; }' +
+  blurred('.post-active-line,.next-active-line,.prev-2,.next-2', 1) +
+  blurred('.prev-3,.next-3', 1.7) +
+  blurred(':not(.post-active-line):not(.next-active-line):not(.prev-2):not(.next-2):not(.prev-3):not(.next-3)', 2.4);
 
 /**
  * am-lyrics, exactly as it is, fed our TTML and a steered clock (prompt §10.2).
@@ -102,7 +127,7 @@ const FULL_SIZE =
  * dates readings by sample time" lesson. No React state per frame: the time is
  * written straight onto the element.
  */
-function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
+function LyricsView({ ttml, full, onElement }: { ttml: string; full: boolean; onElement?: (el: AmLyricsElement | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const element = useRef<AmLyricsElement | null>(null);
   const deck = usePlayer((s) => s.deck);
@@ -129,26 +154,16 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
     el.addEventListener('line-click', onLineClick);
     host.current?.append(el);
     element.current = el;
-    const unmounted = new AbortController();
     void Promise.resolve(el.updateComplete).then(() => {
       const root = el.shadowRoot;
       if (!root) return;
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE);
+      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE + FULL_FALLOFF);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
-      // The full-screen column fades its top edge, but am-lyrics' toolbar
-      // (romanize, translate, download) sits at the top of the same scroller
-      // until the lines push it away. The fade grows with the scroll instead,
-      // so the toolbar is never under it.
-      const scroller = root.querySelector('.lyrics-container');
-      const target = host.current;
-      if (!full || !scroller || !target) return;
-      const fade = () => target.style.setProperty('--lyrics-top-fade', `${Math.min(scroller.scrollTop, 80)}px`);
-      fade();
-      scroller.addEventListener('scroll', fade, { passive: true, signal: unmounted.signal });
+      onElement?.(el);
     });
     return () => {
-      unmounted.abort();
+      onElement?.(null);
       el.removeEventListener('line-click', onLineClick);
       el.remove();
       element.current = null;
@@ -230,11 +245,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
   return (
     <div
       ref={host}
-      className={
-        full
-          ? 'flex min-h-0 flex-1 [mask-image:linear-gradient(180deg,transparent,#000_var(--lyrics-top-fade,0px),#000_50%,transparent)]'
-          : 'flex min-h-0 flex-1'
-      }
+      className={full ? 'flex min-h-0 flex-1 [mask-image:linear-gradient(180deg,transparent,#000_14%,#000_86%,transparent)]' : 'flex min-h-0 flex-1'}
     />
   );
 }
@@ -253,7 +264,46 @@ const headerButton = 'grid size-7 place-items-center rounded-[8px] text-secondar
 const ShareLyricsSheet = lazy(() => import('@/lyrics/share/ShareLyricsSheet'));
 
 /** The provider picker: which provider these lyrics are from, and the others' answers for this track. */
-function ProviderPicker({ current, full, lines }: { current: LyricsSourceId | null; full: boolean; lines: LyricLine[] | null }) {
+/**
+ * Romanize or translate, as the phone's round toggles under the lyrics
+ * (PlayerLyrics.kt RomanizationToggleButton, TranslationToggleButton): 34px,
+ * white at 18% (34% while on), a 19px glyph at 78% (white while on). They
+ * press am-lyrics' own buttons, hidden in its header, and read back the
+ * state those report.
+ */
+function AmToggle({ element, which, label, icon }: { element: AmLyricsElement | null; which: 'romanization' | 'translation'; label: string; icon: ReactNode }) {
+  const [on, setOn] = useState(false);
+  const target = () => element?.shadowRoot?.querySelector<HTMLButtonElement>(`button[aria-label="Toggle ${which}"]`) ?? null;
+  const read = () => setOn(target()?.getAttribute('aria-pressed') === 'true');
+  useEffect(read, [element]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <button
+      className="grid size-[34px] place-items-center rounded-full bg-white/18 text-white/78 transition-colors duration-200 hover:bg-white/24 aria-pressed:bg-white/34 aria-pressed:text-white disabled:text-white/42"
+      aria-label={label}
+      aria-pressed={on}
+      disabled={!element}
+      onClick={() => {
+        target()?.click();
+        void Promise.resolve(element?.updateComplete).then(read);
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function ProviderPicker({
+  current,
+  full,
+  lines,
+  element = null,
+}: {
+  current: LyricsSourceId | null;
+  full: boolean;
+  lines: LyricLine[] | null;
+  /** The lyrics' am-lyrics, whose romanize and translate the full-screen bar drives. */
+  element?: AmLyricsElement | null;
+}) {
   const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? '');
   const states = useLyricsUi((s) => s.states[videoId]) ?? NO_STATES;
   const picked = useLyricsUi((s) => s.picked[videoId]);
@@ -265,33 +315,61 @@ function ProviderPicker({ current, full, lines }: { current: LyricsSourceId | nu
   const closeSharing = useCallback(() => setSharing(false), []);
   const label = current ? sourceById(current)?.label : 'Lyrics';
 
+  const picker = (
+    <button
+      className={
+        full
+          ? 'inline-flex min-w-0 items-center gap-1 rounded-pill px-2 py-1 type-label-medium text-white/55 hover:bg-white/10 hover:text-white/80'
+          : 'inline-flex items-center gap-1 rounded-[8px] px-2 py-1 type-callout-emphasized text-secondary hover:bg-quinary'
+      }
+      aria-haspopup="menu"
+      onClick={(e) => setAnchor(e.currentTarget)}
+    >
+      <span className="truncate">{label}</span>
+      <ChevronDown size={14} className="flex-none" />
+    </button>
+  );
+  const actions = (
+    <span className="flex gap-0.5">
+      {lines && (
+        <button className={headerButton} aria-label="Share lyrics" onClick={() => setSharing(true)}>
+          <Share size={16} />
+        </button>
+      )}
+      <button className={headerButton} aria-label="Lyric settings" onClick={() => setSettings(true)}>
+        <Settings2 size={16} />
+      </button>
+    </span>
+  );
+
   return (
-    // In full screen the picker sits quietly above the lines, shown on hover.
     <div
       className={
         full
-          ? 'flex items-center justify-between pb-1 opacity-0 transition-opacity duration-200 group-hover/panel:opacity-100 focus-within:opacity-100'
+          ? // LandscapeLyricsPane's bar under the column: romanize and translate in fixed 34px slots either side, so the provider stays centred.
+            'grid grid-cols-[34px_minmax(0,1fr)_34px] items-center gap-3 pt-2.5'
           : 'flex items-center justify-between px-4 pt-4 pb-1'
       }
     >
-      <button
-        className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 type-callout-emphasized text-secondary hover:bg-quinary"
-        aria-haspopup="menu"
-        onClick={(e) => setAnchor(e.currentTarget)}
-      >
-        <span>{label}</span>
-        <ChevronDown size={14} />
-      </button>
-      <span className="flex gap-0.5">
-        {lines && (
-          <button className={headerButton} aria-label="Share lyrics" onClick={() => setSharing(true)}>
-            <Share size={16} />
-          </button>
-        )}
-        <button className={headerButton} aria-label="Lyric settings" onClick={() => setSettings(true)}>
-          <Settings2 size={16} />
-        </button>
-      </span>
+      {full ? (
+        <>
+          <span>{lines && <AmToggle element={element} which="romanization" label="Romanize lyrics" icon={<Globe size={19} />} />}</span>
+          <span className="flex min-w-0 items-center justify-center gap-1">
+            {picker}
+            {lines && (
+              <button className="grid size-7 flex-none place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white/80" aria-label="Share lyrics" onClick={() => setSharing(true)}>
+                <Share size={15} />
+              </button>
+            )}
+          </span>
+          <span>{lines && <AmToggle element={element} which="translation" label="Translate lyrics" icon={<Languages size={19} />} />}</span>
+        </>
+      ) : (
+        <>
+          {picker}
+          {actions}
+        </>
+      )}
       {anchor && (
         <Menu anchor={anchor} placement="below-end" onClose={close} label="Lyrics provider">
           <MenuItem checked={!picked} onSelect={() => (close(), pick(videoId, null))}>
@@ -417,11 +495,14 @@ export function LyricsPanel({ variant = 'panel' }: { variant?: 'panel' | 'full' 
     ? 'flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center type-title-3 text-secondary'
     : 'flex flex-1 flex-col items-center justify-center gap-2 px-6 pb-20 text-center type-[400_12px/16px] text-secondary';
   const emptyTitle = full ? 'type-title-1-emphasized text-primary' : 'type-[600_12px/16px]';
+  const [element, setElement] = useState<AmLyricsElement | null>(null);
+  const picker = <ProviderPicker current={result?.source ?? null} full={full} lines={result?.lines ?? null} element={element} />;
 
   return (
     <div className={full ? `${panel} ${fullSizes}` : panel}>
       {canvas && variant === 'panel' && <CanvasBackdrop url={canvas} />}
-      <ProviderPicker current={result?.source ?? null} full={full} lines={result?.lines ?? null} />
+      {/* The side panel's picker heads it; the full-screen one is the bar under the lines. */}
+      {!full && picker}
       {/* Only worth raising when nothing was found: then the hosts behind the extension might have it. */}
       {ungranted.length > 0 && !result && !lyrics.isFetching && <PermissionNotice origins={ungranted} />}
       {!hasTrack ? (
@@ -434,18 +515,19 @@ export function LyricsPanel({ variant = 'panel' }: { variant?: 'panel' | 'full' 
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : result ? (
-        <LyricsView ttml={result.ttml} full={full} />
+        <LyricsView ttml={result.ttml} full={full} onElement={full ? setElement : undefined} />
       ) : picked ? (
         <div className={empty}>
           <p className={emptyTitle}>Not on {sourceById(picked)?.label ?? 'this provider'}</p>
-          <p>This provider hasn’t got this song. Pick another, or Best available, in the list above.</p>
+          <p>This provider hasn’t got this song. Pick another, or Best available, in the {full ? 'list below' : 'list above'}.</p>
         </div>
       ) : (
         <div className={empty}>
           <p className={emptyTitle}>No lyrics available</p>
-          <p>None of the lyric providers has this song. Try another in the list above.</p>
+          <p>None of the lyric providers has this song. Try another in the {full ? 'list below' : 'list above'}.</p>
         </div>
       )}
+      {full && picker}
     </div>
   );
 }

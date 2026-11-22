@@ -6,6 +6,7 @@ import { MenuHeader, MenuItem } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
 import { DetailHeader, detailButton } from '@/components/music/DetailHeader';
 import { DetailMenu } from '@/components/music/DetailMenu';
+import { AddToPlaylistsButton } from '@/components/music/PlaylistPicker';
 import { playList, shuffleList } from '@/components/music/play';
 import { LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
 import { TrackList } from '@/components/music/TrackList';
@@ -273,9 +274,12 @@ export default function PlaylistPage() {
         onPlay={() => playList(tracks, 0, context)}
         onShuffle={() => shuffleList(tracks, context)}
         extra={
-          <DetailMenu label={header.title} sort={sort} onSort={(next) => setSort(id, next)}>
-            {(close) => owned && <OwnerActions id={id} title={header.title} onClose={close} onReorder={() => setReordering(true)} />}
-          </DetailMenu>
+          <>
+            <AddToPlaylistsButton tracks={tracks} />
+            <DetailMenu label={header.title} sort={sort} onSort={(next) => setSort(id, next)}>
+              {(close) => owned && <OwnerActions id={id} title={header.title} onClose={close} onReorder={() => setReordering(true)} />}
+            </DetailMenu>
+          </>
         }
       />
       {reordering ? (

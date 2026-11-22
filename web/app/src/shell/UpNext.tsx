@@ -3,8 +3,9 @@ import { Check, Infinity as InfinityIcon, ListChecks, ListEnd, ListPlus, MoreHor
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
+import { PlaylistPicker } from '@/components/music/PlaylistPicker';
 import { formatDuration } from '@/components/music/links';
-import { useAddToPlaylist, usePlaylistOptions, useSignedIn } from '@/data/music/queries';
+import { useSignedIn } from '@/data/music/queries';
 import { autoplaySectionStart, splitQueue, upcomingUserQueueIndices, type QueueRow } from '@/playback/queue/timeline';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 
@@ -226,63 +227,20 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
   );
 }
 
-/**
- * The selection's Add to Playlist: the account's playlists, each selected song added in turn.
- * shortcut: the single-track add in a loop; the integrator can swap in the shared PlaylistPicker.
- */
-function AddSelectionToPlaylist({ rows, onAdded }: { rows: QueueRow[]; onAdded: (message: string) => void }) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const close = useCallback(() => setAnchor(null), []);
-  const options = usePlaylistOptions(rows[0]?.entry.track.videoId ?? '', anchor !== null);
-  const add = useAddToPlaylist();
-  const addAll = async (playlistId: string) => {
-    close();
-    let added = 0;
-    for (const { entry } of rows) {
-      try {
-        await add.mutateAsync({ playlistId, videoId: entry.track.videoId });
-        added++;
-      } catch {
-        // Counted below: the message says how many made it.
-      }
-    }
-    onAdded(`Added ${added} of ${rows.length} songs`);
-  };
+/** The selection's Add to Playlist: the same picker as track, album and playlist menus (search, several at once). */
+function AddSelectionToPlaylist({ rows }: { rows: QueueRow[] }) {
+  const [open, setOpen] = useState(false);
   return (
     <>
       <button
         className="flex items-center gap-1.5 rounded-[6px] px-1.5 py-1 text-key enabled:hover:bg-quinary disabled:text-tertiary"
-        disabled={!rows.length || add.isPending}
-        aria-haspopup="menu"
-        onClick={(e) => setAnchor(e.currentTarget)}
+        disabled={!rows.length}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
       >
         <ListPlus size={16} /> Add to Playlist
       </button>
-      {anchor && (
-        <Menu anchor={anchor} placement="above-start" onClose={close} label="Add to Playlist">
-          <MenuHeader>Add to Playlist</MenuHeader>
-          {options.isPending && (
-            <MenuItem disabled onSelect={() => {}}>
-              Loading…
-            </MenuItem>
-          )}
-          {options.isError && (
-            <MenuItem disabled onSelect={() => {}}>
-              Couldn’t load your playlists
-            </MenuItem>
-          )}
-          {options.data?.length === 0 && (
-            <MenuItem disabled onSelect={() => {}}>
-              No playlists yet
-            </MenuItem>
-          )}
-          {options.data?.map((option) => (
-            <MenuItem key={option.playlistId} onSelect={() => void addAll(option.playlistId)}>
-              {option.title}
-            </MenuItem>
-          ))}
-        </Menu>
-      )}
+      {open && <PlaylistPicker tracks={rows.map(({ entry }) => entry.track)} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -552,13 +510,7 @@ export function UpNext() {
         {selection && (
           <div className={`${bar} justify-between`}>
             {signedIn ? (
-              <AddSelectionToPlaylist
-                rows={selected}
-                onAdded={(message) => {
-                  setNotice(message);
-                  setSelection(null);
-                }}
-              />
+              <AddSelectionToPlaylist rows={selected} />
             ) : (
               <span />
             )}

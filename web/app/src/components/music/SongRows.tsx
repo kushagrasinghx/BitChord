@@ -31,9 +31,9 @@ export function useRowPlayback(track: Track, onPlayRow: () => void) {
 /** The playing row's wash: 14% of the primary colour (Common.kt SongRow activeBackground), fading as animateColorAsState does. */
 export const currentRowFill = 'transition-colors duration-200 data-current:bg-[color-mix(in_srgb,var(--systemPrimary)_14%,transparent)]';
 
-/** The phone's ⋮ (RowMoreButton): YouTube Music's track menu, its ⋯ stood on end. */
+/** The phone's row menu button (RowMoreButton), as a ⋯ like the player's and search's: one overflow glyph across the app. */
 export const rowMoreButton =
-  'grid size-9 flex-none place-items-center rounded-full text-secondary hover:bg-quinary hover:text-primary data-open:text-primary [&_svg]:rotate-90';
+  'grid size-9 flex-none place-items-center rounded-full text-secondary hover:bg-quinary hover:text-primary data-open:text-primary';
 
 /** A title with the explicit mark leading it, as ExplicitSongTitle sets it. */
 export function RowTitle({ track }: { track: Track }) {

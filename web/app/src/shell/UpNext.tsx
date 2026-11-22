@@ -1,10 +1,10 @@
 import { party, useParty } from '@/party/listenTogether';
-import { Check, Infinity as InfinityIcon, ListChecks, ListEnd, ListPlus, MoreHorizontal, Trash2, X } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { Check, Infinity as InfinityIcon, ListEnd, ListPlus, MoreHorizontal, Trash2, X } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
 import { PlaylistPicker } from '@/components/music/PlaylistPicker';
-import { formatDuration } from '@/components/music/links';
+import { useReducedMotion } from '@/data/spotify/canvas';
 import { useSignedIn } from '@/data/music/queries';
 import { autoplaySectionStart, splitQueue, upcomingUserQueueIndices, type QueueRow } from '@/playback/queue/timeline';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
@@ -13,10 +13,18 @@ import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 const SleepTimerRow = lazy(() => import('./SleepTimerMenu').then((m) => ({ default: m.SleepTimerRow })));
 const SleepTimerItems = lazy(() => import('./SleepTimerMenu').then((m) => ({ default: m.SleepTimerItems })));
 
-// The panel's square buttons: AutoPlay (the key colour when on) and the options menu.
-const square = 'grid size-7 place-items-center rounded-[6px] text-secondary hover:bg-quinary aria-pressed:text-key';
+// The header's round buttons: AutoPlay (lit when on) and the options menu.
+const square = 'grid size-8 flex-none place-items-center rounded-full text-secondary hover:bg-quinary aria-pressed:text-primary';
 const list = 'flex flex-col';
-const heading = 'mx-2.5 mt-[18px] mb-0.5 flex items-center gap-1.5 type-callout-emphasized';
+/* PlayerQueue.kt QueueHeading: titleMedium at 75%, 16px above and 6 below (12 above the first). */
+const heading = 'flex min-h-8 items-center gap-1 pt-4 pb-1.5 type-title-2-emphasized text-primary/75 first:pt-3';
+/* The text actions (QueueClearButton, the Select pill): 75%, in a capsule 8/4 around them. */
+const pill = 'flex-none rounded-pill px-2 py-1 type-callout-medium text-primary/75 hover:bg-quinary disabled:text-primary/25';
+/** QueueRow placement: a row that moves slides to its new place over 200ms rather than jumping. */
+const PLACEMENT_MS = 200;
+// Material's rounded DragHandle, the row's 20px handle at 40%.
+const DRAG_HANDLE =
+  'M19 9H5c-.55 0-1 .45-1 1s.45 1 1 1h14c.55 0 1-.45 1-1s-.45-1-1-1zM5 15h14c.55 0 1-.45 1-1s-.45-1-1-1H5c-.55 0-1 .45-1 1s.45 1 1 1z';
 // The undo notice and the selection's actions, floating over the list above the player pill.
 const bar = 'glass-pill pointer-events-auto relative flex min-h-11 items-center gap-2 rounded-[12px] px-3.5 type-body';
 
@@ -101,7 +109,13 @@ function useSwipe(row: QueueRow, canSwipe: RowProps['canSwipe'], onSwipe: RowPro
   return { offset, settling, armed, action: actionAt(offset), handlers, onSettled: () => setSettling(false) };
 }
 
-/** A row: 55px, [art] 40px [title] 1fr [right] 40px, gap 12px, radius 6px; a key-colour line where a drag would drop. */
+/**
+ * A row (PlayerQueue.kt InlineQueueRow): 44px art with 6px corners and the
+ * artwork hairline, 12px to the title (titleMedium at 92%) over the artist
+ * (bodyMedium, secondary), 6px above and below, 8px corners; the 20px drag
+ * handle at 40% at its end where it can move. Selected, a 6% wash. A line
+ * where a drag would drop it.
+ */
 function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selected, onActivate, canSwipe, onSwipe }: RowProps) {
   const { entry, at } = row;
   const { jumpTo, removeAt, removeEntries, playNext } = usePlayer.getState();
@@ -113,7 +127,8 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
 
   return (
     <li
-      className="group/row relative touch-pan-y rounded-row select-none not-data-selected:hover:bg-quinary data-dragging:opacity-40 data-over:before:absolute data-over:before:inset-x-2.5 data-over:before:-top-px data-over:before:border-t-2 data-over:before:border-t-key data-selected:bg-key-bg"
+      className="group/row relative touch-pan-y rounded-row select-none not-data-selected:hover:bg-primary/4 data-dragging:opacity-40 data-over:before:absolute data-over:before:inset-x-0 data-over:before:-top-px data-over:before:border-t-2 data-over:before:border-t-primary/75 data-selected:bg-primary/6"
+      data-entry={entry.entryId}
       data-over={over || undefined}
       data-dragging={dragging || undefined}
       data-selected={selected || undefined}
@@ -151,13 +166,13 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
         </div>
       )}
       <div
-        className="relative grid h-[55px] grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-x-3 px-2.5 data-settling:transition-transform data-settling:duration-200 data-settling:ease-out motion-reduce:transition-none"
+        className="relative grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3 py-1.5 data-settling:transition-transform data-settling:duration-200 data-settling:ease-out motion-reduce:transition-none"
         data-settling={swipe.settling || undefined}
         style={swipe.offset ? { transform: `translateX(${swipe.offset}px)` } : undefined}
         onTransitionEnd={swipe.onSettled}
       >
-        <div className="relative size-10">
-          <Artwork src={track.thumbnail} displayWidth={40} radius="var(--radius-artwork-small)" />
+        <div className="relative size-11">
+          <Artwork src={track.thumbnail} displayWidth={44} radius="6px" />
           {selecting ? (
             // Selection's tick over the artwork's top-left, where the ✕ sits otherwise.
             <span
@@ -184,16 +199,15 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
           aria-label={selecting ? `Select ${track.title}` : `Play ${track.title}`}
           aria-pressed={selecting ? selected : undefined}
         >
-          <span className="truncate type-body text-primary group-data-selected/row:text-on-key">{track.title}</span>
-          <span className="truncate type-body text-secondary group-data-selected/row:text-on-key/80">
+          <span className="truncate type-body-emphasized text-primary/92">{track.title}</span>
+          <span className="truncate type-callout text-secondary">
             {track.artists.map((a) => a.name).join(', ')}
           </span>
         </button>
-        <div className="relative grid items-center justify-items-end">
-          <span className="type-body tabular-nums text-secondary group-data-selected/row:text-on-key/80 group-hover/row:invisible group-has-[[data-open]]/row:invisible">{formatDuration(track.durationSec)}</span>
+        <div className="flex items-center gap-1">
           {!selecting && (
             <button
-              className="absolute inset-y-0 right-0 my-auto hidden size-7 place-items-center rounded-full text-key group-hover/row:grid data-open:grid"
+              className="invisible grid size-7 place-items-center rounded-full text-primary/75 group-hover/row:visible hover:bg-quinary data-open:visible"
               aria-label={`More options for ${track.title}`}
               aria-haspopup="menu"
               data-row-action
@@ -202,6 +216,13 @@ function Row({ row, draggable, dragging, onDragStart, onDropAt, selecting, selec
             >
               <MoreHorizontal size={16} />
             </button>
+          )}
+          {draggable && !selecting ? (
+            <svg className="size-5 translate-x-1 cursor-grab text-primary/40" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d={DRAG_HANDLE} />
+            </svg>
+          ) : (
+            <span className="w-6" />
           )}
         </div>
       </div>
@@ -245,14 +266,65 @@ function AddSelectionToPlaylist({ rows }: { rows: QueueRow[] }) {
   );
 }
 
+/** A section's Add all to playlist (PlayerQueue.kt QueueAddAllButton): a 20px glyph at 75%. */
+function AddAllToPlaylist({ rows }: { rows: QueueRow[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        className="grid size-8 flex-none place-items-center rounded-full text-primary/75 hover:bg-quinary"
+        aria-label="Add all to playlist"
+        title="Add all to playlist"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        <ListPlus size={20} />
+      </button>
+      {open && <PlaylistPicker tracks={rows.map(({ entry }) => entry.track)} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/**
+ * The queue's placement animation (PlayerQueue.kt queueMotion): when the
+ * list changes, a row that moved slides from where it was to where it is
+ * over 200ms rather than jumping there. Rows are found by data-entry.
+ */
+function usePlacement(list: React.RefObject<HTMLElement | null>, key: unknown) {
+  const tops = useRef(new Map<string, number>());
+  const still = useReducedMotion();
+  useLayoutEffect(() => {
+    const root = list.current;
+    if (!root) return;
+    const next = new Map<string, number>();
+    for (const row of root.querySelectorAll<HTMLElement>('[data-entry]')) {
+      const id = row.dataset.entry!;
+      const top = row.offsetTop;
+      next.set(id, top);
+      const was = tops.current.get(id);
+      if (!still && was !== undefined && was !== top) {
+        row.animate([{ transform: `translateY(${was - top}px)` }, { transform: 'none' }], { duration: PLACEMENT_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
+      }
+    }
+    tops.current = next;
+  }, [key, still, list]);
+}
+
 /** Typing in a field isn't a queue shortcut. */
 const typing = (target: EventTarget | null) => {
   const element = target as HTMLElement | null;
   return !!element && (element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName));
 };
 
-/** Apple's Up Next (report §7), over the three-tier queue: what's played (optionally), what's next, then AutoPlay's section. */
-export function UpNext() {
+/**
+ * The queue (sharedUi/.../ui/player/PlayerQueue.kt), over the three-tier
+ * queue: what's played (optionally), what was queued by hand, the rest of
+ * what's playing, then AutoPlay's section. `player` is the full-screen
+ * player's queue page, which brings its own margins and has AutoPlay in its
+ * capsule; the side panel is the default.
+ */
+export function UpNext({ variant = 'panel' }: { variant?: 'panel' | 'player' }) {
+  const player = variant === 'player';
   const queue = usePlayer((s) => s.queue);
   const index = usePlayer((s) => s.index);
   const localAutoplay = usePlayer((s) => s.autoplay);
@@ -283,9 +355,11 @@ export function UpNext() {
   const autoplayAt = autoplaySectionStart(tiers, index);
   const canClear = upcomingUserQueueIndices(tiers, index).length > 0;
   const { history, upcoming } = splitQueue(queue, index, showHistory);
-  const beforeAutoplay = upcoming.filter(({ at }) => at < autoplayAt);
-  const afterAutoplay = upcoming.filter(({ at }) => at >= autoplayAt);
-  const playingFrom = queue[index]?.source?.title;
+  // PlayerQueue.kt's sections: what was hand-queued, the rest of what's playing, then AutoPlay's.
+  const userRows = upcoming.filter(({ at, entry }) => at < autoplayAt && entry.tier === 'user');
+  const contextRows = upcoming.filter(({ at, entry }) => at < autoplayAt && entry.tier !== 'user');
+  const autoplayRows = upcoming.filter(({ at }) => at >= autoplayAt);
+  const contextTitle = contextRows[0]?.entry.source?.title ?? queue[index]?.source?.title;
   const playingId = queue[index]?.entryId;
   // What a selection can hold, in the order the panel lists it; a row that leaves the queue leaves the selection with it.
   const rows = [...history, ...upcoming];
@@ -326,7 +400,8 @@ export function UpNext() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || typing(event.target)) return;
-      if ((event.target as HTMLElement | null)?.closest('[role="menu"], [role="dialog"]')) return;
+      // A menu or dialog has its own keys; the full-screen player, a dialog itself, is where this list lives.
+      if ((event.target as HTMLElement | null)?.closest('[role="menu"], [role="dialog"]:not([data-full-screen])')) return;
       const command = event.metaKey || event.ctrlKey;
       if (command && !event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
         if (!usePlayer.getState().undoNotice) return;
@@ -364,6 +439,8 @@ export function UpNext() {
     scrolledOnce.current = true;
   }, [playingId, showHistory]);
 
+  usePlacement(scroller, queue);
+
   const rowFor = (row: QueueRow, draggable: boolean) => (
     <Row
       key={row.entry.entryId}
@@ -391,117 +468,153 @@ export function UpNext() {
     />
   );
 
+  const sectionHeading = (title: string, rowsIn: QueueRow[], extra?: ReactNode) => (
+    <h4 className={heading}>
+      <span className="min-w-0 flex-1 truncate">{title}</span>
+      {!selection && (
+        <>
+          {signedIn && rowsIn.length > 0 && <AddAllToPlaylist rows={rowsIn} />}
+          {extra}
+        </>
+      )}
+    </h4>
+  );
+
   return (
     <>
-      {selection ? (
-        <div className="flex items-center gap-1.5 px-5 pt-[23px] pb-3">
-          <h3 className="flex-1 type-title-2-emphasized" aria-live="polite">
-            {selected.length} Selected
-          </h3>
-          <button
-            className="mr-1 type-title-3 text-key disabled:text-tertiary"
-            disabled={!rows.length}
-            onClick={() => setSelection({ ids: new Set(rows.map(({ entry }) => entry.entryId)), anchor: selection.anchor })}
-          >
-            Select All
-          </button>
-          <button className={square} aria-label="Close selection" onClick={() => setSelection(null)}>
-            <X size={16} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1.5 px-5 pt-[23px] pb-3">
-          <h3 className="flex-1 type-title-2-emphasized">Up Next</h3>
-          {canClear && (
-            <button className="mr-1 type-title-3 text-key" onClick={clearUpNext}>
-              Clear
+      {/* PlayerQueue.kt's header: "Queue" in titleLarge and the Select pill; selecting, the count, Select All and close. */}
+      <div className={`flex items-center gap-1 ${player ? 'pb-1' : 'px-5 pt-[23px] pb-1'}`}>
+        <h3 className="min-w-0 flex-1 truncate type-title-large text-primary" aria-live={selection ? 'polite' : undefined}>
+          {selection ? `${selected.length} Selected` : 'Queue'}
+        </h3>
+        {selection ? (
+          <>
+            <button
+              className={`${pill} type-title-2-emphasized`}
+              disabled={!rows.length}
+              onClick={() => setSelection({ ids: new Set(rows.map(({ entry }) => entry.entryId)), anchor: selection.anchor })}
+            >
+              Select All
             </button>
-          )}
-          <button
-            className={square}
-            aria-label="AutoPlay"
-            title="AutoPlay: keep playing similar music when the queue ends"
-            aria-pressed={autoplay}
-            onClick={() => (inParty ? party.setAutoplay(!autoplay) : setAutoplay(!autoplay))}
-          >
-            <InfinityIcon size={16} strokeWidth={2.4} />
-          </button>
-          <button className={square} aria-label="Playback options" aria-haspopup="menu" onClick={(e) => setAnchor(e.currentTarget)}>
-            <MoreHorizontal size={16} />
-          </button>
-          {anchor && (
-            <Menu anchor={anchor} onClose={close} label="Playback options">
-              <Suspense fallback={null}>
-                {menuView === 'sleep' ? (
-                  <SleepTimerItems onBack={() => setMenuView('main')} onDone={close} />
-                ) : (
-                  <>
-                    <MenuHeader>Crossfade</MenuHeader>
-                    {CROSSFADE_CHOICES.map((seconds) => (
-                      <MenuItem key={seconds} checked={!automix && crossfadeSec === seconds} onSelect={() => (close(), setCrossfade(seconds))}>
-                        {seconds === 0 ? 'Off' : `${seconds} seconds`}
-                      </MenuItem>
-                    ))}
-                    <MenuItem checked={automix} onSelect={() => (close(), setAutomix(true))}>
-                      Automix
+            <button className={square} aria-label="Close selection" onClick={() => setSelection(null)}>
+              <X size={18} />
+            </button>
+          </>
+        ) : (
+          <>
+            {rows.length > 0 && (
+              <button className={`${pill} type-title-2-emphasized`} onClick={() => setSelection({ ids: new Set(), anchor: null })}>
+                Select
+              </button>
+            )}
+            {/* The full-screen player has AutoPlay in its capsule; the side panel keeps it here. */}
+            {!player && (
+              <button
+                className={square}
+                aria-label="AutoPlay"
+                title="AutoPlay: keep playing similar music when the queue ends"
+                aria-pressed={autoplay}
+                onClick={() => (inParty ? party.setAutoplay(!autoplay) : setAutoplay(!autoplay))}
+              >
+                <InfinityIcon size={18} strokeWidth={2.4} />
+              </button>
+            )}
+            <button className={square} aria-label="Playback options" aria-haspopup="menu" onClick={(e) => setAnchor(e.currentTarget)}>
+              <MoreHorizontal size={18} />
+            </button>
+          </>
+        )}
+        {anchor && (
+          <Menu anchor={anchor} onClose={close} label="Playback options">
+            <Suspense fallback={null}>
+              {menuView === 'sleep' ? (
+                <SleepTimerItems onBack={() => setMenuView('main')} onDone={close} />
+              ) : (
+                <>
+                  <MenuHeader>Crossfade</MenuHeader>
+                  {CROSSFADE_CHOICES.map((seconds) => (
+                    <MenuItem key={seconds} checked={!automix && crossfadeSec === seconds} onSelect={() => (close(), setCrossfade(seconds))}>
+                      {seconds === 0 ? 'Off' : `${seconds} seconds`}
                     </MenuItem>
-                    <MenuSeparator />
-                    <SleepTimerRow onOpen={() => setMenuView('sleep')} />
-                    {rows.length > 0 && (
-                      <MenuItem icon={<ListChecks size={15} />} onSelect={() => (close(), setSelection({ ids: new Set(), anchor: null }))}>
-                        Select Songs
-                      </MenuItem>
-                    )}
-                  </>
-                )}
-              </Suspense>
-            </Menu>
-          )}
-        </div>
-      )}
-      {playingFrom && <p className="truncate px-5 pb-2 type-callout text-secondary">Playing from {playingFrom}</p>}
+                  ))}
+                  <MenuItem checked={automix} onSelect={() => (close(), setAutomix(true))}>
+                    Automix
+                  </MenuItem>
+                  <MenuSeparator />
+                  <SleepTimerRow onOpen={() => setMenuView('sleep')} />
+                </>
+              )}
+            </Suspense>
+          </Menu>
+        )}
+      </div>
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && !autoplay ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-20 text-center type-callout text-secondary">
-          <p className="type-callout-emphasized">Nothing in Up Next</p>
-          <p>
-            {autoplay && repeat === 'off' && index >= 0
-              ? 'AutoPlay is finding similar music.'
-              : 'Songs you play next appear here.'}
-          </p>
+          <p className="type-body-emphasized text-primary">Nothing in the queue</p>
+          <p>Songs you play next appear here.</p>
         </div>
       ) : (
-        <div ref={scroller} className="relative min-h-0 flex-1 overflow-y-auto px-2 pb-[120px] [scrollbar-width:thin]">
+        <div
+          ref={scroller}
+          // PlayerQueue.kt fadingEdges: the list fades out over 28px at either end.
+          className={`relative min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(transparent,#000_28px,#000_calc(100%-28px),transparent)] [scrollbar-width:none] ${player ? 'pb-24' : 'px-3 pb-[120px]'}`}
+        >
           {history.length > 0 && (
             <>
-              <h4 className={`${heading} mt-0`}>Previously Played</h4>
+              {sectionHeading('Previously played', history)}
               <ol className={list}>{history.map((row) => rowFor(row, false))}</ol>
-              <h4 ref={upcomingStart} className={heading}>
-                Playing Next
-              </h4>
             </>
           )}
-          {upcoming.length === 0 && <p className="mx-2.5 my-3 type-callout text-secondary">Nothing in Up Next</p>}
-          <ol className={list}>{beforeAutoplay.map((row) => rowFor(row, true))}</ol>
-          {afterAutoplay.length > 0 && (
+          <div ref={upcomingStart} />
+          {userRows.length > 0 && (
             <>
-              <h4 className={heading}>
-                <InfinityIcon size={14} strokeWidth={2.4} /> AutoPlay
-              </h4>
-              <p className="mx-2.5 mb-2 type-callout text-secondary">Similar music, from YouTube Music’s radio.</p>
-              <ol className={list}>{afterAutoplay.map((row) => rowFor(row, true))}</ol>
+              {sectionHeading(
+                'Next in queue',
+                userRows,
+                canClear && (
+                  <button className={pill} onClick={clearUpNext}>
+                    Clear
+                  </button>
+                ),
+              )}
+              <ol className={list}>{userRows.map((row) => rowFor(row, true))}</ol>
+            </>
+          )}
+          {contextRows.length > 0 && (
+            <>
+              {sectionHeading(contextTitle ? `Next from: ${contextTitle}` : 'Queue', contextRows)}
+              <ol className={list}>{contextRows.map((row) => rowFor(row, true))}</ol>
+            </>
+          )}
+          {(autoplay || autoplayRows.length > 0) && (
+            <>
+              {/* PlayerQueue.kt AutoplayHeading: the infinity glyph, "Autoplay" in white, and what it does under it. */}
+              <div className="flex items-center gap-2 py-3.5">
+                <InfinityIcon size={18} strokeWidth={2.4} className="flex-none text-primary/75" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <h4 className="type-title-2-emphasized text-primary">Autoplay</h4>
+                  <p className="type-callout text-secondary">
+                    {autoplayRows.length ? 'Similar music, selected to play next' : 'Similar music will keep playing'}
+                  </p>
+                </div>
+                {!selection && signedIn && autoplayRows.length > 0 && <AddAllToPlaylist rows={autoplayRows} />}
+              </div>
+              <ol className={list}>{autoplayRows.map((row) => rowFor(row, true))}</ol>
             </>
           )}
         </div>
       )}
 
       {/* The undo notice and the selection's actions (PlayerQueue's footer), over the list's bottom. */}
-      <div className="pointer-events-none absolute inset-x-3 bottom-[calc(var(--player-bottom-offset)+var(--player-pill-height)+12px)] flex flex-col gap-2 max-sm:bottom-4">
+      <div
+        className={`pointer-events-none absolute flex flex-col gap-2 ${player ? 'inset-x-0 bottom-2' : 'inset-x-3 bottom-[calc(var(--player-bottom-offset)+var(--player-pill-height)+12px)] max-sm:bottom-4'}`}
+      >
         {(undoNotice || notice) && (
           <div className={bar} role="status">
             <span className="min-w-0 flex-1 truncate">{undoNotice?.message ?? notice}</span>
             {undoNotice && (
-              <button className="type-body-emphasized text-key" onClick={undo}>
+              <button className="type-body-emphasized text-primary" onClick={undo}>
                 Undo
               </button>
             )}
@@ -509,11 +622,7 @@ export function UpNext() {
         )}
         {selection && (
           <div className={`${bar} justify-between`}>
-            {signedIn ? (
-              <AddSelectionToPlaylist rows={selected} />
-            ) : (
-              <span />
-            )}
+            {signedIn ? <AddSelectionToPlaylist rows={selected} /> : <span />}
             <button
               className="flex items-center gap-1.5 rounded-[6px] px-1.5 py-1 text-destructive enabled:hover:bg-quinary disabled:text-tertiary"
               disabled={!selected.length}

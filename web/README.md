@@ -64,6 +64,17 @@ Then open `http://localhost:5173/extension`. It shows "Installed", with the vers
 | `VITE_EXTENSION_ID_CHROMIUM` | app (`app/.env.local`) | The pinned dev id. Set it for a store-built extension |
 | `VITE_ANDROID_APP_URL` | app | The GitHub releases page |
 | `VITE_PARTY_SERVER_URL` | app (`app/.env.local`, Pages env) | None. The Listen Together server; `vite build` fails without it |
+| `VITE_GOOGLE_CLIENT_ID` | app (`app/.env.local`, Pages env) | None. The Google OAuth client for Google Drive backup (below); without it the Drive section is hidden |
+
+### Google Drive backup
+
+Settings › Backup & Restore can sync with Google Drive in the Android app's own format, so the browser shows up as one more device in the phone's device list and Replay adds up every device's listening. It needs an OAuth client:
+
+1. In the Google Cloud project the Android app's OAuth client is in, create an OAuth client ID of type **Web application**. It has to be the same project: the `drive.appdata` folder is private to each Cloud project, and a client from another project sees an empty Drive.
+2. Add every origin the site is served from as an **Authorized JavaScript origin**: `https://bitchord.in`, `https://bitchord-8bw.pages.dev`, and `http://localhost:5173` for development. No redirect URIs are needed (the browser uses Google Identity Services' token popup).
+3. Set `VITE_GOOGLE_CLIENT_ID` to the client ID.
+
+The only scope asked for is `https://www.googleapis.com/auth/drive.appdata`, already on the project's consent screen for the Android app. A browser gets no refresh token, so a sign-in lasts an hour: the app syncs when it opens and on the chosen schedule while that sign-in is live, and otherwise asks for "Sign In Again".
 
 ## Deploy (Cloudflare Pages)
 

@@ -10,4 +10,6 @@ export const config = {
   androidAppUrl: import.meta.env.VITE_ANDROID_APP_URL || 'https://github.com/kushagrasinghx/BitChord/releases/latest',
   /** BitChord's Listen Together server. vite.config.ts refuses a production build without it. */
   partyServerUrl: import.meta.env.VITE_PARTY_SERVER_URL ?? '',
+  /** A Google OAuth Web client in the Android app's Cloud project, for Drive sync. Without it the feature is hidden. */
+  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '',
 } as const;

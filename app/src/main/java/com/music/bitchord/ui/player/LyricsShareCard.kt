@@ -295,8 +295,8 @@ internal class LyricsCardPainter internal constructor(
     val height: Int get() = layout.height
 
     private val basePaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    private val scratch = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val scratch = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
+    private val glow = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
     private val fade = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
     private val growth = CharGrowth()
 
@@ -415,7 +415,7 @@ internal class LyricsCardPainter internal constructor(
     ) {
         val row = placed.row
         val text = row.text
-        if (!lifts) {
+        if (!lifts || !timing.isLifted(positionMs)) {
             canvas.drawText(text, placed.x, placed.baseline, paint)
             return
         }
@@ -423,18 +423,57 @@ internal class LyricsCardPainter internal constructor(
         val rise = size * RISE_RATIO
         val rowStart = row.start
         val rowEnd = rowStart + text.length
+
+        // When no word overlapping this row is currently lifting or growing,
+        // render the unbroken string directly to avoid unnecessary clips and measurements.
+        val hasMotion = timing.wordSpans.indices.any { index ->
+            val span = timing.wordSpans[index]
+            val from = maxOf(span.first, rowStart) - rowStart
+            val to = minOf(span.last + 1, rowEnd) - rowStart
+            if (to <= from) return@any false
+            val grow = timing.growingAt(index)
+            val isGrown = grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs
+            isGrown || timing.wordLift(index, positionMs) > 0.001f
+        }
+        if (!hasMotion) {
+            canvas.drawText(text, placed.x, placed.baseline, paint)
+            return
+        }
+
+        val top = placed.baseline + paint.ascent() - size * HEADROOM_RATIO
+        val bottom = placed.baseline + paint.descent() + size * 0.1f
+
         fun run(from: Int, to: Int, dy: Float) {
             if (to <= from) return
-            canvas.drawText(text, from, to, placed.x + paint.measureText(text, 0, from), placed.baseline + dy, paint)
+            val x1 = placed.x + paint.measureText(text, 0, from)
+            val x2 = placed.x + paint.measureText(text, 0, to)
+            val clipLeft = if (from == 0) placed.x - 4f else x1
+            val clipRight = if (to >= text.length) layout.width.toFloat() else x2
+            canvas.save()
+            canvas.clipRect(clipLeft, top + minOf(0f, dy), clipRight, bottom + maxOf(0f, dy))
+            canvas.drawText(text, placed.x, placed.baseline + dy, paint)
+            canvas.restore()
         }
+
         var cursor = 0
         timing.wordSpans.forEachIndexed { index, span ->
             val from = maxOf(span.first, rowStart) - rowStart
             val to = minOf(span.last + 1, rowEnd) - rowStart
             if (to <= from) return@forEachIndexed
-            run(cursor, from, 0f)
+
             val grow = timing.growingAt(index)
-            if (grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs) {
+            val isGrown = grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs
+            val lift = timing.wordLift(index, positionMs)
+
+            if (!isGrown && lift <= 0.001f) {
+                // Word is resting flat; keep it part of the continuous flat run.
+                return@forEachIndexed
+            }
+
+            // Flush preceding flat run
+            run(cursor, from, 0f)
+
+            if (isGrown && grow != null) {
                 for (k in from until to) {
                     val letter = rowStart + k - span.first
                     grow.sampleInto(letter, positionMs, growth)
@@ -454,7 +493,7 @@ internal class LyricsCardPainter internal constructor(
                     canvas.restore()
                 }
             } else {
-                run(from, to, -timing.wordLift(index, positionMs) * rise)
+                run(from, to, -lift * rise)
             }
             cursor = to
         }

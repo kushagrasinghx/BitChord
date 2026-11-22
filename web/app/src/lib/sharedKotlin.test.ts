@@ -1,4 +1,4 @@
-import { artworkAt, bestPart, BestPartLine, bucketMinus, bucketPlus, playlistMoves, searchFilters } from '@bitchord/shared-kotlin';
+import { artworkAt, bestPart, BestPartLine, bucketMinus, bucketPlus, playlistMoves, ReplayMonth, ReplayTrack, searchFilters } from '@bitchord/shared-kotlin';
 import { describe, expect, it } from 'vitest';
 
 // The Android app's own rules (shared/commonMain), run here as compiled JavaScript.
@@ -25,6 +25,18 @@ describe('shared Kotlin, from the web', () => {
     expect(read(bucketMinus(month(1_500), month(1_000))!).hours[20]).toBe(500);
     expect(bucketMinus(month(1_000), month(1_000))).toBeNull();
     expect(() => bucketPlus(month(1), new Int8Array(new TextEncoder().encode('{"month":"2026-10"}')))).toThrow();
+  });
+
+  it('reads the months the web Replay records, so sync works on real data', () => {
+    const song = new ReplayTrack('aaaaaaaaaaa', 'Song', 'Band', 'Record', null, null, null);
+    const recorded = (ms: number) => {
+      const month = new ReplayMonth('2026-11', null);
+      month.record(song, ms, true, Date.UTC(2026, 10, 3), 21, 3);
+      return new Int8Array(new TextEncoder().encode(month.json()));
+    };
+    const read = (b: Int8Array) => JSON.parse(new TextDecoder().decode(b));
+    expect(read(bucketPlus(recorded(4_000), recorded(2_000))).tracks[0].ms).toBe(6_000);
+    expect(read(bucketMinus(recorded(4_000), recorded(1_000))!).tracks[0].ms).toBe(3_000);
   });
 });
 

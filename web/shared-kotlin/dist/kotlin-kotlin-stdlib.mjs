@@ -1,14 +1,4 @@
 //region block: polyfills
-if (typeof Math.imul === 'undefined') {
-  Math.imul = function imul(a, b) {
-    return (a & 4.29490176E9) * (b & 65535) + (a & 65535) * (b | 0) | 0;
-  };
-}
-if (typeof ArrayBuffer.isView === 'undefined') {
-  ArrayBuffer.isView = function (a) {
-    return a != null && a.__proto__ != null && a.__proto__.__proto__ === Int8Array.prototype.__proto__;
-  };
-}
 if (typeof Array.prototype.fill === 'undefined') {
   // Polyfill from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/fill#Polyfill
   Object.defineProperty(Array.prototype, 'fill', {value: function (value) {
@@ -37,6 +27,11 @@ if (typeof Array.prototype.fill === 'undefined') {
     Object.defineProperty(TypedArray.prototype, 'fill', {value: Array.prototype.fill});
   }
 });
+if (typeof ArrayBuffer.isView === 'undefined') {
+  ArrayBuffer.isView = function (a) {
+    return a != null && a.__proto__ != null && a.__proto__.__proto__ === Int8Array.prototype.__proto__;
+  };
+}
 if (typeof Math.clz32 === 'undefined') {
   Math.clz32 = function (log, LN2) {
     return function (x) {
@@ -47,6 +42,11 @@ if (typeof Math.clz32 === 'undefined') {
       return 31 - (log(asUint) / LN2 | 0) | 0; // the "| 0" acts like math.floor
     };
   }(Math.log, Math.LN2);
+}
+if (typeof Math.imul === 'undefined') {
+  Math.imul = function imul(a, b) {
+    return (a & 4.29490176E9) * (b & 65535) + (a & 65535) * (b | 0) | 0;
+  };
 }
 if (typeof String.prototype.endsWith === 'undefined') {
   Object.defineProperty(String.prototype, 'endsWith', {value: function (searchString, position) {

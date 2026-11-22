@@ -108,6 +108,19 @@ tasks.register<Sync>("exportWeb") {
         }
     }
     into(rootProject.layout.projectDirectory.dir("web/shared-kotlin/dist"))
+    // The polyfills at the top of the stdlib come out in a different order between machines
+    // (startsWith and endsWith swap). Each stands alone, so they are sorted too.
+    doLast {
+        destinationDir.listFiles { f -> f.name.endsWith(".mjs") }?.forEach { file ->
+            val text = file.readText()
+            // Line endings are the machine's (Sync's filters write them), so either may appear.
+            val region = Regex("//region block: polyfills\\r?\\n").find(text) ?: return@forEach
+            val bodyStart = region.range.last + 1
+            val end = text.indexOf("//endregion", bodyStart)
+            val blocks = text.substring(bodyStart, end).split(Regex("(?m)(?=^if \\(typeof )")).filter { it.isNotEmpty() }
+            file.writeText(text.substring(0, bodyStart) + blocks.sorted().joinToString("") + text.substring(end))
+        }
+    }
 }
 
 // The JS target uses the machine's Node.js (the web build needs one anyway) rather than

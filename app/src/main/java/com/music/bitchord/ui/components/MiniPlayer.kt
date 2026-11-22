@@ -220,6 +220,7 @@ internal fun Modifier.miniPlayerGestures(
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
     onDismiss: (() -> Boolean)? = null,
+    dismissThreshold: Dp? = null,
 ): Modifier {
     // Playback state updates can recompose the bar while a finger is down.
     // Keep the gesture coroutine alive through those updates while still
@@ -236,9 +237,10 @@ internal fun Modifier.miniPlayerGestures(
     val lift = remember { mutableFloatStateOf(0f) }
     val dismissOffset = remember { mutableFloatStateOf(0f) }
     val settle = remember { arrayOfNulls<Job>(1) }
-    return pointerInput(Unit) {
+    val effectiveDismissThreshold = dismissThreshold ?: DISMISS_SWIPE_THRESHOLD
+    return pointerInput(effectiveDismissThreshold) {
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
-        val dismissThreshold = DISMISS_SWIPE_THRESHOLD.toPx()
+        val dismissThresholdPx = effectiveDismissThreshold.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
         awaitEachGesture {
@@ -275,8 +277,8 @@ internal fun Modifier.miniPlayerGestures(
                     dismissOffset.floatValue = dragged
                     change.consume()
                 }
-                val dismissed = finished && dragged >= dismissThreshold
-                val exitOffset = dismissThreshold * 1.5f
+                val dismissed = finished && dragged >= dismissThresholdPx
+                val exitOffset = dismissThresholdPx * 1.5f
                 settle[0] = scope.launch {
                     animate(
                         initialValue = dismissOffset.floatValue,
@@ -357,7 +359,7 @@ internal fun Modifier.miniPlayerGestures(
         }
     }.graphicsLayer {
         translationY = -lift.floatValue + dismissOffset.floatValue
-        alpha = (1f - dismissOffset.floatValue / (DISMISS_SWIPE_THRESHOLD.toPx() * 1.5f))
+        alpha = (1f - dismissOffset.floatValue / (effectiveDismissThreshold.toPx() * 1.5f))
             .coerceIn(0f, 1f)
     }
 }

@@ -69,6 +69,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
 
+/** A half-row drag is reachable from the bottom-docked inline accessory. */
+private val INLINE_DISMISS_SWIPE_THRESHOLD = 24.dp
+
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
  * controls and the tabs are one component rather than two stacked bars.
@@ -368,6 +371,7 @@ private fun GlassNowPlaying(
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
                 onDismiss = onDismiss,
+                dismissThreshold = if (isInline) INLINE_DISMISS_SWIPE_THRESHOLD else null,
             )
             .graphicsLayer {
                 scaleX = pressScale

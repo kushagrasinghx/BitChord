@@ -18,6 +18,7 @@ import {
   type ResolvedPlayer,
 } from './resolver';
 import { ShakaPlayerAdapter } from './ShakaPlayerAdapter';
+import { usePremiumAudio } from './premiumAudio';
 
 /** What the engine knows about the track it loaded. */
 export interface LoadedTrack {
@@ -176,13 +177,38 @@ export class YouTubeEngine {
 
       const skip = new Set<PlayerClientName>();
       let lastError: unknown = null;
-      let yt = this.yt;
+      const anonymous = this.yt;
+      let yt = anonymous;
       let signed = false;
+      // Premium audio: ask as the signed-in account first, the only identity
+      // offered itag 774. A preference, not a requirement: anything going
+      // wrong signed in goes back to the usual anonymous walk.
+      let premium = usePremiumAudio.getState().on && ytAuthSnapshot().signedIn;
+      const playAsUsual = (why: string) => {
+        trackLog.i(`premium audio: ${why}; playing as usual`, videoId);
+        premium = false;
+        signed = false;
+        yt = anonymous;
+        skip.clear();
+      };
+      if (premium) {
+        try {
+          yt = await timed('signed-in InnerTube session', videoId, getSignedInnertube);
+          signed = true;
+        } catch (error) {
+          playAsUsual(`no signed-in session (${describe(error)})`);
+        }
+      }
       for (let attempt = 0; attempt < CLIENT_ATTEMPTS; attempt++) {
         let resolved: ResolvedPlayer;
         try {
           resolved = await timed('player request', videoId, () => resolvePlayer(yt, videoId, skip, signed));
         } catch (error) {
+          if (premium) {
+            playAsUsual(`signed-in request failed (${describe(error)})`);
+            attempt = -1;
+            continue;
+          }
           // An age gate is a verdict on the visitor, not the track: ask again
           // as the signed-in user, through the extension (prompt §5.3).
           if (!(error instanceof UnplayableError && error.ageGated) || signed || !ytAuthSnapshot().signedIn) throw error;
@@ -204,8 +230,13 @@ export class YouTubeEngine {
         } catch (error) {
           if (error instanceof SupersededError) throw error;
           lastError = error;
-          skip.add(resolved.client);
           excludeClient(videoId, resolved.client, `streaming failed: ${describe(error)}`, resolved.signed);
+          if (premium) {
+            playAsUsual(`signed-in stream failed (${describe(error)})`);
+            attempt = -1;
+            continue;
+          }
+          skip.add(resolved.client);
         }
       }
       throw lastError instanceof Error ? lastError : new Error('No YouTube client could stream this track');

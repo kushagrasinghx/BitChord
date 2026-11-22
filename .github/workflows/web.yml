@@ -3,30 +3,89 @@ name: Web
 # The web player (web/app), its browser extension (web/extension) and the code
 # they share (web/shared): typecheck, test and build all three, so a change
 # that only breaks the production build (Vite, WXT) is caught before it ships.
+#
+# The web player also runs the Android app's own logic: shared/src/commonMain,
+# compiled to JavaScript in web/shared-kotlin/dist. The shared-kotlin job keeps
+# that copy current, so a change to shared/ reaches the web without anyone
+# porting it: on a branch of this repository it commits the regenerated files
+# itself; on a fork's PR it fails and names the command.
 on:
   push:
     branches: [main]
-    paths:
+    paths: &paths
       - 'web/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
       - '.github/workflows/web.yml'
   pull_request:
-    paths:
-      - 'web/**'
-      - '.github/workflows/web.yml'
+    paths: *paths
 
 concurrency:
   group: web-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  shared-kotlin:
+    name: Web · shared Kotlin up to date
+    runs-on: ubuntu-latest
+    permissions:
+      # To commit the regenerated files back to a branch of this repository.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A PR's own branch, so the update can be committed onto it.
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerate web/shared-kotlin
+        run: ./gradlew :shared:exportWeb
+
+      - name: Commit it, or say how
+        env:
+          SAME_REPO: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          if git diff --quiet -- web/shared-kotlin && [ -z "$(git ls-files --others --exclude-standard web/shared-kotlin)" ]; then
+            echo "web/shared-kotlin matches shared/."
+            exit 0
+          fi
+          if [ "$SAME_REPO" != "true" ]; then
+            echo "::error file=web/shared-kotlin/README.md::shared/ changed, so the web player's copy of it is stale. Run ./gradlew :shared:exportWeb and commit web/shared-kotlin."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add web/shared-kotlin
+          git commit -m "chore(web): regenerate shared-kotlin from shared/"
+          git push
+          echo "::notice::Committed the regenerated web/shared-kotlin."
+
   web:
     name: Web · typecheck, test, build
+    needs: shared-kotlin
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
     steps:
+      # The branch's tip, so a shared-kotlin regeneration committed above is what gets tested.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
 
       # The pnpm version comes from web/package.json's packageManager.
       - uses: pnpm/action-setup@v4

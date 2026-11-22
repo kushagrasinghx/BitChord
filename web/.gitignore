@@ -7,3 +7,5 @@ dist/
 
 # Built extension zips (web/extension: pnpm package)
 app/public/downloads/
+# Generated from shared/ and committed on purpose (shared-kotlin/README.md).
+!/shared-kotlin/dist/

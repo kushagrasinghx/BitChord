@@ -171,6 +171,9 @@ importers:
       '@bitchord/shared':
         specifier: workspace:*
         version: link:../shared
+      '@bitchord/shared-kotlin':
+        specifier: workspace:*
+        version: link:../shared-kotlin
       '@tanstack/react-query':
         specifier: ^5.104.3
         version: 5.104.3(react@19.3.1)
@@ -287,6 +290,8 @@ importers:
       vitest:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@22.20.5)(happy-dom@21.0.1)(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
+
+  shared-kotlin: {}
 
 packages:
 

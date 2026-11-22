@@ -11,6 +11,7 @@ import { config } from '@/config';
 import { useExtension } from '@/extension/useExtension';
 import { isMobileBrowser } from '@/lib/platform';
 import { useUi } from '@/state/ui';
+import { Onboarding } from '@/onboarding/Onboarding';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
@@ -127,6 +128,7 @@ export function AppShell() {
           <FullScreenPlayer />
         </Suspense>
       )}
+      <Onboarding />
     </div>
   );
 }

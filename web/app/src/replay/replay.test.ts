@@ -1,5 +1,6 @@
 import { replayCharts, replayYear, ReplayMonth, ReplayTally, ReplayTrack } from '@bitchord/shared-kotlin';
 import { describe, expect, it } from 'vitest';
+import { meshDimmed, meshSlots, meshTuned, rgbOf } from './colors';
 import { formatDay, formatHour, formatListening } from './format';
 import { periodMonths } from './periods';
 import { cardContent } from './year/content';
@@ -113,5 +114,24 @@ describe('formatting', () => {
     expect(formatListening(2_000 * 60_000)).toBe('2,000 min');
     expect([0, 9, 12, 15].map(formatHour)).toEqual(['midnight', '9 AM', 'midday', '3 PM']);
     expect(formatDay('2026-08-14')).toMatch(/^14 /);
+  });
+});
+
+// The phone's palette mesh (MeshGradient.kt): four colours, tuned for white type.
+describe('the palette mesh', () => {
+  it('takes each quarter’s most colourful cell, in the blobs’ order', () => {
+    // A 4×4 sleeve: red top left, green top right, blue bottom right, white bottom left.
+    const cells = Array.from({ length: 16 }, (_, i) => {
+      const top = i < 8;
+      const left = i % 4 < 2;
+      return top ? (left ? rgbOf(0xff0000) : rgbOf(0x00ff00)) : left ? rgbOf(0xffffff) : rgbOf(0x0000ff);
+    });
+    expect(meshSlots(cells)).toEqual([rgbOf(0xff0000), rgbOf(0x00ff00), rgbOf(0x0000ff), rgbOf(0xffffff)]);
+  });
+
+  it('holds a blob’s lightness to .28–.58 and dims the ground to .12', () => {
+    expect(meshTuned(rgbOf(0xffffff))).toBe('hsl(0 0% 58%)');
+    expect(meshTuned(rgbOf(0x000000))).toBe('hsl(0 0% 28%)');
+    expect(meshDimmed(rgbOf(0xfa2d48))).toMatch(/^hsl\(352(\.\d+)? 95% 12%\)$/);
   });
 });

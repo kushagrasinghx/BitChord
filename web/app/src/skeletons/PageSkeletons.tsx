@@ -80,8 +80,13 @@ export function PlaylistSkeleton() {
 export function ArtistSkeleton() {
   return (
     <div aria-busy="true">
-      {/* The artist hero is ~1.93:1 of the content column (604px tall at 1165px). */}
-      <SkeletonBlock className="aspect-[1165/604] max-h-[70vh] w-full" radius={0} />
+      {/* The photo is a shade taller than wide (ARTIST_PHOTO_RATIO .95), at most 60% of the window; the action row hangs 20px into its foot. */}
+      <SkeletonBlock className="aspect-[0.95] max-h-[60vh] w-full" radius={0} />
+      <div className="relative -mt-5 mb-[22px] flex items-center justify-center gap-6" aria-hidden="true">
+        <SkeletonBlock width={52} height={52} radius="50%" />
+        <SkeletonBlock width={70} height={70} radius="50%" />
+        <SkeletonBlock width={52} height={52} radius="50%" />
+      </div>
       <ShelfSkeleton kind="tracks" />
       <ShelfSkeleton kind="square" />
       <ShelfSkeleton kind="square" />

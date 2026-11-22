@@ -1,16 +1,17 @@
 import { PrefetchLink } from '@/components/PrefetchLink';
 
 /**
- * A page-sized message, centred, as the phone's MessageState
- * (sharedUi/.../components/Common.kt): 16 bodyLarge in onSurfaceVariant, 48px
- * above and below, and 16px under it the theme's plain filled button, white in
- * dark, black in light. Also the Spotify page's sign-in invitation.
+ * A page-sized message, centred (sharedUi/.../components/Common.kt
+ * MessageState): 16px bodyLarge in the secondary colour, 48px above and
+ * below, and the action 16px under it as the phone's Material Button: a 40px
+ * pill in the theme's primary (white on dark) with its contrast text. Also
+ * the Spotify page's sign-in invitation and the Replay's empty state.
  */
 export const stateStyles = {
   state: 'mx-auto flex max-w-[420px] flex-col items-center gap-1 px-[22px] py-12 text-center',
-  title: 'type-body-emphasized text-on-surface-variant',
-  detail: 'type-body-tall text-on-surface-variant',
-  button: 'mt-3 inline-flex h-10 items-center rounded-pill bg-key px-6 type-[500_14px/20px] text-on-key active:opacity-80',
+  title: 'type-body text-secondary',
+  detail: 'type-callout text-secondary',
+  button: 'mt-3 inline-flex h-10 items-center rounded-pill bg-key px-6 type-callout-medium text-on-key transition-[scale] duration-150 ease-out active:scale-[.97]',
 };
 
 /** In place of a YouTube page when the extension isn't installed (prompt §1): an invitation, not an error. */

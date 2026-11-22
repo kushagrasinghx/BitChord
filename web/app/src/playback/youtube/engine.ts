@@ -480,7 +480,7 @@ export class YouTubeEngine {
 
   /** Picks Opus 251 (else AAC 140): the preferred codec's highest bitrate, avoiding DRC renditions. */
   private selectAudio(player: shaka.Player): { label: string; stats: Omit<StreamStats, 'mode'> } {
-    const tracks = player.getVariantTracks().filter((t) => !/drc/i.test(t.originalAudioId ?? ''));
+    const tracks = player.getVariantTracks();
     const statsOf = (t: shaka.extern.Track) => ({
       codec: codecName(t.audioCodec),
       itag: (t.originalAudioId ?? '').split('-')[0] || null,
@@ -488,15 +488,12 @@ export class YouTubeEngine {
       sampleRateHz: t.audioSamplingRate,
       channels: t.channelsCount,
     });
-    for (const codec of this.preferredCodecs) {
-      const best = tracks
-        .filter((t) => t.audioCodec?.startsWith(codec))
-        .sort((a, b) => (b.audioBandwidth ?? b.bandwidth) - (a.audioBandwidth ?? a.bandwidth))[0];
-      if (best) {
-        if (!best.active) player.selectVariantTrack(best, true);
-        const itag = (best.originalAudioId ?? '').split('-')[0];
-        return { label: `${itag} ${codec} ${Math.round((best.audioBandwidth ?? best.bandwidth) / 1000)}kbps`, stats: statsOf(best) };
-      }
+    const picked = bestAudioTrack(tracks, this.preferredCodecs);
+    if (picked) {
+      const { track: best, codec } = picked;
+      if (!best.active) player.selectVariantTrack(best, true);
+      const itag = (best.originalAudioId ?? '').split('-')[0];
+      return { label: `${itag} ${codec} ${Math.round((best.audioBandwidth ?? best.bandwidth) / 1000)}kbps`, stats: statsOf(best) };
     }
     const active = player.getVariantTracks().find((t) => t.active);
     return active
@@ -594,4 +591,22 @@ function describe(error: unknown): string {
     return `Shaka ${error.code}${status}${uri}`;
   }
   return error instanceof Error ? error.message : String(error);
+}
+
+type AudioTrack = Pick<shaka.extern.Track, 'audioCodec' | 'audioBandwidth' | 'bandwidth' | 'originalAudioId'>;
+
+/**
+ * The first preferred codec's highest-bitrate track, skipping DRC (loudness-normalised) copies.
+ * Premium's ~256 kbps Opus (itag 774) outranks the usual 251 by bitrate whenever the signed-in
+ * account is offered it, so no itag is named here.
+ */
+export function bestAudioTrack<T extends AudioTrack>(tracks: readonly T[], preferredCodecs: readonly string[]): { track: T; codec: string } | null {
+  const plain = tracks.filter((t) => !/drc/i.test(t.originalAudioId ?? ''));
+  for (const codec of preferredCodecs) {
+    const track = plain
+      .filter((t) => t.audioCodec?.startsWith(codec))
+      .sort((a, b) => (b.audioBandwidth ?? b.bandwidth) - (a.audioBandwidth ?? a.bandwidth))[0];
+    if (track) return { track, codec };
+  }
+  return null;
 }

@@ -369,26 +369,35 @@ internal class LyricsCardPainter internal constructor(
         val dim = if (sung) 1f else UNSUNG_ALPHA
         val lifts = !row.isSub
 
+        if (revealed <= 0f || (sung && revealed >= row.text.length)) {
+            scratch.set(row.paint)
+            scratch.alpha = (alpha * dim).roundToInt()
+            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
+            return
+        }
+
+        if (revealed >= row.text.length) {
+            scratch.set(row.paint)
+            scratch.alpha = alpha.roundToInt()
+            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+            return
+        }
+
         // The unsung copy underneath, then the lit one over it up to the sweep.
         scratch.set(row.paint)
         scratch.alpha = (alpha * dim).roundToInt()
         drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
-        if (revealed <= 0f || (sung && revealed >= row.text.length)) return
 
-        scratch.alpha = alpha.roundToInt()
-        if (revealed >= row.text.length) {
-            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
-            return
-        }
         val size = row.paint.textSize
         val edge = placed.x + sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
         // The feather runs ahead of the sweep, into what is still to come, and
         // grows in over the first stretch of each row — the panel's own wipe.
         val feather = minOf(size * FEATHER_RATIO, edge - placed.x)
         val top = placed.baseline + row.paint.ascent() - size * HEADROOM_RATIO
-        val bottom = placed.baseline + row.paint.descent() + size * 0.1f
+        val bottom = placed.baseline + row.paint.descent() + size * HEADROOM_RATIO
         val save = canvas.saveLayer(0f, top, layout.width.toFloat(), bottom, null)
         canvas.clipRect(0f, top, edge + feather, bottom)
+        scratch.alpha = alpha.roundToInt()
         drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
         if (feather > 0.5f) {
             fade.shader = LinearGradient(
@@ -441,14 +450,15 @@ internal class LyricsCardPainter internal constructor(
         }
 
         val top = placed.baseline + paint.ascent() - size * HEADROOM_RATIO
-        val bottom = placed.baseline + paint.descent() + size * 0.1f
+        val bottom = placed.baseline + paint.descent() + size * HEADROOM_RATIO
 
         fun run(from: Int, to: Int, dy: Float) {
             if (to <= from) return
             val x1 = placed.x + paint.measureText(text, 0, from)
             val x2 = placed.x + paint.measureText(text, 0, to)
-            val clipLeft = if (from == 0) placed.x - 4f else x1
-            val clipRight = if (to >= text.length) layout.width.toFloat() else x2
+            val pad = if (dy != 0f) size * 0.15f else 0f
+            val clipLeft = if (from == 0) placed.x - 4f else (x1 - pad)
+            val clipRight = if (to >= text.length) layout.width.toFloat() else (x2 + pad)
             canvas.save()
             canvas.clipRect(clipLeft, top + minOf(0f, dy), clipRight, bottom + maxOf(0f, dy))
             canvas.drawText(text, placed.x, placed.baseline + dy, paint)
@@ -477,19 +487,28 @@ internal class LyricsCardPainter internal constructor(
                 for (k in from until to) {
                     val letter = rowStart + k - span.first
                     grow.sampleInto(letter, positionMs, growth)
-                    val left = placed.x + paint.measureText(text, 0, k)
-                    val w = paint.measureText(text, k, k + 1)
-                    val cx = left + w / 2f + growth.shift * size
-                    val y = placed.baseline - growth.rise * rise
+                    val charLeft = placed.x + paint.measureText(text, 0, k)
+                    val charRight = placed.x + paint.measureText(text, 0, k + 1)
+                    val charW = charRight - charLeft
+                    val dx = growth.shift * size
+                    val dy = -growth.rise * rise
+                    val overhang = (charW * (growth.scale - 1f)) / 2f
                     canvas.save()
-                    canvas.scale(growth.scale, growth.scale, cx, y)
+                    canvas.clipRect(
+                        charLeft - overhang + dx,
+                        top + minOf(0f, dy),
+                        charRight + overhang + dx,
+                        bottom + maxOf(0f, dy),
+                    )
+                    canvas.translate(dx, dy)
+                    canvas.scale(growth.scale, growth.scale, charLeft + charW / 2f, placed.baseline)
                     if (bloom && growth.bloom > 0.01f) {
                         glow.set(paint)
                         glow.alpha = (paint.alpha * growth.bloom.coerceAtMost(1f)).roundToInt()
                         glow.maskFilter = BlurMaskFilter(size * GLOW_RATIO, BlurMaskFilter.Blur.NORMAL)
-                        canvas.drawText(text, k, k + 1, cx - w / 2f, y, glow)
+                        canvas.drawText(text, placed.x, placed.baseline, glow)
                     }
-                    canvas.drawText(text, k, k + 1, cx - w / 2f, y, paint)
+                    canvas.drawText(text, placed.x, placed.baseline, paint)
                     canvas.restore()
                 }
             } else {

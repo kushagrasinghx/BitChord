@@ -58,6 +58,9 @@ import com.music.bitchord.ui.replay.cacheForSharing
 import com.music.bitchord.ui.replay.saveToGallery
 import com.music.bitchord.ui.replay.sendIntent
 import dev.chrisbanes.haze.HazeState
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.withFrameMillis
@@ -454,16 +457,17 @@ private fun CardPreview(
         val length = (timeline.durationMs + PREVIEW_REST_MS).coerceAtLeast(1L)
         while (true) withFrameMillis { elapsedMs = (it - start) % length }
     }
+    val previewBitmap = remember(painter) {
+        Bitmap.createBitmap(painter.width, painter.height, Bitmap.Config.ARGB_8888)
+    }
     Canvas(modifier.semantics { contentDescription = description }) {
         val at = timeline.trackMsAt(elapsedMs * 1000)
-        val scale = size.width / painter.width
-        drawIntoCanvas { canvas ->
-            val native = canvas.nativeCanvas
-            native.save()
-            native.scale(scale, scale)
-            painter.drawOn(native, at)
-            native.restore()
-        }
+        painter.render(at, previewBitmap)
+        drawImage(
+            image = previewBitmap.asImageBitmap(),
+            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+            filterQuality = FilterQuality.Medium,
+        )
     }
 }
 

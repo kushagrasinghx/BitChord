@@ -4,6 +4,7 @@
 //! .github/workflows/windows.yml attaches when a release is published, so the
 //! notification never points at a release without one. The notification's
 //! Download opens the installer in the browser; running it upgrades in place.
+//! Where notifications are turned off, a dialog over the player asks instead.
 
 use std::time::Duration;
 use std::{fs, thread};
@@ -11,9 +12,10 @@ use std::{fs, thread};
 use tauri::{AppHandle, Manager, Runtime};
 use windows::Data::Xml::Dom::XmlDocument;
 use windows::Foundation::Uri;
-use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
+use windows::UI::Notifications::{NotificationSetting, ToastNotification, ToastNotificationManager};
 use windows::Web::Http::HttpClient;
 use windows::core::HSTRING;
+use windows_sys::Win32::UI::WindowsAndMessaging::{IDYES, MB_ICONINFORMATION, MB_YESNO, MessageBoxW};
 
 const LATEST: &str = "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest";
 /// What the workflow names the installer it attaches: BitChord-v1.11-windows-setup.exe.
@@ -45,7 +47,7 @@ fn check<R: Runtime>(app: &AppHandle<R>) -> Result<(), Error> {
     if fs::read_to_string(&marker).is_ok_and(|seen| seen == version) {
         return Ok(());
     }
-    notify(&app.config().identifier, &version, &url)?;
+    tell(app, &version, &url)?;
     fs::create_dir_all(marker.parent().ok_or("no data dir")?)?;
     fs::write(marker, version)?;
     Ok(())
@@ -92,8 +94,30 @@ fn get(url: &str) -> windows::core::Result<String> {
     Ok(client.GetStringAsync(&Uri::CreateUri(&HSTRING::from(url))?)?.join()?.to_string())
 }
 
-/// A Windows notification under BitChord's name; Download opens [url].
-fn notify(app_id: &str, version: &str, url: &str) -> windows::core::Result<()> {
+/// A Windows notification, or, where the user has turned notifications off (for
+/// BitChord or for every app), a dialog over the player, so the update is never missed.
+fn tell<R: Runtime>(app: &AppHandle<R>, version: &str, url: &str) -> Result<(), Error> {
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(&app.config().identifier))?;
+    if notifier.Setting()? == NotificationSetting::Enabled {
+        return Ok(notifier.Show(&ToastNotification::CreateToastNotification(&toast(version, url)?)?)?);
+    }
+    let owner = app.get_webview_window("main").and_then(|w| w.hwnd().ok()).map_or(std::ptr::null_mut(), |h| h.0);
+    let text: Vec<u16> = format!(
+        "BitChord {version} is available.\n\nDownload the update now? Installing it keeps your sign-ins and settings."
+    )
+    .encode_utf16()
+    .chain([0])
+    .collect();
+    let caption: Vec<u16> = "BitChord".encode_utf16().chain([0]).collect();
+    let answer = unsafe { MessageBoxW(owner, text.as_ptr(), caption.as_ptr(), MB_YESNO | MB_ICONINFORMATION) };
+    if answer == IDYES {
+        crate::sign_in::open_in_browser(&url.parse()?);
+    }
+    Ok(())
+}
+
+/// The notification: BitChord's name and icon (the shortcut's identity), and Download opening [url].
+fn toast(version: &str, url: &str) -> windows::core::Result<XmlDocument> {
     let (version, url) = (xml_escape(version), xml_escape(url));
     let xml = XmlDocument::new()?;
     xml.LoadXml(&HSTRING::from(format!(
@@ -105,8 +129,7 @@ fn notify(app_id: &str, version: &str, url: &str) -> windows::core::Result<()> {
   <actions><action content="Download" activationType="protocol" arguments="{url}"/></actions>
 </toast>"#
     )))?;
-    ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(app_id))?
-        .Show(&ToastNotification::CreateToastNotification(&xml)?)
+    Ok(xml)
 }
 
 fn xml_escape(text: &str) -> String {
@@ -142,6 +165,17 @@ mod tests {
         assert_eq!(newer_installer(&release(serde_json::json!([{ "name": "BitChord-v1.11.apk", "browser_download_url": "https://github.com/kushagrasinghx/BitChord/releases/download/v1.11/BitChord-v1.11.apk" }])), "1.10.0"), None);
         // Not this repository's download: ignored.
         assert_eq!(newer_installer(&release(serde_json::json!([{ "name": "x-windows-setup.exe", "browser_download_url": "https://example.com/x-windows-setup.exe" }])), "1.10.0"), None);
+    }
+
+    #[test]
+    #[ignore = "network: cargo test -- --ignored"]
+    fn reads_the_live_latest_release() {
+        let release: serde_json::Value = serde_json::from_str(&get(LATEST).unwrap()).unwrap();
+        assert!(release["tag_name"].as_str().unwrap().starts_with('v'));
+        assert!(release["assets"].is_array());
+        // Never newer than itself, whatever it carries.
+        let tag = release["tag_name"].as_str().unwrap().trim_start_matches('v');
+        assert_eq!(newer_installer(&release, tag), None);
     }
 
     #[test]

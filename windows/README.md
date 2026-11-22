@@ -105,7 +105,8 @@ which builds the installer from the release's tag and attaches it as
 The app checks for updates the way the phone does (`AppUpdateChecker.kt`): the
 same "latest release" and the same version rule, at launch and every 12 hours
 (`src/update.rs`). When a newer release carries the Windows installer, it shows a
-Windows notification once for that version; its **Download** opens the installer,
+Windows notification once for that version (or, where notifications are turned
+off, a dialog over the player); its **Download** opens the installer,
 which upgrades in place and keeps sign-ins and settings (they live in
 `%LOCALAPPDATA%\com.music.bitchord.windows`). No signing key or secret is involved.
 

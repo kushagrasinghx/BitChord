@@ -86,7 +86,7 @@ pub fn on_new_window<R: Runtime>(app: &AppHandle<R>, url: Url) -> NewWindowRespo
 }
 
 /// http(s) links open in the user's browser; anything else is refused there.
-fn open_in_browser(url: &Url) -> bool {
+pub(crate) fn open_in_browser(url: &Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
     }

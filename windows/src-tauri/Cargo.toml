@@ -12,8 +12,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-single-instance = "2"
 # These are all already in the graph through Tauri; listing them only turns on what the shell calls.
-# windows-sys: the title bar (DWM) and the process's app identity (Shell).
-windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_UI_Shell"] }
+# windows-sys: the title bar (DWM), the app identity (Shell), the update dialog (WindowsAndMessaging).
+windows-sys = { version = "0.61", features = ["Win32_Graphics_Dwm", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 # windows: WinRT for the media session (SMTC), update notifications and the release check.
 windows = { version = "0.62", features = [
     "Data_Xml_Dom",

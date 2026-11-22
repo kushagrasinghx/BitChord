@@ -195,7 +195,7 @@ function NamePage({ name, onName, onNext }: { name: string; onName: (name: strin
       {/* The name in the heading's own face and weight, so it reads as part of the page, not a form on top of it. */}
       <input
         id="onboarding-name"
-        className="mt-3 h-16 w-full flex-none rounded-pill border-0 bg-white/14 px-6 type-[800_26px/30px] tracking-[-0.6px] text-white caret-white outline-none placeholder:text-white/38 focus-visible:ring-2 focus-visible:ring-white/60"
+        className="mt-3 h-16 w-full flex-none rounded-pill border-0 bg-white/14 px-6 type-[800_26px/30px] tracking-[-0.6px] text-white caret-white outline-none placeholder:text-white/38 focus-visible:bg-white/20"
         placeholder="Your name"
         value={name}
         maxLength={NAME_LIMIT}

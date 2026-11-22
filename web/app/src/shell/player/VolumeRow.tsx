@@ -62,7 +62,7 @@ export function VolumeRow() {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(volume * 100)}
-          className="rounded-row outline-offset-2 focus-visible:outline-2 focus-visible:outline-white/60"
+          className="rounded-row focus-visible:bg-none focus-visible:bg-white/14"
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
             setHeld(true);

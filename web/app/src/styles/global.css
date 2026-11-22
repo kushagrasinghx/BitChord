@@ -519,6 +519,17 @@
     outline: none;
   }
 
+  /*
+   * Keyboard focus is shown instead as the selected sidebar tab's fill, the
+   * key colour at 14% (FloatingBottomBar.kt), which the artwork tint recolours
+   * for its page. It is laid as an image over the control's own background, so
+   * it sits on top of a hover or a filled button rather than replacing it.
+   * Fields keep their caret and are left out; a mouse click shows nothing.
+   */
+  :where(a[href], button, summary, [role='button'], [role='link'], [role='option'], [role='menuitem'], [role='menuitemradio'], [role='tab'], [role='radio'], [role='switch'], [role='checkbox'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

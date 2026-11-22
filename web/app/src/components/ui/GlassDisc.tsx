@@ -7,7 +7,7 @@ const variants = {
    * #1C1C1E slab (glassFrost), brightened to 34% while active so the state
    * shows on any sleeve; a 19px white glyph.
    */
-  disc: 'size-[34px] bg-[#1c1c1e61] bg-[linear-gradient(#ffffff2e,#ffffff2e)] text-white backdrop-blur-[20px] aria-pressed:bg-[linear-gradient(#ffffff57,#ffffff57)] [&_svg]:size-[19px]',
+  disc: 'size-[34px] bg-[#1c1c1e61] bg-[linear-gradient(#ffffff2e,#ffffff2e)] text-white backdrop-blur-[20px] aria-pressed:bg-[linear-gradient(#ffffff57,#ffffff57)] focus-visible:bg-[linear-gradient(#ffffff57,#ffffff57)] [&_svg]:size-[19px]',
   /*
    * A pushed page's back button (app/.../ui/components/FrostedTopBar.kt
    * ArtworkPageBackButton): 44px of the bar's frosted surface with its 10%

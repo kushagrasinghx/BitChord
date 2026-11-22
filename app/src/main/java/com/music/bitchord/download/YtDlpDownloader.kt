@@ -61,7 +61,7 @@ object YtDlpDownloader {
                             Log.d(TAG, "yt-dlp background update check: ${it.message}")
                         }
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     android.util.Log.e(TAG, "Failed to initialize yt-dlp / FFmpeg", e)
                     Log.e(TAG, "Failed to initialize yt-dlp / FFmpeg", e)
                 }

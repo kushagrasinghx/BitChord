@@ -89,8 +89,15 @@
 -dontwarn io.github.muntashirakon.adb.**
 
 # ---- youtubedl-android / yt-dlp & FFmpeg ----
--keep class com.yausername.youtubedl_android.** { *; }
--keep class com.yausername.ffmpeg.** { *; }
+-keep class com.yausername.** { *; }
 -keep class io.github.junkfood02.youtubedl_android.** { *; }
+-keep class org.apache.commons.io.** { *; }
 -keepclassmembers class * implements com.yausername.youtubedl_android.interfaces.* { *; }
+
+# ---- Application & WorkManager ----
+-keep class com.music.bitchord.BitChordApplication { *; }
+-keep class * implements androidx.work.Configuration$Provider { *; }
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
 

@@ -1,7 +1,9 @@
-import { groupMixes } from '@bitchord/shared-kotlin';
+import { detailSortOrder, groupMixes } from '@bitchord/shared-kotlin';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { getSignedInnertube } from '@/playback/youtube/innertube';
 import { mapTwoRowItem } from './mappers';
-import type { MusicItem } from './types';
+import type { MusicItem, Track } from './types';
 
 /**
  * The library sections, signed in (prompt §5.3), in Apple's sidebar order
@@ -100,3 +102,40 @@ export function groupedMixes(mixes: KeyedMix[]): MixSections {
   };
 }
 
+// ---- Song sorts (DetailScreen) ------------------------------------------------------
+
+/**
+ * The orders an album or playlist page can show its songs in (SongSort.kt),
+ * as the phone's sort menu lists them. Track number is left out: it sorts by
+ * a local file's tags, and the web has no local files.
+ */
+export const SONG_SORTS = [
+  { value: 'DATE_ADDED_DESC', label: 'Date Added (Newest First)' },
+  { value: 'DATE_ADDED_ASC', label: 'Date Added (Oldest First)' },
+  { value: 'DEFAULT', label: 'Default Order' },
+  { value: 'TITLE_ASC', label: 'Alphabetical (A to Z)' },
+  { value: 'TITLE_DESC', label: 'Alphabetical (Z to A)' },
+] as const;
+
+export type SongSort = (typeof SONG_SORTS)[number]['value'];
+
+/** Each page's chosen order, by its id, kept until changed (AppSettings `detail_song_sorts`). */
+export const useSongSorts = create<{ sorts: Record<string, SongSort>; setSort: (id: string, sort: SongSort) => void }>()(
+  persist((set) => ({ sorts: {}, setSort: (id, sort) => set((s) => ({ sorts: { ...s.sorts, [id]: sort } })) }), {
+    name: 'bitchord:song-sorts',
+    version: 1,
+  }),
+);
+
+/**
+ * [tracks] in [sort]'s order (DetailSort.kt `sortedForDetail`). A catalogue row
+ * carries no date, so its place in the running order stands in for one: a
+ * playlist is added to at the foot, and reversed that puts the newest on top.
+ */
+export function sortTracks(tracks: Track[], sort: SongSort): Track[] {
+  if (sort === 'DEFAULT') return tracks;
+  return detailSortOrder(
+    tracks.map((t) => t.title),
+    sort,
+  ).map((i) => tracks[i]!);
+}

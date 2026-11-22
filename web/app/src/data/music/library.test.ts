@@ -1,5 +1,6 @@
+import { songSorts } from '@bitchord/shared-kotlin';
 import { describe, expect, it, vi } from 'vitest';
-import type { MusicItem } from './types';
+import type { MusicItem, Track } from './types';
 
 const session = { context: { client: { hl: 'de' } } };
 const requests: { browseId: unknown; hl: string }[] = [];
@@ -34,7 +35,7 @@ vi.mock('./mappers', () => ({
   mapTwoRowItem: ({ id, title }: { id: string; title: string }) => ({ kind: 'playlist', id, title }) as MusicItem,
 }));
 
-const { fetchMixes, groupedMixes } = await import('./library');
+const { fetchMixes, groupedMixes, SONG_SORTS, sortTracks } = await import('./library');
 
 describe('Radio', () => {
   it('reads the page again in English to sort by, matched by playlist id', async () => {
@@ -65,5 +66,22 @@ describe('Radio', () => {
     pages['en-GB'] = pages.en!;
     await fetchMixes();
     expect(requests).toHaveLength(1);
+  });
+});
+
+describe('song sorts', () => {
+  const tracks = ['banana', 'Apple', 'cherry'].map((title) => ({ title }) as Track);
+
+  it('offers every SongSort.kt order but track number, which needs a file’s tags', () => {
+    expect(SONG_SORTS.map((s) => s.value).sort()).toEqual(songSorts().filter((s) => s !== 'TRACK_NUMBER').sort());
+  });
+
+  it('sorts as DetailSort.kt does: titles without case, dates by position', () => {
+    const titles = (sort: Parameters<typeof sortTracks>[1]) => sortTracks(tracks, sort).map((t) => t.title);
+    expect(titles('DEFAULT')).toEqual(['banana', 'Apple', 'cherry']);
+    expect(titles('TITLE_ASC')).toEqual(['Apple', 'banana', 'cherry']);
+    expect(titles('TITLE_DESC')).toEqual(['cherry', 'banana', 'Apple']);
+    expect(titles('DATE_ADDED_ASC')).toEqual(['banana', 'Apple', 'cherry']);
+    expect(titles('DATE_ADDED_DESC')).toEqual(['cherry', 'Apple', 'banana']);
   });
 });

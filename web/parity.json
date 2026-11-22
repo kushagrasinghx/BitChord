@@ -255,6 +255,12 @@
       "name": "Settings",
       "android": ["app/src/main/java/com/music/bitchord/ui/screens/SettingsSheet.kt"],
       "web": ["web/app/src/pages/SettingsPage.tsx", "web/app/src/pages/SettingsRows.tsx", "web/app/src/pages/settingsStyles.ts"]
+    },
+    {
+      "id": "full-screen-player",
+      "name": "Full-screen player: layout, transport, seek, volume, lyrics and queue panes, backdrop, sheet",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LandscapePlayer.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerControls.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ThinSlider.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerQueue.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ArtworkMeshBackdrop.kt", "app/src/main/java/com/music/bitchord/MainActivity.kt"],
+      "web": ["web/app/src/shell/FullScreenPlayer.tsx", "web/app/src/shell/player/", "web/app/src/shell/LyricsPanel.tsx", "web/app/src/shell/UpNext.tsx"]
     }
   ]
 }

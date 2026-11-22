@@ -116,6 +116,7 @@ export function Lcd() {
       data-open-player
     >
       <span
+        data-player-cover
         className={`relative grid h-10 flex-none place-items-center overflow-hidden rounded-row bg-surface-variant artwork-stroke transition-[width] duration-300 ease-panel ${video ? 'w-[71px] bg-black' : 'w-10'}`}
       >
         {nowPlaying ? (

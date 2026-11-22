@@ -23,7 +23,8 @@ export function useMatches(title: string, keywords: readonly string[] = []): boo
 }
 
 export function RowGlyph({ icon: Icon }: { icon: Glyph }) {
-  return <Icon size={22} strokeWidth={2} className={settingsUi.glyph} aria-hidden />;
+  // A react-icons brand mark (fill="currentColor") is filled, not stroked: a 2px stroke closes Spotify's thin arcs into a plain disc.
+  return <Icon size={22} strokeWidth={2} className={`${settingsUi.glyph} [&[fill=currentColor]]:stroke-0`} aria-hidden />;
 }
 
 export function Chevron() {

@@ -166,7 +166,7 @@ var imul = Math.imul;
 //region block: pre-declaration
 initMetadataForInterface(SerializationStrategy, 'SerializationStrategy');
 initMetadataForInterface(DeserializationStrategy, 'DeserializationStrategy');
-initMetadataForInterface(KSerializer, 'KSerializer', VOID, VOID, [SerializationStrategy, DeserializationStrategy]);
+initMetadataForInterface(KSerializer, 'KSerializer', VOID, VOID, [DeserializationStrategy, SerializationStrategy]);
 initMetadataForClass(AbstractPolymorphicSerializer, 'AbstractPolymorphicSerializer', VOID, VOID, [KSerializer]);
 initMetadataForClass(SealedClassSerializer, 'SealedClassSerializer', VOID, AbstractPolymorphicSerializer);
 initMetadataForClass(SerializationException, 'SerializationException', SerializationException_init_$Create$, IllegalArgumentException);
@@ -187,7 +187,7 @@ initMetadataForClass(elementDescriptors$1);
 initMetadataForClass(elementDescriptors$$inlined$Iterable$1);
 initMetadataForClass(ClassSerialDescriptorBuilder, 'ClassSerialDescriptorBuilder');
 initMetadataForInterface(CachedNames, 'CachedNames');
-initMetadataForClass(SerialDescriptorImpl, 'SerialDescriptorImpl', VOID, VOID, [SerialDescriptor, CachedNames]);
+initMetadataForClass(SerialDescriptorImpl, 'SerialDescriptorImpl', VOID, VOID, [CachedNames, SerialDescriptor]);
 initMetadataForClass(SerialKind, 'SerialKind');
 initMetadataForObject(ENUM, 'ENUM', VOID, SerialKind);
 initMetadataForObject(CONTEXTUAL, 'CONTEXTUAL', VOID, SerialKind);
@@ -223,7 +223,7 @@ function decodeSerializableElement$default(descriptor, index, deserializer, prev
   return $super === VOID ? this.wl(descriptor, index, deserializer, previousValue) : $super.wl.call(this, descriptor, index, deserializer, previousValue);
 }
 initMetadataForInterface(CompositeDecoder, 'CompositeDecoder');
-initMetadataForClass(AbstractDecoder, 'AbstractDecoder', VOID, VOID, [Decoder, CompositeDecoder]);
+initMetadataForClass(AbstractDecoder, 'AbstractDecoder', VOID, VOID, [CompositeDecoder, Decoder]);
 function encodeNotNullMark() {
 }
 function beginCollection(descriptor, collectionSize) {
@@ -249,7 +249,7 @@ function shouldEncodeElementDefault(descriptor, index) {
   return true;
 }
 initMetadataForInterface(CompositeEncoder, 'CompositeEncoder');
-initMetadataForClass(AbstractEncoder, 'AbstractEncoder', VOID, VOID, [Encoder, CompositeEncoder]);
+initMetadataForClass(AbstractEncoder, 'AbstractEncoder', VOID, VOID, [CompositeEncoder, Encoder]);
 initMetadataForObject(NothingSerializer_0, 'NothingSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(DurationSerializer, 'DurationSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(UuidSerializer, 'UuidSerializer', VOID, VOID, [KSerializer]);
@@ -268,7 +268,7 @@ initMetadataForClass(PrimitiveArraySerializer, 'PrimitiveArraySerializer', VOID,
 initMetadataForClass(PrimitiveArrayBuilder, 'PrimitiveArrayBuilder');
 initMetadataForCompanion(Companion);
 initMetadataForClass(ElementMarker, 'ElementMarker');
-initMetadataForClass(PluginGeneratedSerialDescriptor, 'PluginGeneratedSerialDescriptor', VOID, VOID, [SerialDescriptor, CachedNames]);
+initMetadataForClass(PluginGeneratedSerialDescriptor, 'PluginGeneratedSerialDescriptor', VOID, VOID, [CachedNames, SerialDescriptor]);
 initMetadataForClass(InlineClassDescriptor, 'InlineClassDescriptor', VOID, PluginGeneratedSerialDescriptor);
 function typeParametersSerializers() {
   return get_EMPTY_SERIALIZER_ARRAY();
@@ -278,7 +278,7 @@ initMetadataForClass(InlinePrimitiveDescriptor$1, VOID, VOID, VOID, [GeneratedSe
 initMetadataForObject(NoOpEncoder, 'NoOpEncoder', VOID, AbstractEncoder);
 initMetadataForObject(NothingSerialDescriptor, 'NothingSerialDescriptor', VOID, VOID, [SerialDescriptor]);
 initMetadataForClass(NullableSerializer, 'NullableSerializer', VOID, VOID, [KSerializer]);
-initMetadataForClass(SerialDescriptorForNullable, 'SerialDescriptorForNullable', VOID, VOID, [SerialDescriptor, CachedNames]);
+initMetadataForClass(SerialDescriptorForNullable, 'SerialDescriptorForNullable', VOID, VOID, [CachedNames, SerialDescriptor]);
 initMetadataForClass(ObjectSerializer, 'ObjectSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(CharArraySerializer_0, 'CharArraySerializer', VOID, PrimitiveArraySerializer, [KSerializer]);
 initMetadataForObject(DoubleArraySerializer_0, 'DoubleArraySerializer', VOID, PrimitiveArraySerializer, [KSerializer]);
@@ -315,7 +315,7 @@ initMetadataForObject(DoubleSerializer, 'DoubleSerializer', VOID, VOID, [KSerial
 initMetadataForObject(FloatSerializer, 'FloatSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(BooleanSerializer, 'BooleanSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(UnitSerializer, 'UnitSerializer', VOID, VOID, [KSerializer]);
-initMetadataForClass(TaggedDecoder, 'TaggedDecoder', VOID, VOID, [Decoder, CompositeDecoder]);
+initMetadataForClass(TaggedDecoder, 'TaggedDecoder', VOID, VOID, [CompositeDecoder, Decoder]);
 initMetadataForClass(NamedValueDecoder, 'NamedValueDecoder', VOID, TaggedDecoder);
 initMetadataForObject(UIntSerializer, 'UIntSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(ULongSerializer, 'ULongSerializer', VOID, VOID, [KSerializer]);

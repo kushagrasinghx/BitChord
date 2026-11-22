@@ -97,6 +97,15 @@ tasks.register<Sync>("exportWeb") {
         include("*.mjs", "*.d.mts")
         // The .map files aren't shipped, so nothing may point at them.
         filter { line -> if (line.startsWith("//# sourceMappingURL=")) "" else line }
+        // Kotlin/JS lists a class's interfaces in no fixed order from one run to the next. The list
+        // only answers `is` checks, so sorting it changes nothing and keeps the output identical
+        // between runs, which CI's "is it up to date" comparison relies on.
+        filter { line ->
+            if (!line.startsWith("initMetadataFor")) line
+            else line.replace(Regex("""\[([A-Za-z_$][\w$]*(?:, [A-Za-z_$][\w$]*)+)]""")) { m ->
+                "[" + m.groupValues[1].split(", ").sorted().joinToString(", ") + "]"
+            }
+        }
     }
     into(rootProject.layout.projectDirectory.dir("web/shared-kotlin/dist"))
 }

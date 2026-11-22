@@ -192,7 +192,7 @@ initMetadataForClass(JsonClassDiscriminator, 'JsonClassDiscriminator');
 initMetadataForClass(JsonNames, 'JsonNames');
 initMetadataForClass(JsonConfiguration, 'JsonConfiguration');
 initMetadataForClass(ClassDiscriminatorMode, 'ClassDiscriminatorMode', VOID, Enum);
-initMetadataForInterface(JsonDecoder, 'JsonDecoder', VOID, VOID, [Decoder, CompositeDecoder]);
+initMetadataForInterface(JsonDecoder, 'JsonDecoder', VOID, VOID, [CompositeDecoder, Decoder]);
 initMetadataForCompanion(Companion);
 initMetadataForClass(JsonElement, 'JsonElement', VOID, VOID, VOID, VOID, VOID, {0: JsonElementSerializer_getInstance});
 initMetadataForClass(JsonObject, 'JsonObject', VOID, JsonElement, [KtMap], VOID, VOID, {0: JsonObjectSerializer_getInstance});
@@ -212,7 +212,7 @@ initMetadataForObject(JsonArraySerializer, 'JsonArraySerializer', VOID, VOID, [K
 initMetadataForObject(JsonNullSerializer, 'JsonNullSerializer', VOID, VOID, [KSerializer]);
 initMetadataForObject(JsonLiteralSerializer, 'JsonLiteralSerializer', VOID, VOID, [KSerializer]);
 initMetadataForClass(defer$1, VOID, VOID, VOID, [SerialDescriptor]);
-initMetadataForInterface(JsonEncoder, 'JsonEncoder', VOID, VOID, [Encoder, CompositeEncoder]);
+initMetadataForInterface(JsonEncoder, 'JsonEncoder', VOID, VOID, [CompositeEncoder, Encoder]);
 initMetadataForClass(Composer, 'Composer');
 initMetadataForClass(ComposerForUnsignedNumbers, 'ComposerForUnsignedNumbers', VOID, Composer);
 initMetadataForClass(ComposerForUnquotedLiterals, 'ComposerForUnquotedLiterals', VOID, Composer);

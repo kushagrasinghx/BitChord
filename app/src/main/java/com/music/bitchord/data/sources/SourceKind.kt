@@ -137,9 +137,19 @@ enum class SourceKind(
         rank = 2,
     ),
 
+    /** A local catalogue indexed from the signed-in user's Telegram chats. */
+    TELEGRAM(
+        label = "Telegram Music",
+        detail = "Audio indexed on this device from chats you can access. Connects directly to Telegram.",
+        labels = listOf("On-device", "Lossless", "Private"),
+        needsServer = false,
+        canServeLossless = true,
+        rank = 2,
+    ),
+
     /**
      * The source the app was built on, listed here so it always has a fixed
-     * place: second, behind the module source. It cannot be removed — see
+     * place after the optional local sources. It cannot be removed — see
      * [SourceRegistry]. Nothing else in the app can supply a home feed, a
      * radio station or a related-tracks queue.
      */
@@ -150,7 +160,7 @@ enum class SourceKind(
         labels = listOf("Lossy", "Full catalogue", "Radio"),
         needsServer = false,
         canServeLossless = false,
-        rank = 3,
+        rank = 4,
     ),
     ;
 

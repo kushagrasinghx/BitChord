@@ -197,6 +197,7 @@ fun SettingsScreen(
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
+    onTelegramMusic: () -> Unit,
     onEqualizer: () -> Unit,
     onOpenReplay: () -> Unit,
     /** Opens [DriveBackupScreen], under Backup and Restore. */
@@ -498,6 +499,14 @@ fun SettingsScreen(
                 // five signed-in people, and being signed in is the whole of what
                 // the row needs before it will do anything.
                 val listenTogetherTitle = stringResource(R.string.listen_together)
+                row("Telegram Music", "telegram", "music", "channel") {
+                    SettingsRow(
+                        icon = SfIcons.MusicNote,
+                        title = "Telegram Music",
+                        subtitle = "Connect and index music from Telegram",
+                        onClick = onTelegramMusic,
+                    )
+                }
                 row(listenTogetherTitle, "jam", "party", "sync", "friends") {
                     SettingsRow(
                         icon = SfIcons.Groups,

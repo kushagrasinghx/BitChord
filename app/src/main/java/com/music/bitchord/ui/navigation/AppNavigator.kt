@@ -25,6 +25,7 @@ sealed interface AppRoute {
     data object Replay : AppRoute
     data object History : AppRoute
     data object Discord : AppRoute
+    data object TelegramMusic : AppRoute
     data object Spotify : AppRoute
     data object Downloads : AppRoute
 

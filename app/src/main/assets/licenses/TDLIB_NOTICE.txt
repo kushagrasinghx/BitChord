@@ -1,0 +1,7 @@
+This application bundles io.github.tdlib-android:core:0.1.1, a community Android
+package of TDLib and JNI bindings. The package metadata declares the Boost
+Software License 1.0. The complete license text is in
+BOOST_SOFTWARE_LICENSE_1_0.txt.
+
+Package project: https://github.com/AkashPriyadarshii/tdlib-android
+TDLib source: https://github.com/tdlib/td

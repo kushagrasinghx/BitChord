@@ -39,6 +39,7 @@ import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.telegram.TelegramClientManager
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
@@ -120,6 +121,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // nothing that runs after startup can see any of them half open.
         val backgroundInit = thread(name = "startup-init") {
             SourceRegistry.init(this)
+            TelegramClientManager.init(this)
             AndroidStreamHooks.initInnerTubeX(this)
             // Its own directory: canvas clips are looping video, not audio, and
             // belong in a cache AudioCache's own limit and eviction policy were

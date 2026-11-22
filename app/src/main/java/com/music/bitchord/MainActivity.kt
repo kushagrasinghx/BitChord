@@ -185,6 +185,7 @@ import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
+import com.music.bitchord.ui.screens.TelegramMusicScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
@@ -3194,6 +3195,8 @@ private fun BitChordApp(
                                 onOpenDialog = { discordDialog = it },
                                 contentPadding = listPadding,
                             )
+                        } else if (pageRoute == AppRoute.TelegramMusic) {
+                            TelegramMusicScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.AccountScrobbling) {
                             AccountAndScrobblingScreen(
                                 signedIn = signedIn,
@@ -3293,6 +3296,7 @@ private fun BitChordApp(
                                 },
                                 onSignOut = { viewModel.signOut() },
                                 onAccountScrobbling = { navigator.push(AppRoute.AccountScrobbling) },
+                                onTelegramMusic = { navigator.push(AppRoute.TelegramMusic) },
                                 onEqualizer = { navigator.push(AppRoute.Equalizer) },
                                 onOpenReplay = {
                                     replayLandingPage = ReplayStoryPage.INTRO
@@ -3993,6 +3997,7 @@ private fun BitChordApp(
                         AppRoute.Spotify -> stringResource(R.string.spotify)
                         AppRoute.Downloads -> stringResource(R.string.downloads)
                         AppRoute.Discord -> "Discord"
+                        AppRoute.TelegramMusic -> "Telegram Music"
                         AppRoute.History -> stringResource(R.string.history)
                         is AppRoute.LibraryShowAll -> route.shelf.title
                         is AppRoute.ArtistShelf -> route.shelf.title

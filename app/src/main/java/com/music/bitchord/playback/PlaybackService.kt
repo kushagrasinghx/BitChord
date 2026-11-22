@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.SystemClock
 import com.music.bitchord.data.TelemetryProvenance
+import com.music.bitchord.data.telegram.TelegramDataSourceFactory
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import android.util.Log
@@ -1889,8 +1890,8 @@ class PlaybackService : MediaLibraryService() {
         // smb:// tracks read straight off the share below the cache (so they
         // cache and seek like HTTP); everything else flows as before, and the
         // YouTube resolver never sees a scheme it cannot answer.
-        val defaultDataSourceFactory = SmbDataSource.RoutingFactory(
-            DefaultDataSource.Factory(this, resolvingFactory),
+        val defaultDataSourceFactory = TelegramDataSourceFactory(
+            SmbDataSource.RoutingFactory(DefaultDataSource.Factory(this, resolvingFactory)),
         )
         AudioCache.setUpstream(defaultDataSourceFactory)
         // DsdExtractorsFactory: the stock extractors plus DSF/DFF, which Media3

@@ -92,6 +92,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Keep package-wide native ABI support aligned with the three ABIs
+        // built by this project. TDLib's AAR also carries x86, but the app's
+        // own native analyzer and FFmpeg do not; do not ship a partial x86 APK.
+        ndk {
+            abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
+
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
@@ -238,6 +245,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
     testOptions {
         unitTests {
@@ -425,6 +433,11 @@ dependencies {
 
     // ---- Auth/session storage ----
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // ---- Native Telegram client ----
+    // TDLib's generated Java API and Android JNI bindings, built from TDLib
+    // 1.8.64 for all Android ABIs. No service or runtime code download.
+    implementation("io.github.tdlib-android:core:0.1.1")
 
     // ---- JS module execution: QuickJS VM for style source plugins ----
     // Held at InnerTubeX's version; the same VM runs QuickJsExecutor's module sources.

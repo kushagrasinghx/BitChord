@@ -1,4 +1,4 @@
-import { artworkAt, bestPart, BestPartLine, playlistMoves, searchFilters } from '@bitchord/shared-kotlin';
+import { artworkAt, bestPart, BestPartLine, bucketMinus, bucketPlus, playlistMoves, searchFilters } from '@bitchord/shared-kotlin';
 import { describe, expect, it } from 'vitest';
 
 // The Android app's own rules (shared/commonMain), run here as compiled JavaScript.
@@ -16,6 +16,15 @@ describe('shared Kotlin, from the web', () => {
     const library = searchFilters().find((f) => f.id === 'LIBRARY');
     expect(library?.params).toBe('agIYBA==');
     expect(library?.requiresAuth).toBe(true);
+  });
+
+  it("adds and subtracts months of listening in the phone's bytes (BucketMath.kt)", () => {
+    const month = (ms: number) => new Int8Array(new TextEncoder().encode(JSON.stringify({ month: '2026-11', hours: Array(24).fill(0).map((_, h) => (h === 20 ? ms : 0)) })));
+    const read = (b: Int8Array) => JSON.parse(new TextDecoder().decode(b));
+    expect(read(bucketPlus(month(1_000), month(500))).hours[20]).toBe(1_500);
+    expect(read(bucketMinus(month(1_500), month(1_000))!).hours[20]).toBe(500);
+    expect(bucketMinus(month(1_000), month(1_000))).toBeNull();
+    expect(() => bucketPlus(month(1), new Int8Array(new TextEncoder().encode('{"month":"2026-10"}')))).toThrow();
   });
 });
 

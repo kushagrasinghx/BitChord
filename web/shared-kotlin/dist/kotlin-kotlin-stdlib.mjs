@@ -104,26 +104,26 @@ initMetadataForObject(Letter, 'Letter');
 initMetadataForInterface(Comparator, 'Comparator');
 initMetadataForObject(Unit, 'Unit');
 initMetadataForClass(AbstractCollection, 'AbstractCollection', VOID, VOID, [Collection]);
-initMetadataForClass(AbstractMutableCollection, 'AbstractMutableCollection', VOID, AbstractCollection, [MutableIterable, Collection]);
+initMetadataForClass(AbstractMutableCollection, 'AbstractMutableCollection', VOID, AbstractCollection, [Collection, MutableIterable]);
 initMetadataForClass(IteratorImpl, 'IteratorImpl');
 initMetadataForClass(ListIteratorImpl, 'ListIteratorImpl', VOID, IteratorImpl);
 initMetadataForClass(AbstractMutableList, 'AbstractMutableList', VOID, AbstractMutableCollection, [KtList, Collection, MutableIterable]);
 initMetadataForClass(AbstractMap, 'AbstractMap', VOID, VOID, [KtMap]);
 initMetadataForClass(AbstractMutableMap, 'AbstractMutableMap', VOID, AbstractMap, [KtMutableMap]);
-initMetadataForClass(AbstractMutableSet, 'AbstractMutableSet', VOID, AbstractMutableCollection, [KtSet, Collection, MutableIterable]);
+initMetadataForClass(AbstractMutableSet, 'AbstractMutableSet', VOID, AbstractMutableCollection, [Collection, KtSet, MutableIterable]);
 initMetadataForCompanion(Companion_2);
 initMetadataForInterface(RandomAccess, 'RandomAccess');
 initMetadataForClass(ArrayList, 'ArrayList', ArrayList_init_$Create$, AbstractMutableList, [KtList, Collection, MutableIterable, RandomAccess]);
 initMetadataForClass(HashMap, 'HashMap', HashMap_init_$Create$, AbstractMutableMap, [KtMutableMap]);
-initMetadataForClass(HashMapKeys, 'HashMapKeys', VOID, AbstractMutableSet, [KtSet, Collection, MutableIterable]);
-initMetadataForClass(HashMapValues, 'HashMapValues', VOID, AbstractMutableCollection, [MutableIterable, Collection]);
-initMetadataForClass(HashMapEntrySetBase, 'HashMapEntrySetBase', VOID, AbstractMutableSet, [KtSet, Collection, MutableIterable]);
+initMetadataForClass(HashMapKeys, 'HashMapKeys', VOID, AbstractMutableSet, [Collection, KtSet, MutableIterable]);
+initMetadataForClass(HashMapValues, 'HashMapValues', VOID, AbstractMutableCollection, [Collection, MutableIterable]);
+initMetadataForClass(HashMapEntrySetBase, 'HashMapEntrySetBase', VOID, AbstractMutableSet, [Collection, KtSet, MutableIterable]);
 initMetadataForClass(HashMapEntrySet, 'HashMapEntrySet', VOID, HashMapEntrySetBase);
 initMetadataForClass(HashMapKeysDefault$iterator$1);
 initMetadataForClass(HashMapKeysDefault, 'HashMapKeysDefault', VOID, AbstractMutableSet);
 initMetadataForClass(HashMapValuesDefault$iterator$1);
 initMetadataForClass(HashMapValuesDefault, 'HashMapValuesDefault', VOID, AbstractMutableCollection);
-initMetadataForClass(HashSet, 'HashSet', HashSet_init_$Create$, AbstractMutableSet, [KtSet, Collection, MutableIterable]);
+initMetadataForClass(HashSet, 'HashSet', HashSet_init_$Create$, AbstractMutableSet, [Collection, KtSet, MutableIterable]);
 initMetadataForCompanion(Companion_3);
 initMetadataForClass(Itr, 'Itr');
 initMetadataForClass(KeysItr, 'KeysItr', VOID, Itr);
@@ -168,7 +168,7 @@ function containsAllEntries(m) {
 initMetadataForInterface(InternalMap, 'InternalMap');
 initMetadataForClass(InternalHashMap, 'InternalHashMap', InternalHashMap_init_$Create$, VOID, [InternalMap]);
 initMetadataForClass(LinkedHashMap, 'LinkedHashMap', LinkedHashMap_init_$Create$, HashMap, [KtMutableMap]);
-initMetadataForClass(LinkedHashSet, 'LinkedHashSet', LinkedHashSet_init_$Create$, HashSet, [KtSet, Collection, MutableIterable]);
+initMetadataForClass(LinkedHashSet, 'LinkedHashSet', LinkedHashSet_init_$Create$, HashSet, [Collection, KtSet, MutableIterable]);
 initMetadataForInterface(Continuation, 'Continuation');
 initMetadataForClass(InterceptedCoroutine, 'InterceptedCoroutine', VOID, VOID, [Continuation]);
 initMetadataForClass(CoroutineImpl, 'CoroutineImpl', VOID, InterceptedCoroutine, [Continuation]);
@@ -6273,13 +6273,17 @@ function compareTo_0(_this__u8e3s4, other, ignoreCase) {
     return compareTo(_this__u8e3s4, other);
   }
 }
-function get_CASE_INSENSITIVE_ORDER(_this__u8e3s4) {
+function encodeToByteArray(_this__u8e3s4) {
   _init_properties_stringJs_kt__bg7zye();
-  return get_STRING_CASE_INSENSITIVE_ORDER();
+  return encodeUtf8(_this__u8e3s4, 0, _this__u8e3s4.length, false);
 }
 function decodeToString(_this__u8e3s4) {
   _init_properties_stringJs_kt__bg7zye();
   return decodeUtf8(_this__u8e3s4, 0, _this__u8e3s4.length, false);
+}
+function get_CASE_INSENSITIVE_ORDER(_this__u8e3s4) {
+  _init_properties_stringJs_kt__bg7zye();
+  return get_STRING_CASE_INSENSITIVE_ORDER();
 }
 function sam$kotlin_Comparator$0(function_0) {
   this.wb_1 = function_0;
@@ -6370,7 +6374,80 @@ function regionMatches(_this__u8e3s4, thisOffset, other, otherOffset, length, ig
   ignoreCase = ignoreCase === VOID ? false : ignoreCase;
   return regionMatchesImpl(_this__u8e3s4, thisOffset, other, otherOffset, length, ignoreCase);
 }
+function get_REPLACEMENT_BYTE_SEQUENCE() {
+  _init_properties_utf8Encoding_kt__9thjs4();
+  return REPLACEMENT_BYTE_SEQUENCE;
+}
 var REPLACEMENT_BYTE_SEQUENCE;
+function encodeUtf8(string, startIndex, endIndex, throwOnMalformed) {
+  _init_properties_utf8Encoding_kt__9thjs4();
+  // Inline function 'kotlin.require' call
+  // Inline function 'kotlin.require' call
+  if (!(startIndex >= 0 && endIndex <= string.length && startIndex <= endIndex)) {
+    var message = 'Failed requirement.';
+    throw IllegalArgumentException_init_$Create$_0(toString_1(message));
+  }
+  var bytes = new Int8Array(imul_0(endIndex - startIndex | 0, 3));
+  var byteIndex = 0;
+  var charIndex = startIndex;
+  while (charIndex < endIndex) {
+    var _unary__edvuaz = charIndex;
+    charIndex = _unary__edvuaz + 1 | 0;
+    // Inline function 'kotlin.code' call
+    var this_0 = charCodeAt(string, _unary__edvuaz);
+    var code = Char__toInt_impl_vasixd(this_0);
+    if (code < 128) {
+      var _unary__edvuaz_0 = byteIndex;
+      byteIndex = _unary__edvuaz_0 + 1 | 0;
+      bytes[_unary__edvuaz_0] = toByte(code);
+    } else if (code < 2048) {
+      var _unary__edvuaz_1 = byteIndex;
+      byteIndex = _unary__edvuaz_1 + 1 | 0;
+      bytes[_unary__edvuaz_1] = toByte(code >> 6 | 192);
+      var _unary__edvuaz_2 = byteIndex;
+      byteIndex = _unary__edvuaz_2 + 1 | 0;
+      bytes[_unary__edvuaz_2] = toByte(code & 63 | 128);
+    } else if (code < 55296 || code >= 57344) {
+      var _unary__edvuaz_3 = byteIndex;
+      byteIndex = _unary__edvuaz_3 + 1 | 0;
+      bytes[_unary__edvuaz_3] = toByte(code >> 12 | 224);
+      var _unary__edvuaz_4 = byteIndex;
+      byteIndex = _unary__edvuaz_4 + 1 | 0;
+      bytes[_unary__edvuaz_4] = toByte(code >> 6 & 63 | 128);
+      var _unary__edvuaz_5 = byteIndex;
+      byteIndex = _unary__edvuaz_5 + 1 | 0;
+      bytes[_unary__edvuaz_5] = toByte(code & 63 | 128);
+    } else {
+      var codePoint = codePointFromSurrogate(string, code, charIndex, endIndex, throwOnMalformed);
+      if (codePoint <= 0) {
+        var _unary__edvuaz_6 = byteIndex;
+        byteIndex = _unary__edvuaz_6 + 1 | 0;
+        bytes[_unary__edvuaz_6] = get_REPLACEMENT_BYTE_SEQUENCE()[0];
+        var _unary__edvuaz_7 = byteIndex;
+        byteIndex = _unary__edvuaz_7 + 1 | 0;
+        bytes[_unary__edvuaz_7] = get_REPLACEMENT_BYTE_SEQUENCE()[1];
+        var _unary__edvuaz_8 = byteIndex;
+        byteIndex = _unary__edvuaz_8 + 1 | 0;
+        bytes[_unary__edvuaz_8] = get_REPLACEMENT_BYTE_SEQUENCE()[2];
+      } else {
+        var _unary__edvuaz_9 = byteIndex;
+        byteIndex = _unary__edvuaz_9 + 1 | 0;
+        bytes[_unary__edvuaz_9] = toByte(codePoint >> 18 | 240);
+        var _unary__edvuaz_10 = byteIndex;
+        byteIndex = _unary__edvuaz_10 + 1 | 0;
+        bytes[_unary__edvuaz_10] = toByte(codePoint >> 12 & 63 | 128);
+        var _unary__edvuaz_11 = byteIndex;
+        byteIndex = _unary__edvuaz_11 + 1 | 0;
+        bytes[_unary__edvuaz_11] = toByte(codePoint >> 6 & 63 | 128);
+        var _unary__edvuaz_12 = byteIndex;
+        byteIndex = _unary__edvuaz_12 + 1 | 0;
+        bytes[_unary__edvuaz_12] = toByte(codePoint & 63 | 128);
+        charIndex = charIndex + 1 | 0;
+      }
+    }
+  }
+  return bytes.length === byteIndex ? bytes : copyOf_5(bytes, byteIndex);
+}
 function decodeUtf8(bytes, startIndex, endIndex, throwOnMalformed) {
   _init_properties_utf8Encoding_kt__9thjs4();
   // Inline function 'kotlin.require' call
@@ -6423,6 +6500,19 @@ function decodeUtf8(bytes, startIndex, endIndex, throwOnMalformed) {
     }
   }
   return stringBuilder.toString();
+}
+function codePointFromSurrogate(string, high, index, endIndex, throwOnMalformed) {
+  _init_properties_utf8Encoding_kt__9thjs4();
+  if (!(55296 <= high ? high <= 56319 : false) || index >= endIndex) {
+    return malformed(0, index, throwOnMalformed);
+  }
+  // Inline function 'kotlin.code' call
+  var this_0 = charCodeAt(string, index);
+  var low = Char__toInt_impl_vasixd(this_0);
+  if (!(56320 <= low ? low <= 57343 : false)) {
+    return malformed(0, index, throwOnMalformed);
+  }
+  return 65536 + ((high & 1023) << 10) | 0 | low & 1023;
 }
 function codePointFrom2(bytes, byte1, index, endIndex, throwOnMalformed) {
   _init_properties_utf8Encoding_kt__9thjs4();
@@ -7585,6 +7675,9 @@ function toMap(_this__u8e3s4) {
   }
   return optimizeReadOnlyMap(toMap_2(_this__u8e3s4, LinkedHashMap_init_$Create$()));
 }
+function toMutableMap(_this__u8e3s4) {
+  return LinkedHashMap_init_$Create$_1(_this__u8e3s4);
+}
 function toMap_0(_this__u8e3s4) {
   var tmp;
   switch (_this__u8e3s4.n()) {
@@ -7601,9 +7694,6 @@ function toMap_0(_this__u8e3s4) {
       break;
   }
   return tmp;
-}
-function toMutableMap(_this__u8e3s4) {
-  return LinkedHashMap_init_$Create$_1(_this__u8e3s4);
 }
 function EmptyMap() {
   EmptyMap_instance = this;
@@ -12184,6 +12274,8 @@ export {
   commonPrefixWith as commonPrefixWith1ni2eltc34azu,
   contains_6 as contains3ue2qo8xhmpf1,
   contains_7 as contains2el4s70rdq4ld,
+  decodeToString as decodeToString1x4faah2liw2p,
+  encodeToByteArray as encodeToByteArray1onwao0uakjfh,
   endsWith as endsWith3cq61xxngobwh,
   equals_0 as equals2v6cggk171b6e,
   indexOf_5 as indexOfwa4w6635jewi,

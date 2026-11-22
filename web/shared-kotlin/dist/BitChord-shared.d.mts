@@ -23,6 +23,8 @@ export declare namespace BestPartPick {
     }
 }
 export declare function bestPart(nextResponse: Nullable<string>, lines: Array<BestPartLine>, durationMs: number): BestPartPick;
+export declare function bucketPlus(a: Int8Array, b: Int8Array): Int8Array;
+export declare function bucketMinus(a: Int8Array, b: Int8Array): Nullable<Int8Array>;
 export declare class MonthHash {
     constructor(month: string, hash: Nullable<string>);
     get month(): string;

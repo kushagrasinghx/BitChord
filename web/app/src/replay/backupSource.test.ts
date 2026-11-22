@@ -53,8 +53,18 @@ describe('the Replay as backup and sync see it', () => {
     expect(replayStore.peers).toEqual([]);
   });
 
-  it('never counts a play twice without the arithmetic', () => {
+  it("adds and takes away months with the phone's BucketMath", () => {
     connectReplayToBackup();
-    expect(listening().minus(bytes('a'), bytes('b'))).toBeNull();
+    const month = (ms: number, plays: number) =>
+      bytes(JSON.stringify({ month: '2026-11', tracks: [{ id: 'a', title: 'Song a', artist: 'Artist', ms, plays }], days: { 3: ms } }));
+    const read = (b: Uint8Array) => JSON.parse(new TextDecoder().decode(b));
+    const earlier = month(1_000, 1);
+    const sum = listening().plus(earlier, month(500, 1));
+    expect(read(sum).tracks[0]).toMatchObject({ id: 'a', ms: 1_500, plays: 2 });
+    expect(read(sum).days).toEqual({ 3: 1_500 });
+    const since = listening().minus(sum, earlier)!;
+    expect(read(since).tracks[0]).toMatchObject({ ms: 500, plays: 1 });
+    expect(read(listening().plus(earlier, since))).toEqual(read(sum));
+    expect(listening().minus(earlier, earlier)).toBeNull();
   });
 });

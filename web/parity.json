@@ -157,7 +157,7 @@
       "name": "Backup, restore and Google Drive sync",
       "android": ["app/src/main/java/com/music/bitchord/data/backup/", "app/src/main/java/com/music/bitchord/data/stats/Backup.kt"],
       "web": ["web/app/src/data/backup/", "web/app/src/pages/BackupPage.tsx"],
-      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/backup/SyncPlanner.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/PrefValue.kt"]
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/backup/SyncPlanner.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/PrefValue.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/BucketMath.kt"]
     },
     {
       "id": "premium-audio",

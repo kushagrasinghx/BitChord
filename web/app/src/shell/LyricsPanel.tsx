@@ -76,6 +76,14 @@ const FAR_LINES =
   ':not(.prev-2):not(.prev-3):not(.next-2):not(.next-3):not(.lyrics-gap) { opacity: 0.46; }';
 
 /**
+ * A translation reads in its own direction, as the phone sets it from its own
+ * text: am-lyrics gives it the line's, so an English translation of a Hebrew
+ * line came out right to left, its punctuation at the wrong end. It still
+ * aligns with its line (am-lyrics' physical left/right).
+ */
+const TRANSLATION_DIRECTION = '.lyrics-translation-container { unicode-bidi: plaintext; }';
+
+/**
  * The full-screen player's sizing (report §7): its line size, set on the host
  * by breakpoint, replaces all three of am-lyrics' container tiers, and the
  * current line sits a third of the way down. Scoped to `data-full`, so the
@@ -125,7 +133,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
       const root = el.shadowRoot;
       if (!root) return;
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + FULL_SIZE);
+      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + TRANSLATION_DIRECTION + FULL_SIZE);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
       // The full-screen column fades its top edge, but am-lyrics' toolbar
       // (romanize, translate, download) sits at the top of the same scroller

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { withBackgroundVocals } from './model';
+import { isRtl, withBackgroundVocals } from './model';
 import { decodeEntities, parseEnhancedLrc, parseKaraoke, parseLrc, parseProvider, parseTtml } from './parse';
 import { writeTtml } from './ttml';
 
@@ -100,5 +100,25 @@ describe('TTML writer', () => {
     const ttml = writeTtml(parseProvider('first line\nsecond line')!.lines);
     expect(ttml).toContain('itunes:timing="None"');
     expect(ttml).not.toContain('begin=');
+  });
+  it('marks right-to-left lines by their own letters', () => {
+    const ttml = writeTtml(parseLrc('[00:01.00]שלום עולם\n[00:02.00]Hello world'));
+    expect(ttml).toContain('<p begin="1.000" end="2.000" dir="rtl">');
+    expect(ttml).toContain('<p begin="2.000" end="7.000">');
+  });
+});
+
+describe('text direction (PlayerLyrics.kt isRtl)', () => {
+  it('goes by the majority of letters, not the first one', () => {
+    expect(isRtl('שלום עולם')).toBe(true);
+    expect(isRtl('مرحبا بالعالم')).toBe(true);
+    expect(isRtl('Hello world')).toBe(false);
+    expect(isRtl('Hello שלום world')).toBe(false);
+    expect(isRtl('שלום עולם, hi')).toBe(true);
+    expect(isRtl('123 !?')).toBe(false);
+    expect(isRtl('')).toBe(false);
+  });
+  it('takes any Hebrew presentation form as right to left', () => {
+    expect(isRtl('abc ﬠ')).toBe(true);
   });
 });

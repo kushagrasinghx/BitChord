@@ -29,7 +29,7 @@ const cardFrame = `relative isolate block aspect-[3/4] w-full overflow-hidden ro
  * 280px card and a row of black: from 1000px they share the row instead, as
  * landscape cards a set height, their art laid out for the wider shape.
  */
-const wideFrame = 'lg:aspect-auto lg:h-[clamp(280px,28vw,400px)]';
+const wideFrame = 'lg:aspect-auto lg:h-[clamp(240px,19vw,300px)]';
 const FEW = 2;
 
 /**
@@ -332,8 +332,9 @@ export function TopPicksShelf({
     <section className={shelfSection} aria-label="Top Picks for You">
       <ShelfTitle title="Top Picks for You" />
       {few ? (
-        // The shelf's own row below 1000px; a grid of one or two columns from there.
-        <ul className={`${shelfList} ${shelfKinds['top-picks']} lg:grid-flow-row lg:auto-cols-auto ${picks.length > 1 ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+        // The shelf's own row below 1000px; from there one or two landscape cards, each at most 640px so a
+        // lone pick reads as a feature, not a banner across a 1920px window.
+        <ul className={`${shelfList} ${shelfKinds['top-picks']} lg:grid-flow-row lg:auto-cols-auto ${picks.length > 1 ? 'lg:grid-cols-[repeat(2,minmax(0,640px))]' : 'lg:grid-cols-[minmax(0,640px)]'}`}>
           {cards}
         </ul>
       ) : (

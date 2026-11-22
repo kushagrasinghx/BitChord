@@ -6,7 +6,10 @@ import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { ThinSlider } from './player/ThinSlider';
+import { ShortcutsHost } from './ShortcutsSheet';
 import { PlayPauseGlyph, SkipGlyph } from './TransportGlyphs';
+import { useScrubber } from './useScrubber';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 // MiniPlayer.kt GLYPH_SLOT: the transport's 40px targets, with the phone's press disc filling them.
@@ -77,7 +80,7 @@ function useBarGestures(onOpen: () => void) {
   const handlers = {
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
       dragged.current = false;
-      if (event.button !== 0 || (event.target as Element).closest('button:not([data-open-player]),input,a')) return;
+      if (event.button !== 0 || (event.target as Element).closest('button:not([data-open-player]),input,a,[data-scrubber]')) return;
       drag.current = { x: event.clientX, y: event.clientY, id: event.pointerId, axis: null, lift: 0 };
     },
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
@@ -117,11 +120,43 @@ function useBarGestures(onOpen: () => void) {
 }
 
 /**
+ * The capsule's seek line, for a desktop window (lg, 1000px and up): the full
+ * player's ThinSlider laid along the straight part of the capsule's bottom
+ * edge, 3px at rest and 5px under the pointer or while held, played in the
+ * theme's text colour rather than the player's white since the capsule
+ * follows the theme. Its hit area is 16px, reaching a little past the rim so
+ * the edge itself is easy to catch without covering the buttons above it.
+ */
+function BarScrubber({ scrubber }: { scrubber: ReturnType<typeof useScrubber> }) {
+  const [over, setOver] = useState(false);
+  return (
+    <ThinSlider
+      fill={scrubber.bar}
+      active={over || scrubber.dragging}
+      idle={3}
+      pressed={5}
+      data-scrubber
+      aria-hidden="true"
+      className="absolute inset-x-7 -bottom-[5px] [--slider-fill:color-mix(in_srgb,var(--color-primary)_72%,transparent)] [--slider-track:color-mix(in_srgb,var(--color-primary)_14%,transparent)] max-lg:hidden"
+      style={{ height: 16 }}
+      onPointerEnter={() => setOver(true)}
+      onPointerLeave={() => setOver(false)}
+      {...scrubber.handlers}
+    />
+  );
+}
+
+/**
  * The mini player (MiniPlayer.kt), as a floating capsule: cover and names,
  * play and next, then the desktop's own lyrics, queue, ⋯ and volume. A thin
  * frosted glass with a 0.5px rim and no shadow, 56px tall. Clicking anywhere
  * on it that isn't a button opens the full-screen player; right-click opens
  * the song's menu.
+ *
+ * A desktop window (1000px and up) has the mouse and room the phone hasn't:
+ * Previous before Play, the seek line along the bottom edge, and the elapsed
+ * and remaining times beside the artist while the pointer is over the capsule.
+ * The swipes and the pull up still work there, as extras.
  */
 export function PlayerBar() {
   const sidePanel = useUi((s) => s.sidePanel);
@@ -136,10 +171,11 @@ export function PlayerBar() {
   const loading = usePlayer((s) => s.status === 'loading');
   const playing = usePlayer((s) => s.status === 'playing' || s.status === 'buffering');
   const hasNext = usePlayer((s) => s.index + 1 < s.queue.length || s.repeat !== 'off' || (s.autoplay && s.index >= 0));
-  const { togglePlay, next } = usePlayer.getState();
+  const { togglePlay, next, previous } = usePlayer.getState();
   const [volumeOpen, setVolumeOpen] = useState(false);
-  // Presses of next, for the skip glyph's conveyor.
-  const [skips, setSkips] = useState(0);
+  // Presses of previous and next, for the skip glyphs' conveyor.
+  const [skips, setSkips] = useState({ previous: 0, next: 0 });
+  const scrubber = useScrubber();
   const { bar, dragged, handlers } = useBarGestures(() => setFullScreen(true));
 
   return (
@@ -150,19 +186,44 @@ export function PlayerBar() {
     >
       {/* The app's one song and release menu, here because the bar is up for the life of the shell. */}
       <ActionMenuHost />
+      <ShortcutsHost />
       <div
         ref={bar}
-        className="pointer-events-auto relative flex h-(--player-pill-height) w-[min(668px,100%)] cursor-default touch-none items-center rounded-pill glass-material px-3 shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.1)] select-none"
+        className="group/bar pointer-events-auto relative flex h-(--player-pill-height) w-[min(668px,100%)] cursor-default touch-none items-center rounded-pill glass-material px-3 shadow-[inset_0_0_0_0.5px_rgb(255_255_255/0.1)] select-none"
         role="region"
         aria-label="Player"
+        data-scrubbing={scrubber.dragging || undefined}
         onClick={(event) => {
-          if (dragged.current || !hasTrack || (event.target as Element).closest('button,input,a')) return;
+          if (dragged.current || !hasTrack || (event.target as Element).closest('button,input,a,[data-scrubber]')) return;
           setFullScreen(true);
         }}
         onContextMenu={contextMenu(track && { kind: 'track', track, player: true })}
         {...handlers}
       >
-        <Lcd />
+        <Lcd
+          times={
+            // Shown while the pointer is over the capsule or the line is held; the hook writes them every frame.
+            <span className="hidden flex-none ps-2 type-footnote text-on-surface-variant tabular-nums lg:group-hover/bar:inline lg:group-data-scrubbing/bar:inline">
+              <span ref={scrubber.elapsed} />
+              <span aria-hidden="true"> · </span>
+              <span ref={scrubber.remaining} />
+            </span>
+          }
+        />
+        {/* MiniPlayer.kt draws no previous; a desktop window has the room, mirrored on next's gap. */}
+        <button
+          className={`${slot} me-2 max-lg:hidden`}
+          disabled={!hasTrack}
+          aria-label="Previous"
+          onClick={() => {
+            setSkips((s) => ({ ...s, previous: s.previous + 1 }));
+            previous();
+          }}
+        >
+          <span className="scale-y-[0.85]">
+            <SkipGlyph taps={skips.previous} size={25} previous />
+          </span>
+        </button>
         {loading ? (
           // MiniPlayer.kt SPINNER_SIZE: a 22px spinner in the play glyph's place.
           <span className="grid size-10 flex-none place-items-center" role="status" aria-label="Loading">
@@ -179,12 +240,12 @@ export function PlayerBar() {
           disabled={!hasTrack || !hasNext}
           aria-label="Next"
           onClick={() => {
-            setSkips((n) => n + 1);
+            setSkips((s) => ({ ...s, next: s.next + 1 }));
             next();
           }}
         >
           <span className="scale-y-[0.85]">
-            <SkipGlyph taps={skips} size={25} />
+            <SkipGlyph taps={skips.next} size={25} />
           </span>
         </button>
 
@@ -206,6 +267,7 @@ export function PlayerBar() {
           {track ? <TrackMenu track={track} className={fading} placement="above-end" player /> : <span className="size-8" />}
           <VolumeControl open={volumeOpen} onOpen={() => setVolumeOpen(true)} className={action} />
         </div>
+        <BarScrubber scrubber={scrubber} />
       </div>
     </div>
   );

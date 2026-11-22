@@ -9,6 +9,8 @@ import { SLIDER_SPRING } from './motion';
  * Only the drawing and the hit area: the caller owns the value and the
  * pointer (useScrubber writes `--progress` straight onto `fill` each frame).
  * The hit area is the active height plus 22px, as the phone's touch target.
+ * On the player's dark glass it is white; elsewhere (the mini player's capsule,
+ * which follows the theme) the caller sets `--slider-track` and `--slider-fill`.
  */
 export function ThinSlider({
   fill,
@@ -38,14 +40,14 @@ export function ThinSlider({
       {...hit}
     >
       <div
-        className={`relative w-full overflow-hidden rounded-pill bg-white/26 transition-[height] motion-reduce:transition-none ${SLIDER_SPRING}`}
+        className={`relative w-full overflow-hidden rounded-pill bg-[var(--slider-track,rgb(255_255_255/0.26))] transition-[height] motion-reduce:transition-none ${SLIDER_SPRING}`}
         style={{ height: active ? pressed : idle }}
         aria-hidden="true"
       >
         {under}
         <div
           ref={fill}
-          className="relative size-full origin-left scale-x-(--progress) bg-white/92 [--progress:0] rtl:origin-right"
+          className="relative size-full origin-left scale-x-(--progress) bg-[var(--slider-fill,rgb(255_255_255/0.92))] [--progress:0] rtl:origin-right"
           style={progress === undefined ? undefined : ({ '--progress': progress } as React.CSSProperties)}
         />
       </div>

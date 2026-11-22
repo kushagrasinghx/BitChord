@@ -261,6 +261,9 @@ fn open<R: Runtime>(app: &AppHandle<R>, url: Url, provider: &'static Provider) {
             let provider = session.provider;
             let host = url.host_str().unwrap_or_default();
             if host == provider.done_host {
+                // close() takes CURRENT itself, and std's Mutex isn't re-entrant: holding the
+                // guard here deadlocked the UI thread when the redirect beat the cookie watcher.
+                drop(current);
                 close(&nav_app);
                 return false;
             }

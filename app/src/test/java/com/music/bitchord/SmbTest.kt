@@ -1,9 +1,12 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.remote.RemoteArtwork
+import com.music.bitchord.data.remote.embeddedArtKey
 import com.music.bitchord.data.smb.SmbAuth
+import com.music.bitchord.data.smb.SmbClient
 import com.music.bitchord.data.smb.SmbConfig
 import com.music.bitchord.data.smb.SmbConnection
+import com.music.bitchord.data.smb.SmbRepository
 import com.music.bitchord.playback.SmbDataSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +15,46 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SmbTest {
+
+    @Test
+    fun oldArtworkUrlCannotOpenTheSameNamedShareOnAnotherServer() {
+        val saved = SmbAuth.ArtworkServer("new.example.invalid", 445, "Music", "", "")
+        val result = runCatching {
+            SmbClient.withPooledArtworkFile("smb://old.example.invalid/Music/cover.jpg", saved) {
+                error("Wrong artwork server opened")
+            }
+        }
+        assertEquals("Artwork no longer belongs to this server", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun oldArtworkUrlCannotOpenTheSameNamedShareOnAnotherPort() {
+        val newServer = SmbAuth.ArtworkServer("nas.example.invalid", 1445, "Music", "", "")
+        val result = runCatching {
+            SmbClient.withPooledArtworkFile("smb://nas.example.invalid/Music/cover.jpg", newServer) {
+                error("Wrong artwork endpoint opened")
+            }
+        }
+        assertEquals("Artwork no longer belongs to this server", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun sidecarAndEmbeddedArtworkKeepTheirListingEndpoint() {
+        val track = SmbClient.Entry("Artist/Album/song.flac", false, 100)
+        val cover = SmbClient.Entry("Artist/Album/cover.jpg", false, 10)
+        val default = SmbRepository.toSong("NAS.local", "Music", track, listOf(cover))
+        val explicitDefault = SmbRepository.toSong("nas.local:445", "Music", track, listOf(cover))
+        val other = SmbRepository.toSong("nas.local:1445", "Music", track, listOf(cover))
+        assertEquals("smb://nas.local:1445/Music/Artist/Album/cover.jpg", other.thumbnailUrl)
+        assertEquals("smb://nas.local:1445/Music/Artist/Album/song.flac", other.localUri)
+        assertEquals(default.thumbnailUrl, explicitDefault.thumbnailUrl)
+        assertEquals(embeddedArtKey(default, 1), embeddedArtKey(explicitDefault, 1))
+        assertFalse(embeddedArtKey(default, 1) == embeddedArtKey(other, 1))
+        assertEquals("smb://[::1]:1445/Music/Artist/Album/song.flac", SmbConfig.songFor("[::1]:1445", "Music", track.path).localUri)
+        val ipv6 = SmbRepository.toSong("[::1]:1445", "Music", track, listOf(cover))
+        assertEquals(SmbConfig.idFor("::1", "Music", track.path), ipv6.videoId)
+        assertEquals("smb://[::1]:1445/Music/Artist/Album/cover.jpg", ipv6.thumbnailUrl)
+    }
 
     @Test
     fun normalizesHost() {

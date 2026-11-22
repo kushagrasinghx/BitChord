@@ -8,7 +8,7 @@ import java.util.Locale
  * [WebDavConfig][com.music.bitchord.data.webdav.WebDavConfig], for a
  * protocol that has no URLs of its own.
  *
- * Tracks are addressed as `smb://host/share/path/to/file`. Credentials never
+ * Tracks are addressed as `smb://host[:port]/share/path/to/file`. Credentials never
  * ride in the URI (it is logged, cached and keyed on); readers authenticate
  * from [SmbAuth] at open time instead.
  */
@@ -70,6 +70,16 @@ object SmbConfig {
 
     fun isSmbUrl(url: String): Boolean = url.startsWith("smb://")
 
+    internal fun authority(host: String, port: Int): String {
+        val literal = if (':' in host) "[$host]" else host
+        return if (port == DEFAULT_PORT) literal else "$literal:$port"
+    }
+
+    internal fun streamUrl(host: String, share: String, path: String): String {
+        val (hostname, port) = splitHostPort(host)
+        return "smb://${authority(hostname, port)}/${share.trim().trim('/')}/${path.trim('/')}"
+    }
+
     /**
      * `smb://host/share/a/b.mp3` back to the share-relative path `a/b.mp3`.
      * Pure string work so it stays unit-testable off the framework stub. The
@@ -88,10 +98,9 @@ object SmbConfig {
 
     fun songFor(host: String, share: String, path: String, albumName: String? = null): Song {
         val fileName = path.substringAfterLast('/').substringAfterLast('\\')
-        val streamUrl = "smb://${normalizeHost(host)}/${share.trim().trim('/')}/${path.trim('/')}"
         return com.music.bitchord.data.remote.RemoteSong.build(
             videoId = idFor(host, share, path),
-            streamUrl = streamUrl,
+            streamUrl = streamUrl(host, share, path),
             fileName = fileName,
             albumName = albumName,
             source = "SMB",
@@ -115,6 +124,12 @@ object SmbAuth {
     @Volatile var basePath: String = ""
     @Volatile var username: String = ""
     @Volatile var password: String = ""
+    internal class ArtworkServer(
+        val host: String, val port: Int, val share: String, val username: String, val password: String,
+        val basePath: String = "",
+    )
+    @Volatile internal var artworkServer = ArtworkServer("", SmbConfig.DEFAULT_PORT, "", "", "")
+        private set
 
     fun update(host: String, share: String, basePath: String, username: String, password: String) {
         val (parsedHost, parsedPort) = SmbConfig.splitHostPort(host)
@@ -124,6 +139,7 @@ object SmbAuth {
         this.basePath = basePath.trim().trim('/').replace('\\', '/')
         this.username = username.trim()
         this.password = password
+        artworkServer = ArtworkServer(this.host, this.port, this.share, this.username, this.password, this.basePath)
         SmbConnection.invalidate()
     }
 

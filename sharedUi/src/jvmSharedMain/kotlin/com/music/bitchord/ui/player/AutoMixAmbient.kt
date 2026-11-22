@@ -111,7 +111,9 @@ internal fun directAutoMixAmbientSelection(
 @Composable
 internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: String?, gate: AutoMixArtworkGate): AutoMixAmbient {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return AutoMixAmbient()
-    val history = remember(feed) { AmbientArtworkHistory() }
+    val live = feed.value
+    val remote = live?.remoteArtworkScope != null || entry?.mediaId?.let { it.startsWith("webdav:") || it.startsWith("smb:") } == true
+    val history = remember(feed, gate.remoteArtworkScope.takeIf { remote }) { AmbientArtworkHistory() }
     val currentEntry = rememberUpdatedState(entry)
     val sample = remember(feed) { mutableStateOf(feed.value) }
     val boundary = remember(feed) { mutableStateOf(feed.value?.boundary()) }
@@ -125,7 +127,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     // Also sample synchronously when session metadata recomposes first. The boundary state
     // is only an invalidation signal; it does not own the ordering of the two feeds.
     val observedBoundary = boundary.value
-    val visual = feed.value
+    val visual = live?.takeIf { gate.matchesScope(it.remoteArtworkScope) }
     val direct = directAutoMixAmbientSelection(
         visual, entry, gate, history.direct ?: history.settled?.second?.settled?.takeUnless { gate.allows(it.first) },
         history.lastEntry.takeUnless { visual?.generation == history.closedGeneration },

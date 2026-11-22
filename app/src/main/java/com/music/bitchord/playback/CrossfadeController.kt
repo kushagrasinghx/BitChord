@@ -701,7 +701,13 @@ class CrossfadeController(
         val to = trackAt(nextIndex) ?: return
         visualQueue = items
         visualCurrentIndex = from.armedIndex
-        visualGeneration = AutoMixVisualFeed.arm(from, to)
+        val remoteArtworkScope = AppSettings.remoteArtworkScope.value.takeIf {
+            listOf(from, to).any { track ->
+                val id = track.identity.mediaId
+                id.startsWith("webdav:") || id.startsWith("smb:")
+            }
+        }
+        visualGeneration = AutoMixVisualFeed.arm(from, to, remoteArtworkScope)
         out.addListener(visualDeckErrors)
         into.addListener(visualDeckErrors)
     }

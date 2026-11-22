@@ -21,13 +21,19 @@ data class AutoMixArtworkPreferences(
         gate(automix, mini).allows(generation)
 }
 
-internal data class AutoMixArtworkGate(val enabled: Boolean = true, val skipThrough: Long = 0L) {
+internal data class AutoMixArtworkGate(
+    val enabled: Boolean = true,
+    val skipThrough: Long = 0L,
+    val remoteArtworkScope: Long? = null,
+) {
     fun allows(generation: Long) = enabled && generation > skipThrough
+    fun matchesScope(scope: Long?) = scope == null || scope == remoteArtworkScope
 }
 
 @Composable
 internal fun autoMixArtworkGate(mini: Boolean = false): AutoMixArtworkGate {
     val automix by PlayerSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val preferences by PlayerSettings.autoMixArtwork.collectAsStateWithLifecycle()
-    return preferences.gate(automix, mini)
+    val remoteScope = PlayerPlatform.host.remoteArtworkScope?.collectAsStateWithLifecycle()?.value
+    return preferences.gate(automix, mini).copy(remoteArtworkScope = remoteScope)
 }

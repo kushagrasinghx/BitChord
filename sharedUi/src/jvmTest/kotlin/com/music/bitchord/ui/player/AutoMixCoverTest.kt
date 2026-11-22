@@ -71,6 +71,25 @@ class AutoMixCoverTest {
     }
 
     @Test
+    fun aRemoteSourceChangeRejectsBothTheActivePairAndThePromotedCover() {
+        val base = cover()
+        val next = cover()
+        val scoped = visual.copy(remoteArtworkScope = 7L)
+        val original = AutoMixArtworkGate(remoteArtworkScope = 7L)
+        val changed = AutoMixArtworkGate(remoteArtworkScope = 8L)
+        val state = AutoMixCoverState({ base }, { next })
+        state.bind(incoming, null, scoped, original)
+        state.update(scoped, original)
+        assertSame(next, state.framesFor(incoming, original)?.incoming)
+        assertNull(state.framesFor(incoming, changed))
+        state.update(scoped.copy(phase = AutoMixVisualPhase.COMPLETED), original)
+        assertSame(next, state.framesFor(incoming, original)?.base)
+        assertNull(state.framesFor(incoming, changed))
+        state.update(scoped, changed)
+        assertNull(state.framesFor(incoming, changed))
+    }
+
+    @Test
     fun missingDeadlineOrCancellationCannotStartTheSameGenerationLater() {
         val base = cover()
         var prepared: DecodedAutoMixCover? = null

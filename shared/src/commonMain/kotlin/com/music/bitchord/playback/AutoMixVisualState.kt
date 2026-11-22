@@ -85,6 +85,7 @@ data class AutoMixVisualState(
     val artworkProgress: Float = 0f,
     /** System.nanoTime() when [audioSeconds] was sampled; 0 when unknown. */
     val sampledAtNanos: Long = 0L,
+    val remoteArtworkScope: Long? = null,
 ) {
     val mixActive: Boolean get() = phase == AutoMixVisualPhase.MIXING
 

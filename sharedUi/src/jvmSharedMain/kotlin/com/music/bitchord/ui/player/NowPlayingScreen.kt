@@ -338,6 +338,7 @@ private fun PlayerMeshBackdrop(
     modifier: Modifier = Modifier,
     ambient: AutoMixAmbient,
     entry: QueueEntryIdentity?,
+    sourceScope: Long?,
 ) {
     val seed = ambient.incoming?.mesh
     val snapKey = rememberAmbientSnapKey(ambient.snapKey(seed != null))
@@ -358,7 +359,7 @@ private fun PlayerMeshBackdrop(
             }
         }
     }
-    key(snapKey) {
+    key(snapKey, sourceScope) {
         ArtworkMeshBackdrop(
             mesh = mesh,
             seam = { seam.value },
@@ -367,6 +368,7 @@ private fun PlayerMeshBackdrop(
             currentIsOutgoing = entry == mix?.outgoing,
             directSelection = ambient.direct,
             directStill = ambient.direct != null && frame == null,
+            selectionKey = (entry ?: trackKey) to url,
         )
     }
 }
@@ -381,6 +383,7 @@ private fun LegacyMeshBackdrop(
     modifier: Modifier,
     ambient: AutoMixAmbient,
     entry: QueueEntryIdentity?,
+    sourceScope: Long?,
 ) {
     val url = imageUrl ?: ambient.incoming?.resolvedUrl
     val settled = ambient.incoming?.palette
@@ -390,16 +393,20 @@ private fun LegacyMeshBackdrop(
     val frame = canvasFrame()
     val palette = key(snapKey) { rememberArtworkColors(url, frame, seed, canvasKey) }
     val mix = ambient.mixFor(settled != null)
-    MeshGradientBackground(
-        palette = palette,
-        trackKey = trackKey,
-        modifier = modifier,
-        mix = mix,
-        snapKey = snapKey,
-        settled = requestedSnap != null,
-        currentIsOutgoing = entry == mix?.outgoing,
-        directStill = ambient.direct != null && frame == null,
-    )
+    key(sourceScope) {
+        MeshGradientBackground(
+            palette = palette,
+            trackKey = trackKey,
+            modifier = modifier,
+            mix = mix,
+            snapKey = snapKey,
+            settled = requestedSnap != null,
+            currentIsOutgoing = entry == mix?.outgoing,
+            directStill = ambient.direct != null && frame == null,
+            selectionKey = (entry ?: trackKey) to url,
+            selectionReady = seed != null || frame != null || cachedArtworkPalette(url) != null,
+        )
+    }
 }
 
 /** How long a full-screen Spotify Canvas holds still after the player has opened. */
@@ -1074,6 +1081,9 @@ fun NowPlayingScreen(
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     val artworkGate = autoMixArtworkGate()
+    val ambientSourceScope = artworkGate.remoteArtworkScope.takeIf {
+        song.videoId.startsWith("smb:") || song.videoId.startsWith("webdav:")
+    }
     val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, artworkGate)
     val pair = canvasPair.visual?.takeIf { artworkGate.allows(it.generation) && it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
@@ -2017,7 +2027,7 @@ fun NowPlayingScreen(
         imageUrl = ambientBlurUrl,
         artPx = ART_PX,
         seed = blurSeed,
-        currentSelectionOnly = ambient.direct != null,
+        currentSelectionOnly = true,
         prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
             lyricsOpen || queueOpen || playerPrewarmStage >= 1,
     )
@@ -2038,13 +2048,16 @@ fun NowPlayingScreen(
     val currentBlurSnapKey = rememberUpdatedState(blurSnapKey)
     val currentBlurIsOutgoing = rememberUpdatedState(coverEntry == blurMix?.outgoing)
     val directBlur = rememberUpdatedState(ambient.direct != null)
+    val currentBlurSelection = rememberUpdatedState(coverEntry to ambientBlurUrl)
+    val currentBlurSourceScope = rememberUpdatedState(ambientSourceScope)
     val fullArtworkBlurContent = remember {
         movableContentOf<Modifier> { backdropModifier ->
-            key(currentBlurSnapKey.value) {
+            key(currentBlurSnapKey.value, currentBlurSourceScope.value) {
                 FullArtworkBlurBackdrop(
                     currentFullArtworkBlurImage.value, backdropModifier,
                     currentBlurMix.value, currentBlurIsOutgoing.value,
                     immediate = directBlur.value,
+                    selectionKey = currentBlurSelection.value,
                 )
             }
         }
@@ -2761,6 +2774,7 @@ fun NowPlayingScreen(
                         LegacyMeshBackdrop(
                             ambient = ambient,
                             entry = coverEntry,
+                            sourceScope = ambientSourceScope,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame.takeIf { canvasOwnsAmbient } },
                             canvasKey = ambientCanvasKey,
@@ -2783,6 +2797,7 @@ fun NowPlayingScreen(
                         PlayerMeshBackdrop(
                             ambient = ambient,
                             entry = coverEntry,
+                            sourceScope = ambientSourceScope,
                             trackKey = song.videoId,
                             imageUrl = remoteArt,
                             canvasFrame = { canvasFrame.takeIf { canvasOwnsAmbient } },

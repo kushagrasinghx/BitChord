@@ -134,11 +134,12 @@ internal fun MeshGradientBackground(
     continuous: Boolean = false, blurRadius: Dp = 64.dp, animated: Boolean = true,
     colorFadeMillis: Int = 1400, paused: Boolean = false, mix: AutoMixAmbientMix?,
     snapKey: Any?, settled: Boolean, currentIsOutgoing: Boolean,
-    directStill: Boolean = false,
+    directStill: Boolean = false, selectionKey: Any? = null, selectionReady: Boolean = false,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
     val lastDrawn = remember { LastLegacyAmbientColors() }
+    val coldReset = coldArtworkResetKey(selectionKey, ready = selectionReady, mixing = mix != null)
     val held = remember(mix) {
         if (mix == null) null else lastDrawn.colors ?: run {
             val slots = (cachedArtworkPalette(mix.outgoingUrl)
@@ -151,12 +152,13 @@ internal fun MeshGradientBackground(
     // Each colour slot crossfades independently when the track (palette) changes,
     // unless "reduce animation" is on, in which case colours snap straight to target.
     val colorSpec: AnimationSpec<Color> = if (directStill || reduceAnimation || !animated) snap() else tween(colorFadeMillis)
-    val (animatedColors, baseColor) = key(snapKey) {
+    val (animatedColors, baseColor) = key(snapKey, coldReset) {
         val slots = tuned.mapIndexed { index, color ->
             animateColorAsState(color, colorSpec, label = "meshColor$index")
         }
         slots to animateColorAsState(held?.base ?: tuned.first().dimmed(), colorSpec, label = "meshBase")
     }
+
     val target = remember(mix) {
         mix?.prepared?.palette?.tunedSlots()?.let { LegacyAmbientColors(it, it.first().dimmed()) }
     }
@@ -349,7 +351,9 @@ internal fun rememberArtworkColors(
     imageUrl: String?, canvasFrame: ImageBitmap?, seed: MeshPalette?, clipKey: Any? = imageUrl,
 ): MeshPalette {
     val context = LocalPlatformContext.current
-    var palette by remember(imageUrl, clipKey) { mutableStateOf(seed ?: MeshPalette(FallbackColors)) }
+    var palette by remember(imageUrl, clipKey) {
+        mutableStateOf(seed ?: cachedArtworkPalette(imageUrl) ?: MeshPalette(FallbackColors))
+    }
 
     LaunchedEffect(imageUrl, clipKey) {
         if (imageUrl == null || seed != null) return@LaunchedEffect
@@ -380,12 +384,8 @@ private val artworkPaletteCache = object : LinkedHashMap<String, MeshPalette>(0,
 
 internal fun cachedArtworkPalette(imageUrl: String?): MeshPalette? = imageUrl?.let(artworkPaletteCache::get)
 
-internal suspend fun prefetchArtworkPalette(context: PlatformContext, imageUrl: String): MeshPalette? {
-    cachedArtworkPalette(imageUrl)?.let { return it }
-    val bitmap = loadArtworkPaletteBitmap(context, imageUrl) ?: return null
-    val palette = withContext(Dispatchers.Default) { MeshPalette(paletteOf(bitmap)) }
+internal fun cacheArtworkPalette(imageUrl: String, palette: MeshPalette) {
     artworkPaletteCache[imageUrl] = palette
-    return palette
 }
 
 private suspend fun loadArtworkPaletteBitmap(context: PlatformContext, imageUrl: String): ImageBitmap? {

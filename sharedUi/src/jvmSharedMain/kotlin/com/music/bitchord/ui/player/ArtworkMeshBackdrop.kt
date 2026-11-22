@@ -23,11 +23,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Canvas as BitmapCanvas
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
@@ -43,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.music.bitchord.ui.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.PlatformContext
+import coil3.BitmapImage
+import coil3.Extras
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -53,9 +57,7 @@ import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -152,62 +154,76 @@ private fun artworkPixelsRequest(
     .forPixelAccess()
     .build()
 
-/** Warms one incoming cover. Call on Main, like the effects that own the URL-keyed ambient caches. */
-suspend fun prefetchAutoMixArtwork(
-    context: PlatformContext,
-    imageUrl: String,
-    generation: Long,
-    prepareCover: (Long) -> Boolean,
-    prepareMiniCover: (Long) -> Boolean,
-    isStillArmed: (Long) -> Boolean,
-) = coroutineScope {
-    if (!isStillArmed(generation) || (!prepareCover(generation) && !prepareMiniCover(generation))) return@coroutineScope
-    val loader = SingletonImageLoader.get(context)
-    fun wantsCover() = isStillArmed(generation) && prepareCover(generation)
-    fun wantsMiniCover() = isStillArmed(generation) && prepareMiniCover(generation)
+/** Transport hint only; not part of the decoded-artwork cache identity. */
+val SpeculativeArtworkRequest = Extras.Key(default = false)
 
-    // The mini surfaces derive their target from layout constraints. Warm their URL
-    // with an inexact row-sized decode, using the same crop scale as AsyncImage.
-    val miniJob = launch {
-        if (!wantsMiniCover()) return@launch
-        val mini = loader.execute(
-            ImageRequest.Builder(context)
-                .data(imageUrl.artworkAt(ROW_ART_PX))
-                .size(ROW_ART_PX)
-                .scale(Scale.FILL)
-                .precision(Precision.INEXACT)
-                .build(),
+/** Call on Main. Coil does the fetch/decode; the same pixels serve drawing and ambient analysis. */
+suspend fun prefetchFullPlayerArtwork(context: PlatformContext, imageUrl: String, isCurrent: () -> Boolean): SuccessResult? {
+    val url = imageUrl.artworkAt(ART_PX) ?: return null
+    val request = playerCoverRequest(context, url).apply { extras[SpeculativeArtworkRequest] = true }.build()
+    val result = SingletonImageLoader.get(context).execute(request)
+        as? SuccessResult ?: return null
+    if (!isCurrent()) return null
+    (result.image as? BitmapImage)?.let { WarmPlayerCovers.remember(url, it) }
+    return result
+}
+
+/** Use the existing small ambient caches. Never re-fetch the full-player source for them. */
+suspend fun preparePlayerArtworkAmbient(imageUrl: String, cover: SuccessResult, isCurrent: () -> Boolean) {
+    val bitmap = (cover.image as? BitmapImage)?.toImageBitmap() ?: return
+    val needsMesh = meshCache[imageUrl] == null
+    val needsBlur = fullBlurCache[imageUrl] == null
+    val needsPalette = cachedArtworkPalette(imageUrl) == null
+    if (!needsMesh && !needsBlur && !needsPalette) return
+    val (mesh, blur, palette) = withContext(Dispatchers.Default) {
+        val small = bitmap.ambientThumbnail()
+        Triple(
+            if (needsMesh) meshOf(small, imageUrl.hashCode()) else null,
+            if (needsBlur) small.boxBlurred(FULL_BLUR_PASSES) else null,
+            if (needsPalette) MeshPalette(artworkMeshColors(small)) else null,
         )
-        if (mini is SuccessResult && wantsMiniCover()) AutoMixPreparedCover.retainMini(generation, mini)
     }
+    if (!isCurrent()) return
+    mesh?.let { meshCache[imageUrl] = it }
+    blur?.let { fullBlurCache[imageUrl] = it }
+    palette?.let { cacheArtworkPalette(imageUrl, it) }
+}
 
-    if (!wantsCover()) return@coroutineScope
-    val ambient = PreparedAutoMixAmbient(generation, imageUrl)
-    preparedAutoMixAmbient = ambient
-    if (meshCache[imageUrl] == null) {
-        val request = artworkPixelsRequest(context, imageUrl, ART_PX, MESH_PX)
-        val result = loader.execute(request)
-        (result as? SuccessResult)?.image?.toImageBitmap()?.let { cacheStillMesh(imageUrl, it) }
+private fun ImageBitmap.ambientThumbnail(): ImageBitmap {
+    val ratio = FULL_BLUR_SOURCE_PX.toFloat() / maxOf(width, height)
+    if (ratio >= 1f) return this
+    val target = IntSize((width * ratio).roundToInt().coerceAtLeast(1), (height * ratio).roundToInt().coerceAtLeast(1))
+    return ImageBitmap(target.width, target.height).also {
+        BitmapCanvas(it).drawImageRect(this, dstSize = target, paint = Paint().apply { filterQuality = FilterQuality.Low })
     }
-    if (!wantsCover()) return@coroutineScope
-    ambient.mesh = meshCache[imageUrl]
-    if (fullBlurCache[imageUrl] == null) loadFullArtworkBlur(context, imageUrl, ART_PX)
-    if (!wantsCover()) return@coroutineScope
-    ambient.blur = fullBlurCache[imageUrl]
-    val palette = prefetchArtworkPalette(context, imageUrl)
-    if (wantsCover()) ambient.palette = palette
+}
 
-    // Coil can give different decode sizes the same key. Leave the full-player
-    // cover in that slot when URLs coincide; retain the mini decode separately.
-    miniJob.join()
-    if (!wantsCover()) return@coroutineScope
-    val cover = loader.execute(
-        playerCoverRequest(context, imageUrl.artworkAt(ART_PX))
-            .scale(Scale.FILL)
-            .precision(Precision.INEXACT)
-            .build(),
+fun retainAutoMixPlayerCover(generation: Long, cover: SuccessResult) {
+    AutoMixPreparedCover.retain(generation, cover)
+}
+
+fun retainAutoMixPlayerAmbient(generation: Long, imageUrl: String) {
+    preparedAutoMixAmbient = PreparedAutoMixAmbient(generation, imageUrl).also {
+        it.mesh = meshCache[imageUrl]
+        it.blur = fullBlurCache[imageUrl]
+        it.palette = cachedArtworkPalette(imageUrl)
+    }
+}
+
+/** Mini players use a different URL/size from the full-player cover. */
+suspend fun prefetchAutoMixMiniArtwork(context: PlatformContext, imageUrl: String, generation: Long, isArmed: () -> Boolean) {
+    val result = SingletonImageLoader.get(context).execute(
+        ImageRequest.Builder(context).data(imageUrl.artworkAt(ROW_ART_PX)).size(ROW_ART_PX)
+            .apply { extras[SpeculativeArtworkRequest] = true }
+            .scale(Scale.FILL).precision(Precision.INEXACT).build(),
     )
-    if (cover is SuccessResult && wantsCover()) AutoMixPreparedCover.retain(generation, cover)
+    if (result is SuccessResult && isArmed()) AutoMixPreparedCover.retainMini(generation, result)
+}
+
+fun clearPrefetchedPlayerArtwork() {
+    WarmPlayerCovers.clear()
+    AutoMixPreparedCover.clear()
+    preparedAutoMixAmbient = null
 }
 
 /**
@@ -232,18 +248,36 @@ fun FullArtworkBlurBackdrop(
     FullArtworkBlurBackdrop(image, modifier, mix = null, currentIsOutgoing = false)
 }
 
+/** Cold selections start on the fallback; warm selections keep the ordinary fade. */
+@Composable
+internal fun coldArtworkResetKey(selection: Any?, ready: Boolean, mixing: Boolean): Int {
+    var previous by remember { mutableStateOf(selection) }
+    var reset by remember { mutableStateOf(0) }
+    val nextReset = if (!mixing && previous != selection && !ready) reset + 1 else reset
+    SideEffect {
+        if (!mixing) {
+            previous = selection
+            reset = nextReset
+        }
+    }
+    return nextReset
+}
+
 @Composable
 internal fun FullArtworkBlurBackdrop(
     image: ImageBitmap?, modifier: Modifier, mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean,
-    immediate: Boolean = false,
+    immediate: Boolean = false, selectionKey: Any? = null,
 ) {
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
         val history = remember { BlurLayers() }
+        val coldReset = coldArtworkResetKey(selectionKey, ready = image != null, mixing = mix != null)
         val heldTarget = remember(mix) {
             if (mix == null) null else history.target ?: cachedFullArtworkBlur(mix.outgoingUrl)
                 ?: image.takeIf { currentIsOutgoing }
         }
-        FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null, immediate = immediate)
+        key(coldReset) {
+            FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null, immediate = immediate)
+        }
         if (mix != null) {
             val held = remember(mix) {
                 history.layers?.map { (bitmap, alpha) -> bitmap to alpha.value }
@@ -421,6 +455,7 @@ internal fun ArtworkMeshBackdrop(
     mesh: ArtworkMesh?, modifier: Modifier, seam: () -> Dp, fallback: Color = FallbackBackdrop,
     mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean = false,
     directSelection: Pair<Long, QueueEntryIdentity>? = null, directStill: Boolean = false,
+    selectionKey: Any? = null,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
@@ -433,11 +468,14 @@ internal fun ArtworkMeshBackdrop(
     var fadingToFallback by remember { mutableStateOf(false) }
     val fade = remember { Animatable(0f) }
     var appliedDirect by remember { mutableStateOf<Pair<Long, QueueEntryIdentity>?>(null) }
-    val immediate = directSelection != null && (appliedDirect != directSelection || directStill)
+    var appliedSelection by remember { mutableStateOf(selectionKey) }
+    val immediate = (selectionKey != appliedSelection && mesh == null) ||
+        (directSelection != null && (appliedDirect != directSelection || directStill))
 
-    LaunchedEffect(mesh, mix, reduceAnimation, directSelection, directStill) {
+    LaunchedEffect(mesh, mix, reduceAnimation, directSelection, directStill, selectionKey) {
         if (mix != null) return@LaunchedEffect
         val next = mesh
+        appliedSelection = selectionKey
         if (immediate) {
             shown = next
             incoming = null

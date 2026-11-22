@@ -117,10 +117,10 @@ object Http {
      */
     private val webDavInterceptor = okhttp3.Interceptor { chain ->
         val request = chain.request()
-        if (request.header("Authorization") == null &&
-            com.music.bitchord.data.webdav.WebDavAuth.shouldAuthorize(request.url.host)
-        ) {
-            val header = com.music.bitchord.data.webdav.WebDavAuth.authHeader
+        if (request.header("Authorization") == null) {
+            val auth = request.tag(com.music.bitchord.data.webdav.WebDavAuth.Snapshot::class.java)
+                ?: com.music.bitchord.data.webdav.WebDavAuth.current
+            val header = auth.headerFor(request.url.host)
             if (!header.isNullOrBlank()) {
                 return@Interceptor chain.proceed(
                     request.newBuilder().header("Authorization", header).build(),

@@ -8,6 +8,7 @@ import com.hierynomus.smbj.session.Session
 import com.hierynomus.smbj.share.DiskShare
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import javax.net.SocketFactory
 
 /**
  * The one open session to the configured server. Single-server, like the rest
@@ -25,6 +26,7 @@ object SmbConnection {
     private var client: SMBClient? = null
     private var connection: Connection? = null
     private var share: DiskShare? = null
+    private var openedFor: SmbAuth.ArtworkServer? = null
 
     @Synchronized
     fun invalidate() {
@@ -34,6 +36,7 @@ object SmbConnection {
         share = null
         connection = null
         client = null
+        openedFor = null
     }
 
     fun <T> withShare(block: (DiskShare) -> T): T {
@@ -45,29 +48,58 @@ object SmbConnection {
         }
     }
 
-    @Synchronized
-    private fun open(): DiskShare {
-        val live = share
-        if (live != null && connection?.isConnected == true) return live
-        invalidate()
-        val host = SmbAuth.host
-        val shareName = SmbAuth.share
-        require(host.isNotBlank() && shareName.isNotBlank()) { "SMB is not configured" }
-        val config = SmbConfig.builder()
-            .withTimeout(20, TimeUnit.SECONDS)
-            .withReadTimeout(30, TimeUnit.SECONDS)
-            .withWriteTimeout(30, TimeUnit.SECONDS)
-            .withTransactTimeout(30, TimeUnit.SECONDS)
-            .build()
-        val newClient = SMBClient(config)
+    internal fun <T> withArtworkShare(server: SmbAuth.ArtworkServer, block: (DiskShare) -> T): T =
         try {
-            val newConnection = newClient.connect(host, SmbAuth.port)
-            val session: Session = newConnection.authenticate(authFor(SmbAuth.username, SmbAuth.password))
+            block(open(server))
+        } catch (e: IOException) {
+            invalidateArtworkShare(server)
+            block(open(server))
+        }
+
+    @Synchronized
+    private fun invalidateArtworkShare(server: SmbAuth.ArtworkServer) {
+        if (openedFor === server) invalidate()
+    }
+
+    /** A test login or artwork transfer must not replace or close the playback pool. */
+    internal fun <T> withIndependentShare(
+        host: String, port: Int, shareName: String, username: String, password: String,
+        socketFactory: SocketFactory? = null,
+        block: (DiskShare) -> T,
+    ): T = SMBClient(configBuilder().apply {
+        if (socketFactory != null) withSocketFactory(socketFactory)
+    }.build()).use { independent ->
+        val disk = independent.connect(host, port).authenticate(authFor(username, password)).connectShare(shareName) as? DiskShare
+            ?: throw SmbException("\"$shareName\" is not a file share")
+        block(disk)
+    }
+
+    private fun configBuilder() = SmbConfig.builder()
+        .withTimeout(20, TimeUnit.SECONDS)
+        .withReadTimeout(30, TimeUnit.SECONDS)
+        .withWriteTimeout(30, TimeUnit.SECONDS)
+        .withTransactTimeout(30, TimeUnit.SECONDS)
+
+    @Synchronized
+    private fun open(artworkServer: SmbAuth.ArtworkServer? = null): DiskShare {
+        val server = SmbAuth.artworkServer
+        if (artworkServer != null && server !== artworkServer) throw SmbException("Artwork server changed")
+        val live = share
+        if (live != null && connection?.isConnected == true && (artworkServer == null || openedFor === artworkServer)) return live
+        invalidate()
+        val host = server.host
+        val shareName = server.share
+        require(host.isNotBlank() && shareName.isNotBlank()) { "SMB is not configured" }
+        val newClient = SMBClient(configBuilder().build())
+        try {
+            val newConnection = newClient.connect(host, server.port)
+            val session: Session = newConnection.authenticate(authFor(server.username, server.password))
             val diskShare = session.connectShare(shareName) as? DiskShare
                 ?: throw SmbException("\"$shareName\" is not a file share")
             client = newClient
             connection = newConnection
             share = diskShare
+            openedFor = server
             return diskShare
         } catch (e: Throwable) {
             runCatching { newClient.close() }

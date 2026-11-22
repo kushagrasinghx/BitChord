@@ -12,10 +12,10 @@ internal object AutoMixVisualFeed {
     private var generation = 0L
     private var armedAtMs = 0L
 
-    fun arm(outgoing: AutoMixVisualTrack, incoming: AutoMixVisualTrack): Long {
+    fun arm(outgoing: AutoMixVisualTrack, incoming: AutoMixVisualTrack, remoteArtworkScope: Long?): Long {
         val id = ++generation
         armedAtMs = SystemClock.elapsedRealtime()
-        mutableState.value = AutoMixVisualState(id, outgoing, incoming)
+        mutableState.value = AutoMixVisualState(id, outgoing, incoming, remoteArtworkScope = remoteArtworkScope)
         return id
     }
 

@@ -4,6 +4,9 @@ import coil3.intercept.Interceptor
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageResult
+import com.music.bitchord.data.remote.remoteCoverScope
+import com.music.bitchord.data.settings.AppSettings
+import java.io.IOException
 
 /**
  * Attaches the WebDAV credential to cover loads aimed at the configured
@@ -38,8 +41,11 @@ class WebDavCoilAuth : Interceptor {
             if (headers["Authorization"] != null) return null
             val url = (data as? String)?.takeIf { it.startsWith("http") } ?: return null
             val host = runCatching { java.net.URI(url).host }.getOrNull() ?: return null
-            if (!WebDavAuth.shouldAuthorize(host)) return null
-            return WebDavAuth.authHeader
+            val scope = remoteCoverScope(url)
+            val auth = if (scope == null) WebDavAuth.current else {
+                AppSettings.remoteArtworkAuth(scope)?.webDav ?: throw IOException("Artwork source changed")
+            }
+            return auth.headerFor(host)
         }
     }
 }

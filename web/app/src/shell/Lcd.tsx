@@ -7,13 +7,13 @@ import { VideoSurface } from '@/components/music/VideoSurface';
 import { albumHref, artistHref } from '@/components/music/links';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { artistCredits, creditSegments } from '@/lib/artistCredits';
-import { sizedArtwork } from '@/lib/artwork';
 import type { Track } from '@/data/music/types';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { useHasVideo } from '@/state/video';
 import { albumPageFor, artistPageFor } from './nowPlayingLinks';
 import { MixWindowHighlight } from './NerdStats';
+import { NowPlayingCover } from './NowPlayingCover';
 import { useScrubber } from './useScrubber';
 
 // The title and each artist: plain until hovered, then underlined on their own.
@@ -126,17 +126,12 @@ export function Lcd() {
         aria-label="Open full screen player"
         onClick={() => openFullScreen(true)}
       >
-        {nowPlaying.artworkUrl && (
-          <img
-            key={nowPlaying.artworkUrl}
-            src={sizedArtwork(nowPlaying.artworkUrl, 34)}
-            alt=""
-            referrerPolicy="no-referrer"
-            decoding="async"
-            className="size-full object-cover opacity-0 transition-opacity duration-200 ease-in data-loaded:opacity-100"
-            onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '')}
-          />
-        )}
+        <NowPlayingCover
+          url={nowPlaying.artworkUrl}
+          px={34}
+          reveal
+          className="absolute inset-0 size-full object-cover opacity-0 transition-opacity duration-200 ease-in data-loaded:opacity-100"
+        />
         <VideoSurface
           className={`absolute inset-0 transition-opacity duration-300 ${video ? 'opacity-100' : 'opacity-0'}`}
         />

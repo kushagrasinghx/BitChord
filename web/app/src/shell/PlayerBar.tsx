@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import {
-  BackwardIcon,
-  ForwardIcon,
   LyricsActiveIcon,
   LyricsIcon,
-  PauseIcon,
-  PlayIcon,
   RepeatIcon,
   RepeatOneIcon,
   ShuffleIcon,
@@ -16,6 +12,7 @@ import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { PlayPauseGlyph, SkipGlyph } from './TransportGlyphs';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
@@ -43,6 +40,8 @@ export function PlayerBar() {
   const repeat = usePlayer((s) => s.repeat);
   const { togglePlay, next, previous, toggleShuffle, cycleRepeat } = usePlayer.getState();
   const [volumeOpen, setVolumeOpen] = useState(false);
+  // Presses of previous and next, for the skip glyphs' conveyor.
+  const [skips, setSkips] = useState({ previous: 0, next: 0 });
 
   return (
     // The side panel overlays the page; the pill re-centres in what's left.
@@ -60,14 +59,30 @@ export function PlayerBar() {
             <ShuffleIcon size={28} />
           </button>
           <div className="flex items-center gap-1.5">
-            <button className={transport} disabled={!hasTrack} aria-label="Previous" onClick={previous}>
-              <BackwardIcon size={26} />
+            <button
+              className={transport}
+              disabled={!hasTrack}
+              aria-label="Previous"
+              onClick={() => {
+                setSkips((s) => ({ ...s, previous: s.previous + 1 }));
+                previous();
+              }}
+            >
+              <SkipGlyph taps={skips.previous} size={26} previous />
             </button>
             <button className={transport} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>
-              {playing ? <PauseIcon size={28} /> : <PlayIcon size={28} />}
+              <PlayPauseGlyph playing={playing} size={28} mini />
             </button>
-            <button className={transport} disabled={!hasTrack || !hasNext} aria-label="Next" onClick={next}>
-              <ForwardIcon size={26} />
+            <button
+              className={transport}
+              disabled={!hasTrack || !hasNext}
+              aria-label="Next"
+              onClick={() => {
+                setSkips((s) => ({ ...s, next: s.next + 1 }));
+                next();
+              }}
+            >
+              <SkipGlyph taps={skips.next} size={26} />
             </button>
           </div>
           <button

@@ -2,12 +2,8 @@ import { Maximize, Minimize, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router';
 import {
-  BackwardIcon,
-  ForwardIcon,
   LyricsActiveIcon,
   LyricsIcon,
-  PauseIcon,
-  PlayIcon,
   RepeatIcon,
   RepeatOneIcon,
   ShuffleIcon,
@@ -20,16 +16,18 @@ import { albumHref } from '@/components/music/links';
 import { MotionArtwork } from '@/components/music/MotionArtwork';
 import { VideoSurface } from '@/components/music/VideoSurface';
 import { useTrackMotion } from '@/data/apple/motionArt';
-import { sizedArtwork } from '@/lib/artwork';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { useHasVideo, useVideo } from '@/state/video';
+import { BestPartPill } from './BestPartPill';
 import { Credits, PageLink, pageLink } from './Lcd';
 import { LyricsPanel } from './LyricsPanel';
 import { MeshBackdrop } from './MeshBackdrop';
 import { albumPageFor } from './nowPlayingLinks';
+import { NowPlayingCover } from './NowPlayingCover';
 import { UpNext } from './UpNext';
 import { MixWindowHighlight, NerdStats } from './NerdStats';
+import { PlayPauseGlyph, SkipGlyph } from './TransportGlyphs';
 import { useScrubber } from './useScrubber';
 import { VideoQuality } from './VideoQuality';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
@@ -87,20 +85,38 @@ function Transport() {
   const shuffle = usePlayer((s) => s.shuffle);
   const repeat = usePlayer((s) => s.repeat);
   const { togglePlay, next, previous, toggleShuffle, cycleRepeat } = usePlayer.getState();
+  // Presses of previous and next, for the skip glyphs' conveyor.
+  const [skips, setSkips] = useState({ previous: 0, next: 0 });
 
   return (
     <div className="mx-auto mt-[clamp(8px,1.6vh,16px)] mb-0 flex h-13 w-[min(100%,315px)] items-center justify-between">
       <button className={toggle} aria-label="Shuffle" aria-pressed={shuffle} onClick={toggleShuffle}>
         <ShuffleIcon size={30} />
       </button>
-      <button className={skip} disabled={!hasTrack} aria-label="Previous" onClick={previous}>
-        <BackwardIcon size={40} />
+      <button
+        className={skip}
+        disabled={!hasTrack}
+        aria-label="Previous"
+        onClick={() => {
+          setSkips((s) => ({ ...s, previous: s.previous + 1 }));
+          previous();
+        }}
+      >
+        <SkipGlyph taps={skips.previous} size={40} previous />
       </button>
       <button className={`${transportButton} size-14 text-primary`} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>
-        {playing ? <PauseIcon size={48} /> : <PlayIcon size={48} />}
+        <PlayPauseGlyph playing={playing} size={48} />
       </button>
-      <button className={skip} disabled={!hasTrack || !hasNext} aria-label="Next" onClick={next}>
-        <ForwardIcon size={40} />
+      <button
+        className={skip}
+        disabled={!hasTrack || !hasNext}
+        aria-label="Next"
+        onClick={() => {
+          setSkips((s) => ({ ...s, next: s.next + 1 }));
+          next();
+        }}
+      >
+        <SkipGlyph taps={skips.next} size={40} />
       </button>
       <button
         className={toggle}
@@ -294,29 +310,19 @@ export function FullScreenPlayer() {
               video ? ' aspect-video overflow-hidden bg-black' : ' aspect-square'
             }${playing ? '' : ' scale-92'}${column ? ' max-md:hidden' : ''}${theater ? ' hidden' : ''}`}
           >
-            {nowPlaying.artworkUrl && (
-              <>
-                <img
-                  key={`glow-${nowPlaying.artworkUrl}`}
-                  // The radiosity glow: a small copy, blurred and saturated, behind the artwork.
-                  className={`${artworkLayer} -z-1 translate-y-2 scale-96 blur-[20px] saturate-200 data-loaded:opacity-40`}
-                  src={sizedArtwork(nowPlaying.artworkUrl, 60)}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  decoding="async"
-                  onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '')}
-                />
-                <img
-                  key={nowPlaying.artworkUrl}
-                  className={`${artworkLayer} bg-[#ffffff12] shadow-[0_4px_10px_#0000001a] data-loaded:opacity-100`}
-                  src={sizedArtwork(nowPlaying.artworkUrl, 600)}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  decoding="async"
-                  onLoad={(e) => e.currentTarget.setAttribute('data-loaded', '')}
-                />
-              </>
-            )}
+            {/* The radiosity glow: a small copy, blurred and saturated, behind the artwork. */}
+            <NowPlayingCover
+              url={nowPlaying.artworkUrl}
+              px={60}
+              className={`${artworkLayer} -z-1 translate-y-2 scale-96 blur-[20px] saturate-200 data-loaded:opacity-40`}
+            />
+            <NowPlayingCover
+              url={nowPlaying.artworkUrl}
+              px={600}
+              reveal
+              blur
+              className={`${artworkLayer} bg-[#ffffff12] shadow-[0_4px_10px_#0000001a] data-loaded:opacity-100`}
+            />
             {/* Apple's motion artwork, over the cover once it's playing. */}
             {motion && (
               <MotionArtwork
@@ -327,6 +333,7 @@ export function FullScreenPlayer() {
               />
             )}
             {video && !theater && <VideoSurface className="absolute inset-0" />}
+            <BestPartPill />
           </div>
 
           <div className={`flex items-center gap-3${theater ? '' : ' mt-[clamp(20px,3.2vh,32px)]'}${column ? ' max-md:mt-0' : ''}`}>

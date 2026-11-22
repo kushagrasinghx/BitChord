@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePlayerOptions } from '@/playback/playerOptions';
 import { getAudio, getMixBeat, getPlayhead, usePlayer } from '@/state/player';
 
 export function clock(seconds: number): string {
@@ -79,6 +80,7 @@ export function useScrubber() {
   const deck = usePlayer((s) => s.deck);
   const mixing = usePlayer((s) => s.mixing);
   const seek = usePlayer((s) => s.seek);
+  const showTotal = usePlayerOptions((s) => s.showTotalDuration);
   const [dragging, setDragging] = useState<number | null>(null);
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export function useScrubber() {
       element.style.setProperty('--progress', String(base + (1 - base) * mix.cover));
       element.style.opacity = mix.active ? String(mix.alpha) : '';
       if (elapsed.current) elapsed.current.textContent = clock(time);
-      if (remaining.current) remaining.current.textContent = `-${clock((duration || 0) - time)}`;
+      if (remaining.current) remaining.current.textContent = showTotal ? clock(duration || 0) : `-${clock((duration || 0) - time)}`;
       for (const span of [elapsed.current, remaining.current]) {
         if (span) span.style.opacity = mix.active ? String(1 - mix.cover) : '';
       }
@@ -112,7 +114,7 @@ export function useScrubber() {
       cancelAnimationFrame(frame);
       audio.removeEventListener('seeked', onSeeked);
     };
-  }, [status, deck, dragging, mixing]);
+  }, [status, deck, dragging, mixing, showTotal]);
 
   const fractionAt = (event: React.PointerEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();

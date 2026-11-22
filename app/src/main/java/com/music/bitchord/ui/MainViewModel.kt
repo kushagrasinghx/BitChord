@@ -48,6 +48,7 @@ import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.DetailLoadId
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.withoutRepeatsOf
@@ -645,7 +646,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     /** UI-side continuation fetches that can be handed to the playback service. */
-    private val fillInJobs = mutableMapOf<String, Job>()
+    private val fillInJobs = mutableMapOf<DetailLoadId, Job>()
 
     private val _releaseLibrary = MutableStateFlow<Map<String, LibraryState>>(emptyMap())
 
@@ -2886,6 +2887,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val resolved = browseTypeOf(browseId, type)
+        val detailLoadId = DetailLoadId()
         _detailStack.value += DetailPage(
             browseId = browseId,
             title = title,
@@ -2893,6 +2895,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             thumbnailUrl = thumbnailUrl,
             songs = UiState.Loading,
             type = resolved,
+            detailLoadId = detailLoadId,
         )
         viewModelScope.launch {
             var sections = emptyList<HomeShelf>()
@@ -2937,7 +2940,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (onDevice.isNotEmpty()) {
                 _detailStack.value = _detailStack.value.map {
-                    if (it.browseId == browseId && it.songs is UiState.Loading) it.copy(songs = UiState.Success(onDevice)) else it
+                    if (it.detailLoadId == detailLoadId && it.songs is UiState.Loading) it.copy(songs = UiState.Success(onDevice)) else it
                 }
             }
             if (localPlaylist != null) {
@@ -3018,11 +3021,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
-            // Update by id — the user may have pushed another page meanwhile.
+            // Update only the entry that started this load, even if the same
+            // playlist was reopened while the first request was in flight.
             // A page showing its downloaded copy takes only a real listing: a
             // failed or empty fetch leaves the downloaded tracks up.
             _detailStack.value = _detailStack.value.map {
-                if (it.browseId == browseId &&
+                if (it.detailLoadId == detailLoadId &&
                     (it.songs is UiState.Loading || (onDevice.isNotEmpty() && state is UiState.Success))
                 ) {
                     it.copy(
@@ -3045,7 +3049,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             // Only once the first page is on screen: [fillIn] appends to it,
             // and has nothing to append to before this.
-            more?.let { fillIn(browseId, it, thumbnailUrl ?: artwork) }
+            more?.let { fillIn(detailLoadId, it, thumbnailUrl ?: artwork) }
         }
     }
 
@@ -3268,9 +3272,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * for. A page that adds nothing new (below) is the other exit, for a feed
      * that loops back on itself instead of running dry.
      */
-    private fun fillIn(browseId: String, token: String, artworkFallback: String?) {
-        fillInJobs[browseId]?.cancel()
-        fillInJobs[browseId] = viewModelScope.launch {
+    private fun fillIn(detailLoadId: DetailLoadId, token: String, artworkFallback: String?) {
+        fillInJobs[detailLoadId]?.cancel()
+        fillInJobs[detailLoadId] = viewModelScope.launch {
             // Publish and draw the first response before spending the shared
             // connection on page two. On a long playlist the continuation can
             // otherwise start in the same main-loop turn as the state update,
@@ -3278,6 +3282,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             delay(150)
             var next: String? = token
             while (next != null) {
+                if (_detailStack.value.none { it.detailLoadId == detailLoadId }) return@launch
                 val token = next
                 // One dropped request used to end the walk for good, leaving a
                 // long playlist cut short on screen and in its menu (#1178).
@@ -3288,15 +3293,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // an in-flight UI page append after the playback service has
                 // taken the continuation over.
                 currentCoroutineContext().ensureActive()
-                // The same page can be on the stack twice (opened again from
-                // inside itself). One walk per browseId grows every copy; a
-                // second walk replaces the first, so each copy merges by key
-                // and only takes a token from a page that taught it something.
+                // A different visit to the same playlist owns its own rows and
+                // token. A late result cannot attach to that visit.
                 val stack = _detailStack.value
-                if (stack.none { it.browseId == browseId }) return@launch
                 var progressed = false
                 val updated = stack.map { current ->
-                    if (current.browseId != browseId) return@map current
+                    if (current.detailLoadId != detailLoadId) return@map current
                     val existing = (current.songs as? UiState.Success)?.data ?: return@map current
                     val known = existing.mapTo(HashSet()) { it.contextEntryKey() }
                     val added = fetched.songs
@@ -3319,7 +3321,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         continuation = fetched.continuation,
                     )
                 }
-                // A page with nothing new for any copy means the feed has looped
+                // A page with nothing new means the feed has looped
                 // back rather than run dry with a token still attached.
                 if (!progressed) return@launch
                 _detailStack.value = updated
@@ -3327,7 +3329,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.also { job ->
             job.invokeOnCompletion {
-                if (fillInJobs[browseId] === job) fillInJobs.remove(browseId)
+                if (fillInJobs[detailLoadId] === job) fillInJobs.remove(detailLoadId)
             }
         }
     }
@@ -3340,21 +3342,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * page that appears to stop growing as soon as playback starts.
      */
     private fun applyBoundedContextSnapshot(snapshot: BoundedContextRequests.Snapshot) {
-        val browseId = snapshot.request.source.id ?: return
+        val detailLoadId = snapshot.request.detailLoadId ?: return
         val stack = _detailStack.value
-        val index = stack.indexOfLast { it.browseId == browseId }
+        val index = stack.indexOfLast(snapshot::canUpdateDetail)
         if (index < 0) return
         val page = stack[index]
-        if (page.type != BrowseType.ALBUM && page.type != BrowseType.PLAYLIST) return
         // Exactly one loader walks the continuation. While the service owns
         // it the page's own fill-in stops; when the service gives up (or never
         // took it — a party, a Cast race) the page resumes from the newest token.
         if (snapshot.serviceOwned) {
-            if (snapshot.continuationToken != null) fillInJobs.remove(browseId)?.cancel()
+            if (snapshot.continuationToken != null) fillInJobs.remove(detailLoadId)?.cancel()
         } else if (snapshot.released && snapshot.continuationToken != null &&
-            fillInJobs[browseId]?.isActive != true
+            fillInJobs[detailLoadId]?.isActive != true
         ) {
-            fillIn(browseId, snapshot.continuationToken, page.thumbnailUrl)
+            fillIn(detailLoadId, snapshot.continuationToken, page.thumbnailUrl)
         }
         val existing = (page.songs as? UiState.Success)?.data ?: return
         val known = existing.mapTo(HashSet()) { it.contextEntryKey() }
@@ -3381,12 +3382,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * tap may yet go down another path, and cancelling here left the page
      * permanently cut short whenever it did.
      */
-    fun takePlaybackContext(browseId: String): DetailPage? {
+    fun takePlaybackContext(page: DetailPage): DetailPage? {
         val stack = _detailStack.value
-        val index = stack.indexOfLast { it.browseId == browseId }
+        val index = stack.indexOfLast { it.browseId == page.browseId && it.detailLoadId == page.detailLoadId }
         if (index < 0) return null
         val mirrored = BoundedContextRequests.snapshot.value
-            ?.takeIf { it.request.source.id == browseId }
+            ?.takeIf { it.canUpdateDetail(stack[index]) }
         if (mirrored != null) {
             applyBoundedContextSnapshot(mirrored)
             return _detailStack.value.getOrNull(index)

@@ -8,6 +8,7 @@ import { hrefFor } from '@/components/music/links';
 import { ShelfScroller, ShelfTitle, ShelfView } from '@/components/music/ShelfView';
 import { shelfSection } from '@/components/shelf';
 import { SignInBanner } from '@/components/music/SignInBanner';
+import { MoodGrid } from '@/components/music/TopPicksShelf';
 import { EmptyState, LoadError, NeedsExtension } from '@/components/music/States';
 import { fetchMixes, groupedMixes } from '@/data/music/library';
 import { useSignedIn, useYouTubeReady } from '@/data/music/queries';
@@ -90,12 +91,17 @@ export default function RadioPage() {
       </>
     );
   }
-  // Every mix here is made from an account's listening; signed out there is nothing to show but the way in.
+  // Every mix here is made from an account's listening. Signed out, the way in comes first, then the stations
+  // that need no account: each mood plays from YouTube Music's public mood playlists (topPicks.ts moodQueue).
   if (auth.state === 'ready' && !signedIn) {
     return (
       <>
         <PageHeader title={TITLE} />
         <SignInBanner />
+        <section className="mt-4" aria-label="Mood stations">
+          <ShelfTitle title="Mood stations" strapline="Play one now, no account needed." />
+          <MoodGrid />
+        </section>
       </>
     );
   }

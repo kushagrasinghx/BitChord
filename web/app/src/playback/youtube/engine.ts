@@ -5,6 +5,7 @@ import { Constants, Utils, YT, type Innertube } from 'youtubei.js/web';
 import { timed, trackLog } from '../trackLog';
 import { botguard } from './botguard';
 import { ytAuthSnapshot } from '@/extension/useYtAuth';
+import { offlineCopy, type OfflineTrack } from '../offline/store';
 import { getInnertube, getSignedInnertube } from './innertube';
 import {
   CLIENT_ATTEMPTS,
@@ -26,7 +27,8 @@ export interface LoadedTrack {
   durationSec: number;
   /** Largest first. */
   thumbnails: { url: string; width: number; height: number }[];
-  client: PlayerClientName;
+  /** OFFLINE: played from the downloaded copy (playback/offline). */
+  client: PlayerClientName | 'OFFLINE';
   /** The audio format actually selected, e.g. "251 opus 140kbps". */
   format: string;
   /** The same, field by field, for stats for nerds. */
@@ -42,8 +44,8 @@ export interface StreamStats {
   bitrateKbps: number | null;
   sampleRateHz: number | null;
   channels: number | null;
-  /** "direct" (googlevideo URLs, by range) or "SABR". */
-  mode: 'direct' | 'SABR';
+  /** "direct" (googlevideo URLs, by range), "SABR", or "file" (the downloaded copy). */
+  mode: 'direct' | 'SABR' | 'file';
 }
 
 /** A music video's picture: a video-only DASH manifest over the same response's direct URLs. */
@@ -93,6 +95,8 @@ export class YouTubeEngine {
   /** The response the playing track streams from, when it has direct URLs; the video picture comes from it too. */
   private direct: ResolvedPlayer | null = null;
   private preferredCodecs: string[];
+  /** The object URL a downloaded copy is playing from, released when anything else loads. */
+  private offlineUrl: string | null = null;
 
   /** Raised when a track can't be played at all, after every fallback. */
   onFatal: (videoId: string, message: string, permanent: boolean) => void = () => {};
@@ -163,6 +167,10 @@ export class YouTubeEngine {
     trackLog.i(`loading at ${startSec.toFixed(1)}s`, videoId);
     try {
       const player = await this.ensurePlayer();
+      // A downloaded copy plays first, online or not: no session, no request, no stream to lose.
+      const offline = await offlineCopy(videoId).catch(() => null);
+      this.checkCurrent(generation);
+      if (offline) return await this.startOffline(player, offline, startSec, autoplay, generation);
       this.yt ??= await timed('InnerTube session', videoId, getInnertube);
       void botguard.init().catch((error: unknown) => trackLog.w(`BotGuard init failed: ${String(error)}`, videoId));
 
@@ -224,6 +232,7 @@ export class YouTubeEngine {
   ): Promise<LoadedTrack> {
     const { videoId, client, info, signed } = resolved;
     await player.unload();
+    this.releaseOffline();
     this.adapter?.dispose();
     this.adapter = null;
     this.current = { videoId, client, signed };
@@ -267,6 +276,54 @@ export class YouTubeEngine {
       stream: { ...selected.stats, mode },
       loudnessDb: info.player_config?.audio_config?.loudness_db ?? null,
     };
+  }
+
+  /**
+   * Plays the downloaded file itself (Shaka's src= mode, the element reading a
+   * blob URL). Nothing to recover to another client if it fails: a broken copy
+   * fails the load like any other, and the queue moves on.
+   */
+  private async startOffline(
+    player: shaka.Player,
+    { track, blob }: { track: OfflineTrack; blob: Blob },
+    startSec: number,
+    autoplay: boolean,
+    generation: number,
+  ): Promise<LoadedTrack> {
+    await player.unload();
+    this.releaseOffline();
+    this.adapter?.dispose();
+    this.adapter = null;
+    this.current = null;
+    this.direct = null;
+    const url = URL.createObjectURL(blob);
+    this.offlineUrl = url;
+    await timed('offline load', track.videoId, () => player.load(url, startSec, track.mimeType));
+    this.checkCurrent(generation);
+    if (autoplay) {
+      await this.audio.play().catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'NotAllowedError')) throw error;
+      });
+    }
+    await this.firstAudio(generation);
+    const codec = track.mimeType === 'audio/webm' ? 'Opus' : 'AAC';
+    trackLog.i(`playing the downloaded copy (${codec}, ${Math.round(track.sizeBytes / 1024)} KB)`, track.videoId);
+    return {
+      videoId: track.videoId,
+      title: track.title,
+      author: track.author,
+      durationSec: track.durationSec || Math.round(this.audio.duration) || 0,
+      thumbnails: track.thumbnail ? [{ url: track.thumbnail, width: 0, height: 0 }] : [],
+      client: 'OFFLINE',
+      format: `${codec} file`,
+      stream: { codec, itag: null, bitrateKbps: null, sampleRateHz: null, channels: null, mode: 'file' },
+      loudnessDb: null,
+    };
+  }
+
+  private releaseOffline() {
+    if (this.offlineUrl) URL.revokeObjectURL(this.offlineUrl);
+    this.offlineUrl = null;
   }
 
   /**
@@ -469,6 +526,7 @@ export class YouTubeEngine {
     this.current = null;
     this.direct = null;
     await this.player?.unload();
+    this.releaseOffline();
     this.adapter?.dispose();
     this.adapter = null;
   }

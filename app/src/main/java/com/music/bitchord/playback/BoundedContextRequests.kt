@@ -1,5 +1,8 @@
 package com.music.bitchord.playback
 
+import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.DetailLoadId
+import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +27,8 @@ object BoundedContextRequests {
         val shuffle: Boolean,
         /** Opaque handoff id, filled by [put] and returned by [take]. */
         val handoffToken: String? = null,
+        /** The open detail load that handed over its continuation, if any. */
+        val detailLoadId: DetailLoadId? = null,
     )
 
     /**
@@ -43,7 +48,13 @@ object BoundedContextRequests {
         val serviceOwned: Boolean = false,
         /** The service stopped walking the continuation; the page should resume it. */
         val released: Boolean = false,
-    )
+    ) {
+        internal fun canUpdateDetail(page: DetailPage): Boolean =
+            (serviceOwned || released) &&
+                request.detailLoadId != null && request.detailLoadId === page.detailLoadId &&
+                request.source.id == page.browseId && page.continuation != null &&
+                (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST)
+    }
 
     private data class Pending(
         val token: String,

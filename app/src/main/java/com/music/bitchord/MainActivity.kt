@@ -142,6 +142,7 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.DetailLoadId
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
@@ -1582,6 +1583,7 @@ private fun BitChordApp(
         source: QueueSource,
         boundedContext: Boolean = false,
         continuationToken: String? = null,
+        detailLoadId: DetailLoadId? = null,
     ) {
         // A Spotify page lists songs it has not found on YouTube Music yet (or
         // never will); those can't be queued, so play the rest in their order.
@@ -1624,7 +1626,7 @@ private fun BitChordApp(
                 // library re-sent to every media controller on each queue edit.
                 val bounded = boundedContext || songs.size > BoundedQueuePlanner.MAX_PHYSICAL_CONTEXT
                 if (bounded && !CastController.state.value.casting) {
-                    c.playBoundedContext(songs, index, source, continuationToken)
+                    c.playBoundedContext(songs, index, source, continuationToken, detailLoadId = detailLoadId)
                 } else {
                     val result = QueueCoordinator.buildContextQueue(
                         currentTimeline = currentTimeline,
@@ -3392,10 +3394,9 @@ private fun BitChordApp(
                                 }
                             }
                             // The visible list can be one render behind the page
-                            // while fill-in is completing. For a local release
-                            // handoff, cancel that fill and use the newest complete
-                            // page snapshot; Cast deliberately keeps the old full
-                            // queue path.
+                            // while fill-in is completing. Hand the local player
+                            // the newest snapshot of this load; Cast keeps the
+                            // existing full queue path.
                             fun playDetailSongs(songs: List<Song>, index: Int) {
                                 // Do not cancel a page's fill-in merely because a
                                 // listener tapped while the host owns playback.
@@ -3408,18 +3409,23 @@ private fun BitChordApp(
                                     PlaybackSourceType.BROWSE,
                                     page.browseId,
                                 )
-                                val selected = songs.getOrNull(index)
+                                val selectedKey = songs.getOrNull(index)?.contextEntryKey()
                                 val pageKeys =
                                     (page.songs as? UiState.Success)?.data.orEmpty().map { it.contextEntryKey() }
                                 val pageSongKeys = pageKeys.toHashSet()
                                 val useBounded =
                                     (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST) &&
-                                        selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
+                                        selectedKey?.let(pageSongKeys::contains) == true &&
                                         // A sorted list plays as sorted, not in the page's order.
                                         inPageOrder(songs.map { it.contextEntryKey() }, pageKeys) &&
                                         !CastController.state.value.casting
                                 val latestPage = if (useBounded) {
-                                    viewModel.takePlaybackContext(page.browseId)
+                                    viewModel.takePlaybackContext(page)?.takeIf { latest ->
+                                        // The downloaded preview may have just been replaced. If
+                                        // the tapped occurrence is gone, keep the queue it came from.
+                                        (latest.songs as? UiState.Success)?.data
+                                            ?.any { it.contextEntryKey() == selectedKey } == true
+                                    }
                                 } else {
                                     null
                                 }
@@ -3429,15 +3435,23 @@ private fun BitChordApp(
                                     ?.takeIf { it.isNotEmpty() }
                                 val queue = latestSongs ?: songs.map(withAlbum)
                                 if (queue.isEmpty()) return
-                                val queueIndex = selected?.let { tapped ->
-                                    queue.indexOfFirst { it.contextEntryKey() == tapped.contextEntryKey() }
+                                val queueIndex = selectedKey?.let { key ->
+                                    queue.indexOfFirst { it.contextEntryKey() == key }
                                 }?.takeIf { it >= 0 } ?: index
+                                val playbackPage = latestPage ?: page
+                                // Oversized sorted queues also use bounded playback. They keep
+                                // their visible order but hand off the same listing's continuation.
+                                val detailLoadId = playbackPage.detailLoadId.takeIf {
+                                    playbackPage.continuation != null &&
+                                        (latestPage != null || songs.all { it.contextEntryKey() in pageSongKeys })
+                                }
                                 playFrom(
                                     queue,
                                     queueIndex.coerceIn(queue.indices),
                                     source,
                                     boundedContext = useBounded,
-                                    continuationToken = latestPage?.continuation ?: page.continuation,
+                                    continuationToken = playbackPage.continuation,
+                                    detailLoadId = detailLoadId,
                                 )
                             }
                             // This page's songs being rearranged, drawn in place of its list.

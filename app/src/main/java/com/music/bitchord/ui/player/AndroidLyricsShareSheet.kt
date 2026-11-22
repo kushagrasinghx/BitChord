@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.IntSize
 import kotlin.math.roundToInt
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.contentDescription
@@ -483,22 +483,23 @@ private fun CardPreview(
         Image(bitmap = card.asImageBitmap(), contentDescription = description, modifier = modifier)
         return
     }
-    var elapsedMs by remember(painter, timeline) { mutableLongStateOf(0L) }
+    var elapsedNanos by remember(painter, timeline) { mutableLongStateOf(0L) }
     LaunchedEffect(painter, timeline) {
-        val start = withFrameMillis { it }
-        val length = (timeline.durationMs + PREVIEW_REST_MS).coerceAtLeast(1L)
-        while (true) withFrameMillis { elapsedMs = (it - start) % length }
+        val start = withFrameNanos { it }
+        val lengthNanos = ((timeline.durationMs + PREVIEW_REST_MS).coerceAtLeast(1L)) * 1_000_000L
+        while (true) withFrameNanos { elapsedNanos = (it - start) % lengthNanos }
     }
     val previewBitmap = remember(painter) {
         Bitmap.createBitmap(painter.width, painter.height, Bitmap.Config.ARGB_8888)
     }
     Canvas(modifier.semantics { contentDescription = description }) {
-        val at = timeline.trackMsAt(elapsedMs * 1000)
+        val elapsedUs = elapsedNanos / 1000L
+        val at = timeline.trackMsAt(elapsedUs)
         painter.render(at, previewBitmap)
         drawImage(
             image = previewBitmap.asImageBitmap(),
             dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-            filterQuality = FilterQuality.Medium,
+            filterQuality = FilterQuality.Low,
         )
     }
 }

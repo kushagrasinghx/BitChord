@@ -83,6 +83,10 @@ import {
   asReversed2y2qzr7vrqd5 as asReversed,
   coerceIn1xblvmyr0tby6 as coerceIn_0,
   getNumberHashCode2l4nbdcihl25f as getNumberHashCode,
+  Companion_getInstancecdnyz9xt7b9r as Companion_getInstance,
+  coerceIn10f36k81le1mm as coerceIn_1,
+  coerceAtMost322komnqp70ag as coerceAtMost,
+  listOf1jh22dvmctj1r as listOf_0,
   fromInt1lka3ktyu79a4 as fromInt,
   StringBuilder_init_$Create$3ds9zx2kx9u4d as StringBuilder_init_$Create$,
   isLetterOrDigit2kuxd9e198haf as isLetterOrDigit,
@@ -97,7 +101,6 @@ import {
   sortedWith2csnbbb21k0lg as sortedWith,
   sorted354mfsiv4s7x5 as sorted,
   roundToInt1ue8x8yshtznx as roundToInt,
-  coerceAtMost322komnqp70ag as coerceAtMost,
   numberRangeToNumber25vse2rgp6rs8 as numberRangeToNumber,
   NoSuchElementException_init_$Create$3vc5gjbsu98p9 as NoSuchElementException_init_$Create$,
   eachCount1imd75z0wkpbt as eachCount,
@@ -116,7 +119,6 @@ import {
   commonPrefixWith1ni2eltc34azu as commonPrefixWith,
   isLettere1qnx5bysxbd as isLetter,
   charSequenceSubSequence1iwpdba8s3jc7 as charSequenceSubSequence,
-  listOf1jh22dvmctj1r as listOf_0,
   RegexOption_IGNORE_CASE_getInstance2w0ledfi08t5k as RegexOption_IGNORE_CASE_getInstance,
   Regex_init_$Create$b9g8jwxgv7kc as Regex_init_$Create$_0,
   Companion_instance1xjg859pd52fi as Companion_instance,
@@ -154,6 +156,7 @@ initMetadataForClass(PlaylistMove, 'PlaylistMove');
 initMetadataForClass(SongSort, 'SongSort', VOID, Enum);
 initMetadataForObject(AutoMixArtworkTuning, 'AutoMixArtworkTuning');
 initMetadataForClass(AutoMixArtworkWindow, 'AutoMixArtworkWindow');
+initMetadataForObject(SleepTimerSteps, 'SleepTimerSteps');
 initMetadataForClass(Heatmap, 'Heatmap');
 initMetadataForClass(Source, 'Source', VOID, Enum);
 initMetadataForClass(BestPartStart, 'BestPartStart');
@@ -171,6 +174,7 @@ initMetadataForClass(MixGroups, 'MixGroups');
 initMetadataForClass(BestPartHeat, 'BestPartHeat');
 initMetadataForClass(AutoMixWindow, 'AutoMixWindow');
 initMetadataForClass(AutoMixMaskTuning, 'AutoMixMaskTuning');
+initMetadataForClass(SleepTimerOptions, 'SleepTimerOptions');
 initMetadataForClass(SongCreditGroup, 'SongCreditGroup');
 initMetadataForClass(CreditsBrowse, 'CreditsBrowse');
 initMetadataForClass(PlaylistMove_0, 'PlaylistMove');
@@ -1857,22 +1861,52 @@ protoOf(AutoMixArtworkWindow).equals = function (other) {
     return false;
   return true;
 };
-function Heatmap(segmentMs, intensity) {
-  this.w17_1 = segmentMs;
-  this.x17_1 = intensity;
+function queueHistoryTrimCount(currentIndex) {
+  return coerceAtLeast_0(currentIndex - 25 | 0, 0);
 }
-protoOf(Heatmap).y17 = function () {
-  var tmp0 = this.w17_1;
+function lastPlayedWindow(size, index) {
+  if (size <= 0)
+    return Companion_getInstance().t_1;
+  var safeIndex = coerceIn_1(index, 0, size - 1 | 0);
+  var start = coerceAtLeast_0(safeIndex - 25 | 0, 0);
+  return until(start, coerceAtMost((safeIndex + 1 | 0) + 50 | 0, size));
+}
+function SleepTimerSteps() {
+  SleepTimerSteps_instance = this;
+  this.w17_1 = listOf_0([15, 30, 45, 60]);
+  this.x17_1 = 5;
+  this.y17_1 = 720;
+  this.z17_1 = new Long(30000, 0);
+}
+protoOf(SleepTimerSteps).a18 = function (remainingMs, fadeDurationMs, fadeOutEnabled) {
+  if (!fadeOutEnabled || compare(remainingMs, fadeDurationMs) >= 0)
+    return 1.0;
+  if (compare(remainingMs, new Long(0, 0)) <= 0 || compare(fadeDurationMs, new Long(0, 0)) <= 0)
+    return 0.0;
+  return coerceIn(toNumber(remainingMs) / toNumber(fadeDurationMs), 0.0, 1.0);
+};
+var SleepTimerSteps_instance;
+function SleepTimerSteps_getInstance() {
+  if (SleepTimerSteps_instance == null)
+    new SleepTimerSteps();
+  return SleepTimerSteps_instance;
+}
+function Heatmap(segmentMs, intensity) {
+  this.b18_1 = segmentMs;
+  this.c18_1 = intensity;
+}
+protoOf(Heatmap).d18 = function () {
+  var tmp0 = this.b18_1;
   // Inline function 'kotlin.Long.times' call
-  var other = this.x17_1.k();
+  var other = this.c18_1.k();
   return multiply(tmp0, fromInt(other));
 };
 protoOf(Heatmap).toString = function () {
-  return 'Heatmap(segmentMs=' + this.w17_1.toString() + ', intensity=' + toString(this.x17_1) + ')';
+  return 'Heatmap(segmentMs=' + this.b18_1.toString() + ', intensity=' + toString(this.c18_1) + ')';
 };
 protoOf(Heatmap).hashCode = function () {
-  var result = this.w17_1.hashCode();
-  result = imul(result, 31) + hashCode(this.x17_1) | 0;
+  var result = this.b18_1.hashCode();
+  result = imul(result, 31) + hashCode(this.c18_1) | 0;
   return result;
 };
 protoOf(Heatmap).equals = function (other) {
@@ -1880,9 +1914,9 @@ protoOf(Heatmap).equals = function (other) {
     return true;
   if (!(other instanceof Heatmap))
     return false;
-  if (!equalsLong(this.w17_1, other.w17_1))
+  if (!equalsLong(this.b18_1, other.b18_1))
     return false;
-  if (!equals(this.x17_1, other.x17_1))
+  if (!equals(this.c18_1, other.c18_1))
     return false;
   return true;
 };
@@ -1914,15 +1948,15 @@ function Source_FALLBACK_getInstance() {
   return Source_FALLBACK_instance;
 }
 function BestPartStart(startMs, source) {
-  this.z17_1 = startMs;
-  this.a18_1 = source;
+  this.e18_1 = startMs;
+  this.f18_1 = source;
 }
 protoOf(BestPartStart).toString = function () {
-  return 'BestPartStart(startMs=' + this.z17_1.toString() + ', source=' + this.a18_1.toString() + ')';
+  return 'BestPartStart(startMs=' + this.e18_1.toString() + ', source=' + this.f18_1.toString() + ')';
 };
 protoOf(BestPartStart).hashCode = function () {
-  var result = this.z17_1.hashCode();
-  result = imul(result, 31) + this.a18_1.hashCode() | 0;
+  var result = this.e18_1.hashCode();
+  result = imul(result, 31) + this.f18_1.hashCode() | 0;
   return result;
 };
 protoOf(BestPartStart).equals = function (other) {
@@ -1930,9 +1964,9 @@ protoOf(BestPartStart).equals = function (other) {
     return true;
   if (!(other instanceof BestPartStart))
     return false;
-  if (!equalsLong(this.z17_1, other.z17_1))
+  if (!equalsLong(this.e18_1, other.e18_1))
     return false;
-  if (!this.a18_1.equals(other.a18_1))
+  if (!this.f18_1.equals(other.f18_1))
     return false;
   return true;
 };
@@ -1975,16 +2009,16 @@ function str($this, $receiver, key) {
   return tmp0_safe_receiver == null ? null : get_contentOrNull(tmp0_safe_receiver);
 }
 function sam$kotlin_Comparator$0(function_0) {
-  this.b18_1 = function_0;
+  this.g18_1 = function_0;
 }
 protoOf(sam$kotlin_Comparator$0).rb = function (a, b) {
-  return this.b18_1(a, b);
+  return this.g18_1(a, b);
 };
 protoOf(sam$kotlin_Comparator$0).compare = function (a, b) {
   return this.rb(a, b);
 };
 protoOf(sam$kotlin_Comparator$0).i2 = function () {
-  return this.b18_1;
+  return this.g18_1;
 };
 protoOf(sam$kotlin_Comparator$0).equals = function (other) {
   var tmp;
@@ -2014,16 +2048,16 @@ function peakMs$rise(smooth, trend, i) {
   return smooth[i] / coerceAtLeast_1(trend[i], 0.05) - 1.0;
 }
 function BestPart$chorusMs$$inlined$groupingBy$1($this) {
-  this.c18_1 = $this;
+  this.h18_1 = $this;
 }
 protoOf(BestPart$chorusMs$$inlined$groupingBy$1).w2 = function () {
-  return this.c18_1.h();
+  return this.h18_1.h();
 };
-protoOf(BestPart$chorusMs$$inlined$groupingBy$1).d18 = function (element) {
+protoOf(BestPart$chorusMs$$inlined$groupingBy$1).i18 = function (element) {
   return element;
 };
 protoOf(BestPart$chorusMs$$inlined$groupingBy$1).x2 = function (element) {
-  return this.d18(element);
+  return this.i18(element);
 };
 function findAll$walk($key, $this_buildList, e) {
   if (e instanceof JsonObject) {
@@ -2055,20 +2089,20 @@ function findAll$walk($key, $this_buildList, e) {
 }
 function BestPart() {
   BestPart_instance = this;
-  this.e18_1 = new Long(5000, 0);
-  this.f18_1 = new Long(30000, 0);
-  this.g18_1 = new Long(60000, 0);
-  this.h18_1 = 10;
-  this.i18_1 = 0.08;
-  this.j18_1 = 0.03;
-  this.k18_1 = 4500.0;
-  this.l18_1 = 45000.0;
-  this.m18_1 = 0.05;
-  this.n18_1 = 0.3;
-  this.o18_1 = new Long(20000, 0);
-  this.p18_1 = new Long(45000, 0);
+  this.j18_1 = new Long(5000, 0);
+  this.k18_1 = new Long(30000, 0);
+  this.l18_1 = new Long(60000, 0);
+  this.m18_1 = 10;
+  this.n18_1 = 0.08;
+  this.o18_1 = 0.03;
+  this.p18_1 = 4500.0;
+  this.q18_1 = 45000.0;
+  this.r18_1 = 0.05;
+  this.s18_1 = 0.3;
+  this.t18_1 = new Long(20000, 0);
+  this.u18_1 = new Long(45000, 0);
 }
-protoOf(BestPart).q18 = function (answer) {
+protoOf(BestPart).v18 = function (answer) {
   // Inline function 'kotlin.collections.filterIsInstance' call
   var tmp0 = findAll(this, answer, 'macroMarkersListEntity');
   // Inline function 'kotlin.collections.filterIsInstanceTo' call
@@ -2222,7 +2256,7 @@ protoOf(BestPart).q18 = function (answer) {
   }
   return new Heatmap(segment, destination_2);
 };
-protoOf(BestPart).r18 = function (heat, durationMs) {
+protoOf(BestPart).w18 = function (heat, durationMs) {
   // Inline function 'kotlin.takeIf' call
   var tmp;
   if (compare(durationMs, new Long(0, 0)) > 0) {
@@ -2231,11 +2265,11 @@ protoOf(BestPart).r18 = function (heat, durationMs) {
     tmp = null;
   }
   var tmp0_elvis_lhs = tmp;
-  var duration = tmp0_elvis_lhs == null ? heat.y17() : tmp0_elvis_lhs;
-  var n = heat.x17_1.k();
+  var duration = tmp0_elvis_lhs == null ? heat.d18() : tmp0_elvis_lhs;
+  var n = heat.c18_1.k();
   if (compare(duration, new Long(60000, 0)) < 0 || n < 10)
     return null;
-  var seg = heat.w17_1;
+  var seg = heat.b18_1;
   var half = coerceAtLeast_0(roundToInt(4500.0 / toNumber(seg)), 1);
   var tmp_0 = 0;
   var tmp_1 = new Float32Array(n);
@@ -2249,7 +2283,7 @@ protoOf(BestPart).r18 = function (heat, durationMs) {
       do {
         var j = inductionVariable;
         inductionVariable = inductionVariable + 1 | 0;
-        sum = sum + heat.x17_1.p(j);
+        sum = sum + heat.c18_1.p(j);
         count = count + 1 | 0;
       }
        while (!(j === last));
@@ -2344,7 +2378,7 @@ protoOf(BestPart).r18 = function (heat, durationMs) {
     $l$loop: do {
       var i_0 = inductionVariable_2;
       inductionVariable_2 = inductionVariable_2 + 1 | 0;
-      if (heat.x17_1.p(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
+      if (heat.c18_1.p(i_0) / coerceAtLeast_1(trend[i_0], 0.05) - 1.0 >= floor) {
         jump = i_0;
         break $l$loop;
       }
@@ -2352,7 +2386,7 @@ protoOf(BestPart).r18 = function (heat, durationMs) {
      while (!(i_0 === peak));
   return multiply(numberToLong(jump), seg);
 };
-protoOf(BestPart).s18 = function (lines, durationMs) {
+protoOf(BestPart).x18 = function (lines, durationMs) {
   if (compare(new Long(1, 0), durationMs) <= 0 ? compare(durationMs, new Long(60000, 0)) < 0 : false)
     return null;
   // Inline function 'kotlin.collections.filter' call
@@ -2449,7 +2483,7 @@ protoOf(BestPart).s18 = function (lines, durationMs) {
   }
   return timed.p(start).a14_1;
 };
-protoOf(BestPart).t18 = function (targetMs, lineStarts) {
+protoOf(BestPart).y18 = function (targetMs, lineStarts) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
@@ -2515,7 +2549,7 @@ protoOf(BestPart).t18 = function (targetMs, lineStarts) {
   var tmp$ret$13 = subtract(targetMs, fromInt(1000));
   return coerceAtLeast(tmp$ret$13, new Long(0, 0));
 };
-protoOf(BestPart).u18 = function (durationMs) {
+protoOf(BestPart).z18 = function (durationMs) {
   var tmp;
   if (compare(durationMs, new Long(0, 0)) <= 0) {
     tmp = new Long(45000, 0);
@@ -2532,7 +2566,7 @@ protoOf(BestPart).u18 = function (durationMs) {
   }
   return tmp;
 };
-protoOf(BestPart).v18 = function (heat, lines, durationMs) {
+protoOf(BestPart).a19 = function (heat, lines, durationMs) {
   // Inline function 'kotlin.collections.filter' call
   // Inline function 'kotlin.collections.filterTo' call
   var destination = ArrayList_init_$Create$_0();
@@ -2558,23 +2592,23 @@ protoOf(BestPart).v18 = function (heat, lines, durationMs) {
     tmp = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp = BestPart_getInstance().r18(heat, durationMs);
+    tmp = BestPart_getInstance().w18(heat, durationMs);
   }
   var tmp1_safe_receiver = tmp;
   if (tmp1_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().t18(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
+    return new BestPartStart(BestPart_getInstance().y18(tmp1_safe_receiver, lineStarts), Source_HEATMAP_getInstance());
   }
-  var tmp2_safe_receiver = this.s18(lines, durationMs);
+  var tmp2_safe_receiver = this.x18(lines, durationMs);
   if (tmp2_safe_receiver == null)
     null;
   else {
     // Inline function 'kotlin.let' call
-    return new BestPartStart(BestPart_getInstance().t18(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
+    return new BestPartStart(BestPart_getInstance().y18(tmp2_safe_receiver, lineStarts), Source_LYRICS_getInstance());
   }
-  return new BestPartStart(this.u18(durationMs), Source_FALLBACK_getInstance());
+  return new BestPartStart(this.z18(durationMs), Source_FALLBACK_getInstance());
 };
 var BestPart_instance;
 function BestPart_getInstance() {
@@ -2712,16 +2746,16 @@ function sortedForDetail(_this__u8e3s4, sort) {
   return tmp;
 }
 function sam$kotlin_Comparator$0_0(function_0) {
-  this.w18_1 = function_0;
+  this.b19_1 = function_0;
 }
 protoOf(sam$kotlin_Comparator$0_0).rb = function (a, b) {
-  return this.w18_1(a, b);
+  return this.b19_1(a, b);
 };
 protoOf(sam$kotlin_Comparator$0_0).compare = function (a, b) {
   return this.rb(a, b);
 };
 protoOf(sam$kotlin_Comparator$0_0).i2 = function () {
-  return this.w18_1;
+  return this.b19_1;
 };
 protoOf(sam$kotlin_Comparator$0_0).equals = function (other) {
   var tmp;
@@ -2853,17 +2887,17 @@ function get_NUMBERED_MIX() {
 }
 var NUMBERED_MIX;
 function MoodMixes(key, name, items) {
-  this.x18_1 = key;
-  this.y18_1 = name;
-  this.z18_1 = items;
+  this.c19_1 = key;
+  this.d19_1 = name;
+  this.e19_1 = items;
 }
 protoOf(MoodMixes).toString = function () {
-  return 'MoodMixes(key=' + this.x18_1 + ', name=' + this.y18_1 + ', items=' + toString(this.z18_1) + ')';
+  return 'MoodMixes(key=' + this.c19_1 + ', name=' + this.d19_1 + ', items=' + toString(this.e19_1) + ')';
 };
 protoOf(MoodMixes).hashCode = function () {
-  var result = getStringHashCode(this.x18_1);
-  result = imul(result, 31) + getStringHashCode(this.y18_1) | 0;
-  result = imul(result, 31) + hashCode(this.z18_1) | 0;
+  var result = getStringHashCode(this.c19_1);
+  result = imul(result, 31) + getStringHashCode(this.d19_1) | 0;
+  result = imul(result, 31) + hashCode(this.e19_1) | 0;
   return result;
 };
 protoOf(MoodMixes).equals = function (other) {
@@ -2871,18 +2905,18 @@ protoOf(MoodMixes).equals = function (other) {
     return true;
   if (!(other instanceof MoodMixes))
     return false;
-  if (!(this.x18_1 === other.x18_1))
+  if (!(this.c19_1 === other.c19_1))
     return false;
-  if (!(this.y18_1 === other.y18_1))
+  if (!(this.d19_1 === other.d19_1))
     return false;
-  if (!equals(this.z18_1, other.z18_1))
+  if (!equals(this.e19_1, other.e19_1))
     return false;
   return true;
 };
 function MixSections(stations, yours, moods) {
-  this.a19_1 = stations;
-  this.b19_1 = yours;
-  this.c19_1 = moods;
+  this.f19_1 = stations;
+  this.g19_1 = yours;
+  this.h19_1 = moods;
 }
 function groupMixes(mixes) {
   _init_properties_MixGroups_kt__hbw97m();
@@ -3127,16 +3161,16 @@ function moodHeading(englishName, members, englishByItem) {
   return tmp7_elvis_lhs == null ? englishName : tmp7_elvis_lhs;
 }
 function sam$kotlin_Comparator$0_1(function_0) {
-  this.d19_1 = function_0;
+  this.i19_1 = function_0;
 }
 protoOf(sam$kotlin_Comparator$0_1).rb = function (a, b) {
-  return this.d19_1(a, b);
+  return this.i19_1(a, b);
 };
 protoOf(sam$kotlin_Comparator$0_1).compare = function (a, b) {
   return this.rb(a, b);
 };
 protoOf(sam$kotlin_Comparator$0_1).i2 = function () {
-  return this.d19_1;
+  return this.i19_1;
 };
 protoOf(sam$kotlin_Comparator$0_1).equals = function (other) {
   var tmp;
@@ -3204,7 +3238,7 @@ function BestPartLine(timeMs, text) {
   this.timeMs = timeMs;
   this.text = text;
 }
-protoOf(BestPartLine).e19 = function () {
+protoOf(BestPartLine).j19 = function () {
   return this.timeMs;
 };
 protoOf(BestPartLine).h13 = function () {
@@ -3214,7 +3248,7 @@ function BestPartPick(startMs, source) {
   this.startMs = startMs;
   this.source = source;
 }
-protoOf(BestPartPick).f19 = function () {
+protoOf(BestPartPick).k19 = function () {
   return this.startMs;
 };
 protoOf(BestPartPick).j12 = function () {
@@ -3254,7 +3288,7 @@ function bestPart(nextResponse, lines, durationMs) {
     tmp_3 = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp_3 = BestPart_getInstance().q18(tmp1_safe_receiver);
+    tmp_3 = BestPart_getInstance().v18(tmp1_safe_receiver);
   }
   var heat = tmp_3;
   var tmp_4 = BestPart_getInstance();
@@ -3269,8 +3303,8 @@ function bestPart(nextResponse, lines, durationMs) {
     var tmp$ret$11 = new LyricLine(numberToLong(item.timeMs), item.text);
     destination.e(tmp$ret$11);
   }
-  var pick = tmp_4.v18(heat, destination, numberToLong(durationMs));
-  return new BestPartPick(toNumber(pick.z17_1), pick.a18_1.y1_1);
+  var pick = tmp_4.a19(heat, destination, numberToLong(durationMs));
+  return new BestPartPick(toNumber(pick.e18_1), pick.f18_1.y1_1);
 }
 function MixMood(key, name, items) {
   this.key = key;
@@ -3280,10 +3314,10 @@ function MixMood(key, name, items) {
 protoOf(MixMood).p1 = function () {
   return this.key;
 };
-protoOf(MixMood).g19 = function () {
+protoOf(MixMood).l19 = function () {
   return this.name;
 };
-protoOf(MixMood).h19 = function () {
+protoOf(MixMood).m19 = function () {
   return this.items;
 };
 function MixGroups(stations, yours, moods) {
@@ -3291,13 +3325,13 @@ function MixGroups(stations, yours, moods) {
   this.yours = yours;
   this.moods = moods;
 }
-protoOf(MixGroups).i19 = function () {
+protoOf(MixGroups).n19 = function () {
   return this.stations;
 };
-protoOf(MixGroups).j19 = function () {
+protoOf(MixGroups).o19 = function () {
   return this.yours;
 };
-protoOf(MixGroups).k19 = function () {
+protoOf(MixGroups).p19 = function () {
   return this.moods;
 };
 function groupMixes_0(ids, titles, englishTitles) {
@@ -3342,16 +3376,16 @@ function groupMixes_0(ids, titles, englishTitles) {
     destination_0.e(tmp$ret$8);
   }
   var sections = groupMixes(destination_0);
-  var tmp_1 = groupMixes$positions(sections.a19_1, items);
-  var tmp_2 = groupMixes$positions(sections.b19_1, items);
+  var tmp_1 = groupMixes$positions(sections.f19_1, items);
+  var tmp_2 = groupMixes$positions(sections.g19_1, items);
   // Inline function 'kotlin.collections.map' call
-  var this_2 = sections.c19_1;
+  var this_2 = sections.h19_1;
   // Inline function 'kotlin.collections.mapTo' call
   var destination_1 = ArrayList_init_$Create$(collectionSizeOrDefault(this_2, 10));
   var _iterator__ex2g4s_0 = this_2.h();
   while (_iterator__ex2g4s_0.i()) {
     var item_1 = _iterator__ex2g4s_0.j();
-    var tmp$ret$11 = new MixMood(item_1.x18_1, item_1.y18_1, groupMixes$positions(item_1.z18_1, items));
+    var tmp$ret$11 = new MixMood(item_1.c19_1, item_1.d19_1, groupMixes$positions(item_1.e19_1, items));
     destination_1.e(tmp$ret$11);
   }
   // Inline function 'kotlin.collections.toTypedArray' call
@@ -3434,10 +3468,10 @@ function BestPartHeat(segmentMs, intensity) {
   this.segmentMs = segmentMs;
   this.intensity = intensity;
 }
-protoOf(BestPartHeat).l19 = function () {
+protoOf(BestPartHeat).q19 = function () {
   return this.segmentMs;
 };
-protoOf(BestPartHeat).m19 = function () {
+protoOf(BestPartHeat).r19 = function () {
   return this.intensity;
 };
 function bestPartHeatmap(nextResponse) {
@@ -3467,7 +3501,7 @@ function bestPartHeatmap(nextResponse) {
     tmp_2 = null;
   } else {
     // Inline function 'kotlin.let' call
-    tmp_2 = BestPart_getInstance().q18(tmp0_safe_receiver);
+    tmp_2 = BestPart_getInstance().v18(tmp0_safe_receiver);
   }
   var tmp1_safe_receiver = tmp_2;
   var tmp_3;
@@ -3475,13 +3509,13 @@ function bestPartHeatmap(nextResponse) {
     tmp_3 = null;
   } else {
     // Inline function 'kotlin.let' call
-    var tmp_4 = toNumber(tmp1_safe_receiver.w17_1);
+    var tmp_4 = toNumber(tmp1_safe_receiver.b18_1);
     var tmp_5 = 0;
-    var tmp_6 = tmp1_safe_receiver.x17_1.k();
+    var tmp_6 = tmp1_safe_receiver.c18_1.k();
     var tmp_7 = new Float64Array(tmp_6);
     while (tmp_5 < tmp_6) {
       var tmp_8 = tmp_5;
-      tmp_7[tmp_8] = tmp1_safe_receiver.x17_1.p(tmp_8);
+      tmp_7[tmp_8] = tmp1_safe_receiver.c18_1.p(tmp_8);
       tmp_5 = tmp_5 + 1 | 0;
     }
     tmp_3 = new BestPartHeat(tmp_4, tmp_7);
@@ -3521,17 +3555,17 @@ function bestPartFromHeat(heat, lines, durationMs) {
     var tmp$ret$7 = new LyricLine(numberToLong(item_0.timeMs), item_0.text);
     destination_0.e(tmp$ret$7);
   }
-  var pick = tmp_1.v18(curve, destination_0, numberToLong(durationMs));
-  return new BestPartPick(toNumber(pick.z17_1), pick.a18_1.y1_1);
+  var pick = tmp_1.a19(curve, destination_0, numberToLong(durationMs));
+  return new BestPartPick(toNumber(pick.e18_1), pick.f18_1.y1_1);
 }
 function AutoMixWindow(startSeconds, endSeconds) {
   this.startSeconds = startSeconds;
   this.endSeconds = endSeconds;
 }
-protoOf(AutoMixWindow).n19 = function () {
+protoOf(AutoMixWindow).s19 = function () {
   return this.startSeconds;
 };
-protoOf(AutoMixWindow).o19 = function () {
+protoOf(AutoMixWindow).t19 = function () {
   return this.endSeconds;
 };
 function autoMixArtworkWindow(swap, end, preparedForSeconds) {
@@ -3558,28 +3592,28 @@ function AutoMixMaskTuning(noiseScale, noiseSoftness, noiseLow, noiseHigh, noise
   this.blurStartDp = blurStartDp;
   this.blurEndProgress = blurEndProgress;
 }
-protoOf(AutoMixMaskTuning).p19 = function () {
+protoOf(AutoMixMaskTuning).u19 = function () {
   return this.noiseScale;
 };
-protoOf(AutoMixMaskTuning).q19 = function () {
+protoOf(AutoMixMaskTuning).v19 = function () {
   return this.noiseSoftness;
 };
-protoOf(AutoMixMaskTuning).r19 = function () {
+protoOf(AutoMixMaskTuning).w19 = function () {
   return this.noiseLow;
 };
-protoOf(AutoMixMaskTuning).s19 = function () {
+protoOf(AutoMixMaskTuning).x19 = function () {
   return this.noiseHigh;
 };
-protoOf(AutoMixMaskTuning).t19 = function () {
+protoOf(AutoMixMaskTuning).y19 = function () {
   return this.noiseSeedSpan;
 };
-protoOf(AutoMixMaskTuning).u19 = function () {
+protoOf(AutoMixMaskTuning).z19 = function () {
   return this.noiseOctaves;
 };
-protoOf(AutoMixMaskTuning).v19 = function () {
+protoOf(AutoMixMaskTuning).a1a = function () {
   return this.blurStartDp;
 };
-protoOf(AutoMixMaskTuning).w19 = function () {
+protoOf(AutoMixMaskTuning).b1a = function () {
   return this.blurEndProgress;
 };
 function autoMixMaskTuning() {
@@ -3603,24 +3637,71 @@ function autoMixMaskTuning() {
 function youTubeThumbnailFallback_0(url) {
   return youTubeThumbnailFallback(url);
 }
+function queueHistoryTrimCount_0(currentIndex) {
+  return queueHistoryTrimCount(currentIndex);
+}
+function lastPlayedWindow_0(size, index) {
+  // Inline function 'kotlin.let' call
+  var it = lastPlayedWindow(size, index);
+  var tmp;
+  if (it.r()) {
+    // Inline function 'kotlin.arrayOf' call
+    // Inline function 'kotlin.js.unsafeCast' call
+    // Inline function 'kotlin.js.asDynamic' call
+    tmp = [0, 0];
+  } else {
+    // Inline function 'kotlin.arrayOf' call
+    // Inline function 'kotlin.js.unsafeCast' call
+    // Inline function 'kotlin.js.asDynamic' call
+    tmp = [it.u_1, it.v_1 + 1 | 0];
+  }
+  return tmp;
+}
+function SleepTimerOptions(presets, stepMinutes, maxMinutes, fadeOutMs) {
+  this.presets = presets;
+  this.stepMinutes = stepMinutes;
+  this.maxMinutes = maxMinutes;
+  this.fadeOutMs = fadeOutMs;
+}
+protoOf(SleepTimerOptions).c1a = function () {
+  return this.presets;
+};
+protoOf(SleepTimerOptions).d1a = function () {
+  return this.stepMinutes;
+};
+protoOf(SleepTimerOptions).e1a = function () {
+  return this.maxMinutes;
+};
+protoOf(SleepTimerOptions).f1a = function () {
+  return this.fadeOutMs;
+};
+function sleepTimerOptions() {
+  // Inline function 'kotlin.collections.toTypedArray' call
+  var this_0 = SleepTimerSteps_getInstance().w17_1;
+  var tmp$ret$0 = copyToArray(this_0);
+  return new SleepTimerOptions(tmp$ret$0, 5, 720, toNumber(new Long(30000, 0)));
+}
+function sleepFadeVolume(remainingMs, fadeDurationMs, fadeOutEnabled) {
+  return SleepTimerSteps_getInstance().a18(numberToLong(remainingMs), numberToLong(fadeDurationMs), fadeOutEnabled);
+}
 function SongCreditGroup(role, names) {
   this.role = role;
   this.names = names;
 }
-protoOf(SongCreditGroup).x19 = function () {
+protoOf(SongCreditGroup).g1a = function () {
   return this.role;
 };
-protoOf(SongCreditGroup).y19 = function () {
+protoOf(SongCreditGroup).h1a = function () {
   return this.names;
 };
 function CreditsBrowse(browseId, params) {
   this.browseId = browseId;
   this.params = params;
 }
-protoOf(CreditsBrowse).z19 = function () {
+protoOf(CreditsBrowse).i1a = function () {
   return this.browseId;
 };
-protoOf(CreditsBrowse).a1a = function () {
+protoOf(CreditsBrowse).j1a = function () {
   return this.params;
 };
 function songCredits(browseResponse) {
@@ -3725,10 +3806,10 @@ function PlaylistMove_0(setVideoId, before) {
   this.setVideoId = setVideoId;
   this.before = before;
 }
-protoOf(PlaylistMove_0).b1a = function () {
+protoOf(PlaylistMove_0).k1a = function () {
   return this.setVideoId;
 };
-protoOf(PlaylistMove_0).c1a = function () {
+protoOf(PlaylistMove_0).l1a = function () {
   return this.before;
 };
 function playlistMoves_0(current, target) {
@@ -3751,16 +3832,16 @@ function SearchFilterOption(id, label, params, requiresAuth) {
   this.params = params;
   this.requiresAuth = requiresAuth;
 }
-protoOf(SearchFilterOption).d1a = function () {
+protoOf(SearchFilterOption).m1a = function () {
   return this.id;
 };
-protoOf(SearchFilterOption).e1a = function () {
+protoOf(SearchFilterOption).n1a = function () {
   return this.label;
 };
-protoOf(SearchFilterOption).a1a = function () {
+protoOf(SearchFilterOption).j1a = function () {
   return this.params;
 };
-protoOf(SearchFilterOption).f1a = function () {
+protoOf(SearchFilterOption).o1a = function () {
   return this.requiresAuth;
 };
 function searchFilters() {
@@ -3799,6 +3880,11 @@ export {
   AutoMixMaskTuning as AutoMixMaskTuning,
   autoMixMaskTuning as autoMixMaskTuning,
   youTubeThumbnailFallback_0 as youTubeThumbnailFallback,
+  queueHistoryTrimCount_0 as queueHistoryTrimCount,
+  lastPlayedWindow_0 as lastPlayedWindow,
+  SleepTimerOptions as SleepTimerOptions,
+  sleepTimerOptions as sleepTimerOptions,
+  sleepFadeVolume as sleepFadeVolume,
   SongCreditGroup as SongCreditGroup,
   CreditsBrowse as CreditsBrowse,
   songCredits as songCredits,

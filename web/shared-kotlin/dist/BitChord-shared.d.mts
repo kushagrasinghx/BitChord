@@ -95,6 +95,23 @@ export declare namespace AutoMixMaskTuning {
 }
 export declare function autoMixMaskTuning(): AutoMixMaskTuning;
 export declare function youTubeThumbnailFallback(url: string): Nullable<string>;
+export declare function queueHistoryTrimCount(currentIndex: number): number;
+export declare function lastPlayedWindow(size: number, index: number): Array<number>;
+export declare class SleepTimerOptions {
+    constructor(presets: Array<number>, stepMinutes: number, maxMinutes: number, fadeOutMs: number);
+    get presets(): Array<number>;
+    get stepMinutes(): number;
+    get maxMinutes(): number;
+    get fadeOutMs(): number;
+}
+export declare namespace SleepTimerOptions {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => SleepTimerOptions;
+    }
+}
+export declare function sleepTimerOptions(): SleepTimerOptions;
+export declare function sleepFadeVolume(remainingMs: number, fadeDurationMs: number, fadeOutEnabled: boolean): number;
 export declare class SongCreditGroup {
     constructor(role: string, names: Array<string>);
     get role(): string;

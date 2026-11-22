@@ -7,6 +7,7 @@ import { PrefetchLink } from '@/components/PrefetchLink';
 import { Artwork } from '@/components/music/Artwork';
 import { albumHref, artistHref } from '@/components/music/links';
 import { playTrack } from '@/components/music/play';
+import { ShelfScroller } from '@/components/music/ShelfView';
 import { LoadError } from '@/components/music/States';
 import type { Track } from '@/data/music/types';
 import { useYtAuth } from '@/extension/useYtAuth';
@@ -79,9 +80,12 @@ export default function ReplayPage() {
       <>
         <HeroCards charts={charts} label={label} holder={holder} memberSince={replay.data.memberSince} />
         {story && year !== null && <ActionRow icon={Play} label="Play your Replay" onClick={() => setStoryOpen(true)} />}
-        <Chart id="replay-songs" title="Top songs" rows={charts.songs.slice(0, CHART_LENGTH).map(songRow)} />
-        <Chart id="replay-artists" title="Top artists" circular rows={charts.artists.slice(0, CHART_LENGTH).map(artistRow)} />
-        <Chart id="replay-albums" title="Top albums" rows={charts.albums.slice(0, CHART_LENGTH).map(albumRow)} />
+        {/* From 1200px the three charts stand side by side, each a column, rather than one long list. */}
+        <div className="min-[1200px]:mx-(--body-gutter) min-[1200px]:grid min-[1200px]:grid-cols-3 min-[1200px]:gap-x-8">
+          <Chart id="replay-songs" title="Top songs" rows={charts.songs.slice(0, CHART_LENGTH).map(songRow)} />
+          <Chart id="replay-artists" title="Top artists" circular rows={charts.artists.slice(0, CHART_LENGTH).map(artistRow)} />
+          <Chart id="replay-albums" title="Top albums" rows={charts.albums.slice(0, CHART_LENGTH).map(albumRow)} />
+        </div>
         <Habits charts={charts} />
         <ShareRow charts={charts} label={label} />
       </>
@@ -90,8 +94,9 @@ export default function ReplayPage() {
 
   return (
     <div className="relative isolate pb-10">
-      {/* The mesh holds still behind the page as it scrolls, a window's height of it. */}
-      <div aria-hidden="true" className="sticky top-0 -z-1 -mb-[100dvh] h-dvh overflow-hidden">
+      {/* The mesh holds still behind the page as it scrolls, a window's height of it. A pushed page starts
+          52px down, under the top bar; the mesh reaches up behind the bar too, so no band of page shows there. */}
+      <div aria-hidden="true" className="sticky top-0 -z-1 -mb-[100dvh] h-dvh overflow-hidden sm:-mt-13 sm:-mb-[calc(100dvh-3.25rem)]">
         <PaletteMesh palette={palette} />
         <div className="replay-scrim absolute inset-0" />
       </div>
@@ -199,23 +204,28 @@ function heroCards(charts: ReplayCharts, label: string): HeroCard[] {
   ];
 }
 
-/** The wallet (ReplayScreen.kt ReplayCardRow): 300px cards 12px apart, snapping as they scroll. */
+/**
+ * The wallet (ReplayScreen.kt ReplayCardRow): 300px cards 12px apart, snapping
+ * as they scroll, a shelf's row with its hover arrows rather than a bare
+ * scrollbar under the cards.
+ */
 function HeroCards({ charts, label, holder, memberSince }: { charts: ReplayCharts; label: string; holder: string; memberSince: string | null }) {
   return (
-    <div className="flex snap-x snap-mandatory scroll-px-(--body-gutter) gap-3 overflow-x-auto px-(--body-gutter) py-5 [scrollbar-width:thin]">
+    <ShelfScroller kind="replay">
       {heroCards(charts, label).map((card) => (
-        <ReplayCard
-          key={card.label}
-          label={card.label}
-          value={card.value}
-          detail={card.detail}
-          art={card.art}
-          holder={holder}
-          memberSince={memberSince}
-          onClick={card.target ? () => document.getElementById(card.target!)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) : undefined}
-        />
+        <li key={card.label}>
+          <ReplayCard
+            label={card.label}
+            value={card.value}
+            detail={card.detail}
+            art={card.art}
+            holder={holder}
+            memberSince={memberSince}
+            onClick={card.target ? () => document.getElementById(card.target!)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) : undefined}
+          />
+        </li>
       ))}
-    </div>
+    </ShelfScroller>
   );
 }
 
@@ -293,7 +303,7 @@ function Rank({ rank }: { rank: number }) {
 function Chart({ id, title, rows, circular = false }: { id: string; title: string; rows: ChartRow[]; circular?: boolean }) {
   if (rows.length === 0) return null;
   return (
-    <section id={id} className={`${column} mt-2 mb-5 scroll-mt-6`}>
+    <section id={id} className={`${column} mt-2 mb-5 scroll-mt-6 min-[1200px]:mx-0 min-[1200px]:max-w-none`}>
       <h2 className={sectionTitle}>{title}</h2>
       <ol>
         {rows.map((row, i) => {

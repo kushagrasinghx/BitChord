@@ -6,7 +6,7 @@
  */
 
 /** What a shelf holds. */
-export type ShelfKind = 'feature' | 'square' | 'tracks' | 'horizontal' | 'video' | 'circle' | 'top-picks';
+export type ShelfKind = 'feature' | 'square' | 'tracks' | 'horizontal' | 'video' | 'circle' | 'top-picks' | 'replay';
 
 /** 26px under every shelf (Shelf's `padding(bottom = 26.dp)`). */
 export const shelfSection = 'pb-[26px]';
@@ -36,4 +36,6 @@ export const shelfKinds: Record<ShelfKind, string> = {
   circle: '[--rows:1] [--w:150px] [--gap:14px]',
   // TopPicksShelf: min(60% of the row, 280px), so the next card shows past it.
   'top-picks': '[--rows:1] [--w:min(60%,280px)] [--gap:14px]',
+  // Replay's wallet (ReplayScreen.kt ReplayCardRow): 300px cards 12px apart, with room under them for their shadow.
+  replay: '[--rows:1] [--w:300px] [--gap:12px] py-6! -my-1!',
 };

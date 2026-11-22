@@ -12,6 +12,7 @@ const ITEMS: Record<ShelfKind, number> = {
   video: 7,
   circle: 10,
   'top-picks': 6,
+  replay: 4,
 };
 
 // Ragged widths, as Skeletons.kt's TitleWidths and SubtitleWidths, so a run reads as text.
@@ -36,6 +37,7 @@ function Item({ kind, i }: { kind: ShelfKind; i: number }) {
       return <Card i={i} aspect="1" radius="var(--radius-artwork-medium)" />;
     case 'video':
       return <Card i={i} aspect="16 / 9" radius="var(--radius-artwork-medium)" />;
+    case 'replay':
     case 'feature':
       return <SkeletonBlock aspectRatio="240 / 297" radius="var(--radius-settings-group)" />;
     case 'top-picks':

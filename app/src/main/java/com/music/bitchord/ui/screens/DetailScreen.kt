@@ -871,6 +871,7 @@ fun DetailScreen(
                             // what the filter — or a sort — left standing.
                             trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
                             subtitleColor = palette.onBackgroundVariant,
+                            titleTint = palette.onBackground.takeIf { numbered },
                             downloadedTint = downloadedTint,
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,

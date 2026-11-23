@@ -329,6 +329,8 @@ fun SongRow(
      * different catalogues sit side by side: the Addons search.
      */
     showSourceQuality: Boolean = false,
+    /** A page-supplied foreground already synchronized with its animated background. */
+    titleTint: Color? = null,
     /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
@@ -354,6 +356,7 @@ fun SongRow(
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
             showSourceQuality = showSourceQuality,
+            titleTint = titleTint,
             trailing = trailing,
         )
     }
@@ -495,12 +498,13 @@ private fun SongRowContent(
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
+    titleTint: Color? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val titleColor by animateColorAsState(
+    val titleColor = titleTint ?: animateColorAsState(
         targetValue = if (isCurrent && !searchPlayingStyle) activeTint else MaterialTheme.colorScheme.onBackground,
         label = "song row title",
-    )
+    ).value
     val activeBackground by animateColorAsState(
         targetValue = if ((isCurrent && !searchPlayingStyle) || selected) activeTint.copy(alpha = 0.14f) else Color.Transparent,
         label = "song row background",

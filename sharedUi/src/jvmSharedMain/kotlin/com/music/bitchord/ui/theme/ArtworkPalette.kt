@@ -133,7 +133,7 @@ fun rememberArtworkPalette(
     } else {
         tween(TINT_FADE_MS)
     }
-    return ArtworkPalette(
+    val animated = ArtworkPalette(
         background = animateColorAsState(target.background, spec, label = "tintBackground").value,
         wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
         elevated = animateColorAsState(target.elevated, spec, label = "tintElevated").value,
@@ -147,6 +147,18 @@ fun rememberArtworkPalette(
             animateColorAsState(target.onWhiteAction, spec, label = "tintOnWhiteAction").value
         } else target.onWhiteAction,
     )
+    // Contrast depends on the combination of colors, including intermediate
+    // colors during the tint fade, not on the candidate's HSL lightness alone.
+    if (!immersiveAlbum || seed == null) return animated
+    return remember(animated) {
+        val ground = animated.background.luminance()
+        animated.copy(
+            accent = animated.accent.withAlbumContrast(ground),
+            onBackground = animated.onBackground.withAlbumContrast(ground),
+            onBackgroundVariant = animated.onBackgroundVariant.withAlbumContrast(ground),
+            onWhiteAction = animated.onWhiteAction.withAlbumContrast(1f),
+        )
+    }
 }
 
 /**
@@ -347,6 +359,35 @@ private fun Seed.toAlbumPalette(dark: Boolean): ArtworkPalette {
         onBackgroundVariant = dominant.withHsl(lightness = { if (dark) 0.87f else 0.20f }),
         onWhiteAction = dominant.withHsl(lightness = { 0.24f }),
     )
+}
+
+private fun Color.withAlbumContrast(backgroundLuminance: Float): Color {
+    val background = backgroundLuminance + 0.05f
+    fun Color.hasContrast(): Boolean {
+        val foreground = luminance() + 0.05f
+        return maxOf(foreground, background) >= 4.5f * minOf(foreground, background)
+    }
+    if (hasContrast()) return this
+
+    // Black or white always clears 4.5:1. Move the original hue only as far
+    // toward the better endpoint as needed, retaining a known-good candidate.
+    val towardWhite = 1.05f / background >= background / 0.05f
+    var best = if (towardWhite) Color.White else Color.Black
+    var passes = if (towardWhite) 1f else 0f
+    val hsl = FloatArray(3).also { ColorUtils.colorToHSL(toArgb(), it) }
+    var fails = hsl[2]
+    repeat(9) {
+        val lightness = (passes + fails) / 2f
+        hsl[2] = lightness
+        val candidate = Color(ColorUtils.HSLToColor(hsl))
+        if (candidate.hasContrast()) {
+            best = candidate
+            passes = lightness
+        } else {
+            fails = lightness
+        }
+    }
+    return best
 }
 
 private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {

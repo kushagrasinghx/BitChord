@@ -492,6 +492,9 @@ object AppSettings {
     /** Hides the device status bar (clock, battery, notifications) while the main player is open. */
     val hideStatusBarInPlayer = MutableStateFlow(false)
 
+    /** Hides the device status bar across the entire app. */
+    val hideStatusBarAppWide = MutableStateFlow(false)
+
     /** Hides the "Playing from" / "Played by" caption at the top of the main player. */
     val hideSongStatus = MutableStateFlow(false)
 
@@ -1119,6 +1122,7 @@ object AppSettings {
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, true)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideStatusBarInPlayer.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR_IN_PLAYER, false)
+        hideStatusBarAppWide.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR_APP_WIDE, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
         hideLyricsPreview.value = prefs.getBoolean(KEY_HIDE_LYRICS_PREVIEW, false)
         lyricsCardLogo.value = prefs.getBoolean(KEY_LYRICS_CARD_LOGO, true)
@@ -1581,6 +1585,11 @@ object AppSettings {
     fun setHideStatusBarInPlayer(value: Boolean) {
         hideStatusBarInPlayer.value = value
         prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR_IN_PLAYER, value).apply()
+    }
+
+    fun setHideStatusBarAppWide(value: Boolean) {
+        hideStatusBarAppWide.value = value
+        prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR_APP_WIDE, value).apply()
     }
 
     fun setHideSongStatus(value: Boolean) {
@@ -2465,6 +2474,7 @@ object AppSettings {
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_STATUS_BAR_IN_PLAYER = "hide_status_bar_in_player"
+    private const val KEY_HIDE_STATUS_BAR_APP_WIDE = "hide_status_bar_app_wide"
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"
     private const val KEY_HIDE_LYRICS_PREVIEW = "hide_lyrics_preview"
     private const val KEY_LYRICS_CARD_LOGO = "lyrics_card_logo"

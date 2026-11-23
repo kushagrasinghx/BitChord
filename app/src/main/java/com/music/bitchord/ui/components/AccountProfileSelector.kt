@@ -43,6 +43,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.YouTubeProfile
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.HazeState
@@ -152,7 +153,7 @@ fun AccountProfileSelector(
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.RadioButton, onClick = if (managing) onRemove else onClick)
         .semantics { contentDescription = description }
         .padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (profile.avatar != null) AsyncImage(profile.avatar, null, Modifier.size(38.dp).clip(MaterialTheme.shapes.extraLarge))
+        if (profile.avatar != null) AsyncImage(profile.avatar.artworkAt(256), null, Modifier.size(38.dp).clip(MaterialTheme.shapes.extraLarge))
         else Icon(SfIcons.AccountPlaceholder, null, Modifier.size(38.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) {
             Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis)

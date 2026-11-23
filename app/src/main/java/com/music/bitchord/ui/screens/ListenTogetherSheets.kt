@@ -52,6 +52,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyPreview
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.PillTextField
 import com.music.bitchord.ui.components.QrCode
 
@@ -141,12 +142,14 @@ internal fun GlowingAvatar(
                 // that grows past its own box gets a straight edge sliced
                 // across it — a round light inside a visible square, breathing
                 // in and out of its own corners.
-                .blur(28.dp, BlurredEdgeTreatment.Unbounded)
+                .blur(24.dp, BlurredEdgeTreatment.Unbounded)
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            glow.copy(alpha = intensity),
-                            glow.copy(alpha = intensity * 0.35f),
+                            glow.copy(alpha = intensity * 0.42f),
+                            glow.copy(alpha = intensity * 0.32f),
+                            glow.copy(alpha = intensity * 0.18f),
+                            glow.copy(alpha = intensity * 0.06f),
                             Color.Transparent,
                         ),
                     ),
@@ -155,7 +158,7 @@ internal fun GlowingAvatar(
         )
         if (url != null) {
             AsyncImage(
-                model = url,
+                model = url.artworkAt(512),
                 contentDescription = null,
                 modifier = Modifier
                     .size(size)
@@ -398,7 +401,7 @@ private fun StepperButton(label: String, enabled: Boolean, onClick: () -> Unit) 
 private fun PartySheetAvatar(url: String?, size: Dp = 40.dp) {
     if (url != null) {
         AsyncImage(
-            model = url,
+            model = url.artworkAt(256),
             contentDescription = null,
             modifier = Modifier.size(size).clip(CircleShape),
         )
@@ -503,7 +506,7 @@ internal fun MemberAvatarStack(
             ) {
                 if (avatar != null) {
                     AsyncImage(
-                        model = avatar,
+                        model = avatar.artworkAt(256),
                         contentDescription = null,
                         modifier = Modifier.size(faceSize).clip(CircleShape),
                     )

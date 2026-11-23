@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.AccountChannel
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -197,7 +198,7 @@ private fun ChannelRow(channel: AccountChannel, selected: Boolean, onClick: () -
     ) {
         if (channel.thumbnailUrl != null) {
             AsyncImage(
-                model = channel.thumbnailUrl,
+                model = channel.thumbnailUrl.artworkAt(256),
                 contentDescription = null,
                 modifier = Modifier
                     .size(30.dp)

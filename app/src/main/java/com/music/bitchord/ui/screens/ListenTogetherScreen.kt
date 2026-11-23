@@ -94,6 +94,7 @@ import com.music.bitchord.data.listentogether.PartyActivity
 import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.listentogether.ServerConnectionState
 import com.music.bitchord.data.listentogether.ServerUrlError
+import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -1002,7 +1003,7 @@ private fun connectionLine(state: ListenTogether.State): String = when {
 private fun PartyAvatar(url: String?, size: Dp = ICON_SIZE) {
     if (url != null) {
         AsyncImage(
-            model = url,
+            model = url.artworkAt(256),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(size).clip(CircleShape),
@@ -1035,7 +1036,7 @@ private fun MemberRow(member: PartyMember, isYou: Boolean, canKick: Boolean = fa
         ) {
             if (member.avatarUrl != null) {
                 AsyncImage(
-                    model = member.avatarUrl,
+                    model = member.avatarUrl.artworkAt(256),
                     contentDescription = null,
                     modifier = Modifier.size(32.dp).clip(CircleShape),
                 )

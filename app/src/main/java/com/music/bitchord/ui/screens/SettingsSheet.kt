@@ -155,6 +155,7 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.data.model.Account
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
@@ -475,7 +476,7 @@ fun SettingsScreen(
                 // signs into are worth typing at this field even though none of
                 // them is named on the row itself.
                 row(accountTitle, "scrobbling", "last.fm", "listenbrainz") {
-                    val avatarUrl = account?.thumbnailUrl?.takeIf { signedIn }
+                    val avatarUrl = account?.thumbnailUrl?.artworkAt(256)?.takeIf { signedIn }
                     SettingsRow(
                         icon = SfIcons.Person,
                         iconContent = avatarUrl?.let { url ->
@@ -2372,7 +2373,7 @@ internal fun AccountCard(
     ) {
         if (account?.thumbnailUrl != null) {
             AsyncImage(
-                model = account.thumbnailUrl,
+                model = account.thumbnailUrl.artworkAt(256),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(52.dp).clip(CircleShape).thumbnailBorder(CircleShape),

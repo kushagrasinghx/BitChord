@@ -73,6 +73,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.stableStatusBarInsets
 import dev.chrisbanes.haze.HazeState
@@ -556,7 +557,7 @@ fun TopBarAccountButton(
         val photo = account?.thumbnailUrl
         if (photo != null) {
             AsyncImage(
-                model = photo,
+                model = photo.artworkAt(256),
                 contentDescription = stringResource(R.string.switch_account),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

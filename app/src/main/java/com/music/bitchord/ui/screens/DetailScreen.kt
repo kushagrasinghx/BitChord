@@ -629,7 +629,7 @@ fun DetailScreen(
                             poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                             palette = palette,
                             canvas = albumMotion,
-                            fadeFraction = 0.52f,
+                            fadeFraction = FULL_BLEED_FADE_FRACTION,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) albumPosterFailed = true

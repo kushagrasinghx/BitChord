@@ -41,9 +41,8 @@ import kotlin.math.sqrt
  * finished set: a page tint, an accent that is legible *on that tint*, and the
  * two text colours and hairline that go with them.
  *
- * Every value is theme-aware. The same sleeve yields a near-black tint in dark
- * mode and a pale wash of the same hue in light mode, which is the only way the
- * pages stay readable when the app's theme disagrees with the artwork's.
+ * Every value is theme-aware. Album pages retain more of the sleeve's own
+ * brightness and adjust foreground contrast against the resulting tint.
  */
 @Immutable
 data class ArtworkPalette(
@@ -152,10 +151,12 @@ fun rememberArtworkPalette(
     if (!immersiveAlbum || seed == null) return animated
     return remember(animated) {
         val ground = animated.background.luminance()
+        val title = animated.onBackground.withAlbumContrast(ground)
         animated.copy(
             accent = animated.accent.withAlbumContrast(ground),
-            onBackground = animated.onBackground.withAlbumContrast(ground),
+            onBackground = title,
             onBackgroundVariant = animated.onBackgroundVariant.withAlbumContrast(ground),
+            divider = title.copy(alpha = animated.divider.alpha),
             onWhiteAction = animated.onWhiteAction.withAlbumContrast(1f),
         )
     }
@@ -343,13 +344,14 @@ private const val PLAYER_STATUS_SCRIM_MIN_ALPHA = 0.16f
 private const val PLAYER_STATUS_SCRIM_MAX_ALPHA = 0.65f
 
 private fun Seed.toAlbumPalette(dark: Boolean): ArtworkPalette {
-    // Let the sleeve's lower edge influence brightness without replacing its hue.
     val base = toPalette(dark)
+    val edgeHsl = FloatArray(3).also { ColorUtils.colorToHSL(edge.toArgb(), it) }
+    // Keep the dominant swatch's hue and saturation. Let the lower edge bias
+    // lightness without letting a black border or a white credit line set it.
     val ground = dominant.withHsl(
-        saturation = { adaptedArtworkSaturation(it, minimum = 0.42f, maximum = 0.82f) },
         lightness = {
-            val sleeveLight = it * 0.75f + edge.luminance() * 0.25f
-            if (dark) 0.10f + 0.08f * sleeveLight else 0.72f + 0.12f * sleeveLight
+            val sleeveLight = it + (edgeHsl[2] - it).coerceIn(-0.12f, 0.12f) * 0.25f
+            if (dark) 0.04f + 0.86f * sleeveLight else 0.20f + 0.78f * sleeveLight
         },
     )
     return base.copy(

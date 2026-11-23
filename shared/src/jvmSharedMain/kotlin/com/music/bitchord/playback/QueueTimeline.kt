@@ -76,6 +76,7 @@ object QueueTimeline {
      * Constructs an interleaved queue for starting a Context (Album, Playlist, Artist):
      *
      * Invariant: [Preceding Context] + [Selected Track] + [Preserved USER_QUEUE] + [Following Context Tracks].
+     * An explicit Play action can replace the upcoming queue instead of preserving USER_QUEUE.
      * Playback starts at [ContextQueueResult.startIndex] (= precedingContext.size). Preceding tracks
      * remain in history for backward navigation and loop around under repeat-all.
      */
@@ -85,10 +86,11 @@ object QueueTimeline {
         newContextSongs: List<Song>,
         selectedIndex: Int,
         contextSource: QueueSource,
+        replaceUpcomingQueue: Boolean = false,
     ): ContextQueueResult {
         if (newContextSongs.isEmpty()) return ContextQueueResult(emptyList(), 0)
 
-        val upcomingUserQueue = upcomingUserQueue(currentTimeline, currentIndex)
+        val upcomingUserQueue = if (replaceUpcomingQueue) emptyList() else upcomingUserQueue(currentTimeline, currentIndex)
         val contextEntries = newContextSongs.map { it.from(contextSource).asQueueEntry(QueueTier.CONTEXT) }
 
         val safeIndex = selectedIndex.coerceIn(contextEntries.indices)

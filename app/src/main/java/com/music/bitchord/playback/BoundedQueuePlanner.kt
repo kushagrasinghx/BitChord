@@ -42,6 +42,7 @@ object BoundedQueuePlanner {
         preservedUserQueue: List<Song> = emptyList(),
         existingAutoplay: List<Song> = emptyList(),
         repeatAll: Boolean = false,
+        replaceUpcomingQueue: Boolean = false,
     ): BoundedContextPlan {
         val canonical = contextSnapshot.songs
         require(canonical.isNotEmpty()) { "contextSnapshot must contain songs" }
@@ -69,7 +70,7 @@ object BoundedQueuePlanner {
             currentCanonicalIndex = selectedIndex,
             history = history,
             current = canonical[selectedIndex].asContext(),
-            userQueue = preservedUserQueue.map { it.asUserQueue() },
+            userQueue = if (replaceUpcomingQueue) emptyList() else preservedUserQueue.map { it.asUserQueue() },
             contextUpcoming = upcoming,
             autoplay = existingAutoplay.map { it.asAutoplay() },
             contextTrulyExhausted = upcoming.isEmpty() && state.isTerminal() && !repeatAll,

@@ -91,7 +91,22 @@ export async function sendBitChordCommand(command: 'play' | 'pause' | 'next' | '
   if (tabs.length > 0) {
     for (const tab of tabs) {
       if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { action: 'bitchord_command', command }).catch(() => {});
+        browser.tabs.sendMessage(tab.id, { action: 'bitchord_command', command }).catch(async () => {
+          try {
+            // @ts-ignore
+            if (typeof chrome !== 'undefined' && chrome.scripting?.executeScript) {
+              // @ts-ignore
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                world: 'MAIN',
+                func: (cmd: string) => {
+                  window.postMessage({ channel: 'POMODORO_MAIN_COMMAND', command: cmd }, '*');
+                },
+                args: [command],
+              });
+            }
+          } catch {}
+        });
       }
     }
     return { success: true, tabsCount: tabs.length };

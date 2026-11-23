@@ -29,6 +29,9 @@ export default defineContentScript({
     // Handle commands from background service worker or popup
     browser.runtime.onMessage.addListener((request: any, sender: any, sendResponse: (res: any) => void) => {
       if (request.action === 'bitchord_command') {
+        console.log(`[BitChord Pomodoro Bridge] Forwarding command to MAIN world: ${request.command}`);
+
+        // Forward exclusively to MAIN world agent without duplicate DOM clicking
         window.postMessage(
           {
             channel: 'POMODORO_MAIN_COMMAND',
@@ -36,27 +39,6 @@ export default defineContentScript({
           },
           '*',
         );
-
-        // Fallback DOM attempts in isolated world
-        if (request.command === 'play') {
-          const playBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]:not([disabled])');
-          if (playBtn) playBtn.click();
-          else {
-            const shelfPlay =
-              document.querySelector<HTMLButtonElement>('button[aria-label^="Play "]:not([disabled])') ||
-              document.querySelector<HTMLButtonElement>('.group\\/track button:not([disabled])');
-            if (shelfPlay) shelfPlay.click();
-          }
-        } else if (request.command === 'pause') {
-          const pauseBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Pause"]:not([disabled])');
-          if (pauseBtn) pauseBtn.click();
-        } else if (request.command === 'next') {
-          const nextBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Next"]:not([disabled])');
-          if (nextBtn) nextBtn.click();
-        } else if (request.command === 'previous') {
-          const prevBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Previous"]:not([disabled])');
-          if (prevBtn) prevBtn.click();
-        }
 
         setTimeout(() => {
           sendResponse({ success: true, status: lastStatus });

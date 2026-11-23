@@ -1,7 +1,7 @@
 /**
  * BitChord Pomodoro Page Agent
  * Runs in the MAIN world to interface directly with the BitChord Web Player's store,
- * MediaSession API, and transport controls.
+ * MediaSession API, Audio elements, and transport controls.
  */
 
 import { matchPatternsFor, SITE_ORIGINS } from '../site.config';
@@ -17,8 +17,23 @@ export default defineContentScript({
     console.log('[BitChord Pomodoro Page Agent] Initializing in MAIN world...');
 
     const sessionHandlers: Record<string, Function> = {};
+    const capturedAudios: HTMLAudioElement[] = [];
 
-    // 1. Intercept navigator.mediaSession.setActionHandler
+    // 1. Intercept window.Audio to capture BitChord's internal audio elements
+    const OrigAudio = window.Audio;
+    if (OrigAudio) {
+      (window as any).Audio = function (...args: any[]) {
+        const audioInstance = new OrigAudio(...args);
+        capturedAudios.push(audioInstance);
+        ['play', 'pause', 'timeupdate', 'ended', 'loadeddata'].forEach((evt) => {
+          audioInstance.addEventListener(evt, () => broadcastStatus(), { passive: true });
+        });
+        return audioInstance;
+      };
+      (window as any).Audio.prototype = OrigAudio.prototype;
+    }
+
+    // 2. Intercept navigator.mediaSession.setActionHandler
     if ('mediaSession' in navigator) {
       const origSetActionHandler = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
       navigator.mediaSession.setActionHandler = function (action: any, handler: any) {
@@ -32,10 +47,12 @@ export default defineContentScript({
     }
 
     function getAudioElement(): HTMLAudioElement | null {
-      const audios = Array.from(document.querySelectorAll('audio'));
-      const playing = audios.find((a) => !a.paused && a.currentTime > 0);
-      if (playing) return playing;
-      return audios.find((a) => a.src && a.src.length > 0) || audios[0] || null;
+      const active = capturedAudios.find((a) => !a.paused && a.currentTime > 0);
+      if (active) return active;
+      const domAudios = Array.from(document.querySelectorAll('audio'));
+      const domPlaying = domAudios.find((a) => !a.paused && a.currentTime > 0);
+      if (domPlaying) return domPlaying;
+      return capturedAudios[capturedAudios.length - 1] || domAudios[0] || null;
     }
 
     function getPlayerStatus() {
@@ -59,19 +76,19 @@ export default defineContentScript({
         }
       }
 
-      // Check DOM button state for Pause / Play
+      // Check captured or DOM audio elements
+      const audio = getAudioElement();
+      if (audio && !audio.paused && audio.currentTime > 0) {
+        isPlaying = true;
+      }
+
+      // Check DOM button state for Pause (playing) / Play (paused)
       const pauseBtn = document.querySelector('button[aria-label="Pause"]:not([disabled])');
       const playBtn = document.querySelector('button[aria-label="Play"]:not([disabled])');
       if (pauseBtn) {
         isPlaying = true;
       } else if (playBtn) {
         isPlaying = false;
-      }
-
-      // Check audio elements
-      const audio = getAudioElement();
-      if (audio && !audio.paused && audio.currentTime > 0) {
-        isPlaying = true;
       }
 
       // Fallback: check Player region LCD title
@@ -100,20 +117,31 @@ export default defineContentScript({
       window.postMessage({ channel: 'POMODORO_PAGE_STATUS', status }, '*');
     }
 
-    // 2. Control Commands Execution
+    // 3. Robust, Idempotent Player Control Commands
     function executePlay() {
       console.log('[BitChord Pomodoro Page Agent] Executing PLAY...');
 
-      // Check if already playing
-      const audio = getAudioElement();
-      if (audio && !audio.paused && audio.currentTime > 0) {
+      // A. If already playing, do NOT toggle!
+      const currentStatus = getPlayerStatus();
+      if (currentStatus.isPlaying) {
+        console.log('[BitChord Pomodoro Page Agent] Already playing. No-op.');
         broadcastStatus();
         return true;
       }
 
-      // If MediaSession handler captured from player.ts, invoke it directly
+      // B. Check if PlayerBar's Play button is enabled
+      const playBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]:not([disabled])');
+      if (playBtn) {
+        console.log('[BitChord Pomodoro Page Agent] Clicking PlayerBar Play button.');
+        playBtn.click();
+        setTimeout(broadcastStatus, 200);
+        return true;
+      }
+
+      // C. Check MediaSession action handler
       if (typeof sessionHandlers['play'] === 'function') {
         try {
+          console.log('[BitChord Pomodoro Page Agent] Calling MediaSession play handler.');
           sessionHandlers['play']({ action: 'play' });
           setTimeout(broadcastStatus, 200);
           return true;
@@ -122,15 +150,28 @@ export default defineContentScript({
         }
       }
 
-      // Check if PlayerBar's Play button is enabled
-      const playBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]:not([disabled])');
-      if (playBtn) {
-        playBtn.click();
-        setTimeout(broadcastStatus, 200);
+      // D. Direct audio resume if paused
+      const audio = getAudioElement();
+      if (audio && audio.paused && audio.src) {
+        audio.play().then(() => broadcastStatus()).catch(() => {});
         return true;
       }
 
-      // Dispatch Space key to window (caught by useKeyboardShortcuts.ts)
+      // E. Cold start on /home: Click the first playable track or album button
+      const shelfPlayBtn =
+        document.querySelector<HTMLButtonElement>('button[aria-label^="Play "]:not([disabled])') ||
+        document.querySelector<HTMLButtonElement>('.group\\/track button:not([disabled])') ||
+        document.querySelector<HTMLButtonElement>('.group\\/art button:not([disabled])') ||
+        document.querySelector<HTMLButtonElement>('button[aria-label*="Play"]:not([disabled])');
+
+      if (shelfPlayBtn) {
+        console.log('[BitChord Pomodoro Page Agent] Cold-starting from Home shelf item:', shelfPlayBtn.getAttribute('aria-label') || 'track');
+        shelfPlayBtn.click();
+        setTimeout(broadcastStatus, 500);
+        return true;
+      }
+
+      // F. Fallback: dispatch Space key
       window.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: ' ',
@@ -142,25 +183,6 @@ export default defineContentScript({
         }),
       );
 
-      // Cold start on /home: If no track loaded yet, click first playable shelf item
-      const shelfPlayBtn =
-        document.querySelector<HTMLButtonElement>('button[aria-label^="Play "]:not([disabled])') ||
-        document.querySelector<HTMLButtonElement>('.group\\/track button:not([disabled])') ||
-        document.querySelector<HTMLButtonElement>('.group\\/art button:not([disabled])') ||
-        document.querySelector<HTMLButtonElement>('button[aria-label*="Play"]:not([disabled])');
-
-      if (shelfPlayBtn) {
-        console.log('[BitChord Pomodoro Page Agent] Cold-starting from shelf item:', shelfPlayBtn.getAttribute('aria-label') || 'track');
-        shelfPlayBtn.click();
-        setTimeout(broadcastStatus, 500);
-        return true;
-      }
-
-      if (audio) {
-        audio.play().then(() => broadcastStatus()).catch(() => {});
-        return true;
-      }
-
       setTimeout(broadcastStatus, 300);
       return false;
     }
@@ -168,8 +190,27 @@ export default defineContentScript({
     function executePause() {
       console.log('[BitChord Pomodoro Page Agent] Executing PAUSE...');
 
+      // A. If already paused, do NOT toggle!
+      const currentStatus = getPlayerStatus();
+      if (!currentStatus.isPlaying) {
+        console.log('[BitChord Pomodoro Page Agent] Already paused. No-op.');
+        broadcastStatus();
+        return true;
+      }
+
+      // B. Check if PlayerBar's Pause button is visible
+      const pauseBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Pause"]:not([disabled])');
+      if (pauseBtn) {
+        console.log('[BitChord Pomodoro Page Agent] Clicking PlayerBar Pause button.');
+        pauseBtn.click();
+        setTimeout(broadcastStatus, 200);
+        return true;
+      }
+
+      // C. Check MediaSession action handler
       if (typeof sessionHandlers['pause'] === 'function') {
         try {
+          console.log('[BitChord Pomodoro Page Agent] Calling MediaSession pause handler.');
           sessionHandlers['pause']({ action: 'pause' });
           setTimeout(broadcastStatus, 200);
           return true;
@@ -178,30 +219,29 @@ export default defineContentScript({
         }
       }
 
-      const pauseBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Pause"]:not([disabled])');
-      if (pauseBtn) {
-        pauseBtn.click();
-        setTimeout(broadcastStatus, 200);
-        return true;
-      }
-
-      const audio = getAudioElement();
-      if (audio && !audio.paused) {
-        window.dispatchEvent(
-          new KeyboardEvent('keydown', {
-            key: ' ',
-            code: 'Space',
-            keyCode: 32,
-            which: 32,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      }
-
-      document.querySelectorAll('audio').forEach((a) => {
-        if (!a.paused) a.pause();
+      // D. Direct audio pause on all captured and DOM audios
+      capturedAudios.forEach((a) => {
+        try {
+          if (!a.paused) a.pause();
+        } catch {}
       });
+      document.querySelectorAll('audio').forEach((a) => {
+        try {
+          if (!a.paused) a.pause();
+        } catch {}
+      });
+
+      // E. Fallback: dispatch Space key
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: ' ',
+          code: 'Space',
+          keyCode: 32,
+          which: 32,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
 
       setTimeout(broadcastStatus, 200);
       return true;
@@ -209,18 +249,18 @@ export default defineContentScript({
 
     function executeNext() {
       console.log('[BitChord Pomodoro Page Agent] Executing NEXT...');
-      if (typeof sessionHandlers['nexttrack'] === 'function') {
-        try {
-          sessionHandlers['nexttrack']({ action: 'nexttrack' });
-          setTimeout(broadcastStatus, 300);
-          return true;
-        } catch {}
-      }
       const nextBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Next"]:not([disabled])');
       if (nextBtn) {
         nextBtn.click();
         setTimeout(broadcastStatus, 300);
         return true;
+      }
+      if (typeof sessionHandlers['nexttrack'] === 'function') {
+        try {
+          sessionHandlers['nexttrack']({ action: 'nexttrack' });
+          setTimeout(broadcastStatus, 300);
+          return true;
+        } catch (err) {}
       }
       window.dispatchEvent(
         new KeyboardEvent('keydown', {
@@ -237,18 +277,18 @@ export default defineContentScript({
 
     function executePrev() {
       console.log('[BitChord Pomodoro Page Agent] Executing PREVIOUS...');
-      if (typeof sessionHandlers['previoustrack'] === 'function') {
-        try {
-          sessionHandlers['previoustrack']({ action: 'previoustrack' });
-          setTimeout(broadcastStatus, 300);
-          return true;
-        } catch {}
-      }
       const prevBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Previous"]:not([disabled])');
       if (prevBtn) {
         prevBtn.click();
         setTimeout(broadcastStatus, 300);
         return true;
+      }
+      if (typeof sessionHandlers['previoustrack'] === 'function') {
+        try {
+          sessionHandlers['previoustrack']({ action: 'previoustrack' });
+          setTimeout(broadcastStatus, 300);
+          return true;
+        } catch (err) {}
       }
       window.dispatchEvent(
         new KeyboardEvent('keydown', {
@@ -263,8 +303,8 @@ export default defineContentScript({
       return true;
     }
 
-    // 3. Listen to commands relayed from bridge
-    window.addEventListener('message', (event) => {
+    // 4. Listen to commands relayed from bitchord-bridge.js
+    window.addEventListener('message', (event: MessageEvent) => {
       if (event.source !== window || !event.data || event.data.channel !== 'POMODORO_MAIN_COMMAND') return;
 
       const { command } = event.data;
@@ -275,30 +315,20 @@ export default defineContentScript({
       else if (command === 'get_status') broadcastStatus();
     });
 
-    // 4. Setup audio and playback observers
-    function setupAudioListeners() {
-      const bindAudio = (a: HTMLAudioElement) => {
-        ['play', 'pause', 'timeupdate', 'ended', 'loadeddata'].forEach((evt) => {
-          a.addEventListener(evt, () => broadcastStatus(), { passive: true });
-        });
-      };
-      document.querySelectorAll('audio').forEach(bindAudio);
-      const observer = new MutationObserver(() => {
-        document.querySelectorAll('audio').forEach(bindAudio);
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setupAudioListeners();
+    // 5. Observe DOM mutations to update status when UI changes
+    const observer = new MutationObserver(() => {
       broadcastStatus();
+    });
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'disabled', 'class'] });
     } else {
-      window.addEventListener('DOMContentLoaded', () => {
-        setupAudioListeners();
-        broadcastStatus();
+      document.addEventListener('DOMContentLoaded', () => {
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'disabled', 'class'] });
       });
     }
 
+    // Initial broadcast and periodic heartbeat
+    broadcastStatus();
     setInterval(broadcastStatus, 2000);
   },
 });

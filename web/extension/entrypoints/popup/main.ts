@@ -478,11 +478,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 5. BitChord Mini Player Controls
+  let isTogglingBc = false;
   btnBcToggle.addEventListener('click', async () => {
+    if (isTogglingBc) return;
+    isTogglingBc = true;
     const command = isBitChordPlaying ? 'pause' : 'play';
     isBitChordPlaying = !isBitChordPlaying;
     updateBitChordTabStatus();
-    await browser.runtime.sendMessage({ action: 'bitchord_action', command });
+    try {
+      await browser.runtime.sendMessage({ action: 'bitchord_action', command });
+    } finally {
+      setTimeout(() => {
+        isTogglingBc = false;
+      }, 350);
+    }
   });
 
   btnBcNext.addEventListener('click', async () => {

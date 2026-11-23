@@ -2541,6 +2541,7 @@ private fun BitChordApp(
     val detailPalette = rememberArtworkPalette(
         imageUrl = detailApple?.heroUrl ?: topDetail?.thumbnailUrl,
         keyColors = detailApple?.keyColors(),
+        immersiveAlbum = topDetail?.type == BrowseType.ALBUM,
     )
 
     // One set of numbers for the cards, the page, the stories and the shared

@@ -67,6 +67,7 @@ data class ArtworkPalette(
     val onBackground: Color,
     val onBackgroundVariant: Color,
     val divider: Color,
+    val onWhiteAction: Color = Color.Black,
 )
 
 /**
@@ -102,6 +103,7 @@ fun rememberArtworkPalette(
      */
     artPx: Int = CARD_ART_PX,
     keyColors: ArtworkKeyColors? = null,
+    immersiveAlbum: Boolean = false,
 ): ArtworkPalette {
     val scheme = MaterialTheme.colorScheme
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
@@ -114,15 +116,17 @@ fun rememberArtworkPalette(
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
 
-    val target = seed?.toPalette(dark) ?: ArtworkPalette(
-        background = scheme.background,
-        wash = scheme.background,
-        elevated = scheme.surfaceVariant,
-        accent = scheme.primary,
-        onBackground = scheme.onBackground,
-        onBackgroundVariant = scheme.onSurfaceVariant,
-        divider = scheme.outline,
-    )
+    val target = remember(seed, dark, immersiveAlbum, scheme) {
+        seed?.let { if (immersiveAlbum) it.toAlbumPalette(dark) else it.toPalette(dark) } ?: ArtworkPalette(
+            background = scheme.background,
+            wash = scheme.background,
+            elevated = scheme.surfaceVariant,
+            accent = scheme.primary,
+            onBackground = scheme.onBackground,
+            onBackgroundVariant = scheme.onSurfaceVariant,
+            divider = scheme.outline,
+        )
+    }
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
         snap()
@@ -139,6 +143,9 @@ fun rememberArtworkPalette(
             target.onBackgroundVariant, spec, label = "tintOnVariant",
         ).value,
         divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
+        onWhiteAction = if (immersiveAlbum) {
+            animateColorAsState(target.onWhiteAction, spec, label = "tintOnWhiteAction").value
+        } else target.onWhiteAction,
     )
 }
 
@@ -322,6 +329,25 @@ internal fun topBandScrimAlpha(artworkLuminance: Float?): Float {
 
 private const val PLAYER_STATUS_SCRIM_MIN_ALPHA = 0.16f
 private const val PLAYER_STATUS_SCRIM_MAX_ALPHA = 0.65f
+
+private fun Seed.toAlbumPalette(dark: Boolean): ArtworkPalette {
+    // Let the sleeve's lower edge influence brightness without replacing its hue.
+    val base = toPalette(dark)
+    val ground = dominant.withHsl(
+        saturation = { adaptedArtworkSaturation(it, minimum = 0.42f, maximum = 0.82f) },
+        lightness = {
+            val sleeveLight = it * 0.75f + edge.luminance() * 0.25f
+            if (dark) 0.10f + 0.08f * sleeveLight else 0.72f + 0.12f * sleeveLight
+        },
+    )
+    return base.copy(
+        background = ground,
+        elevated = ground.withHsl(lightness = { if (dark) it + 0.07f else it - 0.07f }),
+        accent = vibrant.withHsl(lightness = { if (dark) 0.87f else 0.20f }),
+        onBackgroundVariant = dominant.withHsl(lightness = { if (dark) 0.87f else 0.20f }),
+        onWhiteAction = dominant.withHsl(lightness = { 0.24f }),
+    )
+}
 
 private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
     ArtworkPalette(

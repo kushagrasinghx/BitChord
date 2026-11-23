@@ -439,6 +439,7 @@ fun DetailScreen(
     val palette = rememberArtworkPalette(
         imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
         keyColors = appleArt?.keyColors(),
+        immersiveAlbum = page.type == BrowseType.ALBUM,
     )
 
     // Narrowing the running order in place — the release equivalent of the
@@ -943,6 +944,8 @@ private fun ReleaseHeader(
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
+    val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM && page.thumbnailUrl != null && !artFailed }
+    val fadeFraction = if (page.type == BrowseType.ALBUM) 0.52f else FULL_BLEED_FADE_FRACTION
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
     val bleed = fullBleed && page.thumbnailUrl != null && !artFailed
@@ -994,7 +997,7 @@ private fun ReleaseHeader(
                                         val t = i / FADE_CURVE_STOPS.toFloat()
                                         t to Color.Black.copy(alpha = 1f - smootherStep(t))
                                     },
-                                    startY = size.height * (1f - FULL_BLEED_FADE_FRACTION),
+                                    startY = size.height * (1f - fadeFraction),
                                     endY = size.height,
                                 ),
                                 blendMode = BlendMode.DstIn,
@@ -1008,7 +1011,7 @@ private fun ReleaseHeader(
                     CanvasArtworkPlayer(
                         canvas = clip,
                         isPlaying = true,
-                        bottomFade = FULL_BLEED_FADE_FRACTION,
+                        bottomFade = fadeFraction,
                         onCoverChanged = { canvasCover = it },
                         modifier = Modifier.matchParentSize(),
                     )
@@ -1124,6 +1127,7 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.play),
                         onClick = onPlay,
                         filled = true,
+                        artworkTint = albumPalette?.onWhiteAction,
                         size = RELEASE_SIDE_BUTTON,
                         modifier = Modifier.weight(1f),
                     )
@@ -1132,6 +1136,7 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.shuffle),
                         onClick = onShuffle,
                         filled = false,
+                        artworkTint = albumPalette?.onBackground,
                         size = RELEASE_SIDE_BUTTON,
                         modifier = Modifier.weight(1f),
                     )
@@ -1153,6 +1158,7 @@ private fun ReleaseHeader(
                     onClick = onShuffle,
                     haptic = Haptic.Resume,
                     size = RELEASE_SIDE_BUTTON,
+                    artworkTint = albumPalette?.onBackground,
                 )
                 ActionPill(
                     icon = BitChordIcons.Play,
@@ -1161,6 +1167,7 @@ private fun ReleaseHeader(
                     filled = true,
                     size = RELEASE_SIDE_BUTTON,
                     modifier = Modifier.weight(1f),
+                    artworkTint = albumPalette?.onWhiteAction,
                 )
                 if (library != null) {
                     CircleIconButton(
@@ -1175,6 +1182,7 @@ private fun ReleaseHeader(
                         onClick = { onToggleLibrary?.invoke() },
                         haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
                         size = RELEASE_SIDE_BUTTON,
+                        artworkTint = albumPalette?.onBackground,
                     )
                 } else {
                     // Shown but greyed out for a guest, rather than leaving a
@@ -1185,6 +1193,7 @@ private fun ReleaseHeader(
                         onClick = {},
                         size = RELEASE_SIDE_BUTTON,
                         enabled = false,
+                        artworkTint = albumPalette?.onBackground,
                     )
                 }
             }
@@ -1681,11 +1690,12 @@ private fun ActionPill(
     filled: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 50.dp,
+    artworkTint: Color? = null,
 ) {
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val content = artworkTint ?: if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = modifier
             .height(size)
@@ -1695,7 +1705,7 @@ private fun ActionPill(
                     Modifier.background(Color.White)
                 } else {
                     Modifier
-                        .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+                        .background(artworkTint?.copy(alpha = 0.08f) ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
                         .liquidGlassRim(CircleShape)
                         .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
                 },
@@ -1794,6 +1804,7 @@ private fun CircleIconButton(
      * Dimmed rather than dropped, so the row keeps its shape.
      */
     enabled: Boolean = true,
+    artworkTint: Color? = null,
 ) {
     val haptics = rememberHaptics()
     Box(
@@ -1801,7 +1812,7 @@ private fun CircleIconButton(
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+            .background(artworkTint?.copy(alpha = 0.08f) ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
             // The glass rim the floating bars wear, with Liquid Glass on. Rim
             // only: over the page's flat tint a blurred fill would look the same.
             .liquidGlassRim(CircleShape)
@@ -1815,7 +1826,7 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = artworkTint ?: MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(size * 0.44f),
         )
     }

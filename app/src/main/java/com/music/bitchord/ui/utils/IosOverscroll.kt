@@ -58,7 +58,11 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-private class IosOverscrollEffect : OverscrollEffect {
+internal interface AlbumArtworkOverscroll : OverscrollEffect {
+    val artworkExpansionPx: Float
+}
+
+private class IosOverscrollEffect(private val topLimitPx: Float = 0f) : AlbumArtworkOverscroll {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
@@ -70,6 +74,17 @@ private class IosOverscrollEffect : OverscrollEffect {
 
     override val isInProgress: Boolean
         get() = rawPullX.floatValue != 0f || rawPullY.floatValue != 0f
+
+    private fun verticalOffsetPx(): Float {
+        val pull = rawPullY.floatValue
+        if (pull <= 0f || topLimitPx <= 0f) return rubberBand(pull, containerHeightPx)
+        val resisted = pull * rubberBandConstant
+        return topLimitPx * (resisted / (resisted + topLimitPx))
+    }
+
+    // Exactly the displacement applied by the list's node, not a second spring.
+    override val artworkExpansionPx: Float
+        get() = verticalOffsetPx().coerceAtLeast(0f)
 
     override fun applyToScroll(
         delta: Offset,
@@ -164,7 +179,7 @@ private class IosOverscrollEffect : OverscrollEffect {
 
     override val node: DelegatableNode = IosOverscrollNode(
         offsetX = { rubberBand(rawPullX.floatValue, containerWidthPx) },
-        offsetY = { rubberBand(rawPullY.floatValue, containerHeightPx) },
+        offsetY = ::verticalOffsetPx,
         onMeasured = { width, height ->
             containerWidthPx = width
             containerHeightPx = height
@@ -214,3 +229,7 @@ fun rememberIosOverscrollFactory(): OverscrollFactory {
     val scope = rememberCoroutineScope()
     return remember(density, scope) { IosOverscrollFactory(density, scope) }
 }
+
+@Composable
+internal fun rememberAlbumArtworkOverscroll(topLimitPx: Float): AlbumArtworkOverscroll =
+    remember(topLimitPx) { IosOverscrollEffect(topLimitPx) }

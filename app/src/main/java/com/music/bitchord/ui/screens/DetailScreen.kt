@@ -14,6 +14,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.rememberOverscrollEffect
 import com.music.bitchord.ui.components.liquidGlassRim
 import com.music.bitchord.ui.components.continuous
 import com.music.bitchord.ui.components.FadingText
@@ -77,10 +78,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.draw.alpha
@@ -102,6 +105,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -189,6 +193,7 @@ import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.utils.rememberAlbumArtworkOverscroll
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -569,6 +574,14 @@ fun DetailScreen(
                 val sleeveSize = (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
                 val fullBleedSleeve = fullBleedArtwork && maxWidth <= maxHeight * FULL_BLEED_MAX_HEIGHT
                 val albumFullBleed = album && fullBleedSleeve && page.thumbnailUrl != null && !albumPosterFailed
+                val albumOverscroll = if (albumFullBleed && reorder == null) {
+                    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+                    val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
+                    val maxPullPx = with(LocalDensity.current) { minOf(88.dp, maxWidth * 0.22f).toPx() }
+                    if (!reduceAnimation && systemMotion?.scaleFactor != 0f && maxPullPx > 0f) {
+                        rememberAlbumArtworkOverscroll(maxPullPx)
+                    } else null
+                } else null
                 val albumMotion = remember(visibleCanvas) {
                     visibleCanvas?.let { clip ->
                         clip.portraitUrl?.let { portrait ->
@@ -623,7 +636,16 @@ fun DetailScreen(
                             },
                             onAspectChanged = { if (it > 0f) videoAspect = it },
                             modifier = Modifier.fillMaxWidth().height(albumHeroHeight)
-                                .offset { IntOffset(0, listState.headerTop(albumHeroHeight.toPx()).roundToInt()) },
+                                .offset { IntOffset(0, listState.headerTop(albumHeroHeight.toPx()).roundToInt()) }
+                                .graphicsLayer {
+                                    // The list moves down; the hero stays anchored at the top.
+                                    // Grow its bottom edge by exactly the list's displacement.
+                                    val pull = albumOverscroll?.artworkExpansionPx ?: 0f
+                                    val scale = 1f + pull / heroHeightPx.coerceAtLeast(1f)
+                                    transformOrigin = TransformOrigin(0.5f, 0f)
+                                    scaleX = scale
+                                    scaleY = scale
+                                },
                         )
                     }
                 }
@@ -633,6 +655,7 @@ fun DetailScreen(
                 } else LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
+                    overscrollEffect = if (albumFullBleed) albumOverscroll else rememberOverscrollEffect(),
                     // The artist photo runs edge-to-edge up under the glass bar;
                     // a release header clears the bar itself, see [ReleaseHeader].
                     contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),

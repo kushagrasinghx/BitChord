@@ -4,6 +4,8 @@ import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sortedForAlbum
 import com.music.bitchord.data.useTrackTags
+import com.music.bitchord.data.settings.SongSort
+import com.music.bitchord.ui.screens.sortedForDetail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -55,6 +57,17 @@ class LocalAlbumTrackNumberTest {
             song("none", "E"),
         )
         assertEquals(listOf("d1t1", "d1t2", "d2t1", "d2t2", "none"), group.sortedForAlbum().map { it.videoId })
+    }
+
+    @Test
+    fun trackNumberSort_sortsDiscBeforeTrack() {
+        val group = listOf(
+            song("d2t1", "A", track = 1, disc = 2),
+            song("none", "B"),
+            song("d1t2", "C", track = 2, disc = 1),
+            song("d1t1", "D", track = 1, disc = 1),
+        )
+        assertEquals(listOf("d1t1", "d1t2", "d2t1", "none"), group.sortedForDetail(SongSort.TRACK_NUMBER).map { it.videoId })
     }
 
     @Test

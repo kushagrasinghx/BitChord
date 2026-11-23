@@ -220,6 +220,8 @@ private val SLEEVE_SHADOW = 18.dp
  * pushed off the bottom of the screen.
  */
 private const val FULL_BLEED_MAX_HEIGHT = 0.62f
+private const val ALBUM_HERO_VIEWPORT_FRACTION = 0.48f
+private const val ALBUM_HERO_TITLE_FRACTION = 0.88f
 
 /** How much of a full-bleed sleeve's foot dissolves into the page — the player's banner's share. */
 private const val FULL_BLEED_FADE_FRACTION = 0.42f
@@ -592,11 +594,10 @@ fun DetailScreen(
                         } ?: clip
                     }
                 }
-                val portraitMotion = albumMotion != null && albumMotion.url == albumMotion.portraitUrl
-                var videoAspect by remember(albumMotion) { mutableStateOf(0f) }
-                val albumHeroHeight = maxWidth / if (portraitMotion) {
-                    videoAspect.takeIf { it > 0f }?.coerceIn(0.75f, 1f) ?: 0.75f
-                } else 1f
+                // The portrait rendition determines the crop, not the reserved layout.
+                // Keep the viewport stable across the poster, clip and square fallback.
+                val albumHeroHeight = minOf(maxWidth, maxHeight * ALBUM_HERO_VIEWPORT_FRACTION)
+                val albumTitleSpace = albumHeroHeight * ALBUM_HERO_TITLE_FRACTION
                 // A folder's grid view: the same column count the Library's
                 // "Show all" grids reach at this width.
                 val gridColumns = libraryGrid(maxWidth - PAGE_GUTTER * 2).columns
@@ -629,14 +630,12 @@ fun DetailScreen(
                             palette = palette,
                             canvas = albumMotion,
                             fadeFraction = 0.52f,
-                            alignment = Alignment.TopCenter,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) albumPosterFailed = true
                             },
-                            onAspectChanged = { if (it > 0f) videoAspect = it },
                             modifier = Modifier.fillMaxWidth().height(albumHeroHeight)
-                                .offset { IntOffset(0, listState.headerTop(albumHeroHeight.toPx()).roundToInt()) }
+                                .offset { IntOffset(0, listState.headerTop(heroHeightPx).roundToInt()) }
                                 .graphicsLayer {
                                     // The list moves down; the hero stays anchored at the top.
                                     // Grow its bottom edge by exactly the list's displacement.
@@ -669,7 +668,7 @@ fun DetailScreen(
                         palette = palette,
                         sleeveSize = sleeveSize,
                         fullBleed = fullBleedSleeve && !album,
-                        liftedArtworkHeight = albumHeroHeight.takeIf { albumFullBleed },
+                        liftedArtworkSpace = albumTitleSpace.takeIf { albumFullBleed },
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },
@@ -1002,7 +1001,7 @@ private fun ReleaseHeader(
      * one. Everything under it is unchanged.
      */
     fullBleed: Boolean,
-    liftedArtworkHeight: Dp?,
+    liftedArtworkSpace: Dp?,
     canvas: CanvasArtwork?,
     songs: List<Song>,
     onPlay: () -> Unit,
@@ -1029,11 +1028,11 @@ private fun ReleaseHeader(
         modifier = Modifier
             .fillMaxWidth()
             // Clear of the floating bar, which only a full-bleed sleeve runs under.
-            .padding(top = if (bleed || liftedArtworkHeight != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
+            .padding(top = if (bleed || liftedArtworkSpace != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (liftedArtworkHeight != null) {
-            Spacer(Modifier.height((liftedArtworkHeight - FULL_BLEED_TITLE_OVERLAP).coerceAtLeast(0.dp)))
+        if (liftedArtworkSpace != null) {
+            Spacer(Modifier.height(liftedArtworkSpace))
         } else if (bleed) {
             FullBleedReleaseArtwork(
                 poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
@@ -1253,8 +1252,6 @@ private fun FullBleedReleaseArtwork(
     fadeFraction: Float,
     onPosterState: (AsyncImagePainter.State) -> Unit,
     modifier: Modifier,
-    alignment: Alignment = Alignment.Center,
-    onAspectChanged: (Float) -> Unit = {},
     pauseVideo: Boolean = false,
 ) {
     Box(modifier) {
@@ -1263,7 +1260,6 @@ private fun FullBleedReleaseArtwork(
             model = poster,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alignment = alignment,
             onState = onPosterState,
             modifier = Modifier
                 .matchParentSize()
@@ -1296,7 +1292,6 @@ private fun FullBleedReleaseArtwork(
                     isPlaying = true,
                     pausedForTransition = pauseVideo,
                     bottomFade = fadeFraction,
-                    onAspectRatioChanged = onAspectChanged,
                     onCoverChanged = { canvasCover = it },
                     modifier = Modifier.matchParentSize(),
                 )

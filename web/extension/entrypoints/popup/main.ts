@@ -10,10 +10,12 @@ import {
   type SpotifyAuthState,
   type YtAuthState,
 } from '@bitchord/shared/bridge';
+import type { PomodoroTimer, PomodoroSettings, PlayerStatusPayload } from '../../lib/pomodoro';
 
 declare const __SITE_ORIGINS__: string[];
 
-/** The popup asks the background, like the page does, so both see one state. */
+// ---- Bridge Calling (Accounts tab) -------------------------------------------
+
 async function call<M extends BridgeMethod>(method: M, params: ParamsOf<M>): Promise<ResultOf<M>> {
   const response = (await browser.runtime.sendMessage({
     channel: BRIDGE_CHANNEL,
@@ -40,11 +42,9 @@ function simpleRow(name: string, detail: string): HTMLLIElement {
   return row;
 }
 
-/** YouTube Music: who requests act as, and the way to stop (or start) using that session. */
 function youtubeRow(state: YtAuthState | null, refresh: (state: YtAuthState) => void): HTMLLIElement {
   if (!state) return simpleRow('YouTube Music', 'Checking…');
   const row = el('li', 'row account');
-  // A grey disc until there's a picture; an <img> without a src can draw a broken-image glyph.
   let avatar: HTMLElement = el('span', 'avatar');
   const who = el('span', 'who');
   let action: HTMLElement;
@@ -60,7 +60,6 @@ function youtubeRow(state: YtAuthState | null, refresh: (state: YtAuthState) => 
     if (state.problem) detail.title = state.problem;
     who.append(el('span', 'title', 'YouTube Music'), detail);
     if (state.connected) {
-      // Signed in, but the account couldn't be read: say why, and offer another try.
       action = el('button', 'action', 'Retry');
       action.onclick = () => void call('yt.authState', { refresh: true }).then(refresh);
     } else {
@@ -88,7 +87,6 @@ function youtubeRow(state: YtAuthState | null, refresh: (state: YtAuthState) => 
   return row;
 }
 
-/** A connected account's picture, or a grey disc. */
 function avatarOf(url: string | null | undefined): HTMLElement {
   if (!url) return el('span', 'avatar');
   const image = el('img', 'avatar');
@@ -105,7 +103,6 @@ function button(text: string, onClick: () => void, title?: string): HTMLElement 
   return action;
 }
 
-/** Spotify: the browser's open.spotify.com session, as for YouTube. */
 function spotifyRow(state: SpotifyAuthState | null): HTMLLIElement {
   if (!state) return simpleRow('Spotify', 'Checking…');
   const row = el('li', 'row account');
@@ -134,7 +131,6 @@ function spotifyRow(state: SpotifyAuthState | null): HTMLLIElement {
   return row;
 }
 
-/** Discord: connect on the extension's own page; presence itself is switched on in the web player. */
 function discordRow(state: DiscordState | null): HTMLLIElement | null {
   if (state && !state.available) return null;
   if (!state) return simpleRow('Discord', 'Checking…');
@@ -167,7 +163,7 @@ let youtubeState: YtAuthState | null = null;
 let spotifyState: SpotifyAuthState | null = null;
 let discordStateNow: DiscordState | null = null;
 
-function render(): void {
+function renderIntegrations(): void {
   const youtube = youtubeRow(youtubeState, setYoutube) as HTMLLIElement & { problemRow?: HTMLLIElement };
   const discord = discordRow(discordStateNow);
   list.replaceChildren(
@@ -180,24 +176,431 @@ function render(): void {
 
 function setYoutube(state: YtAuthState): void {
   youtubeState = state;
-  render();
+  renderIntegrations();
 }
 function setSpotify(state: SpotifyAuthState): void {
   spotifyState = state;
-  render();
+  renderIntegrations();
 }
 function setDiscord(state: DiscordState): void {
   discordStateNow = state;
-  render();
+  renderIntegrations();
 }
 
-document.getElementById('version')!.textContent = `v${browser.runtime.getManifest().version}`;
-const site = document.getElementById('site') as HTMLAnchorElement;
-site.href = __SITE_ORIGINS__[0] ?? '#';
+// ---- Main App Initializer ----------------------------------------------------
 
-render();
-call('yt.authState', {})
-  .then(setYoutube)
-  .catch(() => list.replaceChildren(simpleRow('YouTube Music', 'Couldn’t read the session')));
-call('spotify.authState', {}).then(setSpotify).catch(() => undefined);
-call('discord.state', {}).then(setDiscord).catch(() => undefined);
+document.addEventListener('DOMContentLoaded', async () => {
+  // Elements
+  const ringProgress = document.getElementById('ringProgress') as SVGCircleElement | null;
+  const timeDisplay = document.getElementById('timeDisplay')!;
+  const sessionBadge = document.getElementById('sessionBadge')!;
+  const cycleText = document.getElementById('cycleText')!;
+  const cycleDots = document.getElementById('cycleDots')!;
+
+  const btnTogglePlay = document.getElementById('btnTogglePlay')!;
+  const iconPlay = document.getElementById('iconPlay')!;
+  const iconPause = document.getElementById('iconPause')!;
+  const btnReset = document.getElementById('btnReset')!;
+  const btnSkip = document.getElementById('btnSkip')!;
+
+  const modeTabs = document.querySelectorAll<HTMLButtonElement>('.mode-tab');
+  const modeSelector = document.querySelector('.mode-selector') as HTMLElement | null;
+
+  // BitChord Integration elements
+  const bcArtwork = document.getElementById('bcArtwork') as HTMLImageElement;
+  const bcEqBars = document.getElementById('bcEqBars')!;
+  const bcTrackTitle = document.getElementById('bcTrackTitle')!;
+  const bcTrackArtist = document.getElementById('bcTrackArtist')!;
+  const bcStatusPill = document.getElementById('bcStatusPill')!;
+  const bcStatusText = document.getElementById('bcStatusText')!;
+
+  const btnBcPrev = document.getElementById('btnBcPrev')!;
+  const btnBcToggle = document.getElementById('btnBcToggle')!;
+  const bcMiniPlay = document.getElementById('bcMiniPlay')!;
+  const bcMiniPause = document.getElementById('bcMiniPause')!;
+  const btnBcNext = document.getElementById('btnBcNext')!;
+  const btnOpenWeb = document.getElementById('btnOpenWeb')!;
+
+  // Settings modal elements
+  const btnSettings = document.getElementById('btnSettings')!;
+  const settingsModal = document.getElementById('settingsModal')!;
+  const btnCloseSettings = document.getElementById('btnCloseSettings')!;
+  const btnSaveSettings = document.getElementById('btnSaveSettings')!;
+
+  const presetPills = document.querySelectorAll<HTMLButtonElement>('.preset-pill');
+  const inpWorkMin = document.getElementById('inpWorkMin') as HTMLInputElement;
+  const rangeWork = document.getElementById('rangeWork') as HTMLInputElement;
+  const inpShortMin = document.getElementById('inpShortMin') as HTMLInputElement;
+  const rangeShort = document.getElementById('rangeShort') as HTMLInputElement;
+  const inpLongMin = document.getElementById('inpLongMin') as HTMLInputElement;
+  const rangeLong = document.getElementById('rangeLong') as HTMLInputElement;
+  const inpCycleInterval = document.getElementById('inpCycleInterval') as HTMLInputElement;
+
+  const chkAutoPlayBreak = document.getElementById('chkAutoPlayBreak') as HTMLInputElement;
+  const chkPauseFocus = document.getElementById('chkPauseFocus') as HTMLInputElement;
+  const chkAutoOpenTab = document.getElementById('chkAutoOpenTab') as HTMLInputElement;
+  const chkSoundAlerts = document.getElementById('chkSoundAlerts') as HTMLInputElement;
+  const inpBitchordUrl = document.getElementById('inpBitchordUrl') as HTMLInputElement;
+
+  const radius = ringProgress?.r?.baseVal?.value || 76;
+  const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * radius;
+  if (ringProgress) {
+    ringProgress.style.strokeDasharray = `${CIRCLE_CIRCUMFERENCE} ${CIRCLE_CIRCUMFERENCE}`;
+  }
+
+  // Version and site link
+  document.getElementById('version')!.textContent = `v${browser.runtime.getManifest().version}`;
+  const site = document.getElementById('site') as HTMLAnchorElement;
+  if (site) site.href = __SITE_ORIGINS__[0] ?? 'https://bitchord-8bw.pages.dev/home';
+
+  // Dock View Mode Toggle
+  const btnToggleDock = document.getElementById('btnToggleDock');
+  const iconDockExpand = document.getElementById('iconDockExpand');
+  const iconDockCollapse = document.getElementById('iconDockCollapse');
+  const appContainer = document.getElementById('appContainer') || document.querySelector('.app-container');
+
+  if (btnToggleDock && appContainer) {
+    void browser.storage.local.get('isCompactDock').then((data: any) => {
+      if (data?.isCompactDock) {
+        appContainer.classList.add('compact-dock');
+        iconDockExpand?.classList.add('hidden');
+        iconDockCollapse?.classList.remove('hidden');
+      }
+    });
+
+    btnToggleDock.addEventListener('click', () => {
+      const isCompact = appContainer.classList.toggle('compact-dock');
+      if (isCompact) {
+        iconDockExpand?.classList.add('hidden');
+        iconDockCollapse?.classList.remove('hidden');
+      } else {
+        iconDockExpand?.classList.remove('hidden');
+        iconDockCollapse?.classList.add('hidden');
+      }
+      void browser.storage.local.set({ isCompactDock: isCompact });
+    });
+  }
+
+  // Top navigation tabs (Pomodoro vs Integrations)
+  const navTabPomodoro = document.getElementById('navTabPomodoro');
+  const navTabIntegrations = document.getElementById('navTabIntegrations');
+  const viewPomodoro = document.getElementById('viewPomodoro');
+  const viewIntegrations = document.getElementById('viewIntegrations');
+
+  if (navTabPomodoro && navTabIntegrations && viewPomodoro && viewIntegrations) {
+    navTabPomodoro.addEventListener('click', () => {
+      navTabPomodoro.classList.add('active');
+      navTabIntegrations.classList.remove('active');
+      viewPomodoro.classList.remove('hidden');
+      viewIntegrations.classList.add('hidden');
+    });
+
+    navTabIntegrations.addEventListener('click', () => {
+      navTabIntegrations.classList.add('active');
+      navTabPomodoro.classList.remove('active');
+      viewIntegrations.classList.remove('hidden');
+      viewPomodoro.classList.add('hidden');
+    });
+  }
+
+  let currentTimer: PomodoroTimer | null = null;
+  let currentSettings: PomodoroSettings | null = null;
+  let isBitChordPlaying = false;
+  let hasBitChordTab = false;
+
+  // 1. Initial State Load
+  await fetchState();
+  setInterval(fetchState, 1000);
+
+  // Initialize Integrations accounts
+  renderIntegrations();
+  call('yt.authState', {})
+    .then(setYoutube)
+    .catch(() => list.replaceChildren(simpleRow('YouTube Music', 'Couldn’t read the session')));
+  call('spotify.authState', {}).then(setSpotify).catch(() => undefined);
+  call('discord.state', {}).then(setDiscord).catch(() => undefined);
+
+  // 2. Fetch Pomodoro state from background
+  async function fetchState() {
+    try {
+      const response: any = await browser.runtime.sendMessage({ action: 'get_state' });
+      if (response && response.timer) {
+        currentTimer = response.timer;
+        currentSettings = response.settings;
+        if (currentSettings && (!currentSettings.bitchordUrl || currentSettings.bitchordUrl.includes('bitchord.in'))) {
+          currentSettings.bitchordUrl = 'https://bitchord-8bw.pages.dev/home';
+        }
+        hasBitChordTab = response.hasBitChordTab;
+        if (response.playerStatus) {
+          applyPlayerStatus(response.playerStatus);
+        }
+        renderTimer(currentTimer, currentSettings);
+      }
+    } catch {
+      // background might be briefly asleep
+    }
+  }
+
+  function applyPlayerStatus(st: Partial<PlayerStatusPayload>) {
+    if (!st) return;
+    hasBitChordTab = true;
+    isBitChordPlaying = !!st.isPlaying;
+
+    if (st.title) bcTrackTitle.textContent = st.title;
+    if (st.artist) bcTrackArtist.textContent = st.artist;
+    if (st.artwork) bcArtwork.src = st.artwork;
+
+    updateBitChordTabStatus();
+  }
+
+  // 3. Render Timer and UI
+  function renderTimer(timer: PomodoroTimer | null, settings: PomodoroSettings | null) {
+    if (!timer) return;
+
+    // Time text
+    const mins = Math.floor(timer.remainingSeconds / 60);
+    const secs = timer.remainingSeconds % 60;
+    timeDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    // Ring progress calculation
+    if (ringProgress) {
+      const progressFraction = timer.totalSeconds > 0
+        ? (timer.totalSeconds - timer.remainingSeconds) / timer.totalSeconds
+        : 0;
+      const offset = CIRCLE_CIRCUMFERENCE * (1 - progressFraction);
+      ringProgress.style.strokeDashoffset = String(offset);
+    }
+
+    // Mode tabs and theme styling
+    const modes = ['work', 'shortBreak', 'longBreak'];
+    const activeIndex = modes.indexOf(timer.mode);
+    modeSelector?.setAttribute('data-active-index', String(activeIndex));
+
+    modeTabs.forEach((tab) => {
+      tab.classList.toggle('active', tab.getAttribute('data-mode') === timer.mode);
+    });
+
+    if (timer.mode === 'work') {
+      sessionBadge.textContent = 'FOCUS SESSION';
+      document.documentElement.style.setProperty('--activeAccent', 'var(--keyColor)');
+      document.documentElement.style.setProperty('--activeAccentGlow', 'var(--keyColorGlow)');
+    } else if (timer.mode === 'shortBreak') {
+      sessionBadge.textContent = 'SHORT BREAK';
+      document.documentElement.style.setProperty('--activeAccent', 'var(--breakGreen)');
+      document.documentElement.style.setProperty('--activeAccentGlow', 'var(--breakGreenGlow)');
+    } else {
+      sessionBadge.textContent = 'LONG BREAK';
+      document.documentElement.style.setProperty('--activeAccent', 'var(--breakGreen)');
+      document.documentElement.style.setProperty('--activeAccentGlow', 'var(--breakGreenGlow)');
+    }
+
+    // Play/Pause button icons
+    if (timer.isRunning) {
+      iconPlay.classList.add('hidden');
+      iconPause.classList.remove('hidden');
+    } else {
+      iconPlay.classList.remove('hidden');
+      iconPause.classList.add('hidden');
+    }
+
+    // Cycle dots
+    const totalInterval = settings?.longBreakInterval || 4;
+    cycleText.textContent = `Session ${timer.cycle} of ${totalInterval}`;
+    cycleDots.innerHTML = '';
+    for (let i = 1; i <= totalInterval; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      if (i < timer.cycle) dot.classList.add('completed');
+      else if (i === timer.cycle) dot.classList.add('active');
+      cycleDots.appendChild(dot);
+    }
+
+    updateBitChordTabStatus();
+  }
+
+  function updateBitChordTabStatus() {
+    if (hasBitChordTab) {
+      bcStatusPill.className = 'bc-status-pill online';
+      bcStatusText.textContent = isBitChordPlaying ? 'Playing' : 'Connected';
+    } else {
+      bcStatusPill.className = 'bc-status-pill';
+      bcStatusText.textContent = 'Web Ready';
+    }
+
+    if (isBitChordPlaying) {
+      bcEqBars.classList.remove('hidden');
+      bcMiniPlay.classList.add('hidden');
+      bcMiniPause.classList.remove('hidden');
+    } else {
+      bcEqBars.classList.add('hidden');
+      bcMiniPlay.classList.remove('hidden');
+      bcMiniPause.classList.add('hidden');
+    }
+  }
+
+  // 4. Primary Transport Controls
+  btnTogglePlay.addEventListener('click', async () => {
+    if (!currentTimer) return;
+    const action = currentTimer.isRunning ? 'pause_timer' : 'start_timer';
+    const res: any = await browser.runtime.sendMessage({ action });
+    if (res?.timer) {
+      currentTimer = res.timer;
+      renderTimer(currentTimer, currentSettings);
+    }
+  });
+
+  btnReset.addEventListener('click', async () => {
+    const res: any = await browser.runtime.sendMessage({ action: 'reset_timer' });
+    if (res?.timer) {
+      currentTimer = res.timer;
+      renderTimer(currentTimer, currentSettings);
+    }
+  });
+
+  btnSkip.addEventListener('click', async () => {
+    const res: any = await browser.runtime.sendMessage({ action: 'skip_timer' });
+    if (res?.timer) {
+      currentTimer = res.timer;
+      renderTimer(currentTimer, currentSettings);
+    }
+  });
+
+  // Mode switcher click
+  modeTabs.forEach((tab) => {
+    tab.addEventListener('click', async () => {
+      const mode = tab.getAttribute('data-mode');
+      const res: any = await browser.runtime.sendMessage({ action: 'switch_mode', mode });
+      if (res?.timer) {
+        currentTimer = res.timer;
+        renderTimer(currentTimer, currentSettings);
+      }
+    });
+  });
+
+  // 5. BitChord Mini Player Controls
+  btnBcToggle.addEventListener('click', async () => {
+    const command = isBitChordPlaying ? 'pause' : 'play';
+    isBitChordPlaying = !isBitChordPlaying;
+    updateBitChordTabStatus();
+    await browser.runtime.sendMessage({ action: 'bitchord_action', command });
+  });
+
+  btnBcNext.addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ action: 'bitchord_action', command: 'next' });
+  });
+
+  btnBcPrev.addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ action: 'bitchord_action', command: 'previous' });
+  });
+
+  btnOpenWeb.addEventListener('click', () => {
+    const url = currentSettings?.bitchordUrl || 'https://bitchord-8bw.pages.dev/home';
+    void browser.tabs.create({ url });
+  });
+
+  // 6. Listen to live updates from background & content scripts
+  browser.runtime.onMessage.addListener((msg: any) => {
+    if (msg.action === 'bitchord_live_status' && msg.status) {
+      applyPlayerStatus(msg.status);
+    } else if (msg.action === 'timer_state_updated' && msg.timer) {
+      currentTimer = msg.timer;
+      renderTimer(currentTimer, currentSettings);
+    }
+  });
+
+  // 7. Settings Modal Handling
+  btnSettings.addEventListener('click', () => {
+    if (!currentSettings) return;
+    inpWorkMin.value = String(currentSettings.workDuration);
+    rangeWork.value = String(currentSettings.workDuration);
+    inpShortMin.value = String(currentSettings.shortBreakDuration);
+    rangeShort.value = String(currentSettings.shortBreakDuration);
+    inpLongMin.value = String(currentSettings.longBreakDuration);
+    rangeLong.value = String(currentSettings.longBreakDuration);
+    inpCycleInterval.value = String(currentSettings.longBreakInterval);
+
+    chkAutoPlayBreak.checked = currentSettings.autoPlayMusicOnBreak;
+    chkPauseFocus.checked = currentSettings.pauseMusicOnFocus;
+    chkAutoOpenTab.checked = currentSettings.autoOpenBitChord;
+    chkSoundAlerts.checked = currentSettings.soundAlerts;
+    inpBitchordUrl.value = currentSettings.bitchordUrl || 'https://bitchord-8bw.pages.dev/home';
+
+    settingsModal.classList.remove('hidden');
+  });
+
+  btnCloseSettings.addEventListener('click', () => {
+    settingsModal.classList.add('hidden');
+  });
+
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) {
+      settingsModal.classList.add('hidden');
+    }
+  });
+
+  // Slider <-> Input synchronization
+  const bindPair = (input: HTMLInputElement, range: HTMLInputElement) => {
+    input.addEventListener('input', () => {
+      range.value = input.value;
+      clearPresetActive();
+    });
+    range.addEventListener('input', () => {
+      input.value = range.value;
+      clearPresetActive();
+    });
+  };
+
+  bindPair(inpWorkMin, rangeWork);
+  bindPair(inpShortMin, rangeShort);
+  bindPair(inpLongMin, rangeLong);
+
+  function clearPresetActive() {
+    presetPills.forEach((p) => p.classList.remove('active'));
+  }
+
+  // Preset pill selection
+  presetPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      clearPresetActive();
+      pill.classList.add('active');
+      const w = pill.dataset.work || '25';
+      const s = pill.dataset.short || '5';
+      const l = pill.dataset.long || '15';
+
+      inpWorkMin.value = w;
+      rangeWork.value = w;
+      inpShortMin.value = s;
+      rangeShort.value = s;
+      inpLongMin.value = l;
+      rangeLong.value = l;
+    });
+  });
+
+  // Save Settings
+  btnSaveSettings.addEventListener('click', async () => {
+    const updated: Partial<PomodoroSettings> = {
+      workDuration: parseInt(inpWorkMin.value, 10) || 25,
+      shortBreakDuration: parseInt(inpShortMin.value, 10) || 5,
+      longBreakDuration: parseInt(inpLongMin.value, 10) || 15,
+      longBreakInterval: parseInt(inpCycleInterval.value, 10) || 4,
+      autoPlayMusicOnBreak: chkAutoPlayBreak.checked,
+      pauseMusicOnFocus: chkPauseFocus.checked,
+      autoOpenBitChord: chkAutoOpenTab.checked,
+      soundAlerts: chkSoundAlerts.checked,
+      bitchordUrl: inpBitchordUrl.value.trim() || 'https://bitchord-8bw.pages.dev/home',
+    };
+
+    const res: any = await browser.runtime.sendMessage({
+      action: 'update_settings',
+      settings: updated,
+    });
+
+    if (res?.settings) {
+      currentSettings = res.settings;
+      if (res.timer) currentTimer = res.timer;
+      renderTimer(currentTimer, currentSettings);
+    }
+
+    settingsModal.classList.add('hidden');
+  });
+});

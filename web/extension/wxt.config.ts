@@ -33,7 +33,15 @@ export default defineConfig({
     // the cookies themselves never leave the extension (lib/ytAuth.ts).
     // `scripting` reads the Discord token from a discord.com tab, and only on
     // the user's "Connect Discord" (lib/discord.ts).
-    permissions: ['storage', 'declarativeNetRequest', 'cookies', ...(DISCORD_PRESENCE ? ['scripting'] : [])],
+    permissions: [
+      'storage',
+      'declarativeNetRequest',
+      'cookies',
+      'alarms',
+      'notifications',
+      ...(browser !== 'firefox' ? ['sidePanel'] : []),
+      ...(DISCORD_PRESENCE ? ['scripting'] : []),
+    ],
     // YouTube (phases 3 and 5) and Spotify (phase 9; the sp_dc cookie is read
     // and used here only, lib/spotify.ts). The site's own origins are listed
     // because header rules need host access to the initiator as well as the
@@ -67,6 +75,9 @@ export default defineConfig({
       : {
           // Chromium pages message the extension directly.
           externally_connectable: { matches: matchPatternsFor(SITE_ORIGINS) },
+          side_panel: {
+            default_path: 'popup/index.html',
+          },
           // Pins the unpacked extension's id so the page can address it
           // (scripts/gen-dev-key.mjs). The Web Store assigns its own id and
           // refuses a `key`, so store builds leave it out.
@@ -74,7 +85,9 @@ export default defineConfig({
         }),
   }),
   // The connect page only exists in builds that include Discord.
-  filterEntrypoints: DISCORD_PRESENCE ? undefined : ['background', 'popup', 'grant', 'relay'],
+  filterEntrypoints: DISCORD_PRESENCE
+    ? undefined
+    : ['background', 'popup', 'grant', 'relay', 'pomodoro-agent', 'pomodoro-bridge'],
   hooks: {
     // Firefox only: the relay content script runs on the site's origins.
     'build:manifestGenerated': (wxt, manifest) => {

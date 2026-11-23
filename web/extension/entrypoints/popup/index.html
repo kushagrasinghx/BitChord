@@ -2,20 +2,342 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>BitChord</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&family=JetBrains+Mono:wght@500;700&display=swap"
+    />
   </head>
   <body>
-    <header class="header">
-      <img class="logo" src="/icon/32.png" width="24" height="24" alt="" />
-      <span class="name">BitChord</span>
-      <span class="version" id="version"></span>
-    </header>
-    <ul class="group" id="integrations"></ul>
-    <a class="site" id="site" target="_blank" rel="noreferrer">Open BitChord</a>
+    <div class="app-container" id="appContainer">
+      <div class="ambient-glow"></div>
+
+      <!-- Unified Header -->
+      <header class="header">
+        <div class="brand">
+          <div class="logo-box">
+            <img class="logo" src="/icon/32.png" width="18" height="18" alt="BitChord" />
+          </div>
+          <div class="brand-text">
+            <span class="app-name">BitChord</span>
+            <span class="app-sub" id="version">v0.4.4</span>
+          </div>
+        </div>
+
+        <!-- Top View Switcher -->
+        <div class="top-nav-switcher">
+          <button id="navTabPomodoro" class="nav-tab active" title="Pomodoro Timer">
+            <span class="tab-label-full">Timer</span>
+            <span class="tab-label-mini">⏱</span>
+          </button>
+          <button id="navTabIntegrations" class="nav-tab" title="Connected Accounts">
+            <span class="tab-label-full">Accounts</span>
+            <span class="tab-label-mini">👤</span>
+          </button>
+        </div>
+
+        <div class="header-actions">
+          <button id="btnToggleDock" class="icon-btn" title="Toggle Compact Dock View">
+            <svg id="iconDockExpand" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+            <svg id="iconDockCollapse" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="15" y1="3" x2="15" y2="21"></line>
+            </svg>
+          </button>
+          <button id="btnOpenWeb" class="icon-btn" title="Open BitChord Web Player">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </button>
+          <button id="btnSettings" class="icon-btn" title="Timer & Music Settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- VIEW 1: POMODORO TIMER -->
+      <div id="viewPomodoro" class="view-panel">
+        <!-- Segmented Mode Control -->
+        <nav class="mode-selector">
+          <button class="mode-tab active" data-mode="work">
+            <span class="mode-full">Focus</span>
+            <span class="mode-short">Focus</span>
+            <span class="mode-mini">F</span>
+          </button>
+          <button class="mode-tab" data-mode="shortBreak">
+            <span class="mode-full">Short Break</span>
+            <span class="mode-short">Short</span>
+            <span class="mode-mini">SB</span>
+          </button>
+          <button class="mode-tab" data-mode="longBreak">
+            <span class="mode-full">Long Break</span>
+            <span class="mode-short">Long</span>
+            <span class="mode-mini">LB</span>
+          </button>
+          <div class="mode-indicator"></div>
+        </nav>
+
+        <!-- Circular Timer Section -->
+        <main class="timer-section">
+          <div class="timer-dial">
+            <svg class="progress-ring" viewBox="0 0 180 180">
+              <circle class="ring-track" cx="90" cy="90" r="76" />
+              <circle class="ring-progress" id="ringProgress" cx="90" cy="90" r="76" />
+            </svg>
+
+            <div class="timer-content">
+              <span class="session-badge" id="sessionBadge">FOCUS SESSION</span>
+              <div class="time-display" id="timeDisplay">25:00</div>
+              <div class="cycle-indicator" id="cycleIndicator" title="Cycle progress">
+                <span class="cycle-text" id="cycleText">Session 1 of 4</span>
+                <div class="cycle-dots" id="cycleDots">
+                  <span class="dot active"></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transport Controls -->
+          <div class="transport-controls">
+            <button id="btnReset" class="ctrl-btn secondary" title="Reset Session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+            </button>
+
+            <button id="btnTogglePlay" class="ctrl-btn primary" title="Start Focus Session">
+              <svg id="iconPlay" class="ctrl-icon-play" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M10.345 23.287c.415 0 .763-.15 1.22-.407l12.742-7.404c.838-.481 1.178-.855 1.178-1.46 0-.599-.34-.972-1.178-1.462L11.565 5.158c-.457-.265-.805-.407-1.22-.407-.789 0-1.345.606-1.345 1.57V21.71c0 .971.556 1.577 1.345 1.577z"/>
+              </svg>
+              <svg id="iconPause" class="ctrl-icon-pause hidden" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M13.293 22.772c.955 0 1.436-.481 1.436-1.436V6.677c0-.98-.481-1.427-1.436-1.427h-2.457c-.954 0-1.436.473-1.436 1.427v14.66c-.008.954.473 1.435 1.436 1.435h2.457zm7.87 0c.954 0 1.427-.481 1.427-1.436V6.677c0-.98-.473-1.427-1.428-1.427h-2.465c-.955 0-1.428.473-1.428 1.427v14.66c0 .954.473 1.435 1.428 1.435h2.465z"/>
+              </svg>
+            </button>
+
+            <button id="btnSkip" class="ctrl-btn secondary" title="Skip to Next Session">
+              <svg viewBox="2 0 28 28" fill="currentColor">
+                <path d="M18.14 20.68c.365 0 .672-.107 1.038-.323l8.508-4.997c.623-.365.938-.814.938-1.37 0-.564-.307-.988-.938-1.361l-8.508-4.997c-.366-.216-.68-.324-1.046-.324-.73 0-1.337.556-1.337 1.569v4.773c-.108-.399-.406-.73-.904-1.021L7.382 7.632c-.357-.216-.672-.324-1.037-.324-.73 0-1.345.556-1.345 1.569v10.235c0 1.013.614 1.569 1.345 1.569.365 0 .68-.108 1.037-.324l8.509-4.997c.49-.29.796-.631.904-1.038v4.79c0 1.013.615 1.569 1.345 1.569z"/>
+              </svg>
+            </button>
+          </div>
+        </main>
+
+        <!-- BitChord Live Integration Card -->
+        <footer class="bitchord-card">
+          <div class="bc-artwork-container">
+            <img id="bcArtwork" src="/icon/32.png" alt="Artwork" class="bc-art" />
+            <div class="bc-eq-bars hidden" id="bcEqBars">
+              <span class="bar"></span>
+              <span class="bar"></span>
+              <span class="bar"></span>
+            </div>
+          </div>
+
+          <div class="bc-info">
+            <div class="bc-title-row">
+              <span class="bc-title" id="bcTrackTitle">BitChord Player</span>
+              <span class="bc-status-pill" id="bcStatusPill">
+                <span class="status-dot"></span>
+                <span id="bcStatusText">Ready</span>
+              </span>
+            </div>
+            <span class="bc-artist" id="bcTrackArtist">Autoplay on break is active</span>
+          </div>
+
+          <div class="bc-mini-controls">
+            <button id="btnBcPrev" class="bc-ctrl-icon" title="Previous Track">
+              <svg width="14" height="14" viewBox="2 0 28 28" fill="currentColor" style="transform: scaleX(-1)">
+                <path d="M18.14 20.68c.365 0 .672-.107 1.038-.323l8.508-4.997c.623-.365.938-.814.938-1.37 0-.564-.307-.988-.938-1.361l-8.508-4.997c-.366-.216-.68-.324-1.046-.324-.73 0-1.337.556-1.337 1.569v4.773c-.108-.399-.406-.73-.904-1.021L7.382 7.632c-.357-.216-.672-.324-1.037-.324-.73 0-1.345.556-1.345 1.569v10.235c0 1.013.614 1.569 1.345 1.569.365 0 .68-.108 1.037-.324l8.509-4.997c.49-.29.796-.631.904-1.038v4.79c0 1.013.615 1.569 1.345 1.569z"/>
+              </svg>
+            </button>
+            <button id="btnBcToggle" class="bc-ctrl-icon play" title="Play/Pause BitChord">
+              <svg id="bcMiniPlay" width="15" height="15" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M10.345 23.287c.415 0 .763-.15 1.22-.407l12.742-7.404c.838-.481 1.178-.855 1.178-1.46 0-.599-.34-.972-1.178-1.462L11.565 5.158c-.457-.265-.805-.407-1.22-.407-.789 0-1.345.606-1.345 1.57V21.71c0 .971.556 1.577 1.345 1.577z"/>
+              </svg>
+              <svg id="bcMiniPause" class="hidden" width="15" height="15" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M13.293 22.772c.955 0 1.436-.481 1.436-1.436V6.677c0-.98-.481-1.427-1.436-1.427h-2.457c-.954 0-1.436.473-1.436 1.427v14.66c-.008.954.473 1.435 1.436 1.435h2.457zm7.87 0c.954 0 1.427-.481 1.427-1.436V6.677c0-.98-.473-1.427-1.428-1.427h-2.465c-.955 0-1.428.473-1.428 1.427v14.66c0 .954.473 1.435 1.428 1.435h2.465z"/>
+              </svg>
+            </button>
+            <button id="btnBcNext" class="bc-ctrl-icon" title="Next Track">
+              <svg width="14" height="14" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M18.14 20.68c.365 0 .672-.107 1.038-.323l8.508-4.997c.623-.365.938-.814.938-1.37 0-.564-.307-.988-.938-1.361l-8.508-4.997c-.366-.216-.68-.324-1.046-.324-.73 0-1.337.556-1.337 1.569v4.773c-.108-.399-.406-.73-.904-1.021L7.382 7.632c-.357-.216-.672-.324-1.037-.324-.73 0-1.345.556-1.345 1.569v10.235c0 1.013.614 1.569 1.345 1.569.365 0 .68-.108 1.037-.324l8.509-4.997c.49-.29.796-.631.904-1.038v4.79c0 1.013.615 1.569 1.345 1.569z"/>
+              </svg>
+            </button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- VIEW 2: ORIGINAL BITCHORD INTEGRATIONS -->
+      <div id="viewIntegrations" class="view-panel hidden">
+        <div class="integrations-container">
+          <p class="section-hint">Connected sessions keep your tokens safely inside the browser extension.</p>
+          <ul class="group" id="integrations"></ul>
+          <a class="site" id="site" target="_blank" rel="noreferrer">Open BitChord Web Player</a>
+        </div>
+      </div>
+
+      <!-- Custom Time Settings Modal -->
+      <div class="modal-backdrop hidden" id="settingsModal">
+        <div class="modal-card">
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <h3 class="modal-title">Timer & Audio Settings</h3>
+            </div>
+            <button class="modal-close" id="btnCloseSettings" title="Close Settings">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Preset Pills -->
+            <div class="settings-group">
+              <label class="group-label">Quick Presets</label>
+              <div class="presets-row">
+                <button class="preset-pill active" data-work="25" data-short="5" data-long="15">25 / 5</button>
+                <button class="preset-pill" data-work="50" data-short="10" data-long="20">50 / 10</button>
+                <button class="preset-pill" data-work="15" data-short="3" data-long="10">15 / 3</button>
+                <button class="preset-pill" data-work="90" data-short="20" data-long="30">90 / 20</button>
+              </div>
+            </div>
+
+            <!-- Custom Duration Inputs -->
+            <div class="settings-group">
+              <label class="group-label">Custom Durations</label>
+              
+              <div class="setting-item">
+                <div class="setting-row">
+                  <span class="setting-name">Focus Time</span>
+                  <div class="num-stepper">
+                    <input type="number" id="inpWorkMin" min="1" max="180" value="25" />
+                    <span class="unit">min</span>
+                  </div>
+                </div>
+                <input type="range" id="rangeWork" min="1" max="120" value="25" class="slider" />
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-row">
+                  <span class="setting-name">Short Break</span>
+                  <div class="num-stepper">
+                    <input type="number" id="inpShortMin" min="1" max="60" value="5" />
+                    <span class="unit">min</span>
+                  </div>
+                </div>
+                <input type="range" id="rangeShort" min="1" max="60" value="5" class="slider" />
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-row">
+                  <span class="setting-name">Long Break</span>
+                  <div class="num-stepper">
+                    <input type="number" id="inpLongMin" min="1" max="90" value="15" />
+                    <span class="unit">min</span>
+                  </div>
+                </div>
+                <input type="range" id="rangeLong" min="1" max="90" value="15" class="slider" />
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-row">
+                  <span class="setting-name">Long Break Interval</span>
+                  <div class="num-stepper">
+                    <input type="number" id="inpCycleInterval" min="2" max="10" value="4" />
+                    <span class="unit">cycles</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- BitChord Integration Features -->
+            <div class="settings-group">
+              <label class="group-label">BitChord Audio Integration</label>
+
+              <div class="toggle-row highlight">
+                <div class="toggle-info">
+                  <div class="toggle-title-row">
+                    <span class="toggle-title">Autoplay Music on Break</span>
+                    <span class="badge-rec">Essential</span>
+                  </div>
+                  <span class="toggle-desc">Automatically starts BitChord playback when break begins.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkAutoPlayBreak" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-title">Pause Music on Focus</span>
+                  <span class="toggle-desc">Automatically pauses BitChord when focus session starts.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkPauseFocus" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-title">Auto-open Web Player</span>
+                  <span class="toggle-desc">Opens BitChord in a new tab if not already open.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkAutoOpenTab" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-title">Sound Chimes</span>
+                  <span class="toggle-desc">Play smooth audio notifications on session transitions.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkSoundAlerts" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="setting-item url-item">
+                <div class="setting-row">
+                  <span class="setting-name">BitChord Web URL</span>
+                </div>
+                <input type="text" id="inpBitchordUrl" class="text-input" value="https://bitchord-8bw.pages.dev/home" placeholder="https://bitchord-8bw.pages.dev/home" />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button id="btnSaveSettings" class="btn-save">Save & Apply Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

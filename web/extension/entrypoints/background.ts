@@ -16,6 +16,7 @@ import { installRules } from '../lib/rules';
 import { authState, invalidateAccounts, isSessionCookie, selectChannel, setConnected } from '../lib/ytAuth';
 import * as spotify from '../lib/spotify';
 import { ytFetch } from '../lib/ytFetch';
+import { initPomodoro, handlePomodoroMessage } from '../lib/pomodoro';
 
 declare const __SITE_ORIGINS__: string[];
 
@@ -233,6 +234,9 @@ function onCookieChanged({ cookie }: Browser.cookies.CookieChangeInfo): void {
 }
 
 export default defineBackground(() => {
+  // Initialize Pomodoro focus cycle and music autoplay
+  initPomodoro();
+
   // Dynamic rules persist, but are rewritten on every install and startup so
   // an update that changes them never leaves stale ones behind.
   const refreshRules = () =>
@@ -249,6 +253,10 @@ export default defineBackground(() => {
   // URL is the page's origin (or the popup's).
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return false;
+    if (message && typeof message === 'object' && 'action' in message) {
+      void handlePomodoroMessage(message, sender, sendResponse);
+      return true;
+    }
     return listener(message, sender, sendResponse);
   });
   browser.runtime.onConnect.addListener((port) => {

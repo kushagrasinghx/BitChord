@@ -5917,19 +5917,16 @@ private fun BitChordApp(
         }
 
         if (showLastfmLogin) {
-            var usernameInput by remember { mutableStateOf("") }
-            var passwordInput by remember { mutableStateOf("") }
+            var lastfmToken by remember { mutableStateOf<String?>(null) }
             var lastfmError by remember { mutableStateOf<String?>(null) }
             var lastfmLoading by remember { mutableStateOf(false) }
+            val context = LocalContext.current
             LastfmLoginAlert(
                 hazeState = hazeState,
-                usernameInput = usernameInput,
-                onUsernameInputChange = { usernameInput = it },
-                passwordInput = passwordInput,
-                onPasswordInputChange = { passwordInput = it },
+                token = lastfmToken,
                 error = lastfmError,
                 loading = lastfmLoading,
-                onSignIn = {
+                onAuthorizeInBrowser = {
                     lastfmLoading = true
                     lastfmError = null
                     scope.launch {
@@ -5938,7 +5935,29 @@ private fun BitChordApp(
                                 apiKey = AppSettings.lastfmApiKey.value,
                                 secret = AppSettings.lastfmSecret.value,
                             )
-                            LastFM.getMobileSession(usernameInput.trim(), passwordInput)
+                            val token = lastfmToken ?: LastFM.getToken().getOrThrow().token
+                            lastfmToken = token
+                            val authUrl = LastFM.getAuthUrl(token)
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            lastfmError = e.message ?: context.getString(R.string.login_failed)
+                        } finally {
+                            lastfmLoading = false
+                        }
+                    }
+                },
+                onCompleteLogin = {
+                    val token = lastfmToken ?: return@LastfmLoginAlert
+                    lastfmLoading = true
+                    lastfmError = null
+                    scope.launch {
+                        try {
+                            LastFM.initialize(
+                                apiKey = AppSettings.lastfmApiKey.value,
+                                secret = AppSettings.lastfmSecret.value,
+                            )
+                            LastFM.getSession(token)
                                 .onSuccess { auth ->
                                     AppSettings.setLastfmSessionKey(auth.session.key)
                                     AppSettings.setLastfmUsername(auth.session.name)
@@ -5946,7 +5965,11 @@ private fun BitChordApp(
                                     showLastfmLogin = false
                                 }
                                 .onFailure { e ->
-                                    lastfmError = e.message ?: context.getString(R.string.login_failed)
+                                    lastfmError = if (e is LastFM.LastFmException && (e.code == 14 || e.code == 4)) {
+                                        context.getString(R.string.lastfm_oauth_error_pending)
+                                    } else {
+                                        e.message ?: context.getString(R.string.login_failed)
+                                    }
                                 }
                         } catch (e: Exception) {
                             lastfmError = e.message ?: context.getString(R.string.login_failed)

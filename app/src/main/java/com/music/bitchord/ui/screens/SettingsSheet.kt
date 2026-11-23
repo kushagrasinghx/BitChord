@@ -2147,8 +2147,7 @@ fun SettingsScreen(
     }
 
     if (showLastfmLoginDialog) {
-        var usernameInput by remember { mutableStateOf("") }
-        var passwordInput by remember { mutableStateOf("") }
+        var lastfmToken by remember { mutableStateOf<String?>(null) }
         var lastfmError by remember { mutableStateOf<String?>(null) }
         var lastfmLoading by remember { mutableStateOf(false) }
         AlertDialog(
@@ -2164,55 +2163,79 @@ fun SettingsScreen(
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                     }
-                    OutlinedTextField(
-                        value = usernameInput,
-                        onValueChange = { usernameInput = it },
-                        label = { Text(stringResource(R.string.username)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = passwordInput,
-                        onValueChange = { passwordInput = it },
-                        label = { Text(stringResource(R.string.password)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        text = if (lastfmToken == null) {
+                            stringResource(R.string.lastfm_oauth_description)
+                        } else {
+                            stringResource(R.string.lastfm_oauth_waiting)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        lastfmLoading = true
-                        lastfmError = null
-                        scrobbleScope.launch {
-                            try {
-                                // Use the credentials supplied for this build.
-                                LastFM.initialize(
-                                    apiKey = AppSettings.lastfmApiKey.value,
-                                    secret = AppSettings.lastfmSecret.value,
-                                )
-                                LastFM.getMobileSession(usernameInput.trim(), passwordInput)
-                                    .onSuccess { auth ->
-                                        AppSettings.setLastfmSessionKey(auth.session.key)
-                                        AppSettings.setLastfmUsername(auth.session.name)
-                                        AppSettings.setLastfmEnabled(true)
-                                        showLastfmLoginDialog = false
-                                    }
-                                    .onFailure { e ->
-                                        lastfmError = e.message ?: context.getString(R.string.login_failed)
-                                    }
-                            } catch (e: Exception) {
-                                lastfmError = e.message ?: context.getString(R.string.login_failed)
-                            } finally {
-                                lastfmLoading = false
+                if (lastfmToken == null) {
+                    TextButton(
+                        onClick = {
+                            lastfmLoading = true
+                            lastfmError = null
+                            scrobbleScope.launch {
+                                try {
+                                    LastFM.initialize(
+                                        apiKey = AppSettings.lastfmApiKey.value,
+                                        secret = AppSettings.lastfmSecret.value,
+                                    )
+                                    val token = LastFM.getToken().getOrThrow().token
+                                    lastfmToken = token
+                                    val authUrl = LastFM.getAuthUrl(token)
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)))
+                                } catch (e: Exception) {
+                                    lastfmError = e.message ?: context.getString(R.string.login_failed)
+                                } finally {
+                                    lastfmLoading = false
+                                }
                             }
-                        }
-                    },
-                    enabled = !lastfmLoading && usernameInput.isNotBlank() && passwordInput.isNotBlank(),
-                ) {
-                    Text(stringResource(if (lastfmLoading) R.string.signing_in else R.string.sign_in))
+                        },
+                        enabled = !lastfmLoading,
+                    ) {
+                        Text(stringResource(if (lastfmLoading) R.string.signing_in else R.string.lastfm_authorize_in_browser))
+                    }
+                } else {
+                    TextButton(
+                        onClick = {
+                            lastfmLoading = true
+                            lastfmError = null
+                            scrobbleScope.launch {
+                                try {
+                                    LastFM.initialize(
+                                        apiKey = AppSettings.lastfmApiKey.value,
+                                        secret = AppSettings.lastfmSecret.value,
+                                    )
+                                    LastFM.getSession(lastfmToken!!)
+                                        .onSuccess { auth ->
+                                            AppSettings.setLastfmSessionKey(auth.session.key)
+                                            AppSettings.setLastfmUsername(auth.session.name)
+                                            AppSettings.setLastfmEnabled(true)
+                                            showLastfmLoginDialog = false
+                                        }
+                                        .onFailure { e ->
+                                            lastfmError = if (e is LastFM.LastFmException && (e.code == 14 || e.code == 4)) {
+                                                context.getString(R.string.lastfm_oauth_error_pending)
+                                            } else {
+                                                e.message ?: context.getString(R.string.login_failed)
+                                            }
+                                        }
+                                } catch (e: Exception) {
+                                    lastfmError = e.message ?: context.getString(R.string.login_failed)
+                                } finally {
+                                    lastfmLoading = false
+                                }
+                            }
+                        },
+                        enabled = !lastfmLoading,
+                    ) {
+                        Text(stringResource(if (lastfmLoading) R.string.signing_in else R.string.lastfm_complete_connection))
+                    }
                 }
             },
             dismissButton = {

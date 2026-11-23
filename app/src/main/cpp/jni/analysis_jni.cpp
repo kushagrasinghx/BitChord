@@ -34,6 +34,8 @@
 
 #include <jni.h>
 
+#include <new>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -111,6 +113,26 @@ void AppendField(std::string& out, const char* name, double value, bool first = 
   out += name;
   out += "\":";
   AppendNumber(out, value);
+}
+
+jfloatArray ResampleToJava(
+    JNIEnv* env, const std::vector<float>& input, jdouble input_rate, jdouble output_rate) {
+  const std::vector<float> resampled =
+      bitchord::smart::Resample(input, input_rate, output_rate);
+  const jsize produced = static_cast<jsize>(resampled.size());
+  jfloatArray result = env->NewFloatArray(produced);
+  if (result == nullptr) {
+    return nullptr;  // OOM; the exception is already pending.
+  }
+  if (produced > 0) {
+    env->SetFloatArrayRegion(result, 0, produced, resampled.data());
+  }
+  return result;
+}
+
+void ThrowPcmAllocationError(JNIEnv* env) {
+  jclass error = env->FindClass("java/lang/OutOfMemoryError");
+  if (error != nullptr) env->ThrowNew(error, "Could not allocate AutoMix resampling buffers");
 }
 
 }  // namespace
@@ -198,19 +220,42 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeResample(
   if (count > 0) {
     env->GetFloatArrayRegion(samples, 0, count, input.data());
   }
+  return ResampleToJava(env, input, input_rate, output_rate);
+}
 
-  const std::vector<float> resampled =
-      bitchord::smart::Resample(input, input_rate, output_rate);
+JNIEXPORT jfloatArray JNICALL
+Java_com_music_bitchord_playback_smart_TrackFeatures_nativeResampleChunks(
+    JNIEnv* env,
+    jclass /* clazz */,
+    jobjectArray chunks,
+    jint sample_count,
+    jdouble input_rate,
+    jdouble output_rate) try {
+  if (sample_count <= 0) return nullptr;
 
-  const jsize produced = static_cast<jsize>(resampled.size());
-  jfloatArray result = env->NewFloatArray(produced);
-  if (result == nullptr) {
-    return nullptr;  // OOM; the exception is already pending.
+  // Fill the same input vector the contiguous path needs, not an additional
+  // native buffer. Keep at most one JNI local reference to a chunk at a time.
+  const jsize chunk_count = env->GetArrayLength(chunks);
+  std::vector<float> input(static_cast<size_t>(sample_count));
+  jsize offset = 0;
+  for (jsize index = 0; index < chunk_count; ++index) {
+    auto chunk = static_cast<jfloatArray>(env->GetObjectArrayElement(chunks, index));
+    if (chunk == nullptr) return nullptr;
+    const jsize size = env->GetArrayLength(chunk);
+    if (size > sample_count - offset) return nullptr;
+    if (size > 0) env->GetFloatArrayRegion(chunk, 0, size, input.data() + offset);
+    env->DeleteLocalRef(chunk);
+    if (env->ExceptionCheck()) return nullptr;
+    offset += size;
   }
-  if (produced > 0) {
-    env->SetFloatArrayRegion(result, 0, produced, resampled.data());
-  }
-  return result;
+  if (offset != sample_count) return nullptr;
+  return ResampleToJava(env, input, input_rate, output_rate);
+} catch (const std::bad_alloc&) {
+  ThrowPcmAllocationError(env);
+  return nullptr;
+} catch (const std::length_error&) {
+  ThrowPcmAllocationError(env);
+  return nullptr;
 }
 
 }  // extern "C"

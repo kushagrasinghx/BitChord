@@ -944,9 +944,22 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         copy: Copy,
         effectiveDuration: Double,
     ): Structural {
+        val input = structuralPcm(trackId, uri, copy, effectiveDuration)
+        return Structural(input.samples?.let { TrackFeatures.analyze(it, effectiveDuration) }, input.decodedShort)
+    }
+
+    private class StructuralPcm(val samples: FloatArray?, val decodedShort: Boolean = false)
+
+    /** Only the DSP-rate input leaves this frame; native-rate decoder chunks are not retained. */
+    private fun structuralPcm(
+        trackId: String,
+        uri: Uri,
+        copy: Copy,
+        effectiveDuration: Double,
+    ): StructuralPcm {
         val structRate = TrackFeatures.sampleRate
-        val decoded = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, effectiveDuration) { stopped } }
-            ?: return Structural(null)
+        val decoded = copy.open()?.use { AudioDecoder.decodeRegionChunks(it, 0.0, effectiveDuration) { stopped } }
+            ?: return StructuralPcm(null)
         val (pcm, _) = decoded
 
         // A decode that stops early is indistinguishable, downstream, from a
@@ -958,7 +971,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // track being faded out minutes early. Refused outright rather than
         // published, because a missing analysis degrades to a plain crossfade
         // while a confidently wrong one does not degrade at all.
-        val decodedSeconds = if (pcm.sampleRate > 0) pcm.samples.size / pcm.sampleRate else 0.0
+        val decodedSeconds = if (pcm.sampleRate > 0) pcm.sampleCount / pcm.sampleRate else 0.0
         if (decodedSeconds < effectiveDuration * MIN_DECODED_FRACTION) {
             Log.w(
                 TAG,
@@ -1009,16 +1022,16 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                     shortDecodes.remove(trackId)
                 }
             }
-            return Structural(null, decodedShort = true)
+            return StructuralPcm(null, decodedShort = true)
         }
 
         val samples = if (abs(pcm.sampleRate - structRate) > 1.0) {
-            TrackFeatures.resample(pcm.samples, pcm.sampleRate, structRate) ?: return Structural(null)
+            TrackFeatures.resampleChunks(pcm.chunks, pcm.sampleRate, structRate)
         } else {
-            pcm.samples
+            pcm.flatten()
         }
 
-        return Structural(TrackFeatures.analyze(samples, effectiveDuration))
+        return StructuralPcm(samples)
     }
 
     /**
@@ -1047,18 +1060,11 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         }
 
         // Pass 1 (Phase 1, DSP-only): the analyzer needs the whole track — the energy curve,
-        // phrase structure and mix-out anchor all read the tail, not just a window of it — at its
-        // own low sample rate, so this is a much smaller decode than a full-rate pass would be.
-        //
-        // In a frame of its own, and handing back only the features, because of what it allocates
-        // to get them: the whole track decoded to mono at the container's rate (35 MB for a
-        // 3.5-minute song) plus the resampled copy the DSP reads (8 MB). Neither is touched again
-        // after this line, but a local holding either stays reachable to the end of the method, and
-        // the rest of the method is Pass 2 — the most allocation-heavy part of the analysis.
-        // Measured on the API 28 emulator: those two buffers were 43 MB of an 82 MB live set, still
-        // held while the models ran, in a process that was reaching a 256 MB heap limit and had
-        // died on it. Returning is what releases them — a `val` cannot be nulled, and a narrower
-        // scope alone does not make ART treat one as dead.
+        // phrase structure and mix-out anchor all read the tail, not just a window of it. The
+        // decoder produces mono chunks at the source rate; resampling reads them without flattening
+        // a second full-rate buffer on the Java heap. Only the DSP input reaches feature extraction,
+        // and only its features reach Pass 2, so neither PCM representation is kept alive while
+        // the models run.
         val structural = structure(trackId, uri, copy, effectiveDuration)
         // A party started while Pass 1 was decoding. Dropped as "no result"
         // rather than as a failure — the track was never measured, so nothing

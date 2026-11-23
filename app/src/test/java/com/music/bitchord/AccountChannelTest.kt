@@ -83,7 +83,48 @@ class AccountChannelTest {
         assertTrue(parse("""{"responseContext":{},"contents":{}}""").isEmpty())
     }
 
+    @Test
+    fun `a blank or invisible channel name keeps the channel`() {
+        val channels = parse(BLANK_NAMES)
+        assertEquals(listOf("@ghost", "YouTube Music", "Ünïcødé ✨ 名前"), channels.map { it.name })
+    }
+
+    @Test
+    fun `a blank account name still signs in`() {
+        val account = InnertubeParser.parseAccount(Json.parseToJsonElement(BLANK_HEADER))
+        assertEquals("@ghost", account?.name)
+    }
+
     private companion object {
+        const val BLANK_HEADER = """
+        {"actions":[{"activeAccountHeaderRenderer":{
+          "accountName":{"runs":[{"text":"\u3164"}]},
+          "channelHandle":{"runs":[{"text":"@ghost"}]}
+        }}]}
+        """
+
+        const val BLANK_NAMES = """
+        {"contents":[
+          {"accountItem":{
+            "accountName":{"simpleText":" "},
+            "channelHandle":{"simpleText":"@ghost"},
+            "serviceEndpoint":{"selectActiveIdentityEndpoint":{"supportedTokens":[
+              {"datasyncIdToken":{"datasyncIdToken":"SYNC||SESSION_A"}}]}}
+          }},
+          {"accountItem":{
+            "accountName":{"runs":[{"text":"\u3164\u200B"}]},
+            "serviceEndpoint":{"selectActiveIdentityEndpoint":{"supportedTokens":[
+              {"pageIdToken":{"pageId":"42"}}]}}
+          }},
+          {"accountItem":{
+            "accountName":{"simpleText":"Ünïcødé ✨ 名前"},
+            "serviceEndpoint":{"selectActiveIdentityEndpoint":{"supportedTokens":[
+              {"pageIdToken":{"pageId":"43"}}]}}
+          }}
+        ]}
+        """
+
+
         const val SWITCHER = """
         {"data":{"actions":[{"getMultiPageMenuAction":{"menu":{"multiPageMenuRenderer":{
           "sections":[{"accountSectionListRenderer":{"contents":[{"accountItemSectionRenderer":{

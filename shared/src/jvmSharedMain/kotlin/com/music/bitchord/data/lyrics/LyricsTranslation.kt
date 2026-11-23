@@ -83,8 +83,32 @@ object LyricsTranslation {
     // translation into Chinese came back Unavailable.
     private val markerRegex = Regex("\\uE000[^\\uE000\\uE001]*[\\uE000\\uE001]")
 
+    // An Arabic answer drops both private-use characters and leaves only the
+    // counter, alone on its line. A lyric can be a four-digit number too
+    // ("1999"), so such a line is only a marker when it holds the next counter.
+    private val bareMarkerRegex = Regex(
+        "^[\\h\\u200E\\u200F]*(\\p{Nd}{4})[\\h\\u200E\\u200F]*$",
+        RegexOption.MULTILINE,
+    )
+
     /** A batch's answer, cut back into one string per line it was sent. */
-    internal fun splitMarked(body: String): List<String> = body.split(markerRegex).map(String::trim)
+    internal fun splitMarked(body: String): List<String> {
+        if (markerRegex.containsMatchIn(body)) return body.split(markerRegex).map(String::trim)
+
+        val parts = mutableListOf<String>()
+        var start = 0
+        for (match in bareMarkerRegex.findAll(body)) {
+            val counter = match.groupValues[1].fold(0) { value, digit ->
+                value * 10 + digit.digitToInt()
+            }
+            if (counter != parts.size + 1) continue
+            parts += body.substring(start, match.range.first).trim()
+            start = match.range.last + 1
+        }
+        parts += body.substring(start).trim()
+        return parts
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val diskMutex = Mutex()
     private val memory = object {

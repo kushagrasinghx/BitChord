@@ -12,6 +12,24 @@ class TranslationMarkerTest {
     }
 
     @Test
+    fun anArabicAnswerSplitsBackIntoItsLines() {
+        // Google's ar answer, as returned: both private-use characters are gone.
+        val body = "سأحبك دائما\n0001\nلا تبكي الليلة\n0002\n[جوقة]"
+        assertEquals(listOf("سأحبك دائما", "لا تبكي الليلة", "[جوقة]"), LyricsTranslation.splitMarked(body))
+        // The same answer with the counters in Arabic-Indic digits.
+        assertEquals(
+            listOf("سأحبك دائما", "لا تبكي الليلة"),
+            LyricsTranslation.splitMarked("سأحبك دائما\n\u0660\u0660\u0660\u0661\nلا تبكي الليلة"),
+        )
+    }
+
+    @Test
+    fun aFourDigitLyricIsNotTakenForABareMarker() {
+        val body = "الحفلة\n0001\n1999\n0002\nلا أندم على شيء"
+        assertEquals(listOf("الحفلة", "1999", "لا أندم على شيء"), LyricsTranslation.splitMarked(body))
+    }
+
+    @Test
     fun otherAnswersStillSplit() {
         val body = "Je t'aimerai toujours\n0001\nNe pleure pas ce soir"
         assertEquals(listOf("Je t'aimerai toujours", "Ne pleure pas ce soir"), LyricsTranslation.splitMarked(body))

@@ -434,6 +434,7 @@ class CanvasVideoSpec(
     val onResumed: () -> Unit,
     val nowPlaying: Boolean = false,
     val organicReveal: CanvasOrganicReveal? = null,
+    val featherPortraitSides: Boolean = false,
 )
 
 /** Audio-clock coverage, independent of the video slot's presentation alpha. */
@@ -495,6 +496,8 @@ fun CanvasArtworkPlayer(
     nowPlaying: Boolean = false,
     /** Optional spatial reveal for a compatible incoming slot. */
     organicReveal: CanvasOrganicReveal? = null,
+    /** Blend the outer edges of a height-fitted portrait into the background. */
+    featherPortraitSides: Boolean = false,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -521,6 +524,7 @@ fun CanvasArtworkPlayer(
             onResumed = onResumed,
             nowPlaying = nowPlaying,
             organicReveal = organicReveal,
+            featherPortraitSides = featherPortraitSides,
         ),
         modifier,
     )

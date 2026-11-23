@@ -108,6 +108,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -118,6 +119,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
@@ -191,6 +193,7 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
+import com.music.bitchord.ui.player.CanvasContentMode
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.utils.rememberBottomOnlyDetailOverscroll
@@ -635,6 +638,7 @@ fun DetailScreen(
                             poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                             palette = palette,
                             canvas = if (album) albumMotion else visibleCanvas,
+                            fitPortrait = album,
                             fadeFraction = FULL_BLEED_FADE_FRACTION,
                             pauseVideo = offscreen,
                             onPosterState = {
@@ -1263,7 +1267,10 @@ private fun FullBleedReleaseArtwork(
     onPosterState: (AsyncImagePainter.State) -> Unit,
     modifier: Modifier,
     pauseVideo: Boolean = false,
+    fitPortrait: Boolean = false,
 ) {
+    var heroBounds by remember { mutableStateOf(IntSize.Zero) }
+    val videoModifier = if (fitPortrait) Modifier.onSizeChanged { heroBounds = it } else Modifier
     Box(modifier) {
         var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
         AsyncImage(
@@ -1301,9 +1308,15 @@ private fun FullBleedReleaseArtwork(
                     canvas = clip,
                     isPlaying = true,
                     pausedForTransition = pauseVideo,
+                    // Use Now Playing's measured, top-aligned portrait fit. The
+                    // detail hero is shorter, so feather its exposed side edges.
+                    contentMode = if (fitPortrait) CanvasContentMode.FIT_PORTRAIT else CanvasContentMode.CROP,
+                    alignPortraitTop = fitPortrait,
+                    portraitRevealBounds = heroBounds,
+                    featherPortraitSides = fitPortrait,
                     bottomFade = fadeFraction,
                     onCoverChanged = { canvasCover = it },
-                    modifier = Modifier.matchParentSize(),
+                    modifier = Modifier.matchParentSize().then(videoModifier),
                 )
             }
         }

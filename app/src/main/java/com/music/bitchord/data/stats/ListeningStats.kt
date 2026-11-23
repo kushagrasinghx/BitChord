@@ -462,20 +462,13 @@ object ListeningStats {
     // ── Housekeeping ────────────────────────────────────────────────────────
 
     /**
-     * Keeps the folder to [KEEP_MONTHS] and each bucket to its entry caps.
+     * Keeps each bucket to its entry caps.
      *
-     * Both are the same bet: what survives is what was actually listened to, so
-     * eviction is by time played rather than by recency. A track heard once in
-     * passing is the first thing out of a full bucket, and it was never going to
-     * appear on any page this data exists to draw.
+     * Monthly buckets are preserved indefinitely so imported and long-term
+     * lifetime listening history is retained for Replay and sync, while entry
+     * caps keep each individual file bounded.
      */
     private fun prune() {
-        val existing = months()
-        if (existing.size > KEEP_MONTHS) {
-            existing.take(existing.size - KEEP_MONTHS).forEach {
-                File(directory, "$it.json").delete()
-            }
-        }
         val bucket = open ?: return
         bucket.tracks.trimTo(MAX_TRACKS) { it.ms }
         bucket.artists.trimTo(MAX_NAMES) { it.ms }
@@ -960,9 +953,6 @@ object ListeningStats {
 
     /** How far down the artist chart a page opening will send lookups for. */
     private const val ARTISTS_TO_RESOLVE = 15
-
-    /** Three years, which is longer than "all time" means to most people. */
-    private const val KEEP_MONTHS = 36
 
     /**
      * Per-month caps. Generous enough that nobody reaches them by listening,

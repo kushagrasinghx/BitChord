@@ -258,12 +258,13 @@ export function mapAlbum(id: string, album: Pick<YTMusic.Album, 'header' | 'cont
   };
 }
 
-export function mapPlaylist(id: string, playlist: { header?: unknown; items: readonly unknown[] }): PlaylistPage {
+export function mapPlaylist(id: string, playlist: { header?: unknown; items: readonly unknown[] }, editable = false): PlaylistPage {
   const header = playlist.header as YTNodes.MusicResponsiveHeader | undefined;
   return {
     id,
     ...headerInfo(header?.type === 'MusicResponsiveHeader' ? header : undefined),
     tracks: playlist.items.map(mapTrack).filter((t): t is Track => !!t),
+    editable,
   };
 }
 

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ListEnd, ListPlus, ListStart, MoreHorizontal, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListEnd, ListPlus, ListStart, MoreHorizontal, Star, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSeparator, type MenuPlacement } from '@/components/Menu';
 import {
@@ -76,7 +76,7 @@ function AccountItems({ track, onClose, onPlaylists }: { track: Track; onClose: 
   );
 }
 
-function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void }) {
+function TrackMenuItems({ track, onClose, onRemove }: { track: Track; onClose: () => void; onRemove?: (() => void) | undefined }) {
   const [view, setView] = useState<'main' | 'playlists'>('main');
   const signedIn = useSignedIn();
   if (view === 'playlists') {
@@ -92,6 +92,14 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
         Add to Queue
       </MenuItem>
       {signedIn && <AccountItems track={track} onClose={onClose} onPlaylists={() => setView('playlists')} />}
+      {onRemove && (
+        <>
+          <MenuSeparator />
+          <MenuItem destructive icon={<Trash2 size={15} />} onSelect={() => (onClose(), onRemove())}>
+            Remove from Playlist
+          </MenuItem>
+        </>
+      )}
     </>
   );
 }
@@ -105,8 +113,11 @@ export function TrackMenu({
   className,
   placement,
   onOpenChange,
+  onRemove,
 }: {
   track: Track;
+  /** On a row of the user's own playlist: offers "Remove from Playlist". */
+  onRemove?: (() => void) | undefined;
   className?: string;
   /** Where the menu opens from the button; the player's sit at the bottom of the window. */
   placement?: MenuPlacement;
@@ -136,7 +147,7 @@ export function TrackMenu({
       </button>
       {anchor && (
         <Menu anchor={anchor} placement={placement} onClose={close} label={track.title}>
-          <TrackMenuItems track={track} onClose={close} />
+          <TrackMenuItems track={track} onClose={close} onRemove={onRemove} />
         </Menu>
       )}
     </>

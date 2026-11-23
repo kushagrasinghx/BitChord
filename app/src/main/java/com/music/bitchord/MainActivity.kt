@@ -4023,6 +4023,7 @@ private fun BitChordApp(
                     // circles over the shared gradient — no full-width pane.
                     transparentBackdrop = true,
                     artworkPageChrome = true,
+                    compactArtworkActions = route == null && detail?.type == BrowseType.ALBUM,
                     backButtonHazeState = hazeState,
                     trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                     // Search has no large in-list header to hand the title back to —
@@ -4222,6 +4223,9 @@ private fun BitChordApp(
                             // below is left with just the sleeve, the title and
                             // Shuffle / Play / Add.
                             if ((isReleaseDetail || isLocalDetail) && detail != null) {
+                                val actionIcon = if (route == null && detail.type == BrowseType.ALBUM) {
+                                    Modifier.size(20.dp)
+                                } else Modifier
                                 val releaseSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
                                 if (releaseSongs.isNotEmpty()) {
                                     IconButton(onClick = { detailSearching = !detailSearching }) {
@@ -4230,6 +4234,7 @@ private fun BitChordApp(
                                             contentDescription = stringResource(
                                                 if (detailSearching) R.string.close_search else R.string.search_this_list,
                                             ),
+                                            modifier = actionIcon,
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
@@ -4246,6 +4251,7 @@ private fun BitChordApp(
                                         contentDescription = stringResource(
                                             if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
                                         ),
+                                        modifier = actionIcon,
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
@@ -4282,6 +4288,7 @@ private fun BitChordApp(
                                         Icon(
                                             Icons.Rounded.MoreHoriz,
                                             contentDescription = stringResource(R.string.more),
+                                            modifier = actionIcon,
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }

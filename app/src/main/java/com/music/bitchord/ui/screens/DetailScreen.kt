@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -1115,16 +1116,19 @@ private fun ReleaseHeader(
             // Only where YouTube said the release can be saved and the caller
             // is willing to take the write — see [onToggleLibrary].
             val library = page.library?.takeIf { onToggleLibrary != null }
+            val compact = page.type == BrowseType.ALBUM
+            val sideButton = if (compact) 48.dp else RELEASE_SIDE_BUTTON
+            val localRelease = page.browseId.startsWith("local:")
             Spacer(Modifier.height(18.dp))
             Row(
                 modifier = Modifier
                     .widthIn(max = RELEASE_ACTIONS_MAX_WIDTH)
-                    .fillMaxWidth()
+                    .fillMaxWidth(if (compact && !localRelease) 0.93f else 1f)
                     .padding(horizontal = HEADER_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(RELEASE_ACTION_GAP),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else RELEASE_ACTION_GAP),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (page.browseId.startsWith("local:")) {
+                if (localRelease) {
                     // Already on this device — a folder, a download, a local
                     // playlist — so there is no library to add it to, and a
                     // greyed-out plus would only promise one. Apple Music's
@@ -1135,7 +1139,8 @@ private fun ReleaseHeader(
                         onClick = onPlay,
                         filled = true,
                         artworkTint = albumPalette?.onWhiteAction,
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
+                        compact = compact,
                         modifier = Modifier.weight(1f),
                     )
                     ActionPill(
@@ -1144,7 +1149,8 @@ private fun ReleaseHeader(
                         onClick = onShuffle,
                         filled = false,
                         artworkTint = albumPalette?.onBackground,
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
+                        compact = compact,
                         modifier = Modifier.weight(1f),
                     )
                     // The song cache's copies, saved to Downloads in one go —
@@ -1164,7 +1170,7 @@ private fun ReleaseHeader(
                     contentDescription = stringResource(R.string.shuffle),
                     onClick = onShuffle,
                     haptic = Haptic.Resume,
-                    size = RELEASE_SIDE_BUTTON,
+                    size = sideButton,
                     artworkTint = albumPalette?.onBackground,
                 )
                 ActionPill(
@@ -1172,7 +1178,8 @@ private fun ReleaseHeader(
                     label = stringResource(R.string.play),
                     onClick = onPlay,
                     filled = true,
-                    size = RELEASE_SIDE_BUTTON,
+                    size = sideButton,
+                    compact = compact,
                     modifier = Modifier.weight(1f),
                     artworkTint = albumPalette?.onWhiteAction,
                 )
@@ -1188,7 +1195,7 @@ private fun ReleaseHeader(
                         },
                         onClick = { onToggleLibrary?.invoke() },
                         haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
                         artworkTint = albumPalette?.onBackground,
                     )
                 } else {
@@ -1198,7 +1205,7 @@ private fun ReleaseHeader(
                         icon = BitChordIcons.Plus,
                         contentDescription = stringResource(R.string.add_to_library),
                         onClick = {},
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
                         enabled = false,
                         artworkTint = albumPalette?.onBackground,
                     )
@@ -1758,6 +1765,7 @@ private fun ActionPill(
     modifier: Modifier = Modifier,
     size: Dp = 50.dp,
     artworkTint: Color? = null,
+    compact: Boolean = false,
 ) {
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
@@ -1765,7 +1773,7 @@ private fun ActionPill(
     val content = artworkTint ?: if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
     Row(
         modifier = modifier
-            .height(size)
+            .then(if (compact) Modifier.heightIn(min = size) else Modifier.height(size))
             .clip(CircleShape)
             .then(
                 if (filled) {
@@ -1781,7 +1789,7 @@ private fun ActionPill(
                 haptics.play(Haptic.Resume)
                 onClick()
             }
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = if (compact) 10.dp else 24.dp, vertical = if (compact) 4.dp else 0.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1797,6 +1805,7 @@ private fun ActionPill(
             style = MaterialTheme.typography.titleMedium,
             color = content,
             maxLines = 1,
+            overflow = if (compact) TextOverflow.Ellipsis else TextOverflow.Clip,
         )
     }
 }

@@ -179,6 +179,7 @@ fun FrostedTopBar(
      * Root tabs have no back button there for it to collide with.
      */
     accessory: (@Composable () -> Unit)? = null,
+    compactArtworkActions: Boolean = false,
     actions: @Composable () -> Unit = {},
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -334,7 +335,11 @@ fun FrostedTopBar(
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    if (compactArtworkActions) {
+                        CompactArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    } else {
+                        ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    }
                 } else {
                     actions()
                 }
@@ -409,6 +414,21 @@ private fun ArtworkPageActions(
     }
 }
 
+@Composable
+private fun CompactArtworkPageActions(hazeState: HazeState?, content: @Composable () -> Unit) {
+    // Draw the smaller material independently of the full-sized touch slots.
+    Box {
+        Box(
+            Modifier.matchParentSize()
+                .padding(vertical = 4.dp)
+                .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState)),
+        )
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 48.dp) {
+            ActionsRow(modifier = Modifier, actionGap = 0.dp, content = content)
+        }
+    }
+}
+
 /**
  * The actions side by side, centred on the pill's height, with Apple's gap
  * between each and the one before it.
@@ -418,11 +438,11 @@ private fun ArtworkPageActions(
  * jumping by a gap's width the frame it appears.
  */
 @Composable
-private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
+private fun ActionsRow(modifier: Modifier, actionGap: Dp = ACTION_GAP, content: @Composable () -> Unit) {
     Layout(content = content, modifier = modifier) { measurables, constraints ->
         val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val target = TOP_CONTROL_SIZE.roundToPx()
-        val gap = ACTION_GAP.toPx()
+        val gap = actionGap.toPx()
         val gaps = placeables.mapIndexed { index, placeable ->
             if (index == 0) 0 else (gap * (placeable.width.toFloat() / target).coerceIn(0f, 1f)).roundToInt()
         }

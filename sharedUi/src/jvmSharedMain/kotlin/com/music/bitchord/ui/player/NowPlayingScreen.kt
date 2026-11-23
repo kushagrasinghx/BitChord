@@ -166,6 +166,7 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.settings.CanvasShape
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.model.LikeStatus
@@ -1054,9 +1055,14 @@ fun NowPlayingScreen(
     // to it, in place of the full-width box at the video's shape.
     val squareVideo = videoMode && VideoThumbnails.square
     val fullCanvasWindow = playerFillsWindow(windowWidth)
-    val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val canvasShape by PlayerSettings.canvasShape.collectAsStateWithLifecycle()
+    val squareCanvas = canvasShape == CanvasShape.SQUARE
+    // Only the tall setting takes Apple's 3:4 rendition; the square one is the
+    // clip the player shows everywhere else.
+    val tallCanvasWindow = fullCanvasWindow && !squareCanvas
+    val fullBleedSetting by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val sessionCanvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
-        ?.nowPlayingRendition(fullCanvasWindow)
+        ?.nowPlayingRendition(tallCanvasWindow)
     val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
         coverOccurrence(song, queue, queueIndex)
     }
@@ -1074,7 +1080,9 @@ fun NowPlayingScreen(
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     val artworkGate = autoMixArtworkGate()
-    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, artworkGate)
+    val canvasPair = rememberAutoMixCanvasPair(
+        coverEntry, queue, isPlaying, sideways, tallCanvasWindow, fullBleedSetting && !squareCanvas, artworkGate,
+    )
     val pair = canvasPair.visual?.takeIf { artworkGate.allows(it.generation) && it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
     // An outgoing Spotify Canvas fades back to its cover as the mix starts, well
@@ -1094,6 +1102,12 @@ fun NowPlayingScreen(
     val canvas = if (pair?.started == true) {
         pair.pinnedClip ?: retiringCanvas.takeIf { canvasRetiring }
     } else promotedCanvas?.incomingClip ?: sessionCanvas
+    // A square canvas is the classic sleeve, so the clip runs in the square
+    // card rather than being blown out to the full-bleed banner. The still art
+    // keeps the full-bleed setting of its own; only a track that actually has
+    // a square clip standing in needs the card layout. Spotify's own Canvas is
+    // a phone-background presentation either way — see `heroMode`.
+    val fullBleedArt = fullBleedSetting && (!squareCanvas || canvas == null)
     val staticCanvasMix = pair?.started == true && !pair.liveOutgoing
     // A non-Spotify outgoing clip stops on its frame as the reveal begins.
     val freezeOutgoingCanvas = pair?.liveOutgoing == true && pair.freezeOutgoing

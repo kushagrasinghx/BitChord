@@ -172,6 +172,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.AppFont
+import com.music.bitchord.data.settings.CanvasShape
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -259,6 +260,7 @@ fun SettingsScreen(
     val liquidGlassSupported = isGlassSupported()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val canvasShape by AppSettings.canvasShape.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
@@ -1318,6 +1320,20 @@ fun SettingsScreen(
             // plays, so on cellular this is not a one-time video cost but
             // that cost repeated on every loop — see AppSettings.canvasOverCellular.
             if (animatedCanvas) {
+                val canvasShapeTitle = stringResource(R.string.canvas_shape)
+                row(canvasShapeTitle, "canvas", "shape", "square", "portrait", "3:4", "1:1", divided = false) {
+                    SettingsRow(
+                        icon = SfIcons.Animation,
+                        title = canvasShapeTitle,
+                        subtitle = stringResource(R.string.canvas_shape_subtitle),
+                    )
+                    SegmentedControl(
+                        options = CanvasShape.entries.map { it.localizedLabel() },
+                        selectedIndex = CanvasShape.entries.indexOf(canvasShape),
+                        onSelect = { AppSettings.setCanvasShape(CanvasShape.entries[it]) },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
                 val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
                 row(coverCellularTitle, "canvas", "cellular", divided = false) {
                     SettingsSubRow(
@@ -2257,6 +2273,14 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
         ThemeMode.SYSTEM -> R.string.system
         ThemeMode.LIGHT -> R.string.light
         ThemeMode.DARK -> R.string.dark
+    },
+)
+
+@Composable
+private fun CanvasShape.localizedLabel(): String = stringResource(
+    when (this) {
+        CanvasShape.SQUARE -> R.string.canvas_shape_square
+        CanvasShape.PORTRAIT -> R.string.canvas_shape_portrait
     },
 )
 

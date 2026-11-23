@@ -11,6 +11,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.CanvasShape
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -267,6 +268,8 @@ interface PlayerSettingsSource {
     val audioQualityWifi: StateFlow<AudioQuality>
     val canvasOverCellular: StateFlow<Boolean>
     val fullBleedArtwork: StateFlow<Boolean>
+    /** Square sleeve or the tall 3:4 motion-art rendition. */
+    val canvasShape: StateFlow<CanvasShape>
     val showTotalDuration: StateFlow<Boolean>
     val hideSongStatus: StateFlow<Boolean>
     /** Hides the lyrics preview strip on the main and mini player screens. */

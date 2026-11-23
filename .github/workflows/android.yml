@@ -8,6 +8,9 @@ on:
 jobs:
   build-prod-release:
     runs-on: ubuntu-latest
+    # The release step below publishes with the workflow's own token.
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout Repository
@@ -54,3 +57,24 @@ jobs:
       with:
         name: bitchord-wear-prod-release-signed
         path: wearos/build/outputs/apk/prod/release/*.apk
+
+    # One release per app version: a rebuild of the same version replaces the
+    # APKs on the existing tag instead of piling up a release per push.
+    - name: Read app version
+      id: version
+      run: |
+        version=$(grep -oP '(?<=extra\["bitchordVersionName"\] = ")[^"]+' build.gradle.kts)
+        [ -n "$version" ] || { echo "Could not read bitchordVersionName" >&2; exit 1; }
+        echo "name=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Publish GitHub Release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: v${{ steps.version.outputs.name }}
+        name: BitChord v${{ steps.version.outputs.name }}
+        generate_release_notes: true
+        overwrite_files: true
+        make_latest: true
+        files: |
+          app/build/outputs/apk/prod/release/*.apk
+          wearos/build/outputs/apk/prod/release/*.apk

@@ -70,7 +70,7 @@ class OutputNegotiatorTest {
     }
 
     @Test
-    fun bluetoothNegotiatesFloatOnlyWhenAdvertised() {
+    fun bluetoothNegotiatesRequestedFloatAcrossA2dpDevicesWithPcm16Fallback() {
         val btWithFloat = OutputNegotiator.negotiate(
             source = flac96kHz24BitSource,
             decoderName = "c2.android.flac.decoder",
@@ -85,19 +85,48 @@ class OutputNegotiatorTest {
         assertEquals(PcmEncoding.PCM_FLOAT, btWithFloat.output.encoding)
         assertEquals(FallbackReason.NONE, btWithFloat.output.fallbackReason)
 
-        val btPcm16Only = OutputNegotiator.negotiate(
-            source = flac96kHz24BitSource,
-            decoderName = "c2.android.flac.decoder",
-            sampleRateHz = 96000,
-            channelCount = 2,
-            routeKind = AudioRouting.Kind.BLUETOOTH,
-            deviceName = "SBC Headset",
-            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
-            advertisedSampleRates = listOf(44100, 48000),
-            requestedMode = OutputPcmMode.FLOAT_32,
+        // Device names below are sample fixtures, never runtime allowlist entries.
+        // Any A2DP output that advertises only PCM16 may attempt Float32 when
+        // explicitly requested; native sink support is checked separately.
+        val a2dpCases = listOf(
+            "Generic SBC headset" to listOf(44100, 48000),
+            "AAC earbuds" to listOf(44100, 48000),
+            "LDAC headphones" to listOf(44100, 48000, 96000),
+            "SSC UHQ earbuds" to listOf(48000, 96000),
+            "Unidentified Bluetooth audio" to listOf(48000),
         )
-        assertEquals(PcmEncoding.PCM_16BIT, btPcm16Only.output.encoding)
-        assertEquals(FallbackReason.ROUTE_LIMITATION, btPcm16Only.output.fallbackReason)
+        for ((deviceName, sampleRates) in a2dpCases) {
+            val supported = OutputNegotiator.negotiate(
+                source = flac96kHz24BitSource,
+                decoderName = "c2.android.flac.decoder",
+                sampleRateHz = sampleRates.last(),
+                channelCount = 2,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                deviceName = deviceName,
+                advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+                advertisedSampleRates = sampleRates,
+                requestedMode = OutputPcmMode.FLOAT_32,
+                delegateSupportsFloat = true,
+            )
+            assertEquals(deviceName, PcmEncoding.PCM_FLOAT, supported.output.encoding)
+            assertEquals(deviceName, FallbackReason.NONE, supported.output.fallbackReason)
+
+            val unsupported = OutputNegotiator.negotiate(
+                source = flac96kHz24BitSource,
+                decoderName = "c2.android.flac.decoder",
+                sampleRateHz = sampleRates.last(),
+                channelCount = 2,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                deviceName = deviceName,
+                advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+                advertisedSampleRates = sampleRates,
+                requestedMode = OutputPcmMode.FLOAT_32,
+                delegateSupportsFloat = false,
+            )
+            assertEquals(deviceName, PcmEncoding.PCM_16BIT, unsupported.output.encoding)
+            assertEquals(deviceName, FallbackReason.ROUTE_LIMITATION, unsupported.output.fallbackReason)
+        }
+
     }
 
     @Test

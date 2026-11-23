@@ -80,7 +80,7 @@ class AudioOutputPolicyTest {
     }
 
     @Test
-    fun routeAwareBluetoothAllowsFloatOnlyWhenAdvertised() {
+    fun bluetoothExplicitFloatRequestBypassesIncompleteA2dpEncodingList() {
         assertTrue(
             AudioOutputPolicy.shouldUseFloatOutput(
                 OutputPcmMode.FLOAT_32,
@@ -88,9 +88,16 @@ class AudioOutputPolicyTest {
                 advertisesPcmFloat = true,
             ),
         )
-        assertFalse(
+        assertTrue(
             AudioOutputPolicy.shouldUseFloatOutput(
                 OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = false,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.PCM_16,
                 routeKind = AudioRouting.Kind.BLUETOOTH,
                 advertisesPcmFloat = false,
             ),

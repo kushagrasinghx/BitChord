@@ -16,6 +16,7 @@ import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { PictureInPictureButton } from './PictureInPicture';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
@@ -106,6 +107,7 @@ export function PlayerBar() {
           >
             <UpNextIcon size={18} />
           </button>
+          <PictureInPictureButton className={fading} iconSize={18} />
           <VolumeControl open={volumeOpen} onOpen={() => setVolumeOpen(true)} className={action} />
         </div>
       </div>

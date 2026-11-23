@@ -6,6 +6,11 @@ on:
     branches: ['main']
     paths:
       - '.github/workflows/mcp-release.yml'
+      - 'app/**'
+      - 'shared/**'
+      - 'sharedUi/**'
+      - '*.gradle.kts'
+      - 'gradle/**'
 
 permissions:
   contents: write

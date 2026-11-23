@@ -101,7 +101,13 @@ object LrcLib {
             if (stamps.isEmpty()) return@flatMap emptySequence()
             val body = line.substring(stamps.last().range.last + 1)
             // Detect the RTL marker that was written by [toEnhancedLrc].
-            val (text, alignment) = stripAlignmentMarker(body)
+            val (marked, alignment) = stripAlignmentMarker(body)
+            // An enhanced-LRC duet names its singer after the stamp — `v1:`,
+            // `v2:` — which is not part of the words. Kept read as text, every
+            // line of such a file (embedded ones especially) opened with it.
+            val voice = VOICE_TAG.find(marked)
+            val text = voice?.let { marked.substring(it.range.last + 1) } ?: marked
+            val singer = voice?.groupValues?.get(1)?.lowercase()
             stamps.asSequence().map { match ->
                 val (minutes, seconds, fraction) = match.destructured
                 // Two digits mean centiseconds, three mean milliseconds.
@@ -110,7 +116,7 @@ object LrcLib {
                     3 -> fraction.toLong()
                     else -> 0L
                 }
-                LyricLine(
+                singer to LyricLine(
                     timeMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs,
                     // Stripped rather than rebuilt from the runs below: the spacing
                     // and punctuation between two words belong to the line, and
@@ -121,7 +127,13 @@ object LrcLib {
                     alignment = alignment,
                 )
             }
-        }.sortedBy { it.timeMs }.toList()
+        }.sortedBy { it.second.timeMs }.toList()
+            .let { voiced ->
+                if (voiced.none { it.first != null }) return@let voiced.map { it.second }
+                // Sides from the singers, the same rule TTML duets are laid out by.
+                val sides = lineAlignments(voiced.map { it.first }, emptyMap())
+                voiced.mapIndexed { i, (voice, line) -> if (voice == null) line else line.copy(alignment = sides[i]) }
+            }
 
         val kept = all.filterIndexed { index, line ->
             if (!line.isGap) return@filterIndexed true
@@ -210,6 +222,7 @@ object LrcLib {
     }
 
     private val STAMP = Regex("""\[(\d{1,2}):(\d{2})[.:](\d{2,3})]""")
+    private val VOICE_TAG = Regex("""^\s*(v\d+):\s*""", RegexOption.IGNORE_CASE)
     private val WORD_STAMP = Regex("""<(\d{1,3}):(\d{2})[.:](\d{2,3})>""")
     private val NOISE = Regex(
         """\((?:from|feat\.?|official|lyrical|video|audio|remix)[^)]*\)|\[[^]]*]|""" +

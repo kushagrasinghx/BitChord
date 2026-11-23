@@ -292,6 +292,7 @@ object AppSettings {
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
     val smartFadeEnabled = MutableStateFlow(false)
+    val automixPreserveAlbums = MutableStateFlow(true)
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
@@ -1058,6 +1059,7 @@ object AppSettings {
         downloadLikedSongs.value = prefs.getBoolean(KEY_DOWNLOAD_LIKED_SONGS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        automixPreserveAlbums.value = prefs.getBoolean(KEY_AUTOMIX_PRESERVE_ALBUMS, true)
         _autoMixArtwork.value = AutoMixArtworkPreferences(
             artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, false),
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
@@ -1399,6 +1401,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
     }
 
+    fun setAutomixPreserveAlbums(value: Boolean) {
+        automixPreserveAlbums.value = value
+        prefs.edit().putBoolean(KEY_AUTOMIX_PRESERVE_ALBUMS, value).apply()
+    }
+
     fun setAutoMixArtTransition(value: Boolean) {
         val previous = _autoMixArtwork.value
         if (previous.artTransition == value) return
@@ -1423,7 +1430,6 @@ object AppSettings {
     // off/on round trip cannot revive the artwork on a renderer just mounting.
     private fun artworkCutoff(previous: Long): Long =
         maxOf(previous, AutoMixVisualFeed.state.value?.generation ?: 0L)
-
     fun setSleepTimerFadeOut(value: Boolean) {
         sleepTimerFadeOut.value = value
         prefs.edit().putBoolean(KEY_SLEEP_TIMER_FADE_OUT, value).apply()
@@ -2425,6 +2431,7 @@ object AppSettings {
     private const val KEY_DOWNLOAD_LIKED_SONGS = "download_liked_songs"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
+    private const val KEY_AUTOMIX_PRESERVE_ALBUMS = "automix_preserve_albums"
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"

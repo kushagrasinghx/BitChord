@@ -110,6 +110,18 @@ class AutoMixCanvasTest {
     }
 
     @Test
+    fun portraitRenditionIsUsedOnlyForFullBleedPhoneArtwork() {
+        val square = CanvasArtwork("square.mp4", fallbackUrl = "square-fallback.mp4", portraitUrl = "portrait.mp4")
+
+        assertSame(square, square.nowPlayingRendition(fullWindow = false, fullBleed = true))
+        assertSame(square, square.nowPlayingRendition(fullWindow = true, fullBleed = false))
+        val portrait = square.nowPlayingRendition(fullWindow = true, fullBleed = true)
+        assertEquals("portrait.mp4", portrait.url)
+        assertEquals("square.mp4", portrait.fallbackUrl)
+        assertNull(portrait.portraitUrl)
+    }
+
+    @Test
     fun onlyStartedMixedArtworkUsesTheMovingSleeve() {
         val tracks = AutoMixCanvasTracks(1L, outgoing, incoming, clip) { visual }
         assertFalse(tracks.usesGestureSleeve(gesturing = true))

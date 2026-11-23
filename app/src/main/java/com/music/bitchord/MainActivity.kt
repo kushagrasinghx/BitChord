@@ -1588,6 +1588,7 @@ private fun BitChordApp(
         if (allSongs.getOrNull(allIndex)?.isUnresolvedSpotify == true) return
         val songs = allSongs.filterNot { it.isUnresolvedSpotify }
         val index = songs.indexOf(allSongs.getOrNull(allIndex)).coerceAtLeast(0)
+        QueueShuffle.onNewQueueStarted()
         playRequestGeneration++
         activeRadioSeed = null
         scope.launch {

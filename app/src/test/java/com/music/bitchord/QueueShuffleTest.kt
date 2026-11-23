@@ -1,5 +1,6 @@
 package com.music.bitchord
 
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.queueStartIndex
 import org.junit.Assert.assertEquals
@@ -116,5 +117,35 @@ class QueueShuffleTest {
         val original = (0 until 10_000).map { it.toString() }
         val upcoming = original.shuffled()
         assertEquals(original, restored(upcoming, original))
+    }
+
+    @Test
+    fun `when remember shuffle is false, new queue resets shuffle to off`() {
+        AppSettings.rememberShuffleState.value = false
+        QueueShuffle.setEnabled(true)
+        assertEquals(true, QueueShuffle.enabled.value)
+
+        QueueShuffle.onNewQueueStarted()
+        assertEquals(false, QueueShuffle.enabled.value)
+    }
+
+    @Test
+    fun `when remember shuffle is false, explicit shuffle for next queue preserves shuffle`() {
+        AppSettings.rememberShuffleState.value = false
+        QueueShuffle.enableForNextQueue()
+        assertEquals(true, QueueShuffle.enabled.value)
+
+        QueueShuffle.onNewQueueStarted()
+        assertEquals(true, QueueShuffle.enabled.value)
+    }
+
+    @Test
+    fun `when remember shuffle is true, new queue retains existing shuffle state`() {
+        AppSettings.rememberShuffleState.value = true
+        QueueShuffle.setEnabled(true)
+        assertEquals(true, QueueShuffle.enabled.value)
+
+        QueueShuffle.onNewQueueStarted()
+        assertEquals(true, QueueShuffle.enabled.value)
     }
 }

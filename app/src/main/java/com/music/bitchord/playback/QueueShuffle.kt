@@ -168,6 +168,9 @@ object QueueShuffle {
         if (_enabled.value) restore(player) else shuffle(player)
     }
 
+    @Volatile
+    private var explicitNextQueue = false
+
     /**
      * Turns shuffle on without touching the current queue — for the Shuffle
      * button on an album or playlist page, where the queue it applies to is the
@@ -178,6 +181,7 @@ object QueueShuffle {
         clearCanonicalContext()
         _enabled.value = true
         AppSettings.setShuffleEnabled(true)
+        explicitNextQueue = true
     }
 
     /**
@@ -190,6 +194,23 @@ object QueueShuffle {
         clearCanonicalContext()
         _enabled.value = false
         AppSettings.setShuffleEnabled(false)
+        explicitNextQueue = false
+    }
+
+    /**
+     * Called when a new playback queue or release is initiated.
+     * If [AppSettings.rememberShuffleState] is turned off and shuffle was not explicitly
+     * toggled on for this queue (via [enableForNextQueue]), shuffle turns off so the
+     * queue plays in its original order (#1928).
+     */
+    fun onNewQueueStarted() {
+        if (explicitNextQueue) {
+            explicitNextQueue = false
+            return
+        }
+        if (!AppSettings.rememberShuffleState.value && _enabled.value) {
+            disableForNextQueue()
+        }
     }
 
     /**

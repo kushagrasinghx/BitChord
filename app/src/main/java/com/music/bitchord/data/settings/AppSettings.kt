@@ -452,6 +452,9 @@ object AppSettings {
     /** Whether the queue is held in shuffled order (Mix button). */
     val shuffleEnabled = MutableStateFlow(false)
 
+    /** Whether shuffle remains active when starting playback of a new queue or album. */
+    val rememberShuffleState = MutableStateFlow(true)
+
     /** Repeat mode for the player — Off, All, or One. */
     val repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
 
@@ -1106,6 +1109,7 @@ object AppSettings {
         }.getOrDefault(AppFont.DEFAULT)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
+        rememberShuffleState.value = prefs.getBoolean(KEY_REMEMBER_SHUFFLE_STATE, true)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
         showBestPart.value = prefs.getBoolean(KEY_BEST_PART, true)
@@ -1345,7 +1349,16 @@ object AppSettings {
 
     fun setShuffleEnabled(value: Boolean) {
         shuffleEnabled.value = value
-        prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
+        }
+    }
+
+    fun setRememberShuffleState(value: Boolean) {
+        rememberShuffleState.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_REMEMBER_SHUFFLE_STATE, value).apply()
+        }
     }
 
     fun setRepeatMode(value: Int) {
@@ -2453,6 +2466,7 @@ object AppSettings {
     private const val KEY_APP_FONT = "app_font"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
+    private const val KEY_REMEMBER_SHUFFLE_STATE = "remember_shuffle_state"
     private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_BEST_PART = "show_best_part"

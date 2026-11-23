@@ -3,6 +3,8 @@ package com.music.bitchord.ui.player
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.playback.AutoMixVisualPhase
+import com.music.bitchord.playback.AutoMixVisualState
 
 /** Saved choices plus in-memory fences for mixes interrupted by a preference change. */
 data class AutoMixArtworkPreferences(
@@ -27,6 +29,11 @@ internal data class AutoMixArtworkGate(
     val remoteArtworkScope: Long? = null,
 ) {
     fun allows(generation: Long) = enabled && generation > skipThrough
+    fun allows(visual: AutoMixVisualState) = visual.admitsArtwork && allows(visual.generation)
+
+    fun holdsArtworkResources(visual: AutoMixVisualState): Boolean =
+        allows(visual) && matchesScope(visual.remoteArtworkScope) &&
+            (visual.mixActive || visual.phase == AutoMixVisualPhase.ARMED)
     fun matchesScope(scope: Long?) = scope == null || scope == remoteArtworkScope
 }
 

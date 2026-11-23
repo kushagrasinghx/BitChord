@@ -48,10 +48,11 @@ internal object AutoMixRevealClock {
 
 /** Run the reveal's frame clock while a window is open. No recomposition per sample. */
 @Composable
-internal fun AutoMixRevealClockEffect() {
+internal fun AutoMixRevealClockEffect(gate: AutoMixArtworkGate) {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return
-    LaunchedEffect(feed) {
-        feed.map { AutoMixRevealClock.revealing(it) }.distinctUntilChanged().collectLatest { running ->
+    LaunchedEffect(feed, gate) {
+        feed.map { visual -> AutoMixRevealClock.revealing(visual?.takeIf(gate::holdsArtworkResources)) }
+            .distinctUntilChanged().collectLatest { running ->
             if (running) AutoMixRevealClock.tick()
         }
     }

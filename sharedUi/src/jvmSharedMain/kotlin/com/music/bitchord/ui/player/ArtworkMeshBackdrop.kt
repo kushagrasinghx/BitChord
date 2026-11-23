@@ -157,6 +157,13 @@ private fun artworkPixelsRequest(
 /** Transport hint only; not part of the decoded-artwork cache identity. */
 val SpeculativeArtworkRequest = Extras.Key(default = false)
 
+/** Cache-only proof that the ordinary full-player request has a drawable still. Call on Main. */
+fun hasPrefetchedFullPlayerArtwork(fullUrl: String): Boolean = WarmPlayerCovers.get(fullUrl) != null
+
+/** Raw aliases have distinct ordinary backdrop entries, even when their full cover request is shared. */
+fun hasPreparedPlayerArtworkAmbient(imageUrl: String): Boolean =
+    meshCache[imageUrl] != null && fullBlurCache[imageUrl] != null && cachedArtworkPalette(imageUrl) != null
+
 /** Call on Main. Coil does the fetch/decode; the same pixels serve drawing and ambient analysis. */
 suspend fun prefetchFullPlayerArtwork(context: PlatformContext, imageUrl: String, isCurrent: () -> Boolean): SuccessResult? {
     val url = imageUrl.artworkAt(ART_PX) ?: return null

@@ -157,6 +157,8 @@ import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
 import com.music.bitchord.ui.player.clearPrefetchedPlayerArtwork
 import com.music.bitchord.ui.player.discardBlockedAutoMixAmbient
+import com.music.bitchord.ui.player.hasPrefetchedFullPlayerArtwork
+import com.music.bitchord.ui.player.hasPreparedPlayerArtworkAmbient
 import com.music.bitchord.ui.player.prefetchAutoMixMiniArtwork
 import com.music.bitchord.ui.player.prefetchFullPlayerArtwork
 import com.music.bitchord.ui.player.preparePlayerArtworkAmbient
@@ -2132,6 +2134,55 @@ class PlaybackService : MediaLibraryService() {
         nextArtwork.replace(expectedNextArtwork(active)?.first)
     }
 
+    private fun Song.cachedCoverSource(scope: Long): AutoMixCoverSource? =
+        RemoteArtworkStore.cachedArt(this, scope)?.let {
+            AutoMixCoverSource(it, scope.takeIf { RemoteArtworkStore.supports(this) })
+        }
+
+    private fun autoMixCanvasAllowed(): Boolean = AppSettings.animatedCanvas.value &&
+        (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
+
+    /** Cache-only. A possible match can settle during the existing arming/read-ahead phase. */
+    private fun artworkAdmissionFor(active: ExoPlayer, nextIndex: Int): AutoMixArtworkAdmission {
+        val settings = AppSettings.autoMixArtwork.value
+        var from: AutoMixCoverSource? = null
+        var to: AutoMixCoverSource? = null
+        var fullUrl: String? = null
+        return artworkAdmission(
+            AppSettings.smartFadeEnabled.value, settings.artTransition, settings.miniPlayerTransition,
+            matchingSources = cover@{
+                if (active.expectedArtworkIndex(arming = true) != nextIndex) return@cover false
+                val outgoing = active.currentMediaItem?.toSong() ?: return@cover false
+                val incoming = active.getMediaItemAt(nextIndex).toSong()
+                val scope = AppSettings.remoteArtworkScope.value
+                from = outgoing.cachedCoverSource(scope)
+                to = incoming.cachedCoverSource(scope)
+                fullUrl = matchingAutoMixCover(from, to)
+                fullUrl != null
+            },
+            prepared = {
+                hasPrefetchedFullPlayerArtwork(requireNotNull(fullUrl)) &&
+                    (from == to || hasPreparedPlayerArtworkAmbient(requireNotNull(to).url))
+            },
+            matchingPresentation = presentation@{
+                val outgoing = active.currentMediaItem?.toSong() ?: return@presentation false
+                val incoming = active.getMediaItemAt(nextIndex).toSong()
+                // A video may cover the sleeve; do not infer its presentation from a still.
+                if (outgoing.isVideo || incoming.isVideo) return@presentation false
+                if (!autoMixCanvasAllowed()) return@presentation true
+                val first = CanvasRepository.cachedAutoMixPresentation(outgoing) ?: return@presentation null
+                val second = CanvasRepository.cachedAutoMixPresentation(incoming) ?: return@presentation null
+                sameAutoMixCanvas(first, second)
+            },
+        )
+    }
+
+    private fun settlePendingAutoMixArtwork(generation: Long? = AutoMixVisualFeed.state.value?.generation) {
+        if (generation != null && AutoMixVisualFeed.pending(generation)?.artworkDecisionPending == true) {
+            player?.let { crossfade?.resolvePendingAutoMixArtwork(it, generation) }
+        }
+    }
+
     private suspend fun prepareNextArtwork(target: UpcomingArtwork, isCurrent: () -> Boolean) = coroutineScope {
         val active = player ?: return@coroutineScope
         val (expected, song) = expectedNextArtwork(active) ?: return@coroutineScope
@@ -2146,11 +2197,16 @@ class PlaybackService : MediaLibraryService() {
         } else song.thumbnailUrl
         if (url == null || !valid()) return@coroutineScope
 
-        val cover = async { prefetchFullPlayerArtwork(context, url, ::valid) }
-        val ambient = launch { cover.await()?.let { preparePlayerArtworkAmbient(url, it, ::valid) } }
+        val cover = async {
+            prefetchFullPlayerArtwork(context, url, ::valid).also { if (valid()) settlePendingAutoMixArtwork() }
+        }
+        val ambient = launch {
+            cover.await()?.let { preparePlayerArtworkAmbient(url, it, ::valid) }
+            if (valid()) settlePendingAutoMixArtwork()
+        }
         AutoMixVisualFeed.state.map { visual ->
             visual?.takeIf {
-                it.phase == AutoMixVisualPhase.ARMED &&
+                (it.phase == AutoMixVisualPhase.ARMED || it.mixActive && it.swapSeconds == null) && it.admitsArtwork &&
                     (it.remoteArtworkScope == null || it.remoteArtworkScope == AppSettings.remoteArtworkScope.value) &&
                     it.incoming.identity.mediaId == target.mediaId && it.incoming.identity.queueEntryId == target.queueEntryId &&
                     it.incoming.artworkUrl == target.thumbnailUrl &&
@@ -2161,7 +2217,8 @@ class PlaybackService : MediaLibraryService() {
             coroutineScope {
                 fun stillArmed(mini: Boolean = false): Boolean = valid() && allowsAutoMixArtwork(generation, mini) &&
                     AutoMixVisualFeed.pending(generation)?.let { visual ->
-                        visual.phase == AutoMixVisualPhase.ARMED && (visual.remoteArtworkScope == null ||
+                        (visual.phase == AutoMixVisualPhase.ARMED || visual.mixActive && visual.swapSeconds == null) &&
+                            (visual.remoteArtworkScope == null ||
                             visual.remoteArtworkScope == AppSettings.remoteArtworkScope.value)
                     } == true
 
@@ -2181,26 +2238,28 @@ class PlaybackService : MediaLibraryService() {
     private var autoMixArtworkGeneration: Long? = null
 
     private fun allowsAutoMixArtwork(generation: Long, mini: Boolean = false): Boolean =
-        AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
+        AutoMixVisualFeed.state.value?.let { it.generation == generation && !it.admitsArtwork } != true &&
+            AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
 
-    private fun allowsAnyAutoMixArtwork(generation: Long): Boolean =
-        allowsAutoMixArtwork(generation) || allowsAutoMixArtwork(generation, mini = true)
+    private fun canPrepareAutoMixCanvas(generation: Long): Boolean =
+        AutoMixVisualFeed.pending(generation)?.bypassArtwork == false &&
+            AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation)
 
     private fun prefetchAutoMixIncoming(item: MediaItem) {
         // The exact armed entry can attach to the existing next-track worker.
         player?.let(::refreshNextArtwork)
         autoMixArtworkJob?.cancel()
         val coverGeneration = AutoMixVisualFeed.state.value?.takeIf {
-            it.phase == AutoMixVisualPhase.ARMED && allowsAutoMixArtwork(it.generation)
+            it.phase == AutoMixVisualPhase.ARMED && !it.bypassArtwork &&
+                AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, it.generation)
         }?.generation
         autoMixArtworkGeneration = coverGeneration
         if (coverGeneration == null) return
         autoMixArtworkJob = scope.launch {
             // Canvas lookup remains independent of still artwork.
-            if (allowsAutoMixArtwork(coverGeneration) && AppSettings.animatedCanvas.value &&
-                (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
-            ) {
+            if (canPrepareAutoMixCanvas(coverGeneration) && autoMixCanvasAllowed()) {
                 CanvasRepository.canvasFor(item.toSong())
+                settlePendingAutoMixArtwork(coverGeneration)
             }
         }
     }
@@ -2250,6 +2309,7 @@ class PlaybackService : MediaLibraryService() {
             // levelled on its own sink before it renders a frame, and the
             // outgoing track keeps its own gain for the rest of the blend.
             onArmIncoming = { item, nextId -> spareLoudness().track(item.mediaId, nextId) },
+            artworkAdmissionFor = ::artworkAdmissionFor,
             onArmAutoMixIncoming = ::prefetchAutoMixIncoming,
             // Both sinks, not a role: the trim is about what the pair sums to.
             onBlendHeadroom = { trim ->
@@ -8070,7 +8130,7 @@ class PlaybackService : MediaLibraryService() {
         }
         scope.launch {
             AppSettings.autoMixArtwork.collect {
-                if (autoMixArtworkGeneration?.let { !allowsAnyAutoMixArtwork(it) } == true) {
+                if (autoMixArtworkGeneration?.let { !canPrepareAutoMixCanvas(it) } == true) {
                     autoMixArtworkJob?.cancel()
                     autoMixArtworkGeneration = null
                 }

@@ -185,6 +185,8 @@ class CrossfadeController(
      * a later gapless boundary without waiting on the service.
      */
     private val onArmIncoming: (MediaItem, String?) -> Unit = { _, _ -> },
+    /** Cache-only decision for the exact pair, before any visual consumer sees the arm. */
+    private val artworkAdmissionFor: (ExoPlayer, Int) -> AutoMixArtworkAdmission = { _, _ -> AutoMixArtworkAdmission.REVEAL },
     /** The armed incoming item, only when AutoMix owns the overlap. */
     private val onArmAutoMixIncoming: (MediaItem) -> Unit = {},
     /**
@@ -683,6 +685,24 @@ class CrossfadeController(
 
     fun cancelAutoMixVisual() = AutoMixVisualFeed.cancel(visualGeneration)
 
+    private fun startAutoMixVisual(active: ExoPlayer, audioSeconds: Double) {
+        val generation = visualGeneration ?: return
+        resolvePendingAutoMixArtwork(active, generation)
+        AutoMixVisualFeed.start(generation, audioSeconds)
+    }
+
+    fun resolvePendingAutoMixArtwork(active: ExoPlayer, generation: Long) {
+        if (active !== outgoing || generation != visualGeneration) return
+        if (AutoMixVisualFeed.pending(generation)?.artworkDecisionPending != true) return
+        checkAutoMixVisualTimeline(active)
+        val armed = AutoMixVisualFeed.pending(generation)?.takeIf { it.artworkDecisionPending } ?: return
+        when (artworkAdmissionFor(active, armed.incoming.armedIndex)) {
+            AutoMixArtworkAdmission.WAITING -> Unit
+            AutoMixArtworkAdmission.BYPASS -> AutoMixVisualFeed.resolveArtwork(generation, bypass = true)
+            AutoMixArtworkAdmission.REVEAL -> AutoMixVisualFeed.resolveArtwork(generation, bypass = false)
+        }
+    }
+
     private fun armAutoMixVisual(out: ExoPlayer, into: ExoPlayer, nextIndex: Int, items: List<MediaItem>) {
         fun trackAt(index: Int): AutoMixVisualTrack? {
             val item = items.getOrNull(index) ?: return null
@@ -707,7 +727,11 @@ class CrossfadeController(
                 id.startsWith("webdav:") || id.startsWith("smb:")
             }
         }
-        visualGeneration = AutoMixVisualFeed.arm(from, to, remoteArtworkScope)
+        val admission = artworkAdmissionFor(out, nextIndex)
+        visualGeneration = AutoMixVisualFeed.arm(
+            from, to, remoteArtworkScope, bypassArtwork = admission == AutoMixArtworkAdmission.BYPASS,
+            artworkDecisionPending = admission == AutoMixArtworkAdmission.WAITING,
+        )
         out.addListener(visualDeckErrors)
         into.addListener(visualDeckErrors)
     }
@@ -1781,7 +1805,7 @@ class CrossfadeController(
         // would run straight over the marker for the transition now under way.
         AppSettings.smartTransitionWindow.value = null
         phase = Phase.FADING
-        AutoMixVisualFeed.start(visualGeneration, audioSeconds = 0.0)
+        startAutoMixVisual(out, audioSeconds = 0.0)
     }
 
     /**
@@ -2811,7 +2835,7 @@ class CrossfadeController(
             startLoopAlignment(session)
         }
         val visualEnd = session.clock.releaseAt
-        if (m >= 0.0) AutoMixVisualFeed.start(visualGeneration, m.coerceAtMost(visualEnd))
+        if (m >= 0.0) startAutoMixVisual(out, m.coerceAtMost(visualEnd))
         if (!handedOff && m >= session.clock.handoffAt) {
             handOff(out, into, m, visualEnd)
         }

@@ -27,6 +27,27 @@ class AutoMixCanvasTest {
     )
 
     @Test
+    fun matchingGenerationDoesNotReserveAStandbyCanvas() {
+        val owner = AutoMixCanvasPair()
+        owner.displayed(outgoing, clip, rendered = true)
+        assertNull(owner.start(visual.copy(artworkDecisionPending = true), outgoing))
+        assertNull(owner.start(visual.copy(bypassArtwork = true), outgoing))
+        assertNull(owner.visual)
+        assertSame(clip, requireNotNull(owner.start(visual.copy(generation = 2), outgoing)).pinnedClip)
+    }
+
+    @Test
+    fun sharedCanvasKeepsTheNativeStateKeyIncludingItsSelectedFallback() {
+        val mounted = CanvasArtwork("main.m3u8", fallbackUrl = "fallback.mp4", title = "Outgoing", source = CanvasSource.APPLE)
+        val selected = mounted.copy(title = "Incoming", artist = "Other credit")
+        assertFalse(mounted == selected) // Android keys its rendition and rendered state on the object.
+        assertSame(mounted, stableCanvasPresentation(mounted, selected))
+        val changedFallback = selected.copy(fallbackUrl = "different.mp4")
+        assertSame(changedFallback, stableCanvasPresentation(mounted, changedFallback))
+        assertNull(stableCanvasPresentation(mounted, null))
+    }
+
+    @Test
     fun disablingArtworkRejectsTheHeldGenerationButNotTheNextMix() {
         val owner = AutoMixCanvasPair()
         val tracks = requireNotNull(owner.start(visual, outgoing))

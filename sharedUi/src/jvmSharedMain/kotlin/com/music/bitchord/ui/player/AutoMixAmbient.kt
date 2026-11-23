@@ -97,10 +97,10 @@ internal fun directAutoMixAmbientSelection(
 ): Pair<Long, QueueEntryIdentity>? {
     if (entry == null) return null
     if (visual != null && (entry == visual.outgoing.identity || entry == visual.incoming.identity)) {
-        if (visual.mixActive) return if (gate.allows(visual.generation)) null else visual.generation to entry
+        if (visual.mixActive) return if (gate.allows(visual)) null else visual.generation to entry
         // A terminal sample can overtake the selection update. Don't treat a
         // terminal feed left behind during later navigation as a new handoff.
-        if (visual.swapSeconds != null && !gate.allows(visual.generation) && entry == visual.incoming.identity &&
+        if (visual.swapSeconds != null && !gate.allows(visual) && entry == visual.incoming.identity &&
             (previous?.first == visual.generation || lastEntry == visual.outgoing.identity)
         ) return visual.generation to entry
     }
@@ -119,7 +119,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     val boundary = remember(feed) { mutableStateOf(feed.value?.boundary()) }
     LaunchedEffect(feed, gate) {
         feed.collect {
-            sample.value = it?.takeIf { state -> gate.allows(state.generation) }
+            sample.value = it?.takeIf(gate::allows)
             boundary.value = it?.boundary()
         }
     }
@@ -132,7 +132,7 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
         visual, entry, gate, history.direct ?: history.settled?.second?.settled?.takeUnless { gate.allows(it.first) },
         history.lastEntry.takeUnless { visual?.generation == history.closedGeneration },
     )
-    val stage = visual?.takeIf { gate.allows(it.generation) }?.boundary()
+    val stage = visual?.takeIf(gate::allows)?.boundary()
         .let { if (it == observedBoundary) observedBoundary else it }
     val prepared = preparedAutoMixAmbient?.takeIf { it.generation == stage?.generation }
     val holdsPair = stage?.phase == AutoMixVisualPhase.MIXING && stage.generation != history.closedGeneration

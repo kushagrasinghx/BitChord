@@ -5,6 +5,7 @@ import kotlinx.coroutines.async
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.AutoMixCanvasPresentation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -164,6 +165,26 @@ object CanvasRepository {
         )
         return synchronized(cache) { cache[key]?.artwork }
             ?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
+    }
+
+    /** Cache only. The provider chain returns null on failures as well as misses. */
+    internal fun cachedAutoMixPresentation(song: Song): AutoMixCanvasPresentation? {
+        val title = song.title.cleaned()
+        val artist = song.artist.cleaned()
+        // Now Playing checks the cache before trying the metadata lookup. A
+        // cached clip can still display when the queued item lacks metadata.
+        val key = cacheKey("song|${song.videoId}", AppSettings.effectivePrioritizeSpotifyCanvas.value,
+            AppSettings.disableSpotifyCanvas.value)
+        val entry = synchronized(cache) { cache[key] }
+        val clip = entry?.artwork?.takeUnless { AppSettings.disableSpotifyCanvas.value && it.source == CanvasSource.SPOTIFY }
+        if (clip != null) return AutoMixCanvasPresentation(clip).takeIf { clip.matches(title, artist, song.albumName) }
+        val localWithoutId = song.videoId.isBlank() && (song.localUri != null || song.localPath != null)
+        // A completed album-aware negative entry is the ordinary renderer's settled
+        // fallback, even if a provider was unavailable. An uncached or provisional
+        // miss can still resolve differently and is not an equivalence signal.
+        return AutoMixCanvasPresentation(null).takeIf {
+            localWithoutId || title.isBlank() || artist.isBlank() || entry?.let { it.artwork == null && it.withAlbum } == true
+        }
     }
 
     /**

@@ -38,6 +38,42 @@ class AutoMixCoverTest {
     )
 
     @Test
+    fun matchingGenerationNeverReadsPreparedLayersOnEitherSurface() {
+        val bypassed = visual.copy(bypassArtwork = true, artworkWindow = null)
+        val prepared = cover()
+        val base = cover()
+        for ((art, mini) in listOf(true to false, false to true, true to true)) {
+            val settings = AutoMixArtworkPreferences(artTransition = art, miniPlayerTransition = mini)
+            for (isMini in listOf(false, true)) {
+                val gate = settings.gate(automix = true, mini = isMini)
+                val requested = mutableListOf<Long>()
+                val state = AutoMixCoverState(miniOutgoing = if (isMini) ({ _: AutoMixVisualState -> base }) else null) {
+                    requested += it
+                    prepared
+                }
+                state.bind(outgoing, null, null, gate)
+                val waiting = visual.copy(phase = AutoMixVisualPhase.ARMED, artworkDecisionPending = true, artworkWindow = null)
+                assertFalse(gate.holdsArtworkResources(waiting))
+                state.update(waiting, gate)
+                assertNull(state.framesFor(outgoing, gate))
+                assertTrue(requested.isEmpty())
+                assertFalse(gate.holdsArtworkResources(bypassed))
+                state.update(bypassed.copy(phase = AutoMixVisualPhase.ARMED), gate)
+                state.bind(incoming, null, null, gate)
+                state.update(bypassed, gate)
+                assertNull(state.framesFor(incoming, gate))
+                assertTrue(requested.isEmpty())
+
+                val next = visual.copy(generation = 2, outgoing = visual.incoming, incoming = visual.outgoing)
+                state.update(next, gate)
+                assertEquals(if (if (isMini) mini else art) listOf(2L) else emptyList(), requested)
+                assertEquals(art, settings.artTransition)
+                assertEquals(mini, settings.miniPlayerTransition)
+            }
+        }
+    }
+
+    @Test
     fun missingThumbnailAtOverlapUsesFallbackAndCannotJoinLater() {
         val base = cover()
         var prepared: DecodedAutoMixCover? = null

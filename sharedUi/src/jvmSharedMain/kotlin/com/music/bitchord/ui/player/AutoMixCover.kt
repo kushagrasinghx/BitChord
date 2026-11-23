@@ -132,7 +132,7 @@ internal class AutoMixCoverState(
     fun update(visual: AutoMixVisualState?, gate: AutoMixArtworkGate = AutoMixArtworkGate()) {
         latest = visual
         if (promoted?.let { !gate.matchesScope(it.remoteArtworkScope) } == true) promoted = null
-        if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED || !gate.allows(visual.generation) ||
+        if (visual == null || visual.phase == AutoMixVisualPhase.CANCELLED || !gate.allows(visual) ||
             !gate.matchesScope(visual.remoteArtworkScope)
         ) {
             if (visual != null) seenMix = visual.generation
@@ -242,10 +242,10 @@ internal fun rememberAutoMixCover(
     val feed = PlayerPlatform.host.autoMixVisualState
     val cover = remember(feed) { AutoMixCoverState() }
     SideEffect {
-        cover.bind(occurrence, art, feed?.value?.takeIf { gate.allows(it.generation) && gate.matchesScope(it.remoteArtworkScope) }, gate)
+        cover.bind(occurrence, art, feed?.value?.takeIf { gate.allows(it) && gate.matchesScope(it.remoteArtworkScope) }, gate)
     }
     LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
-    AutoMixRevealClockEffect()
+    AutoMixRevealClockEffect(gate)
     return cover
 }
 
@@ -301,10 +301,10 @@ fun rememberMiniAutoMixArtwork(
         song?.videoId?.let { id -> id.startsWith("webdav:") || id.startsWith("smb:") } == true
     }
     SideEffect {
-        cover.bind(occurrence, null, feed?.value?.takeIf { gate.allows(it.generation) && gate.matchesScope(it.remoteArtworkScope) }, gate)
+        cover.bind(occurrence, null, feed?.value?.takeIf { gate.allows(it) && gate.matchesScope(it.remoteArtworkScope) }, gate)
     }
     LaunchedEffect(feed, cover, gate) { feed?.collect { cover.update(it, gate) } }
-    AutoMixRevealClockEffect()
+    AutoMixRevealClockEffect(gate)
 
     return { model, modifier ->
         AutoMixCover(cover.framesFor(occurrence, gate), modifier, blur = false) { artworkModifier ->

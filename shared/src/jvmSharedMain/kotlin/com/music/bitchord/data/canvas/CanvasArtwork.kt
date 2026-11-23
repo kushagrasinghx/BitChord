@@ -37,6 +37,10 @@ data class CanvasArtwork(
      */
     val portraitUrl: String? = null,
 ) {
+    /** Provider and all playback renditions agree; catalogue labels are not artwork identity. */
+    fun samePresentationAs(other: CanvasArtwork): Boolean =
+        url == other.url && fallbackUrl == other.fallbackUrl && portraitUrl == other.portraitUrl && source == other.source
+
     /**
      * Whether this clip really belongs to the track we asked about.
      *

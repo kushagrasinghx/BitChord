@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -40,6 +41,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** Keep the mounted native state (including the selected fallback) keyed to the same clip. */
+internal fun stableCanvasPresentation(previous: CanvasArtwork?, candidate: CanvasArtwork?): CanvasArtwork? =
+    previous?.takeIf { candidate != null && it.samePresentationAs(candidate) } ?: candidate
+
 /**
  * The looping clip some releases publish alongside their cover, for [song], or
  * null — a miss is the normal answer.
@@ -62,7 +67,16 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     // which is the flicker. A different song keys differently and starts
     // clean; the same-titled-impostor case is guarded where the clip is
     // adopted, by [CanvasArtwork.matches].
-    var canvas by remember(song.title, song.artist) { mutableStateOf<CanvasArtwork?>(null) }
+    val lastPresentation = remember { arrayOfNulls<CanvasArtwork>(1) }
+    var canvas by remember(song.title, song.artist) {
+        // Continuity does not depend on which feed publishes first. Only keep the
+        // current decoder's key when this selection has its own matching cached clip.
+        val prior = lastPresentation[0]
+        val same = if (prior == null || !canvasAllowedNow) null else {
+            PlayerPlatform.host.cachedCanvas(song)?.takeIf { it.samePresentationAs(prior) }
+        }
+        mutableStateOf(same)
+    }
     LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, disableSpotifyCanvas) {
         if (!canvasAllowedNow) {
             canvas = null
@@ -94,7 +108,10 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas
     }
 
-    return canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
+    val candidate = canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
+    val displayed = stableCanvasPresentation(lastPresentation[0], candidate)
+    SideEffect { lastPresentation[0] = displayed }
+    return displayed
 }
 
 /**

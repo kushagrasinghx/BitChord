@@ -134,7 +134,6 @@ import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.playback.AutoMixVisualPhase
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -1077,8 +1076,9 @@ private fun discFill(chrome: Boolean, alpha: Float = CIRCLE_DISC_ALPHA): Color =
 internal fun rememberAutoMixFrostHold(): () -> Boolean {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return { false }
     val visual = feed.collectAsStateWithLifecycle()
-    val hold = remember(visual) {
-        derivedStateOf { visual.value?.let { it.mixActive || it.phase == AutoMixVisualPhase.ARMED } == true }
+    val gate = autoMixArtworkGate()
+    val hold = remember(visual, gate) {
+        derivedStateOf { visual.value?.let(gate::holdsArtworkResources) == true }
     }
     return { hold.value }
 }

@@ -47,7 +47,7 @@ internal class AutoMixCanvasPair {
         entry: QueueEntryIdentity?,
         gate: AutoMixArtworkGate = AutoMixArtworkGate(),
     ): AutoMixCanvasTracks? {
-        if (!gate.allows(state.generation) || seenGeneration == state.generation || entry != state.outgoing.identity) return null
+        if (!gate.allows(state) || seenGeneration == state.generation || entry != state.outgoing.identity) return null
         // A not-yet-bound UI selection must not consume the generation.
         seenGeneration = state.generation
         return AutoMixCanvasTracks(

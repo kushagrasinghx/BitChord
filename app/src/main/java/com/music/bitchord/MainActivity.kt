@@ -1582,6 +1582,7 @@ private fun BitChordApp(
         source: QueueSource,
         boundedContext: Boolean = false,
         continuationToken: String? = null,
+        replaceUpcomingQueue: Boolean = false,
     ) {
         // A Spotify page lists songs it has not found on YouTube Music yet (or
         // never will); those can't be queued, so play the rest in their order.
@@ -1624,7 +1625,9 @@ private fun BitChordApp(
                 // library re-sent to every media controller on each queue edit.
                 val bounded = boundedContext || songs.size > BoundedQueuePlanner.MAX_PHYSICAL_CONTEXT
                 if (bounded && !CastController.state.value.casting) {
-                    c.playBoundedContext(songs, index, source, continuationToken)
+                    c.playBoundedContext(
+                        songs, index, source, continuationToken, replaceUpcomingQueue = replaceUpcomingQueue,
+                    )
                 } else {
                     val result = QueueCoordinator.buildContextQueue(
                         currentTimeline = currentTimeline,
@@ -1632,6 +1635,7 @@ private fun BitChordApp(
                         newContextSongs = songs,
                         selectedIndex = index,
                         contextSource = source,
+                        replaceUpcomingQueue = replaceUpcomingQueue,
                     )
                     c.playSongs(result.timeline, result.startIndex)
                 }
@@ -1643,15 +1647,16 @@ private fun BitChordApp(
     // collection action fetched before this callback). The explicit wrappers
     // below are preferred because a track's album is not necessarily where it
     // was played from.
-    val play: (List<Song>, Int) -> Unit = { songs, index ->
+    fun playFromSongs(songs: List<Song>, index: Int, replaceUpcomingQueue: Boolean = false) {
         val first = songs.getOrNull(index)
         val source = QueueSource(
             title = first?.playbackSource ?: first?.albumName ?: queueLabel,
             type = first?.playbackSourceType ?: PlaybackSourceType.QUEUE,
             id = first?.playbackSourceId,
         )
-        playFrom(songs, index, source)
+        playFrom(songs, index, source, replaceUpcomingQueue = replaceUpcomingQueue)
     }
+    val play: (List<Song>, Int) -> Unit = { songs, index -> playFromSongs(songs, index) }
     LaunchedEffect(player.song?.videoId) {
         if (optimisticVersionSong?.videoId == player.song?.videoId ||
             (optimisticVersionSong != null && player.song?.videoId != convertedAudioId && player.song?.videoId != convertedVideoId && player.song?.videoId != keepVideoId)
@@ -3396,7 +3401,7 @@ private fun BitChordApp(
                             // handoff, cancel that fill and use the newest complete
                             // page snapshot; Cast deliberately keeps the old full
                             // queue path.
-                            fun playDetailSongs(songs: List<Song>, index: Int) {
+                            fun playDetailSongs(songs: List<Song>, index: Int, replaceUpcomingQueue: Boolean = false) {
                                 // Do not cancel a page's fill-in merely because a
                                 // listener tapped while the host owns playback.
                                 if (ListenTogether.state.value.controlsLocked) {
@@ -3438,6 +3443,7 @@ private fun BitChordApp(
                                     source,
                                     boundedContext = useBounded,
                                     continuationToken = latestPage?.continuation ?: page.continuation,
+                                    replaceUpcomingQueue = replaceUpcomingQueue,
                                 )
                             }
                             // This page's songs being rearranged, drawn in place of its list.
@@ -3454,7 +3460,7 @@ private fun BitChordApp(
                                 },
                                 // Album/playlist playback hands the page snapshot to
                                 // the service, which then owns continuation loading.
-                                onSongClick = ::playDetailSongs,
+                                onSongClick = { songs, index -> playDetailSongs(songs, index) },
                                 onSongLongPress = { openSongMenu(withAlbum(it)) },
                                 onSongSwipe = { onSongSwipe(withAlbum(it)) },
                                 onPlay = { songs ->
@@ -3462,7 +3468,10 @@ private fun BitChordApp(
                                         // Play is the release in order, so a shuffle left on
                                         // from the last queue goes off before this one is built.
                                         QueueShuffle.disableForNextQueue()
-                                        playDetailSongs(songs, 0)
+                                        playDetailSongs(
+                                            songs, 0,
+                                            replaceUpcomingQueue = page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST,
+                                        )
                                     }
                                 },
                                 onShuffle = { songs ->
@@ -5427,7 +5436,10 @@ private fun BitChordApp(
                 onAddToQueue = act(addSongsToQueue),
                 onPlay = act { songs ->
                     QueueShuffle.disableForNextQueue()
-                    play(songs, 0)
+                    playFromSongs(
+                        songs, 0,
+                        replaceUpcomingQueue = target.type == BrowseType.ALBUM || target.type == BrowseType.PLAYLIST,
+                    )
                 }.takeIf { target.fromCard },
                 onShuffle = act { songs ->
                     // As on a release page: shuffle goes on before the queue

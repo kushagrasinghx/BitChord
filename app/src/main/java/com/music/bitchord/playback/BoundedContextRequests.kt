@@ -24,6 +24,7 @@ object BoundedContextRequests {
         val shuffle: Boolean,
         /** Opaque handoff id, filled by [put] and returned by [take]. */
         val handoffToken: String? = null,
+        val replaceUpcomingQueue: Boolean = false,
     )
 
     /**

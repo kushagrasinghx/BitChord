@@ -32,8 +32,9 @@ object QueueCoordinator {
         newContextSongs: List<Song>,
         selectedIndex: Int,
         contextSource: QueueSource,
+        replaceUpcomingQueue: Boolean = false,
     ): ContextQueueResult = QueueTimeline.buildContextQueue(
-        currentTimeline, currentIndex, newContextSongs, selectedIndex, contextSource,
+        currentTimeline, currentIndex, newContextSongs, selectedIndex, contextSource, replaceUpcomingQueue,
     )
 
     /** @see QueueTimeline.buildOneOffQueue */

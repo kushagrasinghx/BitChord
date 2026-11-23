@@ -193,8 +193,8 @@ import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
-import com.music.bitchord.ui.utils.rememberAlbumArtworkOverscroll
 import com.music.bitchord.ui.utils.rememberBottomOnlyDetailOverscroll
+import com.music.bitchord.ui.utils.rememberDetailArtworkOverscroll
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -534,7 +534,8 @@ fun DetailScreen(
     val visibleCanvas = canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
     val album = page.type == BrowseType.ALBUM
     val playlist = page.type == BrowseType.PLAYLIST && folder == null
-    var albumPosterFailed by remember(page.browseId, page.thumbnailUrl) { mutableStateOf(false) }
+    val artworkDetail = album || playlist
+    var heroPosterFailed by remember(page.browseId, page.thumbnailUrl) { mutableStateOf(false) }
 
     // Opening the search carries the page up to it, so the field lands just
     // clear of the frosted bar with the tracks under it rather than at the foot
@@ -577,13 +578,14 @@ fun DetailScreen(
                 val artHeight = (maxWidth / ARTIST_PHOTO_RATIO).coerceAtMost(maxHeight * 0.6f)
                 val sleeveSize = (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
                 val fullBleedSleeve = fullBleedArtwork && maxWidth <= maxHeight * FULL_BLEED_MAX_HEIGHT
-                val albumFullBleed = album && fullBleedSleeve && page.thumbnailUrl != null && !albumPosterFailed
-                val albumOverscroll = if (albumFullBleed && reorder == null) {
+                val liftedArtwork = artworkDetail && fullBleedSleeve && reorder == null &&
+                    page.thumbnailUrl != null && !heroPosterFailed
+                val artworkOverscroll = if (liftedArtwork) {
                     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
                     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
                     val maxPullPx = with(LocalDensity.current) { minOf(88.dp, maxWidth * 0.22f).toPx() }
                     if (!reduceAnimation && systemMotion?.scaleFactor != 0f && maxPullPx > 0f) {
-                        rememberAlbumArtworkOverscroll(maxPullPx)
+                        rememberDetailArtworkOverscroll(maxPullPx)
                     } else null
                 } else null
                 val albumMotion = remember(visibleCanvas) {
@@ -598,16 +600,18 @@ fun DetailScreen(
                 }
                 // The portrait rendition determines the crop, not the reserved layout.
                 // Keep the viewport stable across the poster, clip and square fallback.
-                val albumHeroHeight = minOf(maxWidth, maxHeight * ALBUM_HERO_VIEWPORT_FRACTION)
-                val albumTitleSpace = albumHeroHeight * ALBUM_HERO_TITLE_FRACTION
+                val releaseHeroHeight = if (album) {
+                    minOf(maxWidth, maxHeight * ALBUM_HERO_VIEWPORT_FRACTION)
+                } else maxWidth
+                val releaseTitleSpace = if (album) {
+                    releaseHeroHeight * ALBUM_HERO_TITLE_FRACTION
+                } else (releaseHeroHeight - FULL_BLEED_TITLE_OVERLAP).coerceAtLeast(0.dp)
                 // A folder's grid view: the same column count the Library's
                 // "Show all" grids reach at this width.
                 val gridColumns = libraryGrid(maxWidth - PAGE_GUTTER * 2).columns
 
-                // The artist photo is drawn behind the list rather than in it, so
-                // both need to agree on its height without being able to ask each
-                // other — see [artHeight]. A release has no such layer: its sleeve
-                // is an ordinary item at the top of the list.
+                // Artist and lifted release artwork are drawn behind the list.
+                // Each backdrop follows the measured position of item zero.
                 if (isArtist) {
                     PageBackground(
                         page = page,
@@ -620,9 +624,9 @@ fun DetailScreen(
                     )
                 }
 
-                if (albumFullBleed && reorder == null) {
+                if (liftedArtwork) {
                     // Keep the decoder attached when the lazy header leaves the viewport.
-                    val heroHeightPx = with(LocalDensity.current) { albumHeroHeight.toPx() }
+                    val heroHeightPx = with(LocalDensity.current) { releaseHeroHeight.toPx() }
                     val offscreen by remember(listState, heroHeightPx) {
                         derivedStateOf { listState.headerTop(heroHeightPx) <= -heroHeightPx }
                     }
@@ -630,18 +634,18 @@ fun DetailScreen(
                         FullBleedReleaseArtwork(
                             poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                             palette = palette,
-                            canvas = albumMotion,
+                            canvas = if (album) albumMotion else visibleCanvas,
                             fadeFraction = FULL_BLEED_FADE_FRACTION,
                             pauseVideo = offscreen,
                             onPosterState = {
-                                if (it is AsyncImagePainter.State.Error) albumPosterFailed = true
+                                if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
                             },
-                            modifier = Modifier.fillMaxWidth().height(albumHeroHeight)
+                            modifier = Modifier.fillMaxWidth().height(releaseHeroHeight)
                                 .offset { IntOffset(0, listState.headerTop(heroHeightPx).roundToInt()) }
                                 .graphicsLayer {
                                     // The list moves down; the hero stays anchored at the top.
                                     // Grow its bottom edge by exactly the list's displacement.
-                                    val pull = albumOverscroll?.artworkExpansionPx ?: 0f
+                                    val pull = artworkOverscroll?.artworkExpansionPx ?: 0f
                                     val scale = 1f + pull / heroHeightPx.coerceAtLeast(1f)
                                     transformOrigin = TransformOrigin(0.5f, 0f)
                                     scaleX = scale
@@ -657,8 +661,8 @@ fun DetailScreen(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     overscrollEffect = when {
-                        albumFullBleed -> albumOverscroll
-                        !fullBleedArtwork && (album || playlist) -> rememberBottomOnlyDetailOverscroll()
+                        liftedArtwork -> artworkOverscroll
+                        artworkDetail -> rememberBottomOnlyDetailOverscroll()
                         else -> rememberOverscrollEffect()
                     },
                     // The artist photo runs edge-to-edge up under the glass bar;
@@ -673,8 +677,8 @@ fun DetailScreen(
                         page = page,
                         palette = palette,
                         sleeveSize = sleeveSize,
-                        fullBleed = fullBleedSleeve && !album,
-                        liftedArtworkSpace = albumTitleSpace.takeIf { albumFullBleed },
+                        fullBleed = fullBleedSleeve && !artworkDetail,
+                        liftedArtworkSpace = releaseTitleSpace.takeIf { liftedArtwork },
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },

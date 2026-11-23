@@ -58,14 +58,14 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-internal interface AlbumArtworkOverscroll : OverscrollEffect {
+internal interface DetailArtworkOverscroll : OverscrollEffect {
     val artworkExpansionPx: Float
 }
 
 private class IosOverscrollEffect(
     private val topLimitPx: Float = 0f,
     private val allowTop: Boolean = true,
-) : AlbumArtworkOverscroll {
+) : DetailArtworkOverscroll {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
@@ -236,7 +236,7 @@ fun rememberIosOverscrollFactory(): OverscrollFactory {
 }
 
 @Composable
-internal fun rememberAlbumArtworkOverscroll(topLimitPx: Float): AlbumArtworkOverscroll =
+internal fun rememberDetailArtworkOverscroll(topLimitPx: Float): DetailArtworkOverscroll =
     remember(topLimitPx) { IosOverscrollEffect(topLimitPx) }
 
 /** A hard top boundary with the usual bottom-edge bounce. */

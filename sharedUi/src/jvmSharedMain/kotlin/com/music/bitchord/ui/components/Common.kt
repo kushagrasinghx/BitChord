@@ -544,7 +544,7 @@ private fun SongRowContent(
                 contentAlignment = Alignment.Center,
             ) {
                 if (searchPlayingStyle && isCurrent && isPlaying) {
-                    SearchPlayingBars()
+                    SearchPlayingBars(tint = activeTint.takeIf { titleTint != null })
                 } else if (isCurrent) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.GraphicEq else Icons.Rounded.PlayArrow,
@@ -754,7 +754,7 @@ private fun playingBarHeight(index: Int, minimum: Float, ms: Long): Float {
 }
 
 @Composable
-fun SearchPlayingBars(modifier: Modifier = Modifier) {
+fun SearchPlayingBars(modifier: Modifier = Modifier, tint: Color? = null) {
     // Time in motion rather than an animation per bar: read only in the draw
     // below, so a frame of it redraws this canvas and never recomposes or
     // re-lays out the row it sits in.
@@ -776,7 +776,7 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(24.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.52f)),
+            .background(if (tint == null) Color.Black.copy(alpha = 0.52f) else Color.Transparent),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(width = 13.dp, height = 14.dp)) {
@@ -787,7 +787,7 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
             PLAYING_BAR_MINIMUMS.forEachIndexed { index, minimum ->
                 val height = size.height * playingBarHeight(index, minimum, ms)
                 drawRoundRect(
-                    color = Color.White,
+                    color = tint ?: Color.White,
                     topLeft = Offset(index * step, size.height - height),
                     size = Size(barWidth, height),
                     cornerRadius = corner,

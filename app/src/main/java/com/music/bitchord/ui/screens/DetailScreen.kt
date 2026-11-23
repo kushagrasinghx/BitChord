@@ -627,6 +627,7 @@ fun DetailScreen(
                             // The portrait rendition needs more cropping to cover the width.
                             canvas = visibleCanvas,
                             fadeFraction = FULL_BLEED_FADE_FRACTION,
+                            albumFadeEndPx = if (album) heroHeightPx.roundToInt() * ALBUM_HERO_TITLE_FRACTION else null,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
@@ -1021,7 +1022,7 @@ private fun ReleaseHeader(
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
-    val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM && page.thumbnailUrl != null && !artFailed }
+    val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM }
 
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
@@ -1170,7 +1171,7 @@ private fun ReleaseHeader(
                         label = playLabel,
                         onClick = onPlay,
                         filled = true,
-                        artworkTint = albumPalette?.onWhiteAction,
+                        artworkPalette = albumPalette,
                         size = sideButton,
                         compact = compact,
                         modifier = Modifier.weight(1f),
@@ -1180,7 +1181,7 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.shuffle),
                         onClick = onShuffle,
                         filled = false,
-                        artworkTint = albumPalette?.onBackground,
+                        artworkPalette = albumPalette,
                         size = sideButton,
                         compact = compact,
                         modifier = Modifier.weight(1f),
@@ -1203,7 +1204,7 @@ private fun ReleaseHeader(
                     onClick = onShuffle,
                     haptic = Haptic.Resume,
                     size = sideButton,
-                    artworkTint = albumPalette?.onBackground,
+                    artworkPalette = albumPalette,
                 )
                 ActionPill(
                     icon = playIcon,
@@ -1213,7 +1214,7 @@ private fun ReleaseHeader(
                     size = sideButton,
                     compact = compact,
                     modifier = Modifier.weight(1f),
-                    artworkTint = albumPalette?.onWhiteAction,
+                    artworkPalette = albumPalette,
                 )
                 if (library != null) {
                     CircleIconButton(
@@ -1228,7 +1229,7 @@ private fun ReleaseHeader(
                         onClick = { onToggleLibrary?.invoke() },
                         haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
                         size = sideButton,
-                        artworkTint = albumPalette?.onBackground,
+                        artworkPalette = albumPalette,
                     )
                 } else {
                     // Shown but greyed out for a guest, rather than leaving a
@@ -1239,7 +1240,7 @@ private fun ReleaseHeader(
                         onClick = {},
                         size = sideButton,
                         enabled = false,
-                        artworkTint = albumPalette?.onBackground,
+                        artworkPalette = albumPalette,
                     )
                 }
             }
@@ -1256,7 +1257,12 @@ private fun FullBleedReleaseArtwork(
     onPosterState: (AsyncImagePainter.State) -> Unit,
     modifier: Modifier,
     pauseVideo: Boolean = false,
+    albumFadeEndPx: Float? = null,
 ) {
+    // Finish the album's still and video dissolves before the heading so
+    // the text always sits on the same surface as the rest of the page.
+    val fadeLength = if (albumFadeEndPx == null) fadeFraction else
+        (ALBUM_HERO_TITLE_FRACTION - (1f - fadeFraction)) / ALBUM_HERO_TITLE_FRACTION
     Box(modifier) {
         var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
         AsyncImage(
@@ -1273,14 +1279,15 @@ private fun FullBleedReleaseArtwork(
                 }
                 .drawWithContent {
                     drawContent()
+                    val fadeEnd = albumFadeEndPx ?: size.height
                     drawRect(
                         brush = Brush.verticalGradient(
                             colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
                                 val t = i / FADE_CURVE_STOPS.toFloat()
                                 t to Color.Black.copy(alpha = 1f - smootherStep(t))
                             },
-                            startY = size.height * (1f - fadeFraction),
-                            endY = size.height,
+                            startY = fadeEnd * (1f - fadeLength),
+                            endY = fadeEnd,
                         ),
                         blendMode = BlendMode.DstIn,
                     )
@@ -1294,7 +1301,8 @@ private fun FullBleedReleaseArtwork(
                     canvas = clip,
                     isPlaying = true,
                     pausedForTransition = pauseVideo,
-                    bottomFade = fadeFraction,
+                    bottomFade = fadeLength,
+                    bottomFadeEndPx = albumFadeEndPx,
                     onCoverChanged = { canvasCover = it },
                     modifier = Modifier.matchParentSize(),
                 )
@@ -1334,6 +1342,9 @@ private fun DetailSearchField(
             onFocused()
         }
     }
+    val album = type == BrowseType.ALBUM
+    val fill = if (album) palette.elevated else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+    val rim = if (album) palette.divider else Color.White.copy(alpha = 0.10f)
 
     Row(
         modifier = Modifier
@@ -1342,8 +1353,8 @@ private fun DetailSearchField(
             .padding(bottom = 10.dp)
             .height(46.dp)
             .clip(PILL_SHAPE)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
+            .background(fill)
+            .border(0.5.dp, rim, PILL_SHAPE)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1780,7 +1791,7 @@ private fun ActionRow(
 
 /**
  * A labelled pill in the release page's action row. [filled] is Play: white
- * with black content, so the primary action survives every palette, filling
+ * with dark content, so the primary action survives every palette, filling
  * whatever width the row leaves it. Otherwise it wears the light veil and glass
  * rim of the circles beside it — Shuffle, on a page with no Add to sit opposite.
  */
@@ -1792,13 +1803,17 @@ private fun ActionPill(
     filled: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 50.dp,
-    artworkTint: Color? = null,
+    artworkPalette: ArtworkPalette? = null,
     compact: Boolean = false,
 ) {
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = artworkTint ?: if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val content = if (filled) {
+        artworkPalette?.onWhiteAction ?: Color.Black
+    } else {
+        artworkPalette?.onBackground ?: MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = modifier
             .then(if (compact) Modifier.heightIn(min = size) else Modifier.height(size))
@@ -1808,9 +1823,9 @@ private fun ActionPill(
                     Modifier.background(Color.White)
                 } else {
                     Modifier
-                        .background(artworkTint?.copy(alpha = 0.08f) ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+                        .background(artworkPalette?.elevated ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
                         .liquidGlassRim(CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                        .border(1.dp, artworkPalette?.divider ?: Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
                 },
             )
             .clickable {
@@ -1908,7 +1923,7 @@ private fun CircleIconButton(
      * Dimmed rather than dropped, so the row keeps its shape.
      */
     enabled: Boolean = true,
-    artworkTint: Color? = null,
+    artworkPalette: ArtworkPalette? = null,
 ) {
     val haptics = rememberHaptics()
     Box(
@@ -1916,11 +1931,11 @@ private fun CircleIconButton(
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
             .clip(CircleShape)
-            .background(artworkTint?.copy(alpha = 0.08f) ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+            .background(artworkPalette?.elevated ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
             // The glass rim the floating bars wear, with Liquid Glass on. Rim
             // only: over the page's flat tint a blurred fill would look the same.
             .liquidGlassRim(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+            .border(1.dp, artworkPalette?.divider ?: Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
             .clickable(enabled = enabled) {
                 haptics.play(haptic)
                 onClick()
@@ -1930,7 +1945,7 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = artworkTint ?: MaterialTheme.colorScheme.onSurface,
+            tint = artworkPalette?.onBackground ?: MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(size * 0.44f),
         )
     }

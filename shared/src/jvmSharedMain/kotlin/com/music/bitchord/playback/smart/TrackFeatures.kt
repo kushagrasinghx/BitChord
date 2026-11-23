@@ -83,6 +83,22 @@ object TrackFeatures {
         return nativeResample(samples, inputRate, outputRate).takeIf { it.isNotEmpty() }
     }
 
+    /** Same filter as [resample], without first concatenating decoder chunks on the Java heap. */
+    fun resampleChunks(
+        chunks: List<FloatArray>,
+        inputRate: Double,
+        outputRate: Double = sampleRate,
+    ): FloatArray? {
+        if (!available || chunks.isEmpty() || !inputRate.isFinite() || !outputRate.isFinite() ||
+            inputRate <= 0 || outputRate <= 0
+        ) return null
+        // Count the exact arrays JNI will receive. Only the references are copied.
+        val input = chunks.toTypedArray()
+        val sampleCount = input.sumOf { it.size.toLong() }
+        if (sampleCount <= 0L || sampleCount > Int.MAX_VALUE) return null
+        return nativeResampleChunks(input, sampleCount.toInt(), inputRate, outputRate)?.takeIf { it.isNotEmpty() }
+    }
+
     /** The subset of the analyzer's output the transition policy reads. */
     data class Features(
         val duration: Double,
@@ -185,4 +201,11 @@ object TrackFeatures {
         inputRate: Double,
         outputRate: Double,
     ): FloatArray
+
+    @JvmStatic private external fun nativeResampleChunks(
+        chunks: Array<FloatArray>,
+        sampleCount: Int,
+        inputRate: Double,
+        outputRate: Double,
+    ): FloatArray?
 }

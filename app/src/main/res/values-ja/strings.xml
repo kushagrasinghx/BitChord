@@ -1537,4 +1537,64 @@
     <string name="drive_backup_row_subtitle">Replay をすべてのデバイスでバックアップ・同期</string>
     <string name="drive_over_cellular">モバイルデータで同期</string>
     <string name="drive_over_cellular_subtitle">オフの場合、自動同期は Wi-Fi 接続を待ちます</string>
+    <string name="automix_art_transition">アートワークのトランジション</string>
+    <string name="automix_art_transition_subtitle">オートミックス中、曲と曲の間でアートワークをなめらかに切り替えます。</string>
+    <string name="automix_mini_art_transition">ミニプレーヤーのアートワークトランジション</string>
+    <string name="automix_mini_art_transition_subtitle">オートミックス中、ミニプレーヤーでもアートワークを切り替えます。</string>
+    <string name="show_best_part">ベストパートボタン</string>
+    <string name="show_best_part_subtitle">アートワーク上のボタンで、曲の中で最もリピートされている部分へジャンプします</string>
+    <string name="replay_year_open">Replay %1$s を開く</string>
+    <string name="replay_year_building">あなたの1年をまとめています…</string>
+    <string name="replay_year_opener_start">BitChordで過ごした</string>
+    <string name="replay_year_opener_end">年</string>
+    <string name="replay_year_opener_detail">今年聴いた音楽を振り返りましょう。</string>
+    <string name="replay_year_minutes_start">今年の再生時間は</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">分</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">つまり</string>
+    <string name="replay_year_minutes_days_value">%1$s日</string>
+    <string name="replay_year_minutes_hours_value">%1$s時間</string>
+    <string name="replay_year_minutes_days_end">分の音楽です。</string>
+    <string name="replay_year_busiest_start">いちばん聴いた日は</string>
+    <string name="replay_year_busiest_minutes">1日で%1$s分の音楽</string>
+    <string name="replay_year_busiest_song">主に%1$s</string>
+    <string name="replay_year_clock_start">いちばん聴いていた時間帯は</string>
+    <string name="replay_year_night_owl">夜ふかし派</string>
+    <string name="replay_year_night_owl_detail">再生の多くが夜10時以降でした。</string>
+    <string name="replay_year_early_bird">早起き派</string>
+    <string name="replay_year_early_bird_detail">朝10時前から音楽で1日が始まっていました。</string>
+    <string name="replay_year_golden_hour">ゴールデンアワー</string>
+    <string name="replay_year_golden_hour_detail">夕方から夜が音楽の時間でした。</string>
+    <string name="replay_year_daytime">日中派</string>
+    <string name="replay_year_daytime_detail">1日中音楽を流し続けていました。</string>
+    <string name="replay_year_all_day">24時間派</string>
+    <string name="replay_year_all_day_detail">朝も昼も夜も、いつも何かが流れていました。</string>
+    <string name="replay_year_genres_start">今年のあなたのサウンド</string>
+    <string name="replay_year_artist_start">今年いちばん聴いたアーティストは…</string>
+    <string name="replay_year_minutes_together">一緒に過ごした%1$s分</string>
+    <string name="replay_year_top_artists">よく聴いたアーティスト</string>
+    <string name="replay_year_song_start">そして今年の1曲は…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">%1$s回再生</item>
+    </plurals>
+    <string name="replay_year_top_songs">その他のよく聴いた曲</string>
+    <string name="replay_year_albums">聴き込んだアルバム</string>
+    <string name="replay_year_months">月ごとのあなたの1年</string>
+    <string name="replay_year_discovery_start">今年あなたが出会ったのは</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">曲</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">アーティスト</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">アルバム</item>
+    </plurals>
+    <string name="replay_year_summary_title">あなたの%1$s</string>
+    <string name="replay_year_summary_artists">よく聴いたアーティスト</string>
+    <string name="replay_year_summary_songs">よく聴いた曲</string>
+    <string name="replay_year_summary_minutes">再生時間（分）</string>
+    <string name="replay_year_mute">ストーリーをミュート</string>
+    <string name="replay_year_unmute">ストーリーのミュートを解除</string>
 </resources>

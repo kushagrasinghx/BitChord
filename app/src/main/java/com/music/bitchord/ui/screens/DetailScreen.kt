@@ -1296,7 +1296,10 @@ internal fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort
     } else {
         withIndex()
             .sortedWith(
-                compareBy<IndexedValue<Song>> { (_, song) -> song.trackNumber ?: Int.MAX_VALUE }
+                // Disc before track: each disc numbers its tracks from 1 again.
+                compareBy<IndexedValue<Song>> { (_, song) -> song.trackNumber == null }
+                    .thenBy { (_, song) -> song.discNumber ?: 1 }
+                    .thenBy { (_, song) -> song.trackNumber ?: Int.MAX_VALUE }
                     .thenBy { (position, _) -> position },
             )
             .map { it.value }

@@ -309,11 +309,8 @@ object LocalMediaRepository {
             val songTitle = cursor.getString(title).cleanTag()?.removeAudioExtension()
                 ?: name.substringBeforeLast('.').takeIf { it.isNotBlank() }
                 ?: "Track $rowId"
-            val trackNumber = if (track >= 0 && !cursor.isNull(track)) {
-                trackNumberFromMediaStore(cursor.getInt(track))
-            } else {
-                null
-            }
+            val rawTrack = if (track >= 0 && !cursor.isNull(track)) cursor.getInt(track) else null
+            val trackNumber = trackNumberFromMediaStore(rawTrack)
             return Song(
                 videoId = videoIdByUri[contentUri] ?: contentUri,
                 title = songTitle,
@@ -326,6 +323,7 @@ object LocalMediaRepository {
                 localDateAddedSeconds = cursor.getLong(dateAdded),
                 localDateModifiedSeconds = cursor.getLong(dateModified),
                 trackNumber = trackNumber,
+                discNumber = discNumberFromMediaStore(rawTrack),
             )
         }
     }
@@ -526,6 +524,7 @@ object LocalMediaRepository {
         var durationText: String? = null
         var trackNumber: Int? = null
         var embeddedArt: String? = null
+        var discNumber: Int? = null
 
         runCatching {
             val retriever = MediaMetadataRetriever()
@@ -536,6 +535,7 @@ object LocalMediaRepository {
                 val metaAlbum = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
                 val metaDur = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
                 val metaTrack = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
+                val metaDisc = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
 
                 if (!metaTitle.isNullOrBlank()) title = metaTitle
                 if (!metaArtist.isNullOrBlank()) artist = metaArtist
@@ -548,6 +548,7 @@ object LocalMediaRepository {
                 if (scanned?.artworkUrl == null) {
                     embeddedArt = cachedEmbeddedArt(File(context.cacheDir, EMBEDDED_ART_DIR), uriStr, retriever.embeddedPicture)
                 }
+                discNumber = trackNumberFromTag(metaDisc)
             } finally {
                 retriever.release()
             }
@@ -564,6 +565,7 @@ object LocalMediaRepository {
             localDateAddedSeconds = scanned?.dateAddedSeconds,
             localDateModifiedSeconds = scanned?.dateModifiedSeconds,
             trackNumber = trackNumber,
+            discNumber = discNumber,
         )
     }
 
@@ -577,6 +579,10 @@ object LocalMediaRepository {
         val track = if (raw >= 1000) raw % 1000 else raw
         return track.takeIf { it in 1..999 }
     }
+
+    /** The disc half of that same int: 2001 is disc 2. Null when no disc was packed in. */
+    internal fun discNumberFromMediaStore(raw: Int?): Int? =
+        raw?.takeIf { it >= 1000 && it % 1000 in 1..999 }?.div(1000)
 
     /**
      * [picture] kept as a file under [dir], one per source [key], for Coil to

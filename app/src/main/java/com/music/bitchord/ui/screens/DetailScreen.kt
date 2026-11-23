@@ -70,7 +70,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -519,6 +521,8 @@ fun DetailScreen(
         if (isArtist) canvas = artistVideo?.takeIf { canvasEnabled }?.let { CanvasArtwork(url = it) }
     }
     val visibleCanvas = canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
+    val album = page.type == BrowseType.ALBUM
+    var albumPosterFailed by remember(page.browseId, page.thumbnailUrl) { mutableStateOf(false) }
 
     // Opening the search carries the page up to it, so the field lands just
     // clear of the frosted bar with the tracks under it rather than at the foot
@@ -561,6 +565,22 @@ fun DetailScreen(
                 val artHeight = (maxWidth / ARTIST_PHOTO_RATIO).coerceAtMost(maxHeight * 0.6f)
                 val sleeveSize = (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
                 val fullBleedSleeve = fullBleedArtwork && maxWidth <= maxHeight * FULL_BLEED_MAX_HEIGHT
+                val albumFullBleed = album && fullBleedSleeve && page.thumbnailUrl != null && !albumPosterFailed
+                val albumMotion = remember(visibleCanvas) {
+                    visibleCanvas?.let { clip ->
+                        clip.portraitUrl?.let { portrait ->
+                            clip.copy(
+                                url = portrait,
+                                fallbackUrl = clip.url.takeUnless { it == portrait } ?: clip.fallbackUrl,
+                            )
+                        } ?: clip
+                    }
+                }
+                val portraitMotion = albumMotion != null && albumMotion.url == albumMotion.portraitUrl
+                var videoAspect by remember(albumMotion) { mutableStateOf(0f) }
+                val albumHeroHeight = maxWidth / if (portraitMotion) {
+                    videoAspect.takeIf { it > 0f }?.coerceIn(0.75f, 1f) ?: 0.75f
+                } else 1f
                 // A folder's grid view: the same column count the Library's
                 // "Show all" grids reach at this width.
                 val gridColumns = libraryGrid(maxWidth - PAGE_GUTTER * 2).columns
@@ -581,6 +601,30 @@ fun DetailScreen(
                     )
                 }
 
+                if (albumFullBleed && reorder == null) {
+                    // Keep the decoder attached when the lazy header leaves the viewport.
+                    val heroHeightPx = with(LocalDensity.current) { albumHeroHeight.toPx() }
+                    val offscreen by remember(listState, heroHeightPx) {
+                        derivedStateOf { listState.headerTop(heroHeightPx) <= -heroHeightPx }
+                    }
+                    Box(Modifier.matchParentSize().clipToBounds()) {
+                        FullBleedReleaseArtwork(
+                            poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                            palette = palette,
+                            canvas = albumMotion,
+                            fadeFraction = 0.52f,
+                            alignment = Alignment.TopCenter,
+                            pauseVideo = offscreen,
+                            onPosterState = {
+                                if (it is AsyncImagePainter.State.Error) albumPosterFailed = true
+                            },
+                            onAspectChanged = { if (it > 0f) videoAspect = it },
+                            modifier = Modifier.fillMaxWidth().height(albumHeroHeight)
+                                .offset { IntOffset(0, listState.headerTop(albumHeroHeight.toPx()).roundToInt()) },
+                        )
+                    }
+                }
+
                 if (reorder != null) {
                     reorder(palette)
                 } else LazyColumn(
@@ -598,7 +642,8 @@ fun DetailScreen(
                         page = page,
                         palette = palette,
                         sleeveSize = sleeveSize,
-                        fullBleed = fullBleedSleeve,
+                        fullBleed = fullBleedSleeve && !album,
+                        liftedArtworkHeight = albumHeroHeight.takeIf { albumFullBleed },
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },
@@ -929,6 +974,7 @@ private fun ReleaseHeader(
      * one. Everything under it is unchanged.
      */
     fullBleed: Boolean,
+    liftedArtworkHeight: Dp?,
     canvas: CanvasArtwork?,
     songs: List<Song>,
     onPlay: () -> Unit,
@@ -945,7 +991,7 @@ private fun ReleaseHeader(
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
     val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM && page.thumbnailUrl != null && !artFailed }
-    val fadeFraction = if (page.type == BrowseType.ALBUM) 0.52f else FULL_BLEED_FADE_FRACTION
+
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
     val bleed = fullBleed && page.thumbnailUrl != null && !artFailed
@@ -954,12 +1000,19 @@ private fun ReleaseHeader(
         modifier = Modifier
             .fillMaxWidth()
             // Clear of the floating bar, which only a full-bleed sleeve runs under.
-            .padding(top = if (bleed) 0.dp else topBarContentPadding(), bottom = 18.dp),
+            .padding(top = if (bleed || liftedArtworkHeight != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (bleed) {
-            Box(
-                Modifier
+        if (liftedArtworkHeight != null) {
+            Spacer(Modifier.height((liftedArtworkHeight - FULL_BLEED_TITLE_OVERLAP).coerceAtLeast(0.dp)))
+        } else if (bleed) {
+            FullBleedReleaseArtwork(
+                poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                palette = palette,
+                canvas = canvas,
+                fadeFraction = FULL_BLEED_FADE_FRACTION,
+                onPosterState = { artFailed = it is AsyncImagePainter.State.Error },
+                modifier = Modifier
                     .fillMaxWidth()
                     // Laid out shorter than it draws, so the title rides up into
                     // the dissolve rather than starting under a band of page
@@ -970,53 +1023,7 @@ private fun ReleaseHeader(
                         layout(placeable.width, height) { placeable.place(0, 0) }
                     }
                     .aspectRatio(1f),
-            ) {
-                var canvasCover by remember(canvas) { mutableStateOf(0f) }
-                AsyncImage(
-                    model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    onState = { artFailed = it is AsyncImagePainter.State.Error },
-                    modifier = Modifier
-                        .matchParentSize()
-                        // The mask below erases part of what this layer drew,
-                        // which it can only do in a buffer of its own.
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                            // Hand off to the clip so its dissolve reveals the
-                            // page colour, not the still sleeve underneath.
-                            alpha = 1f - canvasCover
-                        }
-                        .drawWithContent {
-                            drawContent()
-                            // The player banner's dissolve, along smootherstep so
-                            // neither end of it shows as a line.
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
-                                        val t = i / FADE_CURVE_STOPS.toFloat()
-                                        t to Color.Black.copy(alpha = 1f - smootherStep(t))
-                                    },
-                                    startY = size.height * (1f - fadeFraction),
-                                    endY = size.height,
-                                ),
-                                blendMode = BlendMode.DstIn,
-                            )
-                        }
-                        .background(palette.elevated),
-                )
-                // Beside the still rather than inside its layer: a clip's
-                // TextureView takes no Compose mask, so it dissolves itself.
-                canvas?.let { clip ->
-                    CanvasArtworkPlayer(
-                        canvas = clip,
-                        isPlaying = true,
-                        bottomFade = fadeFraction,
-                        onCoverChanged = { canvasCover = it },
-                        modifier = Modifier.matchParentSize(),
-                    )
-                }
-            }
+            )
         } else Box(
             Modifier
                 .size(sleeveSize)
@@ -1196,6 +1203,66 @@ private fun ReleaseHeader(
                         artworkTint = albumPalette?.onBackground,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullBleedReleaseArtwork(
+    poster: String?,
+    palette: ArtworkPalette,
+    canvas: CanvasArtwork?,
+    fadeFraction: Float,
+    onPosterState: (AsyncImagePainter.State) -> Unit,
+    modifier: Modifier,
+    alignment: Alignment = Alignment.Center,
+    onAspectChanged: (Float) -> Unit = {},
+    pauseVideo: Boolean = false,
+) {
+    Box(modifier) {
+        var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
+        AsyncImage(
+            model = poster,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = alignment,
+            onState = onPosterState,
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                    // Once the video owns the hero, its feather reveals only the page.
+                    alpha = 1f - canvasCover
+                }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+                                val t = i / FADE_CURVE_STOPS.toFloat()
+                                t to Color.Black.copy(alpha = 1f - smootherStep(t))
+                            },
+                            startY = size.height * (1f - fadeFraction),
+                            endY = size.height,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+                .background(palette.elevated),
+        )
+        // The TextureView owns its own matching feather on Android.
+        canvas?.let { clip ->
+            key(clip.url, clip.fallbackUrl) {
+                CanvasArtworkPlayer(
+                    canvas = clip,
+                    isPlaying = true,
+                    pausedForTransition = pauseVideo,
+                    bottomFade = fadeFraction,
+                    onAspectRatioChanged = onAspectChanged,
+                    onCoverChanged = { canvasCover = it },
+                    modifier = Modifier.matchParentSize(),
+                )
             }
         }
     }

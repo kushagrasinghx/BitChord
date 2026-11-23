@@ -436,10 +436,22 @@ fun DetailScreen(
             if (signature != null) return@LaunchedEffect
         }
     }
-    val palette = rememberArtworkPalette(
+    val disableDetailGradients by AppSettings.disableDetailGradients.collectAsStateWithLifecycle()
+    val rawPalette = rememberArtworkPalette(
         imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
         keyColors = appleArt?.keyColors(),
     )
+    val palette = if (disableDetailGradients && (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST)) {
+        val scheme = MaterialTheme.colorScheme
+        rawPalette.copy(
+            background = scheme.background,
+            wash = scheme.background,
+            onBackground = scheme.onBackground,
+            onBackgroundVariant = scheme.onSurfaceVariant,
+        )
+    } else {
+        rawPalette
+    }
 
     // Narrowing the running order in place — the release equivalent of the
     // filter box on the Local Music tab, and the one thing a long track list

@@ -660,6 +660,24 @@ object QualityUpgrade {
         asked += mediaId
     }
 
+    /**
+     * Clears the open second-look question for [mediaId] — a track cache-ahead
+     * has just settled ahead of its own playback.
+     *
+     * [forget] cannot be used here: it removes a parked stream along with the
+     * question, and the parked stream is the whole point of the cache-ahead
+     * fetch. What this clears is only the hunt — usually the live lookup that
+     * lost the first resolve race and was left running under the track, and
+     * which cache-ahead's own search has just superseded by asking every
+     * source properly. Both searches are deterministic over the same
+     * catalogues, so the second one's answer is never a downgrade of the
+     * first's.
+     */
+    fun settleAhead(mediaId: String) {
+        pending.remove(mediaId)?.inFlight?.cancel()
+        followUps.remove(mediaId)?.inFlight?.cancel()
+    }
+
     /** Abandons the second look for [mediaId] — the queue has moved on. */
     fun forget(mediaId: String) {
         pending.remove(mediaId)?.inFlight?.cancel()

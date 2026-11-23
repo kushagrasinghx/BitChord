@@ -205,6 +205,154 @@ internal object OfflineDash {
     private class Rendition(val bandwidth: Long, val codecs: String, val body: String)
 
     /**
+     * A manifest ready to be played back from the cache, and the segment URLs
+     * to warm alongside it.
+     *
+     * [text] is the original manifest with two edits, both confined to the
+     * rendition [best] chose:
+     *
+     *  - Every other `Representation` is removed. The player reads this
+     *    manifest back and builds its source from it; leaving the lower tiers
+     *    in would let adaptive selection wander onto a rendition whose
+     *    segments were never warmed. One rendition in, one rendition out —
+     *    and [best] is the lossless one, or the manifest is refused below.
+     *  - That rendition's `SegmentTemplate` names its segments absolutely.
+     *    The player fetches segments by the URLs this manifest carries, and
+     *    the cache entries those fetches hit are keyed by URL — the same
+     *    strings [media] lists — so the manifest itself is what makes the
+     *    warmed entries addressable after the URLs' tokens have expired.
+     *
+     * Everything about the manifest that [parse] refuses — encrypted,
+     * multi-period, `$Time$` templates, no lossless rendition — is refused
+     * here too, by returning null; the caller falls back to ordinary live
+     * streaming.
+     */
+    internal class Trimmed(
+        val text: String,
+        /** The absolute initialization segment URL. */
+        val initialization: String,
+        /** The absolute media segment URLs, in play order. */
+        val media: List<String>,
+    )
+
+    internal fun trimmedForCache(manifest: String, manifestUrl: String): Trimmed? {
+        val plan = runCatching { parse(manifest) }.getOrNull() ?: return null
+        val rendition = best(manifest) ?: return null
+        // A manifest with no lossless rendition does not satisfy the Lossless
+        // request cache-ahead is working for — warming its AAC would mark the
+        // track as served while the setting is still unmet.
+        if (!rendition.codecs.isLossless()) return null
+
+        // Strip every other Representation. The match text is compared whole,
+        // so the kept block is removed nowhere — two renditions cannot share a
+        // bandwidth and codecs pair and produce equal text.
+        val kept = Regex(
+            """<Representation\b[^>]*?(?:/>|>.*?</Representation>)""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        )
+        val trimmed = kept.replace(manifest) { match ->
+            if (match.value == renditionBlock(manifest, rendition)) match.value else ""
+        }
+        if (trimmed == manifest && kept.findAll(manifest).count() > 1) return null
+
+        // Absolute URLs into the template, escaped the way they were read.
+        // The values are read unescaped, resolved against the manifest's own
+        // URL, and written back escaped — a round-trip that is a *no-op* for
+        // the manifests this meets in practice, because Tidal's own CDN
+        // manifests name their segments absolutely already. An unchanged
+        // template is therefore not a failure; what must hold is checked
+        // below instead of a diff.
+        val scope = rendition.body.takeIf {
+            Regex("<SegmentTemplate", RegexOption.IGNORE_CASE).containsMatchIn(it)
+        } ?: trimmed
+        val templateTag = Regex("<SegmentTemplate[^>]*>", RegexOption.IGNORE_CASE).find(scope)
+            ?.value
+            ?: return null
+        val rebuilt = templateTag
+            .replaceAttribute("initialization") { unescape(it).let { rel -> escape(absolutize(rel, manifestUrl)) } }
+            .replaceAttribute("media") { unescape(it).let { rel -> escape(absolutize(rel, manifestUrl)) } }
+
+        // What the stored manifest must carry: the template the player reads
+        // back names an absolute URL for the initialization segment and for
+        // its media segments. Anything short of that — an attribute the
+        // rewrite lost, a template still naming relative paths with no base
+        // to resolve them against — and the warmed segments would not be
+        // reachable at all.
+        fun valueOf(tag: String, name: String) =
+            Regex("""\b$name\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE)
+                .find(tag)?.groupValues?.get(1)?.let(::unescape)
+        val rewrittenInit = valueOf(rebuilt, "initialization")
+        val rewrittenMedia = valueOf(rebuilt, "media")
+        if (rewrittenInit == null || rewrittenMedia == null ||
+            !rewrittenInit.startsWith("http", true) ||
+            !rewrittenMedia.startsWith("http", true)
+        ) {
+            return null
+        }
+
+        // Spliced in literally, deliberately: [templateTag] is text, not a
+        // pattern, and the URLs inside it can carry regex metacharacters — a
+        // `?` query alone would change what a regex replacement matches.
+        val at = trimmed.indexOf(templateTag)
+        if (at < 0) return null
+        val text = trimmed.replaceRange(at, at + templateTag.length, rebuilt)
+
+        val base = absolutize(plan.initialization, manifestUrl)
+        val media = plan.media.map { absolutize(it, manifestUrl) }
+        if (base.isBlank() || media.isEmpty()) return null
+        return Trimmed(text, base, media)
+    }
+
+    /** The full `<Representation>` block [rendition] was parsed from. */
+    private fun renditionBlock(manifest: String, rendition: Rendition): String =
+        Regex(
+            """<Representation\b[^>]*?>(?:.*?</Representation>)?""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        ).findAll(manifest)
+            .firstOrNull { match ->
+                Regex("""\bbandwidth\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE)
+                    .find(match.value)?.groupValues?.get(1)?.toLongOrNull() == rendition.bandwidth &&
+                    Regex("""\bcodecs\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE)
+                        .find(match.value)?.groupValues?.get(1).orEmpty()
+                        .lowercase(Locale.ROOT) == rendition.codecs
+            }
+            ?.value
+            ?: rendition.body.let { "<Representation>$it</Representation>" }
+
+    /** Rewrites `name="value"` inside a `<SegmentTemplate>` tag string. */
+    private fun String.replaceAttribute(name: String, map: (String) -> String): String {
+        val match = Regex("""\b$name\s*=\s*"([^"]*)"""").find(this) ?: return this
+        val replaced = match.value.replace(match.groupValues[1], map(match.groupValues[1]))
+        return replaceRange(match.range, replaced)
+    }
+
+    /** Re-escapes what [unescape] read, narrowly: the entities a URL can contain. */
+    private fun escape(value: String) = value
+        .replace("&", "&amp;")
+        .replace("\"", "&quot;")
+
+    /**
+     * RFC 3986 reference resolution, done on strings so `$Number$` survives
+     * untouched — a URL resolver would be within its rights to encode it.
+     */
+    internal fun absolutize(relative: String, manifestUrl: String): String {
+        if (relative.startsWith("https://", true) || relative.startsWith("http://", true)) return relative
+        if (relative.startsWith("//")) {
+            val schemeEnd = manifestUrl.indexOf(':')
+            return manifestUrl.substring(0, schemeEnd + 1) + relative
+        }
+        return if (relative.startsWith("/")) {
+            val authorityStart = manifestUrl.indexOf("://") + 3
+            val authorityEnd = manifestUrl.indexOf('/', authorityStart)
+                .let { if (it >= 0) it else manifestUrl.length }
+            manifestUrl.substring(0, authorityEnd) + relative
+        } else {
+            val withoutQuery = manifestUrl.substringBefore('?')
+            withoutQuery.substringBeforeLast('/') + "/" + relative
+        }
+    }
+
+    /**
      * The rendition to keep: lossless if there is one, else the highest
      * bandwidth. Null for a manifest with no `Representation` at all, which
      * leaves the template wherever the manifest put it.

@@ -64,6 +64,16 @@ enum class OutputPcmMode(val label: String) {
 }
 
 /**
+ * Audio focus handling behavior when other apps or phone calls request focus.
+ */
+enum class AudioFocusOption {
+    AUTO_PAUSE,
+    KEEP_PLAYING;
+
+    val isAutoPause: Boolean get() = this == AUTO_PAUSE
+}
+
+/**
  * Which exclusive output, if any, a track is sent to unchanged. Declared in
  * the order the settings picker lists them; persisted by name, so the order
  * can change freely.
@@ -451,6 +461,9 @@ object AppSettings {
 
     /** Whether the queue is held in shuffled order (Mix button). */
     val shuffleEnabled = MutableStateFlow(false)
+
+    /** Audio focus handling policy — auto-pause on external sound vs keep playing except calls. */
+    val audioFocusOption = MutableStateFlow(AudioFocusOption.AUTO_PAUSE)
 
     /** Repeat mode for the player — Off, All, or One. */
     val repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
@@ -1106,6 +1119,11 @@ object AppSettings {
         }.getOrDefault(AppFont.DEFAULT)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
+        audioFocusOption.value = runCatching {
+            AudioFocusOption.valueOf(
+                prefs.getString(KEY_AUDIO_FOCUS_OPTION, null) ?: AudioFocusOption.AUTO_PAUSE.name,
+            )
+        }.getOrDefault(AudioFocusOption.AUTO_PAUSE)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
         showBestPart.value = prefs.getBoolean(KEY_BEST_PART, true)
@@ -1345,7 +1363,16 @@ object AppSettings {
 
     fun setShuffleEnabled(value: Boolean) {
         shuffleEnabled.value = value
-        prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
+        }
+    }
+
+    fun setAudioFocusOption(option: AudioFocusOption) {
+        audioFocusOption.value = option
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_AUDIO_FOCUS_OPTION, option.name).apply()
+        }
     }
 
     fun setRepeatMode(value: Int) {
@@ -2453,6 +2480,7 @@ object AppSettings {
     private const val KEY_APP_FONT = "app_font"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
+    private const val KEY_AUDIO_FOCUS_OPTION = "audio_focus_option"
     private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_BEST_PART = "show_best_part"

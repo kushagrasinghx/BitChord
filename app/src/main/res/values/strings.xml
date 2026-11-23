@@ -524,6 +524,12 @@
     <string name="shuffle_on">Shuffle on</string>
     <string name="shuffle_off">Shuffle off</string>
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="audio_focus" translatable="false">Audio focus</string>
+    <string name="audio_focus_auto_pause" translatable="false">Auto pause and resume</string>
+    <string name="audio_focus_auto_pause_subtitle" translatable="false">Pause playback whenever other apps start playing audio</string>
+    <string name="audio_focus_keep_playing" translatable="false">Always keep playing</string>
+    <string name="audio_focus_keep_playing_subtitle" translatable="false">Keep music playing in background, only pause for phone calls</string>
+    <string name="audio_focus_footer" translatable="false">Controls how BitChord responds when other applications or phone calls request audio focus.</string>
     <string name="cast_dialog_title">Cast</string>
     <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
     <string name="cast_searching">Looking for devices…</string>

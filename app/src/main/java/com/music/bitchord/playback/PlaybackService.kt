@@ -11,6 +11,7 @@ import android.media.MediaMetadataRetriever
 import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.widget.Toast
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.SystemClock
@@ -143,6 +144,7 @@ import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
 import com.music.bitchord.data.scrobbling.ScrobbleManager
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AudioFocusOption
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.settings.permits
@@ -606,6 +608,36 @@ class PlaybackService : MediaLibraryService() {
 
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private val bluetoothTracker by lazy { BluetoothAudioTracker(this) }
+    private var pausedForPhoneCall = false
+
+    private val audioModeListener by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            AudioManager.OnModeChangedListener { mode ->
+                handleAudioModeForCall(mode)
+            }
+        } else {
+            null
+        }
+    }
+
+    private fun handleAudioModeForCall(mode: Int) {
+        if (AppSettings.audioFocusOption.value != AudioFocusOption.KEEP_PLAYING) return
+        val inCall = mode == AudioManager.MODE_IN_CALL ||
+            mode == AudioManager.MODE_IN_COMMUNICATION ||
+            mode == AudioManager.MODE_RINGTONE ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mode == AudioManager.MODE_CALL_SCREENING)
+
+        val active = player ?: return
+        if (inCall) {
+            if (active.isPlaying) {
+                pausedForPhoneCall = true
+                active.pause()
+            }
+        } else if (pausedForPhoneCall && mode == AudioManager.MODE_NORMAL) {
+            pausedForPhoneCall = false
+            active.play()
+        }
+    }
     private var currentAudioInputFormat: Format? = null
     private val outputDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
@@ -1470,6 +1502,17 @@ class PlaybackService : MediaLibraryService() {
                     publishWidgetState()
                     (mediaSession?.player as? SessionPlayer)?.onShuffleChanged(enabled)
                 }
+        }
+        scope.launch {
+            AppSettings.audioFocusOption.collectLatest { option ->
+                val handleFocus = option.isAutoPause
+                player?.setAudioAttributes(AUDIO_ATTRIBUTES, handleFocus)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (audioModeListener as? AudioManager.OnModeChangedListener)?.let { listener ->
+                audioManager?.addOnModeChangedListener(mainExecutor, listener)
+            }
         }
         // While the watch is the speaker this process serves its audio, and a
         // paused service drops out of the foreground after ten minutes — after
@@ -4172,7 +4215,10 @@ class PlaybackService : MediaLibraryService() {
         .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
-        .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
+        .setAudioAttributes(
+            AUDIO_ATTRIBUTES,
+            /* handleAudioFocus = */ ownsSession && AppSettings.audioFocusOption.value.isAutoPause,
+        )
         .setHandleAudioBecomingNoisy(ownsSession)
         // Keeps the CPU awake while this player is playing. Normal output gets
         // that from Android's audio server, but direct USB and AAudio exclusive
@@ -4247,7 +4293,8 @@ class PlaybackService : MediaLibraryService() {
      * the song you are listening to, which is whichever one the session is on.
      */
     private fun setSessionOwner(target: ExoPlayer, owns: Boolean) {
-        target.setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ owns)
+        val handleFocus = owns && AppSettings.audioFocusOption.value.isAutoPause
+        target.setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ handleFocus)
         target.setHandleAudioBecomingNoisy(owns)
     }
 
@@ -8615,6 +8662,11 @@ class PlaybackService : MediaLibraryService() {
         closeAudioEffectSession()
         bluetoothTracker.stop()
         audioManager?.unregisterAudioDeviceCallback(outputDeviceCallback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (audioModeListener as? AudioManager.OnModeChangedListener)?.let { listener ->
+                audioManager?.removeOnModeChangedListener(listener)
+            }
+        }
         partySync?.stop()
         partySync = null
         player?.let {

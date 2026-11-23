@@ -1,6 +1,8 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.Http
+import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.StreamLengthProbe
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.module.ModuleManager
 import com.music.bitchord.data.webdav.WebDavAuth
@@ -56,6 +58,28 @@ class AddonTransportAuthTest {
             assertTrue(result.isSuccess)
             assertNull(
                 "a module index must not receive the saved WebDAV Authorization header",
+                server.takeRequest().getHeader("Authorization"),
+            )
+        } finally {
+            WebDavAuth.update(null, null)
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun addonStreamProbeDoesNotInheritWebDavCredentials() = runBlocking {
+        val server = MockWebServer().apply { start() }
+        WebDavAuth.update(server.url("/").host, "Basic dXNlcjpwYXNz")
+        try {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes 0-0/12345"),
+            )
+            val bytes = StreamLengthProbe.bytesOf(SourceStream(server.url("/stream").toString()))
+            assertEquals(12345L, bytes)
+            assertNull(
+                "an addon stream probe must not receive the saved WebDAV Authorization header",
                 server.takeRequest().getHeader("Authorization"),
             )
         } finally {

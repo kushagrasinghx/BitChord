@@ -659,6 +659,11 @@
     <string name="integrate_spotify_canvas">Set up Spotify Canvas</string>
     <string name="lastfm_login">Last.fm login</string>
     <string name="lastfm_login_description">Sign in with your Last.fm account to enable scrobbling.</string>
+    <string name="lastfm_authorize_in_browser" translatable="false">Open Last.fm in browser</string>
+    <string name="lastfm_complete_connection" translatable="false">Complete connection</string>
+    <string name="lastfm_oauth_description" translatable="false">Authorize BitChord in your web browser to securely connect your Last.fm account without entering your password.</string>
+    <string name="lastfm_oauth_waiting" translatable="false">Approve access on Last.fm in your browser, then tap below to finish connecting.</string>
+    <string name="lastfm_oauth_error_pending" translatable="false">Authorization not yet completed. Please approve access on Last.fm in your browser and try again.</string>
     <string name="lastfm_now_playing_subtitle">Update Last.fm with what you are listening to</string>
     <string name="scrobble_primary_artist_only">Only scrobble primary artist</string>
     <string name="scrobble_primary_artist_only_subtitle">Use the first artist when a track credits multiple artists</string>

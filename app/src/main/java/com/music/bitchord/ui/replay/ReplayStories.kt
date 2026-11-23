@@ -130,6 +130,7 @@ fun ReplayStories(
     val pages = remember(summary) {
         ReplayStoryPage.ordered.filter { page ->
             when (page) {
+                ReplayStoryPage.ARTISTS -> summary.artists.isNotEmpty()
                 ReplayStoryPage.ALBUMS -> summary.albums.isNotEmpty()
                 ReplayStoryPage.GENRES -> summary.genres.isNotEmpty()
                 else -> true

@@ -1523,7 +1523,7 @@
     <string name="replay_year_busiest_start">Il tuo giorno più intenso è stato</string>
     <string name="replay_year_busiest_minutes">%1$s minuti di musica in un giorno</string>
     <string name="replay_year_busiest_song">Soprattutto %1$s</string>
-    <string name="replay_year_clock_start">Ti accendevi verso le</string>
+    <string name="replay_year_clock_start">Il tuo orario di punta era</string>
     <string name="replay_year_night_owl">Nottambulo</string>
     <string name="replay_year_night_owl_detail">Gran parte dei tuoi ascolti è avvenuta dopo le 22.</string>
     <string name="replay_year_early_bird">Mattiniero</string>

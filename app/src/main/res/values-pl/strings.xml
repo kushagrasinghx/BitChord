@@ -1627,7 +1627,7 @@
     <string name="replay_year_busiest_start">Twój najbardziej muzyczny dzień to</string>
     <string name="replay_year_busiest_minutes">%1$s min muzyki w jeden dzień</string>
     <string name="replay_year_busiest_song">Głównie %1$s</string>
-    <string name="replay_year_clock_start">Twoja ulubiona pora to około</string>
+    <string name="replay_year_clock_start">Twoja ulubiona pora:</string>
     <string name="replay_year_night_owl">Nocny marek</string>
     <string name="replay_year_night_owl_detail">Większość Twojego słuchania przypadała po 22:00.</string>
     <string name="replay_year_early_bird">Ranny ptaszek</string>

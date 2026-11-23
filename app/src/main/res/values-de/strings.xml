@@ -1580,7 +1580,7 @@
     <string name="replay_year_minutes_days_value">%1$s Tage</string>
     <string name="replay_year_minutes_hours_value">%1$s Stunden</string>
     <string name="replay_year_minutes_days_end">Musik.</string>
-    <string name="replay_year_busiest_start">Dein größter Tag war der</string>
+    <string name="replay_year_busiest_start">Dein größter Tag war</string>
     <string name="replay_year_busiest_minutes">%1$s Minuten Musik an einem Tag</string>
     <string name="replay_year_busiest_song">Vor allem %1$s</string>
     <string name="replay_year_clock_start">Richtig wach warst du gegen</string>

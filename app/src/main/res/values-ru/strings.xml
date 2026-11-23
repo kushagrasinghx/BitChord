@@ -1619,7 +1619,7 @@
     <string name="replay_year_busiest_start">Ваш самый музыкальный день —</string>
     <string name="replay_year_busiest_minutes">%1$s мин музыки за один день</string>
     <string name="replay_year_busiest_song">Чаще всего — %1$s</string>
-    <string name="replay_year_clock_start">Пик вашей активности — около</string>
+    <string name="replay_year_clock_start">Ваш пиковый час —</string>
     <string name="replay_year_night_owl">Сова</string>
     <string name="replay_year_night_owl_detail">Больше всего вы слушали после 22:00.</string>
     <string name="replay_year_early_bird">Жаворонок</string>

@@ -1589,7 +1589,7 @@
     <string name="replay_year_busiest_start">Seu dia com mais música foi</string>
     <string name="replay_year_busiest_minutes">%1$s minutos de música em um dia</string>
     <string name="replay_year_busiest_song">Principalmente %1$s</string>
-    <string name="replay_year_clock_start">Você ganhava vida por volta das</string>
+    <string name="replay_year_clock_start">Seu horário de pico era</string>
     <string name="replay_year_night_owl">Coruja noturna</string>
     <string name="replay_year_night_owl_detail">Boa parte do que você ouviu foi depois das 22h.</string>
     <string name="replay_year_early_bird">Madrugador</string>

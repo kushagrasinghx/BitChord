@@ -333,6 +333,8 @@ fun SongRow(
     titleTint: Color? = null,
     /** Disable the secondary line and its spacing for a title-only row. */
     showSubtitle: Boolean = true,
+    /** Omit the duration and place the download badge just before the overflow. */
+    compactTrailing: Boolean = false,
     /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
@@ -360,6 +362,7 @@ fun SongRow(
             showSourceQuality = showSourceQuality,
             titleTint = titleTint,
             showSubtitle = showSubtitle,
+            compactTrailing = compactTrailing,
             trailing = trailing,
         )
     }
@@ -503,6 +506,7 @@ private fun SongRowContent(
     showSourceQuality: Boolean = false,
     titleTint: Color? = null,
     showSubtitle: Boolean,
+    compactTrailing: Boolean,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val titleColor = titleTint ?: animateColorAsState(
@@ -608,7 +612,7 @@ private fun SongRowContent(
                 )
             }
         }
-        if (downloadedTint != null) {
+        if (!compactTrailing && downloadedTint != null) {
             DownloadedBadge(song.videoId, downloadedTint)
         }
         if (selected) {
@@ -636,7 +640,7 @@ private fun SongRowContent(
                 strokeWidth = 2.dp,
                 color = subtitleColor,
             )
-        } else {
+        } else if (!compactTrailing) {
             song.durationText?.let {
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -649,6 +653,9 @@ private fun SongRowContent(
         if (trailing != null && !matching && !unavailable) {
             Spacer(Modifier.width(4.dp))
             trailing()
+        }
+        if (compactTrailing && downloadedTint != null) {
+            DownloadedBadge(song.videoId, downloadedTint)
         }
         // Same sheet the long-press opens, for anyone who doesn't think to hold.
         if (onMore != null && !matching && !unavailable) {

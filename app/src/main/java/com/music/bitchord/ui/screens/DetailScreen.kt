@@ -886,6 +886,7 @@ fun DetailScreen(
                             subtitleColor = palette.onBackgroundVariant,
                             titleTint = palette.onBackground.takeIf { numbered },
                             showSubtitle = !numbered,
+                            compactTrailing = artworkDetail,
                             downloadedTint = downloadedTint,
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,

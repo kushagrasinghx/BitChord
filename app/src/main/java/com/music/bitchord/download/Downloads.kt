@@ -405,7 +405,9 @@ object Downloads {
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
         val uri = _saved.value[videoId]?.toUri() ?: return@withContext false
         val deleted = DownloadStore.delete(context, uri)
-        forget(videoId)
+        // A failed provider deletion is not evidence that the file is gone.
+        // Keep the record so callers can report failure and the user can retry.
+        if (deleted) forget(videoId)
         deleted
     }
 

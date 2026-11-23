@@ -306,6 +306,8 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 }
 
 dependencies {
+    // MCP HTTP transport shares app/src/main/java with this module.
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
 

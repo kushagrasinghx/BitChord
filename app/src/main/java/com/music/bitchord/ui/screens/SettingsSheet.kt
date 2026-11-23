@@ -1691,7 +1691,14 @@ fun SettingsScreen(
 
         // No footer: it only restated the stop-on-close row's own subtitle,
         // which sits four rows above it and says the same thing in fewer words.
+        if (section == SettingsCategory.MCP) {
+            com.music.bitchord.mcp.McpSettingsPanel()
+        }
+
         if (shows(SettingsCategory.MISCELLANEOUS)) SearchableSettingsGroup(search, header = stringResource(R.string.miscellaneous)) {
+            row(stringResource(R.string.mcp_title), "mcp", "ai") {
+                SettingsRow(icon = SettingsCategory.MCP.icon, title = stringResource(R.string.mcp_title), onClick = { onOpenSection(SettingsCategory.MCP) })
+            }
             val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
             row(playNextOnSwipeTitle, "swipe", "queue") {
                 SettingsRow(
@@ -3065,6 +3072,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
     YOUR_DATA(R.string.your_data),
     MISCELLANEOUS(R.string.miscellaneous),
     LANGUAGE(R.string.language),
+    MCP(R.string.mcp_title),
     ;
 
     val icon: ImageVector
@@ -3078,6 +3086,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
             STORAGE -> SfIcons.Storage
             YOUR_DATA -> SfIcons.YourData
             MISCELLANEOUS -> SfIcons.Miscellaneous
+            MCP -> SfIcons.Miscellaneous
             LANGUAGE -> SfIcons.Language
         }
 }
@@ -3096,7 +3105,7 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
 @Composable
 private fun SettingsCategoryList(onOpen: (SettingsCategory) -> Unit) {
     SettingsGroup {
-        SettingsCategory.entries.forEachIndexed { index, category ->
+        SettingsCategory.entries.filter { it != SettingsCategory.MCP }.forEachIndexed { index, category ->
             if (index > 0) RowDivider()
             SettingsRow(
                 icon = category.icon,

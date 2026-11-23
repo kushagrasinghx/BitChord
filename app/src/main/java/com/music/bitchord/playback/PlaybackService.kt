@@ -2232,6 +2232,9 @@ class PlaybackService : MediaLibraryService() {
             syncedLines = ::loopMixLyrics,
             loudnessGain = ::loudnessGainFor,
             onMixPositionJump = { wrapped -> (mediaSession?.player as? SessionPlayer)?.announceMixPosition(wrapped) },
+            onActiveTracksChanged = { currentId, nextId ->
+                trackAnalyzer.updateActiveTracks(currentId, nextId)
+            },
         )
 
     /**

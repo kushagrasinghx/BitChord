@@ -272,6 +272,31 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      */
     fun isAnalysing(trackId: String): Boolean = trackId in running
 
+    @Volatile
+    private var activePlayingTrackId: String? = null
+
+    @Volatile
+    private var activeNextTrackId: String? = null
+
+    /**
+     * Updates the current active playing track and upcoming next track in the playback queue.
+     * Stale analysis tasks for tracks that are no longer part of this pair are cancelled immediately.
+     */
+    fun updateActiveTracks(playingTrackId: String?, nextTrackId: String?) {
+        activePlayingTrackId = playingTrackId
+        activeNextTrackId = nextTrackId
+    }
+
+    /**
+     * Checks whether [trackId] is no longer part of the active queue pair (neither playing nor next).
+     */
+    fun isTrackStale(trackId: String): Boolean {
+        val playing = activePlayingTrackId
+        val next = activeNextTrackId
+        if (playing == null && next == null) return false
+        return trackId != playing && trackId != next
+    }
+
     /**
      * Queues [trackId] (playing at [uri]) for analysis if it is not already
      * done or in flight. Cheap to call repeatedly; callers re-request as
@@ -299,7 +324,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // Before anything else this would spend: [analysisUriFor] alone can put
         // a catalogue match on the network for a track the party will never
         // mix. See [stopped].
-        if (stopped) return
+        if (stopped || isTrackStale(trackId)) return
         if (trackId in running) return
         // A track measured in an earlier session costs nothing to restore, so
         // only the work below waits for the phone to cool.
@@ -422,7 +447,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // started while the track ahead of it was being measured. Every
                 // task behind that one turns into this return, which drains the
                 // backlog without needing to reach into the executor's queue.
-                if (stopped) return@execute
+                if (stopped || isTrackStale(trackId)) return@execute
                 if (usableComplete) {
                     val outcome = analyze(trackId, analysisUri, durationSeconds)
                     val whole = outcome.analysis
@@ -670,14 +695,17 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         }
 
         val window = BeatTracker.WINDOW_SECONDS
-        val head = region(::openSource, 0.0, window, features = null, deriveFeatures = true)
+        val head = region(trackId, ::openSource, 0.0, window, features = null, deriveFeatures = true)
             ?: run {
                 // An abandoned decode comes back the same way a broken one
                 // does, and only one of the two is worth a warning: see
                 // [stopped]. Nothing is recorded either way — the caller
                 // publishes only a non-null result — so the track is simply
                 // left unmeasured, which is what it is.
-                if (stopped) return null
+                if (stopped || isTrackStale(trackId)) {
+                    headAttempts.remove(rendition.key)
+                    return null
+                }
                 Log.d(TAG, "Head pass for $trackId could not decode rendition ${rendition.key}")
                 return null
             }
@@ -945,7 +973,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         effectiveDuration: Double,
     ): Structural {
         val structRate = TrackFeatures.sampleRate
-        val decoded = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, effectiveDuration) { stopped } }
+        val decoded = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, effectiveDuration) { stopped || isTrackStale(trackId) } }
             ?: return Structural(null)
         val (pcm, _) = decoded
 
@@ -1068,7 +1096,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // Read *before* the two lines below, not after, because an abort comes
         // back from [structure] as a decode that produced nothing, and that is
         // exactly what those lines write a permanent "cannot be analysed" for.
-        if (stopped) return WholeTrack(null)
+        if (stopped || isTrackStale(trackId)) {
+            triedRenditions.remove(copy.key)
+            return WholeTrack(null)
+        }
         if (structural.decodedShort) return WholeTrack(null, decodedShort = true)
         val features = structural.features ?: return WholeTrack(empty(trackId, effectiveDuration))
 
@@ -1090,10 +1121,16 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             // that would be published, and persisted, with the DSP estimate
             // standing in. A result assembled out of a half-finished analysis
             // is worse than none.
-            if (stopped) return WholeTrack(null)
-            region(openSource, from, to, features)?.let(regions::add)
+            if (stopped || isTrackStale(trackId)) {
+                triedRenditions.remove(copy.key)
+                return WholeTrack(null)
+            }
+            region(trackId, openSource, from, to, features)?.let(regions::add)
         }
-        if (stopped) return WholeTrack(null)
+        if (stopped || isTrackStale(trackId)) {
+            triedRenditions.remove(copy.key)
+            return WholeTrack(null)
+        }
 
         val beats = seamBeats(regions)
         val headSide = beatSide(beats, 0.0, headEnd)
@@ -1286,13 +1323,14 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * start (not [startSeconds]) is what its beat times must be stated against.
      */
     private fun region(
+        trackId: String,
         openSource: () -> MediaDataSource?,
         startSeconds: Double,
         endSeconds: Double,
         features: TrackFeatures.Features?,
         deriveFeatures: Boolean = false,
     ): Region? {
-        val decoded = openSource()?.use { AudioDecoder.decodeRegionStereo(it, startSeconds, endSeconds) { stopped } }
+        val decoded = openSource()?.use { AudioDecoder.decodeRegionStereo(it, startSeconds, endSeconds) { stopped || isTrackStale(trackId) } }
             ?: run {
                 // The two ways this comes back empty mean opposite things and
                 // were reported identically, which cost a round of guessing:
@@ -1483,7 +1521,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val began = SystemClock.elapsedRealtime()
         val copy = runCatching { copyToRead(trackId, uri, durationSeconds) }.getOrNull() ?: return null
         val (stereo, start) = copy.open()?.use { source ->
-            AudioDecoder.decodeRegionStereo(source, max(0.0, fromSeconds), toSeconds) { stopped }
+            AudioDecoder.decodeRegionStereo(source, max(0.0, fromSeconds), toSeconds) { stopped || isTrackStale(trackId) }
         } ?: return null
         if (stereo.left.isEmpty()) return null
         val rate = sampleRate.toDouble()
@@ -1529,7 +1567,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val copy = runCatching { copyToRead(trackId, analysisUri, durationSeconds) }.getOrNull() ?: return null
         val chosen = SystemClock.elapsedRealtime()
         val bands = copy.open()?.use { source ->
-            MixWaveform.build(source, fromSeconds, toSeconds, bins) { stopped }
+            MixWaveform.build(source, fromSeconds, toSeconds, bins) { stopped || isTrackStale(trackId) }
         }
         Log.d(
             TAG,

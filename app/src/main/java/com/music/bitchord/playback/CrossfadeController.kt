@@ -233,6 +233,8 @@ class CrossfadeController(
     private val loudnessGain: (String) -> Float = { 1f },
     /** The session's playhead moved on purpose during a loop mix: a loop wrap (true) or a re-anchor (false). */
     private val onMixPositionJump: (wrapped: Boolean) -> Unit = {},
+    /** Active playing track and upcoming next track in the queue, updated on each analysis tick. */
+    private val onActiveTracksChanged: (String?, String?) -> Unit = { _, _ -> },
 ) {
 
     private enum class Phase {
@@ -1362,9 +1364,16 @@ class CrossfadeController(
     private fun requestAnalysisAround(player: ExoPlayer, duration: Long) {
         val currentItem = player.currentMediaItem ?: return
         val nextIndex = player.nextMediaItemIndex
-        if (nextIndex == C.INDEX_UNSET) return
+        if (nextIndex == C.INDEX_UNSET) {
+            onActiveTracksChanged(currentItem.mediaId, null)
+            return
+        }
         val nextItem = player.getMediaItemAt(nextIndex)
-        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) {
+            onActiveTracksChanged(null, null)
+            return
+        }
+        onActiveTracksChanged(currentItem.mediaId, nextItem.mediaId)
         requestAnalysis(currentItem, duration)
         requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
     }

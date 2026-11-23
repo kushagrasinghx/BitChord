@@ -148,6 +148,12 @@ object AudioCache {
      */
     private const val MAX_ANALYSIS_TRACK_BYTES = 16L * 1024 * 1024
 
+    /** Maximum number of attempts to fetch an analysis head prefix before writing it off. */
+    private const val MAX_ANALYSIS_HEAD_ATTEMPTS = 3
+
+    /** Minimum wait between analysis head fetch attempts so a failing stream is not hammered. */
+    private const val ANALYSIS_HEAD_RETRY_COOLDOWN_MS = 3_000L
+
     /**
      * How long [renditionKeysFor]'s answer is reused. Short enough that a
      * rendition which just started downloading is picked up well inside the
@@ -298,6 +304,8 @@ object AudioCache {
         // the first switch after a wipe asks for its head from a clean slate —
         // [discardBadRendition] clears one track's claim for the same reason.
         analysisHeads.clear()
+        analysisHeadAttempts.clear()
+        analysisHeadLastAttemptAt.clear()
         analysisHeadsInFlight.clear()
         analysisHeadWant.clear()
         renditionKeys.clear()
@@ -412,7 +420,11 @@ object AudioCache {
                 // Deleting the bytes is only half of it. The head fetch runs once
                 // per track per session, so without this the entry it just made
                 // room for is never refilled and the discard buys nothing.
-                uri.getQueryParameter("v")?.let(analysisHeads::remove)
+                uri.getQueryParameter("v")?.let { id ->
+                    analysisHeads.remove(id)
+                    analysisHeadAttempts.remove(id)
+                    analysisHeadLastAttemptAt.remove(id)
+                }
             }
             .onFailure {
                 TrackLog.d(TAG, "undecodable rendition $key still in use: ${it.message}", about = about)
@@ -944,6 +956,8 @@ object AudioCache {
         if (!::cache.isInitialized || mediaId.isBlank()) return@withContext 0
         playedIds.remove(mediaId)
         analysisHeads.remove(mediaId)
+        analysisHeadAttempts.remove(mediaId)
+        analysisHeadLastAttemptAt.remove(mediaId)
         analysisHeadsInFlight.remove(mediaId)
         analysisHeadWant.remove(mediaId)
         renditionKeys.remove(mediaId)
@@ -1100,6 +1114,8 @@ object AudioCache {
                         dropped++
                         mediaId?.let { id ->
                             analysisHeads.remove(id)
+                            analysisHeadAttempts.remove(id)
+                            analysisHeadLastAttemptAt.remove(id)
                             analysisHeadWant.remove(id)
                             renditionKeys.remove(id)
                         }
@@ -1699,6 +1715,8 @@ object AudioCache {
      * it leads to a fresh pull rather than to nothing.
      */
     private val analysisHeads = ConcurrentHashMap<String, Boolean>()
+    private val analysisHeadAttempts = ConcurrentHashMap<String, Int>()
+    private val analysisHeadLastAttemptAt = ConcurrentHashMap<String, Long>()
 
     /** Video ids with a head fetch in the air, so a tick cannot stack another on top. */
     private val analysisHeadsInFlight = ConcurrentHashMap.newKeySet<String>()
@@ -1813,6 +1831,8 @@ object AudioCache {
         // for the rest of the session.
         if (videoId !in analysisHeadsInFlight) {
             analysisHeads.remove(videoId)
+            analysisHeadAttempts.remove(videoId)
+            analysisHeadLastAttemptAt.remove(videoId)
         }
         requestAnalysisHead(opus)
         var rounds = 1
@@ -1837,6 +1857,8 @@ object AudioCache {
                     // [MAX_ALIGNMENT_HEAD_ROUNDS] still bounds how often.
                     if (alignmentPrefixBytes(videoId) < MIN_ALIGNMENT_PREFIX_BYTES) {
                         analysisHeads.remove(videoId)
+                        analysisHeadAttempts.remove(videoId)
+                        analysisHeadLastAttemptAt.remove(videoId)
                         requestAnalysisHead(opus)
                         rounds++
                     }
@@ -1901,14 +1923,24 @@ object AudioCache {
             return
         }
         val videoId = uri.getQueryParameter("v") ?: return
-        // One round per track per session, and it is sized correctly up front
-        // rather than grown into. See [analysisHeadSize] for why growing it was
-        // the wrong shape.
-        if (analysisHeads.putIfAbsent(videoId, true) != null) return
-        // Checked before the round is claimed, so the playback thread pays a set
-        // lookup per tick rather than queueing coroutines four times a second on
-        // top of a fetch that is still running.
+        if (analysisHeads.containsKey(videoId)) return
+        if (videoId in analysisHeadsInFlight) return
+
+        val attempts = analysisHeadAttempts[videoId] ?: 0
+        if (attempts >= MAX_ANALYSIS_HEAD_ATTEMPTS) {
+            analysisHeads[videoId] = true
+            return
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val lastAttempt = analysisHeadLastAttemptAt[videoId] ?: 0L
+        if (now - lastAttempt < ANALYSIS_HEAD_RETRY_COOLDOWN_MS) return
+
         if (!analysisHeadsInFlight.add(videoId)) return
+        val currentAttempt = attempts + 1
+        analysisHeadAttempts[videoId] = currentAttempt
+        analysisHeadLastAttemptAt[videoId] = now
+
         scope.launch {
             try {
                 val total = runCatching { StreamResolver.contentLength(videoId) }
@@ -1920,12 +1952,15 @@ object AudioCache {
                 analysisHeadWant[videoId] = want
                 TrackLog.w(
                     TAG,
-                    "analysis head round for $videoId: total=$total want=$want " +
-                        "held=${alignmentPrefixBytes(videoId)}",
+                    "analysis head round for $videoId (attempt $currentAttempt/$MAX_ANALYSIS_HEAD_ATTEMPTS): " +
+                        "total=$total want=$want held=${alignmentPrefixBytes(videoId)}",
                     videoId,
                 )
                 if (!clearPartialHead(videoId, want)) {
                     TrackLog.w(TAG, "analysis head round for $videoId skipped: partial is held elsewhere", videoId)
+                    if (currentAttempt >= MAX_ANALYSIS_HEAD_ATTEMPTS) {
+                        analysisHeads[videoId] = true
+                    }
                     return@launch
                 }
                 fetch(
@@ -1959,18 +1994,32 @@ object AudioCache {
                 }
                 if (total > 0) recordContentLength(videoId, total)
                 val held = alignmentPrefixBytes(videoId)
-                if (held < MIN_ALIGNMENT_PREFIX_BYTES) {
+                if (held >= MIN_ALIGNMENT_PREFIX_BYTES) {
+                    analysisHeads[videoId] = true
+                } else {
                     // The one line that says *this* fetch failed, as opposed to
                     // the read-ahead chatter around it: every cause below
                     // already logs its own message at debug, but nothing said
                     // where a round ended or what it had to work with.
                     TrackLog.w(
                         TAG,
-                        "analysis head for $videoId came up short: " +
+                        "analysis head for $videoId came up short (attempt $currentAttempt/$MAX_ANALYSIS_HEAD_ATTEMPTS): " +
                             "held=$held want=$want total=$total " +
                             "(cause in the read-ahead lines around this one)",
                         videoId,
                     )
+                    if (currentAttempt >= MAX_ANALYSIS_HEAD_ATTEMPTS) {
+                        analysisHeads[videoId] = true
+                    }
+                }
+            } catch (error: Throwable) {
+                TrackLog.w(
+                    TAG,
+                    "analysis head round for $videoId failed (attempt $currentAttempt/$MAX_ANALYSIS_HEAD_ATTEMPTS): ${error.message}",
+                    videoId,
+                )
+                if (currentAttempt >= MAX_ANALYSIS_HEAD_ATTEMPTS) {
+                    analysisHeads[videoId] = true
                 }
             } finally {
                 analysisHeadsInFlight.remove(videoId)

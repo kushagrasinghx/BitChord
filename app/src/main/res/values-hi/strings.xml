@@ -1560,4 +1560,69 @@
     <string name="drive_backup_row_subtitle">अपने सभी डिवाइस पर Replay का बैकअप और सिंक करें</string>
     <string name="drive_over_cellular">मोबाइल डेटा पर सिंक करें</string>
     <string name="drive_over_cellular_subtitle">बंद होने पर, ऑटो सिंक Wi-Fi का इंतज़ार करते हैं</string>
+    <string name="automix_art_transition">आर्टवर्क ट्रांज़िशन</string>
+    <string name="automix_art_transition_subtitle">ऑटोमिक्स के दौरान ट्रैक के बीच कवर आर्ट को धीरे से बदलता है।</string>
+    <string name="automix_mini_art_transition">मिनी-प्लेयर आर्टवर्क ट्रांज़िशन</string>
+    <string name="automix_mini_art_transition_subtitle">ऑटोमिक्स के दौरान मिनी-प्लेयर में आर्टवर्क ट्रांज़िशन दिखाता है।</string>
+    <string name="show_best_part">बेस्ट पार्ट बटन</string>
+    <string name="show_best_part_subtitle">आर्टवर्क पर एक बटन जो गाने के उस हिस्से पर ले जाता है जिसे लोग सबसे ज़्यादा दोबारा सुनते हैं</string>
+    <string name="replay_year_open">अपना Replay %1$s खोलें</string>
+    <string name="replay_year_building">आपका साल तैयार हो रहा है…</string>
+    <string name="replay_year_opener_start">BitChord पर आपका</string>
+    <string name="replay_year_opener_end">का साल</string>
+    <string name="replay_year_opener_detail">आइए देखें आपने क्या-क्या सुना।</string>
+    <string name="replay_year_minutes_start">इस साल आपने संगीत सुना</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">मिनट</item>
+        <item quantity="other">मिनट</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">यानी</string>
+    <string name="replay_year_minutes_days_value">%1$s दिन</string>
+    <string name="replay_year_minutes_hours_value">%1$s घंटे</string>
+    <string name="replay_year_minutes_days_end">का संगीत।</string>
+    <string name="replay_year_busiest_start">आपका सबसे बड़ा दिन था</string>
+    <string name="replay_year_busiest_minutes">एक दिन में %1$s मिनट संगीत</string>
+    <string name="replay_year_busiest_song">ज़्यादातर %1$s</string>
+    <string name="replay_year_clock_start">आप सबसे ज़्यादा सक्रिय रहे लगभग</string>
+    <string name="replay_year_night_owl">रात का उल्लू</string>
+    <string name="replay_year_night_owl_detail">आपका ज़्यादातर सुनना रात 10 बजे के बाद हुआ।</string>
+    <string name="replay_year_early_bird">सुबह का साथी</string>
+    <string name="replay_year_early_bird_detail">आपके दिन सुबह 10 बजे से पहले संगीत से शुरू होते थे।</string>
+    <string name="replay_year_golden_hour">सुनहरी शाम</string>
+    <string name="replay_year_golden_hour_detail">शामें संगीत के नाम रहीं।</string>
+    <string name="replay_year_daytime">दिन का मुसाफ़िर</string>
+    <string name="replay_year_daytime_detail">आपने पूरे दिन संगीत चलाए रखा।</string>
+    <string name="replay_year_all_day">चौबीसों घंटे</string>
+    <string name="replay_year_all_day_detail">सुबह हो, दोपहर या रात, कुछ न कुछ बजता रहा।</string>
+    <string name="replay_year_genres_start">इस साल आपकी धुन</string>
+    <string name="replay_year_artist_start">इस साल आपके टॉप कलाकार थे…</string>
+    <string name="replay_year_minutes_together">साथ में %1$s मिनट</string>
+    <string name="replay_year_top_artists">आपके टॉप कलाकार</string>
+    <string name="replay_year_song_start">और आपका इस साल का गाना…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">%1$s बार चलाया गया</item>
+        <item quantity="other">%1$s बार चलाया गया</item>
+    </plurals>
+    <string name="replay_year_top_songs">आपके बाकी टॉप गाने</string>
+    <string name="replay_year_albums">जिन एल्बमों में आप खोए रहे</string>
+    <string name="replay_year_months">आपका साल, महीने दर महीने</string>
+    <string name="replay_year_discovery_start">इस साल आपने खोजे</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">गाना</item>
+        <item quantity="other">गाने</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">कलाकार</item>
+        <item quantity="other">कलाकार</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">एल्बम</item>
+        <item quantity="other">एल्बम</item>
+    </plurals>
+    <string name="replay_year_summary_title">आपका %1$s</string>
+    <string name="replay_year_summary_artists">टॉप कलाकार</string>
+    <string name="replay_year_summary_songs">टॉप गाने</string>
+    <string name="replay_year_summary_minutes">सुने गए मिनट</string>
+    <string name="replay_year_mute">स्टोरी म्यूट करें</string>
+    <string name="replay_year_unmute">स्टोरी अनम्यूट करें</string>
 </resources>

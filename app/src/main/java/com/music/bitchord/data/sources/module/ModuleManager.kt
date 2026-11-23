@@ -38,7 +38,8 @@ internal fun redactModuleUrl(url: String): String =
  * module's exported search/stream functions.
  *
  * Ported from Convx's `ModuleManager`, adapted to use BitChord's shared
- * [Http.client] OkHttp instance rather than a separate Ktor client.
+ * [Http.transportClient] OkHttp instance rather than a separate Ktor client.
+ * The transport deliberately excludes the ambient WebDAV credential.
  *
  * One instance should be held per [ModuleSource] config so that loaded
  * engines survive across successive search calls.
@@ -136,7 +137,7 @@ class ModuleManager {
                 TrackLog.d(TAG, "▶ fetchIndex(${redactModuleUrl(sourceUrl)})")
                 runCatching {
                     val request = Request.Builder().url(sourceUrl).build()
-                    Http.client.newCall(request).execute().use { resp ->
+                    Http.transportClient.newCall(request).execute().use { resp ->
                         if (!resp.isSuccessful) {
                             throw Exception("HTTP ${resp.code} from ${redactModuleUrl(sourceUrl)}")
                         }
@@ -220,7 +221,7 @@ class ModuleManager {
 
             TrackLog.d(TAG, "  Resolved download URL: ${redactModuleUrl(downloadUrl)}")
             val request = Request.Builder().url(downloadUrl).build()
-            val jsCode = Http.client.newCall(request).execute().use { resp ->
+            val jsCode = Http.transportClient.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     throw Exception("HTTP ${resp.code} downloading module ${module.id}")
                 }

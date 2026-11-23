@@ -14,12 +14,15 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * One OkHttp client for the whole app.
+ * One shared OkHttp transport for the whole app, with a WebDAV-authenticated
+ * wrapper for the configured WebDAV server. Both clients share the dispatcher,
+ * connection pool and DNS. Callers talking to third-party source endpoints use
+ * [transportClient], so a hostname match cannot attach the WebDAV credential.
  *
- * This matters: googlevideo binds a stream URL to the connection context of
+ * Sharing matters: googlevideo binds a stream URL to the connection context of
  * the `player` request that minted it. If Innertube and ExoPlayer used
  * separate HTTP stacks they could resolve to different addresses (v4 vs v6)
- * and the media fetch would come back 403. Sharing the client keeps DNS,
+ * and the media fetch would come back 403. Sharing the transport keeps DNS,
  * address family and connection pooling identical for both.
  *
  * That sharing has a cost the defaults don't budget for. Every request the
@@ -27,7 +30,7 @@ import java.util.concurrent.atomic.AtomicLong
  * `next`-endpoint fetches, [ChunkedDataSource][com.music.bitchord.playback.ChunkedDataSource]
  * and [AudioCache][com.music.bitchord.playback.AudioCache]'s multi-megabyte
  * chunk downloads, and every [StreamResolver] probe — funnels through this
- * one client, and OkHttp's stock [Dispatcher] allows only 5 requests in
+ * transport, and OkHttp's stock [Dispatcher] allows only 5 requests in
  * flight to a single host at a time. A track streaming while its successor
  * pre-caches is two or three of those requests already; a resolve running
  * alongside them queues behind whichever is occupying the rest — invisibly,
@@ -130,13 +133,30 @@ object Http {
         chain.proceed(request)
     }
 
-    val client: OkHttpClient = OkHttpClient.Builder()
+    private val baseClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
-        .addInterceptor(webDavInterceptor)
         .apply { if (USAGE_LOGGING_ENABLED) addNetworkInterceptor(usageInterceptor) }
+        .build()
+
+    /**
+     * Shared transport without ambient WebDAV credentials.
+     *
+     * Untrusted and third-party endpoints must use this client. A hostname that
+     * happens to match the configured WebDAV server must not receive its Basic
+     * credential just because another subsystem is making the request.
+     */
+    val transportClient: OkHttpClient = baseClient
+
+    /**
+     * The shared client plus the WebDAV credential for requests aimed at the
+     * configured server. WebDAV listings, its media fetches and WebDAV cover
+     * loads use this client; addon and module endpoints use [transportClient].
+     */
+    val client: OkHttpClient = baseClient.newBuilder()
+        .addInterceptor(webDavInterceptor)
         .build()
 }

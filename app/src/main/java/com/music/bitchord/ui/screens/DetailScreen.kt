@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.Check
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
@@ -318,6 +319,7 @@ fun DetailScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    albumPlayIsPause: Boolean = false,
     activeShelf: HomeShelf? = null,
     onActiveShelfChange: (HomeShelf?) -> Unit = {},
     /**
@@ -648,6 +650,7 @@ fun DetailScreen(
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },
+                        playIsPause = albumPlayIsPause,
                         onShuffle = { onShuffle(songs) },
                         // A folder's credit says where its tracks live, not who made them.
                         onArtistClick = onArtistClick.takeIf { folder == null },
@@ -979,6 +982,7 @@ private fun ReleaseHeader(
     canvas: CanvasArtwork?,
     songs: List<Song>,
     onPlay: () -> Unit,
+    playIsPause: Boolean,
     onShuffle: () -> Unit,
     onArtistClick: ((String, String) -> Unit)?,
     onToggleLibrary: (() -> Unit)?,
@@ -1119,6 +1123,8 @@ private fun ReleaseHeader(
             val compact = page.type == BrowseType.ALBUM
             val sideButton = if (compact) 48.dp else RELEASE_SIDE_BUTTON
             val localRelease = page.browseId.startsWith("local:")
+            val playIcon = if (playIsPause) Icons.Rounded.Pause else BitChordIcons.Play
+            val playLabel = stringResource(if (playIsPause) R.string.pause else R.string.play)
             Spacer(Modifier.height(18.dp))
             Row(
                 modifier = Modifier
@@ -1134,8 +1140,8 @@ private fun ReleaseHeader(
                     // greyed-out plus would only promise one. Apple Music's
                     // own pair for that case: Play and Shuffle, side by side.
                     ActionPill(
-                        icon = BitChordIcons.Play,
-                        label = stringResource(R.string.play),
+                        icon = playIcon,
+                        label = playLabel,
                         onClick = onPlay,
                         filled = true,
                         artworkTint = albumPalette?.onWhiteAction,
@@ -1174,8 +1180,8 @@ private fun ReleaseHeader(
                     artworkTint = albumPalette?.onBackground,
                 )
                 ActionPill(
-                    icon = BitChordIcons.Play,
-                    label = stringResource(R.string.play),
+                    icon = playIcon,
+                    label = playLabel,
                     onClick = onPlay,
                     filled = true,
                     size = sideButton,

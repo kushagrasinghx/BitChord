@@ -1771,4 +1771,26 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+
+    <!-- MCP additions: English fallback until localized. -->
+    <plurals name="replay_year_minutes_word">
+    <item quantity="one">minute</item>
+    <item quantity="other">minutes</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+    <item quantity="one">Played %1$s time</item>
+    <item quantity="other">Played %1$s times</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+    <item quantity="one">song</item>
+    <item quantity="other">songs</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+    <item quantity="one">artist</item>
+    <item quantity="other">artists</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+    <item quantity="one">album</item>
+    <item quantity="other">albums</item>
+    </plurals>
 </resources>

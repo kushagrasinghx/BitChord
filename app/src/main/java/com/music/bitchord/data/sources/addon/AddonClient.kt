@@ -603,25 +603,27 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         private const val PROBE_QUERY = "music"
 
         /**
-         * The shared client, with a ceiling on the whole call.
+         * The shared transport, with a ceiling on the whole call.
          *
-         * Derived from [Http.client] rather than built beside it, so the
-         * connection pool, dispatcher and DNS stay shared with the rest of the
-         * app. What is added is [OkHttpClient.Builder.callTimeout]: the base
-         * client bounds each *read*, which a server dribbling a byte at a time
-         * never trips, and an addon doing that would otherwise hold a
-         * source-resolution slot indefinitely. The spec asks addons to answer
-         * search in under five seconds and streams in under three; the ceiling
-         * is wider than that because a TorBox-backed addon cold-caching a long
-         * FLAC spends twenty to thirty seconds before it can answer at all —
-         * thirty-two was the worst a real Nebula addon took, and 35 s left no
-         * room once the call itself is added to the wait. The read timeout is
-         * lifted above the ceiling for the same reason: that wait is silence,
-         * not a slow trickle, so an inherited read timeout would fire first and
-         * the ceiling here would never be reached.
+         * Derived from [Http.transportClient] rather than [Http.client]: an
+         * addon server must never receive the saved WebDAV credential, even
+         * when its hostname happens to match the configured WebDAV server.
+         * The transport still shares the connection pool, dispatcher and DNS
+         * with the rest of the app. What is added is [OkHttpClient.Builder.callTimeout]:
+         * the base client bounds each *read*, which a server dribbling a byte
+         * at a time never trips, and an addon doing that would otherwise hold
+         * a source-resolution slot indefinitely. The spec asks addons to
+         * answer search in under five seconds and streams in under three; the
+         * ceiling is wider than that because a TorBox-backed addon cold-caching
+         * a long FLAC spends twenty to thirty seconds before it can answer at
+         * all — thirty-two was the worst a real Nebula addon took, and 35 s
+         * left no room once the call itself is added to the wait. The read
+         * timeout is lifted above the ceiling for the same reason: that wait
+         * is silence, not a slow trickle, so an inherited read timeout would
+         * fire first and the ceiling here would never be reached.
          */
-        private val client: OkHttpClient by lazy {
-            Http.client.newBuilder()
+        internal val client: OkHttpClient by lazy {
+            Http.transportClient.newBuilder()
                 .readTimeout(60, TimeUnit.SECONDS)
                 .callTimeout(45, TimeUnit.SECONDS)
                 .build()

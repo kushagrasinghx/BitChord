@@ -212,7 +212,7 @@ object SourceFormats {
             .header("Accept", "application/json")
             .header("User-Agent", "BitChord/v${com.music.bitchord.BuildConfig.VERSION_NAME}")
             .build()
-        Http.client.newCall(request).execute().use { response ->
+        Http.transportClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 if (response.code >= 500) throw AddonUnavailable("HTTP ${response.code}")
                 throw AddonException("HTTP ${response.code}")

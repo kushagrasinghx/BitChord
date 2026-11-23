@@ -275,7 +275,7 @@ internal fun rememberAutoMixCanvasPair(
                             // An incoming Spotify Canvas reveals as its cover; the ordinary
                             // selected-track path brings the clip in once the mix has promoted.
                             ?.takeUnless { it.retiresBeforeAutoMix }
-                            ?.nowPlayingRendition(fullWindow) ?: return@launch
+                            ?.nowPlayingRendition(fullWindow, fullBleed) ?: return@launch
                         if (sealed || active !== tracks || !tracks.beforeIncomingDeadline(feed.value)) return@launch
                         tracks.incomingClip = tracks.pinnedClip?.takeIf { it.url == clip.url } ?: clip
                         if (clip.url == tracks.pinnedClip?.url) tracks.incomingReady = true
@@ -334,9 +334,12 @@ internal fun sharesHeroRevealFootprint(
 /** Spotify's full-screen Canvas never takes part in an AutoMix reveal; see [AutoMixCanvasPair.beginMix]. */
 internal val CanvasArtwork.retiresBeforeAutoMix: Boolean get() = source == CanvasSource.SPOTIFY
 
-internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean): CanvasArtwork {
+internal fun CanvasArtwork.nowPlayingRendition(fullWindow: Boolean, fullBleed: Boolean): CanvasArtwork {
     val tall = portraitUrl
-    return if (tall != null && fullWindow) copy(url = tall, fallbackUrl = url, portraitUrl = null) else this
+    // A phone-sized window alone is not enough: the tall edit belongs only
+    // under full-bleed artwork. In a sleeve, keep the square composition used
+    // by the album page, even when the player fills the window.
+    return if (tall != null && fullWindow && fullBleed) copy(url = tall, fallbackUrl = url, portraitUrl = null) else this
 }
 
 /** Both videos use one keyed call site within the same artwork layout. */

@@ -1056,7 +1056,7 @@ fun NowPlayingScreen(
     val fullCanvasWindow = playerFillsWindow(windowWidth)
     val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val sessionCanvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
-        ?.nowPlayingRendition(fullCanvasWindow)
+        ?.nowPlayingRendition(fullCanvasWindow, fullBleedArt)
     val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
         coverOccurrence(song, queue, queueIndex)
     }

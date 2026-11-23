@@ -194,6 +194,7 @@ import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.utils.rememberAlbumArtworkOverscroll
+import com.music.bitchord.ui.utils.rememberBottomOnlyDetailOverscroll
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -532,6 +533,7 @@ fun DetailScreen(
     }
     val visibleCanvas = canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
     val album = page.type == BrowseType.ALBUM
+    val playlist = page.type == BrowseType.PLAYLIST && folder == null
     var albumPosterFailed by remember(page.browseId, page.thumbnailUrl) { mutableStateOf(false) }
 
     // Opening the search carries the page up to it, so the field lands just
@@ -654,7 +656,11 @@ fun DetailScreen(
                 } else LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    overscrollEffect = if (albumFullBleed) albumOverscroll else rememberOverscrollEffect(),
+                    overscrollEffect = when {
+                        albumFullBleed -> albumOverscroll
+                        !fullBleedArtwork && (album || playlist) -> rememberBottomOnlyDetailOverscroll()
+                        else -> rememberOverscrollEffect()
+                    },
                     // The artist photo runs edge-to-edge up under the glass bar;
                     // a release header clears the bar itself, see [ReleaseHeader].
                     contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),

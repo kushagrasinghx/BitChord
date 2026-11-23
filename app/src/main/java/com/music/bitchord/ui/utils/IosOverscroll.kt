@@ -62,7 +62,10 @@ internal interface AlbumArtworkOverscroll : OverscrollEffect {
     val artworkExpansionPx: Float
 }
 
-private class IosOverscrollEffect(private val topLimitPx: Float = 0f) : AlbumArtworkOverscroll {
+private class IosOverscrollEffect(
+    private val topLimitPx: Float = 0f,
+    private val allowTop: Boolean = true,
+) : AlbumArtworkOverscroll {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
@@ -77,6 +80,7 @@ private class IosOverscrollEffect(private val topLimitPx: Float = 0f) : AlbumArt
 
     private fun verticalOffsetPx(): Float {
         val pull = rawPullY.floatValue
+        if (pull > 0f && !allowTop) return 0f
         if (pull <= 0f || topLimitPx <= 0f) return rubberBand(pull, containerHeightPx)
         val resisted = pull * rubberBandConstant
         return topLimitPx * (resisted / (resisted + topLimitPx))
@@ -112,7 +116,7 @@ private class IosOverscrollEffect(private val topLimitPx: Float = 0f) : AlbumArt
                 rawPullX.floatValue += leftover.x
                 stretchedX = leftover.x
             }
-            if (leftover.y != 0f) {
+            if (leftover.y < 0f || (leftover.y > 0f && allowTop)) {
                 rawPullY.floatValue += leftover.y
                 stretchedY = leftover.y
             }
@@ -126,13 +130,14 @@ private class IosOverscrollEffect(private val topLimitPx: Float = 0f) : AlbumArt
     ) {
         val consumed = performFling(velocity)
         val leftover = velocity - consumed
+        val verticalVelocity = if (allowTop) leftover.y else leftover.y.coerceAtMost(0f)
         stopSettling()
-        if (!isInProgress && leftover == Velocity.Zero) return
+        if (!isInProgress && leftover.x == 0f && verticalVelocity == 0f) return
 
         coroutineScope {
             val jobs = listOf(
                 launch { settle(rawPullX, leftover.x) },
-                launch { settle(rawPullY, leftover.y) },
+                launch { settle(rawPullY, verticalVelocity) },
             )
             settleJobs = jobs
             jobs.forEach { it.join() }
@@ -233,3 +238,8 @@ fun rememberIosOverscrollFactory(): OverscrollFactory {
 @Composable
 internal fun rememberAlbumArtworkOverscroll(topLimitPx: Float): AlbumArtworkOverscroll =
     remember(topLimitPx) { IosOverscrollEffect(topLimitPx) }
+
+/** A hard top boundary with the usual bottom-edge bounce. */
+@Composable
+internal fun rememberBottomOnlyDetailOverscroll(): OverscrollEffect =
+    remember { IosOverscrollEffect(allowTop = false) }

@@ -516,6 +516,10 @@ object Downloads {
      * would take it out of that release as well.
      */
     suspend fun deleteCollection(context: Context, id: String): Boolean {
+        // Deleting the liked songs while they are kept downloaded would have
+        // the next check fetch every one of them again. Taking them off the
+        // device says the listener no longer wants that, so it ends here.
+        if (id == com.music.bitchord.data.YtMusicRepository.LIKED_MUSIC) AppSettings.setDownloadLikedSongs(false)
         var any = false
         tracksOnlyIn(id, _collections.value, _saved.value)
             .forEach { videoId -> if (delete(context, videoId)) any = true }

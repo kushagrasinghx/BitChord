@@ -42,6 +42,7 @@ data class QueueWindowSnapshot(
     val consumedThisCycle: List<Int>,
     val lastCycleFinalCanonicalIndex: Int?,
     val plannedCycles: List<QueueWindowCycleSnapshot> = emptyList(),
+    val excludedEntries: List<QueueWindowEntry> = emptyList(),
 )
 
 /**
@@ -82,6 +83,7 @@ class QueueWindow(
     private val consumed = LinkedHashSet<Int>()
     private var lastCycleFinal: Int? = null
     private val plannedCycles = LinkedHashMap<Long, IntArray>()
+    private val excludedEntries = LinkedHashSet<QueueWindowEntry>()
 
     /** Number of canonical tracks currently registered. */
     val canonicalSize: Int
@@ -150,6 +152,7 @@ class QueueWindow(
         consumed.clear()
         lastCycleFinal = null
         plannedCycles.clear()
+        excludedEntries.clear()
         logicalOrder = if (shuffle) {
             shuffledOrderAnchoredAt(canonicalIndex, activeCycleId)
         } else {
@@ -243,6 +246,17 @@ class QueueWindow(
                 restored.plannedCycles[planned.cycleId] = permutation
                 expectedCycle = planned.cycleId
             }
+            // Order changes can discard look-ahead plans without expiring future exclusions.
+            require(snapshot.excludedEntries.all {
+                it.canonicalIndex in 0 until snapshot.canonicalSize && it.cycleId >= snapshot.cycleId
+            }) { "snapshot exclusions contain an invalid canonical index or past cycle" }
+            restored.excludedEntries += snapshot.excludedEntries
+            require(restored.excludedEntries.size == snapshot.excludedEntries.size) {
+                "snapshot exclusions contain duplicate occurrences"
+            }
+            require(restored.currentIndex != null || restored.excludedEntries.isEmpty()) {
+                "an unstarted snapshot cannot have excluded occurrences"
+            }
             return restored
         }
 
@@ -269,9 +283,9 @@ class QueueWindow(
     /**
      * Return logical entries beginning at an order position.
      *
-     * This is a raw logical slice: unlike [upcoming], it does not remove entries already consumed
-     * after a manual jump.  Set [repeatAll] to include planned entries from later cycles.  The
-     * active cursor and cycle state are never changed.
+     * This is a raw logical slice: unlike [upcoming], it does not remove excluded entries or entries
+     * already consumed after a manual jump. Set [repeatAll] to include planned entries from later
+     * cycles. The active cursor and cycle state are never changed.
      */
     fun slice(
         fromPos: Int,
@@ -307,7 +321,8 @@ class QueueWindow(
      *
      * In shuffle mode consumed entries are skipped even if a manual jump placed the cursor before
      * them.  This is what keeps an explicit Previous/Next from silently re-inserting old shuffled
-     * tracks into automatic playback.  In canonical mode the order is intentionally unfiltered.
+     * tracks into automatic playback. In canonical mode consumed entries remain unfiltered.
+     * Explicit materialization exclusions apply in both modes, without changing logical order.
      */
     fun upcoming(
         count: Int = WINDOW_AHEAD,
@@ -324,8 +339,11 @@ class QueueWindow(
         while (result.size < boundedCount && orderForCycle.isNotEmpty()) {
             while (position < orderForCycle.size && result.size < boundedCount) {
                 val canonical = orderForCycle[position]
-                if (cycle != activeCycleId || !shuffled || canonical !in consumed) {
-                    result += QueueWindowEntry(canonical, cycle)
+                val entry = QueueWindowEntry(canonical, cycle)
+                if (entry !in excludedEntries &&
+                    (cycle != activeCycleId || !shuffled || canonical !in consumed)
+                ) {
+                    result += entry
                 }
                 position += 1
             }
@@ -347,6 +365,29 @@ class QueueWindow(
 
     /** Number of entries currently available to [upcoming] without changing state. */
     fun upcomingCount(repeatAll: Boolean = false): Int = upcoming(WINDOW_AHEAD, repeatAll).size
+
+    /**
+     * Exclude an upcoming occurrence from materialization, not from logical traversal or history.
+     * The owner must first verify that the physical row is an upcoming CONTEXT row in this window.
+     * Returns true for a valid accepted occurrence, including one already excluded in this or a
+     * future cycle; false for an invalid, expired, or new non-upcoming/unplanned occurrence.
+     * Exclusions survive manual queue edits and logical navigation for this window's lifetime;
+     * a later repeat cycle is a different occurrence and remains eligible. Restarting the context
+     * with [startAt] clears exclusions.
+     */
+    fun exclude(entry: QueueWindowEntry): Boolean {
+        if (currentIndex == null || entry.canonicalIndex !in 0 until canonicalCount) return false
+        if (entry.cycleId < activeCycleId) return false
+        if (entry in excludedEntries) return true
+        if (entry.cycleId == activeCycleId) {
+            if (inversePositions[entry.canonicalIndex] <= logicalCursor) return false
+            if (shuffled && entry.canonicalIndex in consumed) return false
+        } else if (entry.cycleId !in plannedCycles) {
+            return false
+        }
+        excludedEntries.add(entry)
+        return true
+    }
 
     /**
      * Automatic forward traversal.  Shuffle mode scans for the next unconsumed item; explicit
@@ -486,6 +527,7 @@ class QueueWindow(
         plannedCycles = plannedCycles.map { (cycle, permutation) ->
             QueueWindowCycleSnapshot(cycle, permutation.toList())
         },
+        excludedEntries = excludedEntries.toList(),
     )
 
     private fun moveWithinCycle(position: Int): QueueWindowEntry {
@@ -513,6 +555,7 @@ class QueueWindow(
     private fun selectPlannedCycle(cycle: Long, permutation: IntArray, position: Int) {
         lastCycleFinal = currentIndex
         activeCycleId = cycle
+        excludedEntries.removeAll { it.cycleId < cycle }
         logicalOrder = permutation
         plannedCycles.remove(cycle)
         rebuildInverse()

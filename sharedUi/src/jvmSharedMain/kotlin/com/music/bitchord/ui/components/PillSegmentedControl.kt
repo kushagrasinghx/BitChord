@@ -63,6 +63,8 @@ fun PillSegmentedControl(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    /** Segments shown but not offered: their labels dimmed, taps ignored. */
+    disabled: Set<Int> = emptySet(),
 ) {
     if (options.isEmpty()) return
     val haptics = LocalHapticFeedback.current
@@ -164,7 +166,11 @@ fun PillSegmentedControl(
                         modifier = Modifier
                             .atX(starts[index])
                             .width(with(density) { widths[index].toDp() })
-                            .clickable(enabled = enabled, interactionSource = null, indication = null) {
+                            .clickable(
+                                enabled = enabled && index !in disabled,
+                                interactionSource = null,
+                                indication = null,
+                            ) {
                                 if (index != selected) {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onSelect(index)
@@ -176,7 +182,7 @@ fun PillSegmentedControl(
                         Text(
                             text = label,
                             style = style,
-                            color = labelColor,
+                            color = if (index in disabled) labelColor.copy(alpha = DISABLED_LABEL_ALPHA) else labelColor,
                             maxLines = 1,
                             softWrap = false,
                         )
@@ -210,3 +216,4 @@ private val LABEL_PADDING = 18.dp
 private val LABEL_VERTICAL_PADDING = 9.dp
 private val EDGE_FADE = 28.dp
 private const val PILL_DAMPING = 0.8f
+private const val DISABLED_LABEL_ALPHA = 0.3f

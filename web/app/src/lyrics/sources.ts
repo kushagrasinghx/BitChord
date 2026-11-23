@@ -14,7 +14,7 @@ export const LYRICS_SOURCES = [
   { id: 'lyrics-plus', label: 'LyricsPlus', detail: 'Syllable by syllable, on community mirrors', wordSynced: true },
   { id: 'unison', label: 'Unison', detail: 'Contributed by listeners, so it has what nobody licensed', wordSynced: true },
   { id: 'youtube-captions', label: 'YouTube captions', detail: 'Timed captions matched to the exact playing video', wordSynced: false },
-  { id: 'youtube-music', label: 'YouTube Music', detail: 'Plain lyrics from the playing video’s Lyrics tab', wordSynced: false },
+  { id: 'youtube-music', label: 'YouTube Music', detail: 'Timed lyrics from the playing video’s Lyrics tab', wordSynced: false },
   { id: 'kugou', label: 'KuGou', detail: 'Whole lines, strong outside the English catalogue', wordSynced: false },
   { id: 'lrclib', label: 'LRCLIB', detail: 'Whole lines only, and always up', wordSynced: false },
   { id: 'musixmatch', label: 'Musixmatch', detail: 'Whole lines, from the biggest lyrics database there is', wordSynced: false },

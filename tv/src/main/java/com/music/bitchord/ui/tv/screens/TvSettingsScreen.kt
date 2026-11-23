@@ -72,6 +72,7 @@ fun TvSettingsScreen(
     val account by viewModel.account.collectAsState()
 
     val automix by AppSettings.smartFadeEnabled.collectAsState()
+    val automixModels by com.music.bitchord.playback.smart.AutomixModels.state.collectAsState()
     val crossfade by AppSettings.crossfadeSeconds.collectAsState()
     val autoplay by AppSettings.autoplay.collectAsState()
     val skipSilence by AppSettings.skipSilence.collectAsState()
@@ -146,7 +147,14 @@ fun TvSettingsScreen(
             item {
                 TvListRow(
                     title = "Automix",
-                    value = onOff(automix),
+                    // Its models are fetched on first use; until then songs crossfade normally.
+                    value = when (val models = automixModels) {
+                        is com.music.bitchord.playback.smart.AutomixModels.State.Downloading ->
+                            if (automix) "Downloading ${(models.fraction * 100).toInt()}%" else onOff(false)
+                        com.music.bitchord.playback.smart.AutomixModels.State.Failed ->
+                            if (automix) "Download failed" else onOff(false)
+                        else -> onOff(automix)
+                    },
                     onFocused = { blurb = "Blends one song into the next, matched to their tempo." },
                     onClick = { AppSettings.setSmartFadeEnabled(!automix) },
                 )

@@ -198,4 +198,15 @@
     <string name="search_library_empty">आपके लोकल म्यूज़िक फ़ोल्डर के गाने खोजें.</string>
     <string name="search_library_hint">गाने, कलाकार और एल्बम</string>
     <string name="search_library_no_results">लोकल म्यूज़िक में “%1$s” से मेल खाता कुछ नहीं.</string>
+    <string name="add_to_queue">कतार में जोड़ें</string>
+    <string name="queue_selected_count">%1$d चुने गए</string>
+    <string name="queue_select_all">सभी चुनें</string>
+    <string name="queue_select">चुनें</string>
+    <string name="queue_close_selection">चयन बंद करें</string>
+    <string name="queue_add_to_playlist">प्लेलिस्ट</string>
+    <string name="queue_download">डाउनलोड करें</string>
+    <string name="queue_selection_remove">हटाएं</string>
+    <string name="queue_add_all_to_playlist">सभी को प्लेलिस्ट में जोड़ें</string>
+    <string name="mixes_yours">आपके मिक्स</string>
+    <string name="mixes_none">अभी कोई मिक्स नहीं है। सुनते रहें, YouTube Music आपके लिए मिक्स बनाएगा।</string>
 </resources>

@@ -198,4 +198,15 @@
     <string name="search_library_empty">Recherche les titres de votre dossier Musique locale.</string>
     <string name="search_library_hint">Titres, artistes et albums</string>
     <string name="search_library_no_results">Rien dans Musique locale ne correspond à « %1$s ».</string>
+    <string name="add_to_queue">Ajouter à la file d\'attente</string>
+    <string name="queue_selected_count">Sélection : %1$d</string>
+    <string name="queue_select_all">Tout sélectionner</string>
+    <string name="queue_select">Sélectionner</string>
+    <string name="queue_close_selection">Quitter la sélection</string>
+    <string name="queue_add_to_playlist">Playlist</string>
+    <string name="queue_download">Télécharger</string>
+    <string name="queue_selection_remove">Retirer</string>
+    <string name="queue_add_all_to_playlist">Tout ajouter à la playlist</string>
+    <string name="mixes_yours">Vos mix</string>
+    <string name="mixes_none">Pas encore de mix. Continuez à écouter et YouTube Music en créera pour vous.</string>
 </resources>

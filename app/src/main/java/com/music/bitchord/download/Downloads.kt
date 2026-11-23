@@ -414,6 +414,34 @@ object Downloads {
     }
 
     /**
+     * Updates recorded metadata for a downloaded file by its URI.
+     */
+    fun updateMetadata(uri: String, title: String, artist: String, albumName: String?) {
+        record(
+            saved = { it },
+            meta = { current ->
+                current.mapValues { (_, meta) ->
+                    if (meta.uri == uri) {
+                        SavedSongMetadata(
+                            videoId = meta.videoId,
+                            title = title,
+                            artist = artist,
+                            thumbnailUrl = meta.thumbnailUrl,
+                            durationText = meta.durationText,
+                            albumName = albumName,
+                            uri = meta.uri,
+                            downloadFormat = meta.downloadFormat,
+                            dateAddedSeconds = meta.dateAddedSeconds,
+                        )
+                    } else {
+                        meta
+                    }
+                }
+            },
+        )
+    }
+
+    /**
      * Drop the record for [videoId] because a read of the file it names has
      * just failed.
      *

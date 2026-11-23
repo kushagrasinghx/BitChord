@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BlendMode
 import android.graphics.Canvas
-import android.graphics.ComposeShader
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -226,7 +225,6 @@ internal fun AndroidCanvasArtworkPlayer(
     onStillCaptured: (ImageBitmap?, Long) -> Unit = { _, _ -> },
     onResumed: () -> Unit = {},
     nowPlaying: Boolean = false,
-    featherPortraitSides: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -622,12 +620,9 @@ internal fun AndroidCanvasArtworkPlayer(
             if (applied.transformDiffers(clipAspect, contentMode, alignPortraitTop, view.width, view.height)) {
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             }
-            val sideInsetPx = if (featherPortraitSides &&
-                contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect > 0f && clipAspect < 1f
-            ) ((bounds.width - bounds.height * clipAspect) / 2f).coerceAtLeast(0f) else 0f
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx, sideInsetPx)
-                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx, sideInsetPx)
+                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)
+                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx)
                 val generation = organicReveal?.generation?.takeIf {
                     organicReveal.allowSpatialMask && nowPlaying && visibility > 0f &&
                         reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
@@ -641,7 +636,6 @@ internal fun AndroidCanvasArtworkPlayer(
             } else {
                 frame.fadeFraction = bottomFade
                 frame.fadeEndPx = bottomFadeEndPx
-                frame.sideInsetPx = sideInsetPx
                 false
             }
             // Texture paint keeps hidden standby traversable so it can latch a frame.
@@ -848,22 +842,6 @@ private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): L
     )
 }
 
-/** Blend the fitted portrait's outer edges into the artwork-derived page color. */
-private fun Shader?.withPortraitSideFeather(widthPx: Float, insetPx: Float): Shader? {
-    val right = widthPx - insetPx
-    if (insetPx <= 0f || right <= insetPx) return this
-    val sides = LinearGradient(
-        insetPx, 0f, right, 0f,
-        intArrayOf(
-            android.graphics.Color.TRANSPARENT, android.graphics.Color.BLACK,
-            android.graphics.Color.BLACK, android.graphics.Color.TRANSPARENT,
-        ),
-        floatArrayOf(0f, 0.12f, 0.88f, 1f),
-        Shader.TileMode.CLAMP,
-    )
-    return if (this == null) sides else ComposeShader(this, sides, PorterDuff.Mode.DST_IN)
-}
-
 /**
  * The pre-[Build.VERSION_CODES.S] bottom fade: the same dissolve
  * [createBottomFade] gets from a [RenderEffect], done the way it was done before
@@ -893,7 +871,6 @@ private class AppliedLook {
     private var fade = Float.NaN
     private var fadeBounds = IntSize(-1, -1)
     private var fadeEnd: Float? = Float.NaN
-    private var fadeSideInset = Float.NaN
 
     fun transformDiffers(
         clipAspect: Float,
@@ -913,12 +890,11 @@ private class AppliedLook {
         return true
     }
 
-    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?, sideInsetPx: Float): Boolean {
-        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd && sideInsetPx == fadeSideInset) return false
+    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?): Boolean {
+        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd) return false
         fade = fraction
         fadeBounds = bounds
         fadeEnd = endPx
-        fadeSideInset = sideInsetPx
         return true
     }
 }
@@ -943,9 +919,9 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var outgoingEffectApplied = false
 
     @RequiresApi(Build.VERSION_CODES.S)
-    fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?, sideInsetPx: Float) {
+    fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
         bottomShader = createBottomFade(fraction, bounds, endPx)
-        bottomEffect = bottomShader.withPortraitSideFeather(bounds.width.toFloat(), sideInsetPx)?.let {
+        bottomEffect = bottomShader?.let {
             RenderEffect.createBlendModeEffect(
                 RenderEffect.createOffsetEffect(0f, 0f), // This node's own content.
                 RenderEffect.createShaderEffect(it),
@@ -1065,18 +1041,10 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             invalidate()
         }
 
-    var sideInsetPx: Float = 0f
-        set(value) {
-            if (value == field) return
-            field = value
-            gradient = null
-            invalidate()
-        }
-
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
     }
-    private var gradient: Shader? = null
+    private var gradient: LinearGradient? = null
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -1085,7 +1053,6 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
 
     override fun dispatchDraw(canvas: Canvas) {
         val shader = gradient ?: createBottomFade(fadeFraction, IntSize(width, height), fadeEndPx)
-            .withPortraitSideFeather(width.toFloat(), sideInsetPx)
             ?.also { gradient = it }
         if (shader == null) {
             super.dispatchDraw(canvas)
@@ -1187,7 +1154,6 @@ private fun AndroidCanvasVideoContents(spec: CanvasVideoSpec, modifier: Modifier
         onStillCaptured = spec.onStillCaptured,
         onResumed = spec.onResumed,
         nowPlaying = spec.nowPlaying,
-        featherPortraitSides = spec.featherPortraitSides,
     )
 }
 

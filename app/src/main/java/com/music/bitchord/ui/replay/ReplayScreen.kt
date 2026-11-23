@@ -28,7 +28,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -48,6 +52,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -276,11 +281,35 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
             fontWeight = FontWeight.W800,
             color = textColor,
         )
-        Text(
-            text = state.summary?.localizedLabel(context) ?: state.period.localizedChip(context),
-            style = MaterialTheme.typography.titleMedium,
-            color = textColor.copy(alpha = 0.6f),
-        )
+        // Under Monthly the label picks the month: every month with listening, newest first.
+        val canPickMonth = state.period == ReplayPeriod.THIS_MONTH && state.months.size > 1
+        var picking by remember { mutableStateOf(false) }
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (canPickMonth) Modifier.clickable(role = Role.DropdownList) { picking = true } else Modifier,
+            ) {
+                Text(
+                    text = state.summary?.localizedLabel(context) ?: state.period.localizedChip(context),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor.copy(alpha = 0.6f),
+                )
+                if (canPickMonth) {
+                    Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, tint = textColor.copy(alpha = 0.6f))
+                }
+            }
+            DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
+                state.months.forEach { month ->
+                    DropdownMenuItem(
+                        text = { Text(month.localizedName()) },
+                        onClick = {
+                            picking = false
+                            state.onMonthChange(month)
+                        },
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(14.dp))
         PeriodPicker(state.period, onPeriodChange, dark)
         Spacer(Modifier.height(18.dp))

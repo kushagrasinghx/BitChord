@@ -7,6 +7,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.youTubeThumbnailFallback
 import com.my.kizzy.rpc.KizzyRPC
 import com.my.kizzy.rpc.RpcImage
+import java.net.URLEncoder
 import java.util.Locale
 
 /**
@@ -161,8 +162,21 @@ class DiscordRPC(
         /** Discord draws the sleeve at roughly 96dp; 480px covers it on any density. */
         private const val ART_PX = 480
 
+        /**
+         * Where the card's title and first button send a friend. A local file
+         * or a source-module track has no YouTube id — its id is a content URI
+         * or the module's own — so it gets a search for the song instead of a
+         * watch link to nothing.
+         */
         fun watchUrl(song: Song): String =
-            "https://music.youtube.com/watch?v=${song.videoId}"
+            if (YOUTUBE_ID.matches(song.videoId)) {
+                "https://music.youtube.com/watch?v=${song.videoId}"
+            } else {
+                "https://music.youtube.com/search?q=" +
+                    URLEncoder.encode("${song.title} ${song.artist}", "UTF-8")
+            }
+
+        private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{11}")
 
         /**
          * Resolves template variables in text.

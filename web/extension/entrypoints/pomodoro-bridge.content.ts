@@ -36,6 +36,7 @@ export default defineContentScript({
           {
             channel: 'POMODORO_MAIN_COMMAND',
             command: request.command,
+            args: request.args,
           },
           '*',
         );

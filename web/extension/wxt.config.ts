@@ -39,8 +39,8 @@ export default defineConfig({
       'cookies',
       'alarms',
       'notifications',
-      ...(browser !== 'firefox' ? ['sidePanel'] : []),
-      ...(DISCORD_PRESENCE ? ['scripting'] : []),
+      'scripting',
+      ...(browser !== 'firefox' ? ['sidePanel', 'offscreen'] : []),
     ],
     // YouTube (phases 3 and 5) and Spotify (phase 9; the sp_dc cookie is read
     // and used here only, lib/spotify.ts). The site's own origins are listed
@@ -56,6 +56,7 @@ export default defineConfig({
       'https://api-partner.spotify.com/*',
       'https://clienttoken.spotify.com/*',
       'https://open.spotifycdn.com/*',
+      'https://lrclib.net/*',
       ...matchPatternsFor(SITE_ORIGINS),
     ],
     // Granted at use time, on the extension's own pages: lyric providers the

@@ -1,6 +1,7 @@
 /**
- * BitChord Pomodoro Focus Timer Module
- * Integrated custom Pomodoro timer engine with music playback automation for breaks.
+ * BitChord Pomodoro Focus Timer & Audio Engine Module
+ * Integrated custom Pomodoro timer engine with music playback automation,
+ * 10-Band Graphic Equalizer, DJ AutoMix / Queue management, and TTS chimes.
  */
 
 import { matchPatternsFor, SITE_ORIGINS } from '../site.config';
@@ -18,6 +19,11 @@ export interface PomodoroSettings {
   soundAlerts: boolean;
   desktopNotifications: boolean;
   bitchordUrl: string;
+  enablePomodoro: boolean;
+  ttsVoiceEnabled: boolean;
+  ttsVoiceStyle: string;
+  customBreakMessage: string;
+  customWorkMessage: string;
 }
 
 export interface PomodoroTimer {
@@ -36,6 +42,20 @@ export interface PlayerStatusPayload {
   title: string;
   artist: string;
   artwork: string;
+  currentTime?: number;
+  duration?: number;
+  volume?: number;
+  shuffle?: boolean;
+  repeat?: string;
+  hasLiveLyrics?: boolean;
+  queue?: any[];
+  crossfadeSec?: number;
+  automix?: boolean;
+  automixBars?: number;
+  eq?: {
+    enabled: boolean;
+    gains: number[];
+  };
   url?: string;
 }
 
@@ -52,6 +72,11 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   soundAlerts: true,
   desktopNotifications: true,
   bitchordUrl: 'https://bitchord-8bw.pages.dev/home',
+  enablePomodoro: true,
+  ttsVoiceEnabled: true,
+  ttsVoiceStyle: 'chill',
+  customBreakMessage: '',
+  customWorkMessage: '',
 };
 
 export const DEFAULT_POMODORO_TIMER: PomodoroTimer = {
@@ -67,7 +92,58 @@ export const DEFAULT_POMODORO_TIMER: PomodoroTimer = {
 let tickInterval: ReturnType<typeof setInterval> | null = null;
 let lastBitChordStatus: PlayerStatusPayload | null = null;
 
+// Offscreen audio player manager & Customizable TTS Voice Announcement
+export async function playChimeAudio(type: 'break' | 'work', overrideOptions: Partial<PomodoroSettings & { isTest?: boolean }> = {}) {
+  const data = await browser.storage.local.get('settings');
+  const s = { ...DEFAULT_POMODORO_SETTINGS, ...(data.settings as Partial<PomodoroSettings>), ...overrideOptions };
+  if (s.soundAlerts === false && !overrideOptions.isTest) return;
+
+  try {
+    // @ts-ignore
+    const chromeObj = typeof chrome !== 'undefined' ? chrome : null;
+    if (chromeObj?.offscreen?.createDocument && chromeObj?.runtime?.getContexts) {
+      const existingContexts = await chromeObj.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+      });
+
+      if (existingContexts.length === 0) {
+        await chromeObj.offscreen.createDocument({
+          url: browser.runtime.getURL('audio/offscreen.html'),
+          reasons: ['AUDIO_PLAYBACK'],
+          justification: 'Play Pomodoro session transition chimes and TTS announcements',
+        });
+      }
+    }
+
+    browser.runtime.sendMessage({
+      action: 'play_chime',
+      soundType: type,
+      ttsEnabled: s.ttsVoiceEnabled !== false,
+      ttsStyle: s.ttsVoiceStyle || 'chill',
+      customBreakMessage: s.customBreakMessage || '',
+      customWorkMessage: s.customWorkMessage || '',
+      isTest: !!overrideOptions.isTest,
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('[BitChord Pomodoro] Offscreen chime warning:', err);
+  }
+}
+
 export async function getBitChordTabs(): Promise<Browser.tabs.Tab[]> {
+  try {
+    const allTabs = await browser.tabs.query({});
+    const matched = allTabs.filter(
+      (t) =>
+        t.url &&
+        (t.url.includes('bitchord-8bw.pages.dev') ||
+          t.url.includes('bitchord.in') ||
+          t.url.includes('localhost:5173') ||
+          t.url.includes('127.0.0.1:5173') ||
+          t.url.includes('bitchord.org')),
+    );
+    if (matched.length > 0) return matched;
+  } catch {}
+
   const patterns = [
     ...matchPatternsFor(SITE_ORIGINS),
     '*://bitchord.in/*',
@@ -84,38 +160,286 @@ export async function getBitChordTabs(): Promise<Browser.tabs.Tab[]> {
   }
 }
 
-export async function sendBitChordCommand(command: 'play' | 'pause' | 'next' | 'previous') {
+// Injects content scripts into tabs that were already open before extension reload
+export async function injectIntoExistingTabs() {
+  try {
+    const tabs = await getBitChordTabs();
+    console.log(`[BitChord Pomodoro] Found ${tabs.length} existing BitChord tab(s) to verify/re-inject.`);
+    // @ts-ignore
+    const chromeObj = typeof chrome !== 'undefined' ? chrome : (browser as any);
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      try {
+        if (chromeObj?.scripting?.executeScript) {
+          await chromeObj.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: () => {
+              window.postMessage({ channel: 'POMODORO_MAIN_COMMAND', command: 'get_status' }, '*');
+            },
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.warn('[BitChord Pomodoro] injectIntoExistingTabs warning:', err);
+  }
+}
+
+// Directly queries live DOM and audio state inside the tab
+export async function queryBitChordTabDirectly(tabId: number): Promise<PlayerStatusPayload | null> {
+  try {
+    // @ts-ignore
+    const chromeObj = typeof chrome !== 'undefined' ? chrome : (browser as any);
+    if (chromeObj?.scripting?.executeScript) {
+      const results = await chromeObj.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+          let title = 'BitChord Player';
+          let artist = 'Ready to stream';
+          let artwork = '';
+          let isPlaying = false;
+          let currentTime = 0;
+          let duration = 0;
+          let volume = 1;
+          let shuffle = false;
+          let repeat = 'off';
+
+          // 1. Play/Pause button detection
+          const pauseBtn = document.querySelector('button[aria-label="Pause"]:not([disabled])');
+          const playBtn = document.querySelector('button[aria-label="Play"]:not([disabled])');
+          if (pauseBtn) isPlaying = true;
+          else if (playBtn) isPlaying = false;
+
+          // 2. MediaSession detection
+          if ('mediaSession' in navigator) {
+            if (navigator.mediaSession.playbackState) {
+              isPlaying = navigator.mediaSession.playbackState === 'playing';
+            }
+            const meta = navigator.mediaSession.metadata;
+            if (meta) {
+              if (meta.title) title = meta.title;
+              if (meta.artist) artist = meta.artist;
+              if (meta.artwork && meta.artwork.length > 0) {
+                artwork = meta.artwork[meta.artwork.length - 1].src;
+              }
+            }
+          }
+
+          // 3. Audio elements
+          const domAudios = Array.from(document.querySelectorAll('audio'));
+          const playingAudio = domAudios.find((a) => !a.paused && a.currentTime > 0) || domAudios[0];
+          if (playingAudio) {
+            if (!playingAudio.paused && playingAudio.currentTime > 0) isPlaying = true;
+            currentTime = playingAudio.currentTime || 0;
+            duration = playingAudio.duration || 0;
+            volume = playingAudio.volume !== undefined ? playingAudio.volume : 1;
+          }
+
+          // 4. LCD DOM elements
+          const titleEl = document.querySelector('.group\\/lcd .type-body-emphasized') || document.querySelector('[role="region"][aria-label="Player"] .type-body-emphasized');
+          if (titleEl && titleEl.textContent && title === 'BitChord Player') title = titleEl.textContent.trim();
+
+          const artistEl = document.querySelector('.group\\/lcd .type-callout-medium') || document.querySelector('[role="region"][aria-label="Player"] .type-callout-medium');
+          if (artistEl && artistEl.textContent && artist === 'Ready to stream') artist = artistEl.textContent.trim();
+
+          const imgEl = document.querySelector('.group\\/lcd button[aria-label="Open full screen player"] img') || document.querySelector('[role="region"][aria-label="Player"] img');
+          if (imgEl && (imgEl as HTMLImageElement).src && !artwork) artwork = (imgEl as HTMLImageElement).src;
+
+          // 5. Shuffle & Repeat
+          const shuffleBtn = document.querySelector('button[aria-label="Shuffle"]');
+          if (shuffleBtn) shuffle = shuffleBtn.getAttribute('aria-pressed') === 'true';
+
+          const repeatBtn = document.querySelector('button[aria-label^="Repeat"]');
+          if (repeatBtn) {
+            const l = repeatBtn.getAttribute('aria-label') || '';
+            if (l.includes('one')) repeat = 'one';
+            else if (l.includes('all') || repeatBtn.getAttribute('aria-pressed') === 'true') repeat = 'all';
+            else repeat = 'off';
+          }
+
+          // 6. Mixer settings from localStorage or store
+          let crossfadeSec = 0;
+          let automix = false;
+          let automixBars = 16;
+          let queue: any[] = [];
+          try {
+            const s = JSON.parse(localStorage.getItem('bitchord.player.settings') || '{}');
+            if (s.crossfadeSec !== undefined) crossfadeSec = s.crossfadeSec;
+            if (s.automix !== undefined) automix = !!s.automix;
+            if (s.automixBars !== undefined) automixBars = s.automixBars;
+          } catch {}
+
+          if ((window as any).__bcPlayer) {
+            const st = (window as any).__bcPlayer.getState();
+            if (st) {
+              if (st.crossfadeSec !== undefined) crossfadeSec = st.crossfadeSec;
+              if (st.automix !== undefined) automix = !!st.automix;
+              if (st.automixBars !== undefined) automixBars = st.automixBars;
+              if (Array.isArray(st.queue)) {
+                queue = st.queue.slice(0, 35).map((entry: any, idx: number) => ({
+                  index: idx,
+                  title: entry.track?.title || entry.title || `Track ${idx + 1}`,
+                  artist: entry.track?.artist || entry.artist || '',
+                  artwork: entry.track?.artworkUrl || null,
+                  durationSec: entry.track?.durationSec || 0,
+                  isPlaying: idx === st.index,
+                }));
+              }
+            }
+          }
+
+          return {
+            connected: true,
+            isPlaying,
+            title,
+            artist,
+            artwork,
+            currentTime,
+            duration,
+            volume,
+            shuffle,
+            repeat,
+            crossfadeSec,
+            automix,
+            automixBars,
+            queue,
+            url: window.location.href,
+          };
+        },
+      });
+      if (results && results[0] && results[0].result) {
+        return results[0].result as PlayerStatusPayload;
+      }
+    }
+  } catch (err) {
+    console.warn('[BitChord Pomodoro] queryBitChordTabDirectly error:', err);
+  }
+  return null;
+}
+
+export async function sendBitChordCommand(command: string, args?: any) {
   const tabs = await getBitChordTabs();
-  console.log(`[BitChord Pomodoro] Dispatching player command "${command}" to ${tabs.length} tab(s)`);
+  console.log(`[BitChord Pomodoro] Dispatching player command "${command}" to ${tabs.length} tab(s) with args:`, args);
 
   if (tabs.length > 0) {
     for (const tab of tabs) {
-      if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { action: 'bitchord_command', command }).catch(async () => {
-          try {
-            // @ts-ignore
-            if (typeof chrome !== 'undefined' && chrome.scripting?.executeScript) {
-              // @ts-ignore
-              await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                world: 'MAIN',
-                func: (cmd: string) => {
-                  window.postMessage({ channel: 'POMODORO_MAIN_COMMAND', command: cmd }, '*');
-                },
-                args: [command],
-              });
-            }
-          } catch {}
-        });
+      if (!tab.id) continue;
+      // @ts-ignore
+      const chromeObj = typeof chrome !== 'undefined' ? chrome : (browser as any);
+      try {
+        if (chromeObj?.scripting?.executeScript) {
+          await chromeObj.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: (cmd: string, a: any) => {
+              if (cmd === 'toggle') {
+                const pauseBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Pause"]:not([disabled])');
+                if (pauseBtn) { pauseBtn.click(); return; }
+                const playBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]:not([disabled])');
+                if (playBtn) { playBtn.click(); return; }
+                const audios = Array.from(document.querySelectorAll('audio'));
+                const aud = audios.find((el) => !el.paused) || audios[0];
+                if (aud) {
+                  if (aud.paused) aud.play().catch(() => {});
+                  else aud.pause();
+                  return;
+                }
+                const shelfPlay =
+                  document.querySelector<HTMLButtonElement>('button[aria-label^="Play "]:not([disabled])') ||
+                  document.querySelector<HTMLButtonElement>('.group\\/track button:not([disabled])') ||
+                  document.querySelector<HTMLButtonElement>('button[aria-label*="Play"]:not([disabled])');
+                if (shelfPlay) { shelfPlay.click(); return; }
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true }));
+              } else if (cmd === 'play') {
+                const pauseBtn = document.querySelector('button[aria-label="Pause"]:not([disabled])');
+                if (pauseBtn) return;
+                const playBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Play"]:not([disabled])');
+                if (playBtn) { playBtn.click(); return; }
+                const shelfPlay =
+                  document.querySelector<HTMLButtonElement>('button[aria-label^="Play "]:not([disabled])') ||
+                  document.querySelector<HTMLButtonElement>('.group\\/track button:not([disabled])');
+                if (shelfPlay) { shelfPlay.click(); return; }
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true }));
+              } else if (cmd === 'pause') {
+                const pauseBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Pause"]:not([disabled])');
+                if (pauseBtn) { pauseBtn.click(); return; }
+                document.querySelectorAll('audio').forEach((el) => { try { el.pause(); } catch {} });
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', keyCode: 32, which: 32, bubbles: true }));
+              } else if (cmd === 'next') {
+                const nextBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Next"]:not([disabled])');
+                if (nextBtn) { nextBtn.click(); return; }
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', ctrlKey: true, bubbles: true }));
+              } else if (cmd === 'previous') {
+                const prevBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Previous"]:not([disabled])');
+                if (prevBtn) { prevBtn.click(); return; }
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', code: 'ArrowLeft', ctrlKey: true, bubbles: true }));
+              } else if (cmd === 'seek' && a && typeof a.seconds === 'number') {
+                document.querySelectorAll('audio').forEach((el) => { el.currentTime = a.seconds; });
+              } else if (cmd === 'toggle_shuffle') {
+                const btn = document.querySelector<HTMLButtonElement>('button[aria-label="Shuffle"]:not([disabled])');
+                if (btn) btn.click();
+              } else if (cmd === 'cycle_repeat') {
+                const btn = document.querySelector<HTMLButtonElement>('button[aria-label^="Repeat"]:not([disabled])');
+                if (btn) btn.click();
+              } else if (cmd === 'set_volume' && a && typeof a.volume === 'number') {
+                document.querySelectorAll('audio').forEach((el) => { el.volume = a.volume; });
+              } else if (cmd === 'set_crossfade' && a) {
+                if ((window as any).__bcPlayer) (window as any).__bcPlayer.getState().setCrossfade(a.seconds);
+                try {
+                  const s = JSON.parse(localStorage.getItem('bitchord.player.settings') || '{}');
+                  s.crossfadeSec = a.seconds;
+                  s.automix = false;
+                  localStorage.setItem('bitchord.player.settings', JSON.stringify(s));
+                } catch {}
+              } else if (cmd === 'set_automix' && a) {
+                if ((window as any).__bcPlayer) {
+                  (window as any).__bcPlayer.getState().setAutomix(a.enabled);
+                  if (a.bars) (window as any).__bcPlayer.getState().setAutomixBars(a.bars);
+                }
+                try {
+                  const s = JSON.parse(localStorage.getItem('bitchord.player.settings') || '{}');
+                  s.automix = !!a.enabled;
+                  if (a.bars) s.automixBars = a.bars;
+                  localStorage.setItem('bitchord.player.settings', JSON.stringify(s));
+                } catch {}
+              } else if (cmd === 'queue_jump' && a) {
+                if ((window as any).__bcPlayer && typeof (window as any).__bcPlayer.getState().jumpTo === 'function') {
+                  (window as any).__bcPlayer.getState().jumpTo(a.index);
+                }
+              } else if (cmd === 'queue_move' && a) {
+                if ((window as any).__bcPlayer && typeof (window as any).__bcPlayer.getState().move === 'function') {
+                  (window as any).__bcPlayer.getState().move(a.from, a.to);
+                }
+              } else if (cmd === 'queue_remove' && a) {
+                if ((window as any).__bcPlayer && typeof (window as any).__bcPlayer.getState().removeAt === 'function') {
+                  (window as any).__bcPlayer.getState().removeAt(a.index);
+                }
+              } else if (cmd === 'queue_clear') {
+                if ((window as any).__bcPlayer && typeof (window as any).__bcPlayer.getState().clearUpNext === 'function') {
+                  (window as any).__bcPlayer.getState().clearUpNext();
+                }
+              } else if (cmd === 'set_eq' && a) {
+                if (typeof (window as any).__setBitChordEq === 'function') {
+                  (window as any).__setBitChordEq(a.gains, a.enabled);
+                }
+              }
+            },
+            args: [command, args],
+          });
+        }
+      } catch {
+        browser.tabs.sendMessage(tab.id, { action: 'bitchord_command', command, args }).catch(() => {});
       }
     }
     return { success: true, tabsCount: tabs.length };
   } else {
-    // No BitChord tab active; auto-open if configured and command is 'play'
+    // No BitChord tab active; auto-open if configured and command is 'play' or 'toggle'
     const data = await browser.storage.local.get('settings');
     const settings: PomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS, ...(data.settings as Partial<PomodoroSettings>) };
 
-    if (command === 'play' && settings.autoOpenBitChord) {
+    if ((command === 'play' || command === 'toggle') && settings.autoOpenBitChord) {
       const url = settings.bitchordUrl || 'https://bitchord-8bw.pages.dev/home';
       console.log('[BitChord Pomodoro] Auto-opening web player:', url);
       const newTab = await browser.tabs.create({ url, active: false });
@@ -125,7 +449,7 @@ export async function sendBitChordCommand(command: 'play' | 'pause' | 'next' | '
           if (tabId === newTab.id && info.status === 'complete') {
             browser.tabs.onUpdated.removeListener(listener);
             setTimeout(() => {
-              browser.tabs.sendMessage(newTab.id!, { action: 'bitchord_command', command: 'play' }).catch(() => {});
+              void sendBitChordCommand('play');
             }, 2500);
           }
         };
@@ -226,12 +550,15 @@ export async function handleTimerComplete() {
       browser.notifications.create({
         type: 'basic',
         iconUrl: browser.runtime.getURL('/icon/128.png'),
-        title: 'Break Time! 🎵',
+        title: 'Break Time! Take a rest 🎵',
         message: nextMode === 'longBreak'
           ? `Great focus! Enjoy your ${s.longBreakDuration} min long break.`
           : `Session complete! Relax with a ${s.shortBreakDuration} min break. Autoplaying BitChord...`,
       }).catch(() => {});
     }
+
+    // Play chime sound and TTS
+    void playChimeAudio('break');
 
     // Autoplay music on break
     if (s.autoPlayMusicOnBreak) {
@@ -256,6 +583,9 @@ export async function handleTimerComplete() {
         message: `Break is over. Ready to focus for ${s.workDuration} minutes?`,
       }).catch(() => {});
     }
+
+    // Play chime sound and TTS
+    void playChimeAudio('work');
 
     // Pause music on focus
     if (s.pauseMusicOnFocus) {
@@ -302,6 +632,7 @@ export function initPomodoro() {
       await browser.storage.local.set({ timer: DEFAULT_POMODORO_TIMER });
     }
     updateBadge(DEFAULT_POMODORO_TIMER);
+    void injectIntoExistingTabs();
   });
 
   browser.runtime.onStartup.addListener(async () => {
@@ -318,6 +649,7 @@ export function initPomodoro() {
     } else if (timer) {
       updateBadge(timer);
     }
+    void injectIntoExistingTabs();
   });
 
   browser.alarms?.onAlarm.addListener((alarm) => {
@@ -325,18 +657,18 @@ export function initPomodoro() {
       void handleTimerComplete();
     }
   });
+
+  void injectIntoExistingTabs();
 }
 
 export async function handlePomodoroMessage(
   request: any,
   sender: Browser.runtime.MessageSender,
   sendResponse: (res: any) => void,
-): Promise<boolean> {
-  if (!request || typeof request !== 'object') return false;
-
+) {
   const data = await browser.storage.local.get(['timer', 'settings']);
-  const currentTimer: PomodoroTimer = { ...DEFAULT_POMODORO_TIMER, ...(data.timer as Partial<PomodoroTimer>) };
   const currentSettings: PomodoroSettings = { ...DEFAULT_POMODORO_SETTINGS, ...(data.settings as Partial<PomodoroSettings>) };
+  const currentTimer: PomodoroTimer = { ...DEFAULT_POMODORO_TIMER, ...(data.timer as Partial<PomodoroTimer>) };
 
   switch (request.action) {
     case 'start_timer': {
@@ -354,7 +686,7 @@ export async function handlePomodoroMessage(
       }
 
       sendResponse({ success: true, timer: currentTimer });
-      return true;
+      break;
     }
 
     case 'pause_timer': {
@@ -364,7 +696,7 @@ export async function handlePomodoroMessage(
       stopTicker();
       updateBadge(currentTimer);
       sendResponse({ success: true, timer: currentTimer });
-      return true;
+      break;
     }
 
     case 'reset_timer': {
@@ -379,18 +711,18 @@ export async function handlePomodoroMessage(
       stopTicker();
       updateBadge(currentTimer);
       sendResponse({ success: true, timer: currentTimer });
-      return true;
+      break;
     }
 
     case 'skip_timer': {
       await handleTimerComplete();
       const updated = await browser.storage.local.get('timer');
       sendResponse({ success: true, timer: updated.timer });
-      return true;
+      break;
     }
 
     case 'switch_mode': {
-      const newMode = request.mode;
+      const newMode = request.mode as 'work' | 'shortBreak' | 'longBreak';
       currentTimer.mode = newMode;
       currentTimer.isRunning = false;
       currentTimer.targetEndTime = null;
@@ -405,11 +737,11 @@ export async function handlePomodoroMessage(
       stopTicker();
       updateBadge(currentTimer);
       sendResponse({ success: true, timer: currentTimer });
-      return true;
+      break;
     }
 
     case 'update_settings': {
-      const newSettings = { ...currentSettings, ...request.settings };
+      const newSettings: PomodoroSettings = { ...currentSettings, ...request.settings };
       await browser.storage.local.set({ settings: newSettings });
 
       if (!currentTimer.isRunning) {
@@ -423,37 +755,84 @@ export async function handlePomodoroMessage(
       }
 
       sendResponse({ success: true, settings: newSettings, timer: currentTimer });
-      return true;
+      break;
     }
 
     case 'get_state': {
+      if (currentSettings.bitchordUrl && currentSettings.bitchordUrl.includes('bitchord.in')) {
+        currentSettings.bitchordUrl = 'https://bitchord-8bw.pages.dev/home';
+        await browser.storage.local.set({ settings: currentSettings });
+      }
       const tabs = await getBitChordTabs();
+      if (tabs.length > 0 && tabs[0].id) {
+        const directStatus = await queryBitChordTabDirectly(tabs[0].id);
+        if (directStatus) {
+          lastBitChordStatus = directStatus;
+        }
+      }
       sendResponse({
         timer: currentTimer,
         settings: currentSettings,
         hasBitChordTab: tabs.length > 0,
         playerStatus: lastBitChordStatus,
       });
-      return true;
+      break;
     }
 
     case 'bitchord_action': {
-      const result = await sendBitChordCommand(request.command);
+      const result = await sendBitChordCommand(request.command, request.args);
       sendResponse(result);
-      return true;
+      break;
+    }
+
+    case 'get_lyrics': {
+      try {
+        const url = new URL('https://lrclib.net/api/get');
+        url.searchParams.set('track_name', request.title || '');
+        url.searchParams.set('artist_name', request.artist || '');
+        if (request.duration) url.searchParams.set('duration', String(Math.round(request.duration)));
+        const res = await fetch(url.toString());
+        if (res.ok) {
+          const lData = await res.json();
+          sendResponse({ success: true, lyrics: lData });
+        } else {
+          sendResponse({ success: false, error: 'Lyrics not found' });
+        }
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+      break;
+    }
+
+    case 'test_tts': {
+      try {
+        await playChimeAudio(request.soundType || 'break', {
+          ttsVoiceEnabled: true,
+          ttsVoiceStyle: request.ttsStyle || 'chill',
+          customBreakMessage: request.customBreakMessage,
+          customWorkMessage: request.customWorkMessage,
+          isTest: true,
+        });
+        sendResponse({ success: true });
+      } catch (err: any) {
+        sendResponse({ success: false, error: err.message });
+      }
+      break;
     }
 
     case 'bitchord_status_change': {
       lastBitChordStatus = request.status;
-      browser.runtime.sendMessage({
-        action: 'bitchord_live_status',
-        status: request.status,
-      }).catch(() => {});
+      browser.runtime
+        .sendMessage({
+          action: 'bitchord_live_status',
+          status: request.status,
+        })
+        .catch(() => {});
       sendResponse({ received: true });
-      return true;
+      break;
     }
 
     default:
-      return false;
+      sendResponse({ error: 'Unknown action' });
   }
 }

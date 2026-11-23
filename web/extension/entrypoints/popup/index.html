@@ -20,7 +20,7 @@
       <header class="header">
         <div class="brand">
           <div class="logo-box">
-            <img class="logo" src="/icon/32.png" width="18" height="18" alt="BitChord" />
+            <img class="logo" src="/icon/32.png" width="18" height="18" alt="BitChord">
           </div>
           <div class="brand-text">
             <span class="app-name">BitChord</span>
@@ -30,9 +30,13 @@
 
         <!-- Top View Switcher -->
         <div class="top-nav-switcher">
-          <button id="navTabPomodoro" class="nav-tab active" title="Pomodoro Timer">
-            <span class="tab-label-full">Timer</span>
+          <button id="navTabPomodoro" class="nav-tab active" title="Pomodoro Focus Timer">
+            <span class="tab-label-full">Focus</span>
             <span class="tab-label-mini">⏱</span>
+          </button>
+          <button id="navTabPlayer" class="nav-tab" title="BitChord Music Player Only">
+            <span class="tab-label-full">Player</span>
+            <span class="tab-label-mini">🎵</span>
           </button>
           <button id="navTabIntegrations" class="nav-tab" title="Connected Accounts">
             <span class="tab-label-full">Accounts</span>
@@ -41,14 +45,15 @@
         </div>
 
         <div class="header-actions">
-          <button id="btnToggleDock" class="icon-btn" title="Toggle Compact Dock View">
-            <svg id="iconDockExpand" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="btnFloatWindow" class="icon-btn" title="Open as Floating Window (Mini Player)">
+            <svg id="iconFloat" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h6v6"></path>
+              <path d="M10 14L21 3"></path>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            </svg>
+            <svg id="iconSidebar" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="9" y1="3" x2="9" y2="21"></line>
-            </svg>
-            <svg id="iconDockCollapse" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="15" y1="3" x2="15" y2="21"></line>
             </svg>
           </button>
           <button id="btnOpenWeb" class="icon-btn" title="Open BitChord Web Player">
@@ -183,7 +188,314 @@
         </footer>
       </div>
 
-      <!-- VIEW 2: ORIGINAL BITCHORD INTEGRATIONS -->
+      <!-- VIEW 2: DEDICATED PLAYER ONLY VIEW -->
+      <div id="viewPlayerOnly" class="view-panel hidden">
+        <!-- Full-Bleed Ambient Backdrop for Full Cover Mode -->
+        <div class="po-full-backdrop" id="poFullBackdrop"></div>
+
+        <div class="player-only-container" id="playerOnlyContainer">
+          <!-- Top Utility Toolbar: Shuffle, Repeat, Lyrics, Full Cover -->
+          <div class="po-top-toolbar">
+            <button id="btnPoShuffle" class="po-tool-btn" title="Toggle Shuffle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 3 21 3 21 8"></polyline>
+                <line x1="4" y1="20" x2="21" y2="3"></line>
+                <polyline points="21 16 21 21 16 21"></polyline>
+                <line x1="15" y1="15" x2="21" y2="21"></line>
+                <line x1="4" y1="4" x2="9" y2="9"></line>
+              </svg>
+            </button>
+            <button id="btnPoRepeat" class="po-tool-btn" title="Cycle Repeat (Off / All / One)">
+              <svg id="iconRepeat" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              <span id="repeatBadge" class="repeat-badge hidden">1</span>
+            </button>
+            <button id="btnToggleEq" class="po-tool-btn" title="10-Band Graphic Equalizer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="21" x2="4" y2="14"></line>
+                <line x1="4" y1="10" x2="4" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12" y2="3"></line>
+                <line x1="20" y1="21" x2="20" y2="16"></line>
+                <line x1="20" y1="12" x2="20" y2="3"></line>
+                <line x1="1" y1="14" x2="7" y2="14"></line>
+                <line x1="9" y1="8" x2="15" y2="8"></line>
+                <line x1="17" y1="16" x2="23" y2="16"></line>
+              </svg>
+              <span class="tool-text">EQ</span>
+            </button>
+            <button id="btnToggleQueue" class="po-tool-btn" title="DJ AutoMix & Up Next Queue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+              <span class="tool-text">Queue</span>
+            </button>
+            <div class="po-toolbar-spacer"></div>
+            <button id="btnToggleLyrics" class="po-tool-btn" title="View Synced Lyrics">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              <span class="tool-text">Lyrics</span>
+            </button>
+            <button id="btnToggleFullCover" class="po-tool-btn" title="Toggle Full-Bleed Cover Mode">
+              <svg id="iconExpandArt" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+              <svg id="iconCollapseArt" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 14 10 14 10 20"></polyline>
+                <polyline points="20 10 14 10 14 4"></polyline>
+                <line x1="14" y1="10" x2="21" y2="3"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Big Hero Artwork Card -->
+          <div class="po-hero-art-wrapper" id="poArtWrapper">
+            <div class="po-ambient-glow" id="poAmbientGlow"></div>
+            <div class="po-art-frame" id="poArtFrame">
+              <img id="poArtwork" src="/icon/128.png" alt="Artwork" class="po-art" />
+              <div class="po-eq-badge hidden" id="poEqBadge">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Track Metadata -->
+          <div class="po-track-meta">
+            <h2 class="po-title" id="poTrackTitle">BitChord Player</h2>
+            <p class="po-artist" id="poTrackArtist">Ready to stream</p>
+            <div class="po-status-badge" id="poStatusBadge">
+              <span class="status-dot"></span>
+              <span id="poStatusText">Connected</span>
+            </div>
+          </div>
+
+          <!-- Live Scrubber / Seek Bar -->
+          <div class="po-scrubber-container">
+            <div class="po-scrubber-hitbox" id="poScrubberHitbox" title="Seek position">
+              <div class="po-scrubber-track" id="poScrubberTrack">
+                <div class="po-scrubber-fill" id="poScrubberFill"></div>
+                <div class="po-scrubber-thumb" id="poScrubberThumb"></div>
+              </div>
+            </div>
+            <div class="po-scrubber-times">
+              <span id="poTimeElapsed">0:00</span>
+              <span id="poTimeTotal">0:00</span>
+            </div>
+          </div>
+
+          <!-- Large Transport Controls -->
+          <div class="po-transport-controls">
+            <button id="btnPoPrev" class="po-ctrl-btn secondary" title="Previous Track (Ctrl+Left)">
+              <svg width="20" height="20" viewBox="2 0 28 28" fill="currentColor" style="transform: scaleX(-1)">
+                <path d="M18.14 20.68c.365 0 .672-.107 1.038-.323l8.508-4.997c.623-.365.938-.814.938-1.37 0-.564-.307-.988-.938-1.361l-8.508-4.997c-.366-.216-.68-.324-1.046-.324-.73 0-1.337.556-1.337 1.569v4.773c-.108-.399-.406-.73-.904-1.021L7.382 7.632c-.357-.216-.672-.324-1.037-.324-.73 0-1.345.556-1.345 1.569v10.235c0 1.013.614 1.569 1.345 1.569.365 0 .68-.108 1.037-.324l8.509-4.997c.49-.29.796-.631.904-1.038v4.79c0 1.013.615 1.569 1.345 1.569z"/>
+              </svg>
+            </button>
+
+            <button id="btnPoToggle" class="po-ctrl-btn primary" title="Play/Pause (Space)">
+              <svg id="poPlayIcon" width="24" height="24" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M10.345 23.287c.415 0 .763-.15 1.22-.407l12.742-7.404c.838-.481 1.178-.855 1.178-1.46 0-.599-.34-.972-1.178-1.462L11.565 5.158c-.457-.265-.805-.407-1.22-.407-.789 0-1.345.606-1.345 1.57V21.71c0 .971.556 1.577 1.345 1.577z"/>
+              </svg>
+              <svg id="poPauseIcon" class="hidden" width="24" height="24" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M13.293 22.772c.955 0 1.436-.481 1.436-1.436V6.677c0-.98-.481-1.427-1.436-1.427h-2.457c-.954 0-1.436.473-1.436 1.427v14.66c-.008.954.473 1.435 1.436 1.435h2.457zm7.87 0c.954 0 1.427-.481 1.428-1.436V6.677c0-.98-.473-1.427-1.428-1.427h-2.465c-.955 0-1.428.473-1.428 1.427v14.66c0 .954.473 1.435 1.428 1.435h2.465z"/>
+              </svg>
+            </button>
+
+            <button id="btnPoNext" class="po-ctrl-btn secondary" title="Next Track (Ctrl+Right)">
+              <svg width="20" height="20" viewBox="2 0 28 28" fill="currentColor">
+                <path d="M18.14 20.68c.365 0 .672-.107 1.038-.323l8.508-4.997c.623-.365.938-.814.938-1.37 0-.564-.307-.988-.938-1.361l-8.508-4.997c-.366-.216-.68-.324-1.046-.324-.73 0-1.337.556-1.337 1.569v4.773c-.108-.399-.406-.73-.904-1.021L7.382 7.632c-.357-.216-.672-.324-1.037-.324-.73 0-1.345.556-1.345 1.569v10.235c0 1.013.614 1.569 1.345 1.569.365 0 .68-.108 1.037-.324l8.509-4.997c.49-.29.796-.631.904-1.038v4.79c0 1.013.615 1.569 1.345 1.569z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Bottom Actions & Volume Control -->
+          <div class="po-bottom-actions">
+            <div class="po-volume-control" title="Volume Slider">
+              <button id="btnPoVolume" class="icon-subtle" title="Mute/Unmute">
+                <svg id="iconVolHigh" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <svg id="iconVolMuted" class="hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </svg>
+              </button>
+              <input type="range" id="poVolumeRange" min="0" max="1" step="0.02" value="1" class="slider-vol" />
+            </div>
+
+            <button id="btnPoOpenBitChord" class="po-action-pill" title="Open BitChord Web Player">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              <span>Web</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Synced Lyrics Overlay Drawer -->
+        <div class="po-lyrics-drawer hidden" id="poLyricsDrawer">
+          <div class="lyrics-header">
+            <div class="lyrics-title-group">
+              <span class="lyrics-title">Synced Lyrics</span>
+              <span class="lyrics-badge" id="poLyricsBadge">LRCLIB</span>
+            </div>
+            <button class="modal-close" id="btnCloseLyrics" title="Close Lyrics">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="lyrics-body" id="poLyricsBody">
+            <div class="lyrics-scroll-container" id="poLyricsScroll">
+              <p class="lyrics-hint" id="poLyricsHint">Play a track to view synced lyrics...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- DJ AutoMix & Up Next Queue Drawer -->
+        <div class="po-queue-drawer hidden" id="poQueueDrawer">
+          <div class="drawer-header">
+            <div class="drawer-title-group">
+              <span class="drawer-title">AutoMix & Up Next</span>
+              <span class="drawer-badge" id="poQueueCountBadge">0 tracks</span>
+            </div>
+            <button class="modal-close" id="btnCloseQueue" title="Close Queue">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="queue-drawer-body" id="poQueueDrawerBody">
+            <!-- AutoMix / Crossfade Card -->
+            <div class="mixer-card">
+              <div class="mixer-card-header">
+                <div class="mixer-title-row">
+                  <span class="mixer-title">DJ AutoMix</span>
+                  <span class="badge-rec">Apple Style</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkAutoMix" />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+              <div class="mixer-settings-grid">
+                <div class="mixer-field">
+                  <span class="mixer-label">Blend Duration</span>
+                  <select id="selAutoMixBars" class="text-input select-input-sm">
+                    <option value="4">4 Bars (Quick Cut)</option>
+                    <option value="8">8 Bars (Standard)</option>
+                    <option value="16" selected>16 Bars (Smooth DJ)</option>
+                    <option value="32">32 Bars (Long Ambient)</option>
+                  </select>
+                </div>
+                <div class="mixer-field">
+                  <div class="setting-row">
+                    <span class="mixer-label">Manual Crossfade</span>
+                    <span class="mixer-val-tag" id="lblCrossfadeVal">0s</span>
+                  </div>
+                  <input type="range" id="rangeCrossfade" min="0" max="15" step="1" value="0" class="slider-vol" style="width: 100%;" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Up Next List Section -->
+            <div class="queue-section-header">
+              <span class="queue-section-title">Playing Next</span>
+              <button id="btnClearQueue" class="action-btn-mini" title="Clear Up Next Queue">Clear All</button>
+            </div>
+            <div class="queue-list-container" id="poQueueList">
+              <div class="queue-empty-hint" id="poQueueEmpty">Queue is empty or waiting for BitChord tab...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 10-Band Graphic Equalizer Drawer -->
+        <div class="po-eq-drawer hidden" id="poEqDrawer">
+          <div class="drawer-header">
+            <div class="drawer-title-group">
+              <span class="drawer-title">10-Band Graphic EQ</span>
+              <label class="switch" style="margin-left: 6px;">
+                <input type="checkbox" id="chkEqToggle" checked />
+                <span class="slider-switch"></span>
+              </label>
+            </div>
+            <button class="modal-close" id="btnCloseEq" title="Close Equalizer">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="eq-drawer-body">
+            <!-- Preset Selector Row -->
+            <div class="eq-top-row">
+              <span class="eq-label">Preset:</span>
+              <select id="selEqPreset" class="text-input select-input-sm eq-preset-select">
+                <option value="flat">Flat</option>
+                <option value="bassBoost">Bass Boost (Apple Music)</option>
+                <option value="bassReducer">Bass Reducer</option>
+                <option value="electronic">Electronic</option>
+                <option value="hiphop">Hip-Hop</option>
+                <option value="rock">Rock</option>
+                <option value="pop">Pop</option>
+                <option value="acoustic">Acoustic</option>
+                <option value="vocalBooster">Vocal Booster</option>
+                <option value="classical">Classical</option>
+                <option value="rnb">R&B</option>
+                <option value="trebleBooster">Treble Booster</option>
+                <option value="lateNight">Late Night</option>
+                <option value="custom">Custom</option>
+              </select>
+              <button id="btnResetEq" class="action-btn-mini" title="Reset all bands to 0 dB">Flat</button>
+            </div>
+
+            <!-- Dynamic Interactive Curve Visualizer -->
+            <div class="eq-curve-box">
+              <svg id="svgEqCurve" class="eq-curve-svg" viewBox="0 0 280 60" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="eqCurveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--keyColor)" stop-opacity="0.38" />
+                    <stop offset="100%" stop-color="var(--keyColor)" stop-opacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="30" x2="280" y2="30" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2 2" />
+                <path id="svgEqArea" fill="url(#eqCurveGrad)" d="M 0,30 L 280,30 Z" />
+                <path id="svgEqLine" fill="none" stroke="var(--keyColor)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M 0,30 L 280,30" />
+              </svg>
+            </div>
+
+            <!-- 10 Band Sliders Grid -->
+            <div class="eq-sliders-grid" id="eqSlidersGrid">
+              <!-- Dynamically populated 10 columns -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: ORIGINAL BITCHORD INTEGRATIONS -->
       <div id="viewIntegrations" class="view-panel hidden">
         <div class="integrations-container">
           <p class="section-hint">Connected sessions keep your tokens safely inside the browser extension.</p>
@@ -199,7 +511,7 @@
             <div class="modal-title-row">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
               <h3 class="modal-title">Timer & Audio Settings</h3>
             </div>
@@ -212,6 +524,32 @@
           </div>
 
           <div class="modal-body">
+            <!-- Mode & Display Options -->
+            <div class="settings-group">
+              <label class="group-label">Display & Extension Mode</label>
+
+              <div class="toggle-row highlight">
+                <div class="toggle-info">
+                  <div class="toggle-title-row">
+                    <span class="toggle-title">Enable Pomodoro Focus Timer</span>
+                  </div>
+                  <span class="toggle-desc">Turn off to hide the timer dial and make this a pure Music Player.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkEnablePomodoro" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-title">Floating Window Mode</span>
+                  <span class="toggle-desc">Open extension as an independent detached floating mini player.</span>
+                </div>
+                <button id="btnFloatFromSettings" class="action-btn-small" type="button">Open Float</button>
+              </div>
+            </div>
+
             <!-- Preset Pills -->
             <div class="settings-group">
               <label class="group-label">Quick Presets</label>
@@ -320,6 +658,51 @@
                   <input type="checkbox" id="chkSoundAlerts" checked />
                   <span class="slider-switch"></span>
                 </label>
+              </div>
+
+              <!-- TTS Spoken Voice Notifications -->
+              <div class="toggle-row highlight">
+                <div class="toggle-info">
+                  <div class="toggle-title-row">
+                    <span class="toggle-title">Spoken Voice Announcements</span>
+                    <span class="badge-rec">Custom</span>
+                  </div>
+                  <span class="toggle-desc">Speaks helpful, fun announcements when breaks and focus start.</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="chkTtsVoice" checked />
+                  <span class="slider-switch"></span>
+                </label>
+              </div>
+
+              <div class="setting-item" id="boxTtsStyle">
+                <div class="setting-row">
+                  <span class="setting-name">Voice Tone & Style</span>
+                </div>
+                <select id="selTtsStyle" class="text-input select-input">
+                  <option value="chill">Chill Lo-Fi Companion (Calm & Relaxing)</option>
+                  <option value="cyber">Cyberpunk Jarvis AI (Futuristic & Clean)</option>
+                  <option value="hype">Gamer Hype Mode (High Energy & Fun)</option>
+                  <option value="witty">Witty & Sarcastic (Fun & Motivating)</option>
+                  <option value="custom">Custom Text Messages</option>
+                </select>
+              </div>
+
+              <div class="setting-item hidden" id="boxCustomTts">
+                <div class="setting-row">
+                  <span class="setting-name">Custom Break Message</span>
+                </div>
+                <input type="text" id="inpTtsBreak" class="text-input" placeholder="Break announcement..." value="Focus session complete. Stretch, take a breath, and let the music flow." />
+                <div class="setting-row" style="margin-top: 6px;">
+                  <span class="setting-name">Custom Focus Message</span>
+                </div>
+                <input type="text" id="inpTtsWork" class="text-input" placeholder="Focus announcement..." value="Break is over. Let us enter deep focus flow." />
+              </div>
+
+              <div class="setting-item">
+                <button type="button" id="btnTestVoice" class="action-btn-small" style="width: 100%; text-align: center; justify-content: center; padding: 7px 12px; margin-top: 3px;">
+                  🔊 Test Spoken Voice Announcement
+                </button>
               </div>
 
               <div class="setting-item url-item">

@@ -25,7 +25,7 @@ fun SyncedLyricsPanel(
     LyricsPanel(
         lines = lines,
         trackKey = trackKey,
-        playhead = rememberLyricPlayhead(position),
+        playhead = rememberLyricPlayhead(position, trackKey),
         looking = looking,
         isPlaying = isPlaying,
         onSeekToLine = onSeekToLine,

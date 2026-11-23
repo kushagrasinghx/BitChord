@@ -82,6 +82,8 @@
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_offset_this_song">เพลงนี้</string>
+    <string name="lyrics_offset_all_songs">ทุกเพลง</string>
     <string name="lyrics_provider_current">ผู้ให้บริการปัจจุบัน</string>
     <string name="lyrics_provider_fetching">กำลังดึงเนื้อเพลง…</string>
     <string name="lyrics_provider_found">พบเนื้อเพลง · แตะเพื่อใช้</string>

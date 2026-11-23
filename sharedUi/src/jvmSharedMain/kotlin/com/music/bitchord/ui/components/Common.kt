@@ -331,6 +331,8 @@ fun SongRow(
     showSourceQuality: Boolean = false,
     /** A page-supplied foreground already synchronized with its animated background. */
     titleTint: Color? = null,
+    /** Disable the secondary line and its spacing for a title-only row. */
+    showSubtitle: Boolean = true,
     /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
@@ -357,6 +359,7 @@ fun SongRow(
             selected = selected,
             showSourceQuality = showSourceQuality,
             titleTint = titleTint,
+            showSubtitle = showSubtitle,
             trailing = trailing,
         )
     }
@@ -499,6 +502,7 @@ private fun SongRowContent(
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
     titleTint: Color? = null,
+    showSubtitle: Boolean,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val titleColor = titleTint ?: animateColorAsState(
@@ -580,6 +584,7 @@ private fun SongRowContent(
                 style = MaterialTheme.typography.titleMedium,
                 color = titleColor,
             )
+            if (!showSubtitle) return@Column
             Spacer(Modifier.height(2.dp))
             val subtitle = listOfNotNull(
                 song.artist.takeIf { it.isNotBlank() },

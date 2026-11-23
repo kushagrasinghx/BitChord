@@ -885,6 +885,7 @@ fun DetailScreen(
                             trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
                             subtitleColor = palette.onBackgroundVariant,
                             titleTint = palette.onBackground.takeIf { numbered },
+                            showSubtitle = !numbered,
                             downloadedTint = downloadedTint,
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,

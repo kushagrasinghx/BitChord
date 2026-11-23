@@ -58,8 +58,8 @@ data class QueueWindowSnapshot(
  * cycle id, but reading them never changes the cursor; [commit] or one of the traversal methods is
  * the explicit state transition.
  *
- * Look-ahead plans are retained so continuation growth only appends fresh indices, including to
- * already planned cycles. Explicit order changes can invalidate plans; the owner should refresh
+ * Look-ahead plans are retained across continuation growth, which adds the fresh indices to them
+ * too. Explicit order changes can invalidate plans; the owner should refresh
  * its materialized upcoming window after manual navigation or a shuffle toggle. Calls must be
  * serialized by the owner, just like the player's timeline mutations.
  */
@@ -263,7 +263,14 @@ class QueueWindow(
         fun fromSnapshot(snapshot: QueueWindowSnapshot): QueueWindow = restore(snapshot)
     }
 
-    /** Add canonical indices [canonicalN, newCanonicalSize) without rebuilding old order. */
+    /**
+     * Add canonical indices [canonicalN, newCanonicalSize), e.g. when a continuation page arrives.
+     *
+     * Shuffle off appends them in canonical order. In a started shuffle they are mixed at random
+     * into the part of each cycle that hasn't been handed out yet, so a later page doesn't wait
+     * until every track of the earlier ones has played. History, the current item and the first
+     * [WINDOW_AHEAD] entries [upcoming] returns keep their positions: the player may hold them.
+     */
     fun extendTo(newCanonicalSize: Int): QueueWindow {
         require(newCanonicalSize >= canonicalCount) {
             "cannot shrink a QueueWindow from $canonicalCount to $newCanonicalSize"
@@ -272,9 +279,9 @@ class QueueWindow(
 
         val firstNew = canonicalCount
         canonicalCount = newCanonicalSize
-        logicalOrder += freshOrder(firstNew, activeCycleId)
+        logicalOrder = withFreshIndices(logicalOrder, firstNew, activeCycleId)
         plannedCycles.entries.forEach { planned ->
-            planned.setValue(planned.value + freshOrder(firstNew, planned.key))
+            planned.setValue(withFreshIndices(planned.value, firstNew, planned.key))
         }
         rebuildInverse()
         return this
@@ -589,13 +596,32 @@ class QueueWindow(
         return cycle + 1L
     }
 
-    private fun freshOrder(firstNew: Int, cycle: Long): IntArray {
-        val fresh = (firstNew until canonicalCount).toList()
-        return if (shuffled && currentIndex != null) {
-            fresh.shuffled(Random(seedForExtension(cycle, firstNew))).toIntArray()
-        } else {
-            fresh.toIntArray()
+    /** [order] of [cycle] grown by the indices from [firstNew]; see [extendTo]. */
+    private fun withFreshIndices(order: IntArray, firstNew: Int, cycle: Long): IntArray {
+        val fresh = IntArray(canonicalCount - firstNew) { firstNew + it }
+        if (!shuffled || currentIndex == null) return order + fresh
+
+        val kept = exposedEnd(order, cycle)
+        val mixed = (order.copyOfRange(kept, order.size) + fresh).toList()
+            .shuffled(Random(seedForExtension(cycle, firstNew)))
+        return order.copyOfRange(0, kept) + mixed.toIntArray()
+    }
+
+    /**
+     * End of the part of [order] the player may already hold: everything up to the cursor, then
+     * the first [WINDOW_AHEAD] entries of [cycle] that [upcoming] could return.
+     */
+    private fun exposedEnd(order: IntArray, cycle: Long): Int {
+        var position = if (cycle == activeCycleId) logicalCursor + 1 else 0
+        var exposed = 0
+        while (position < order.size && exposed < WINDOW_AHEAD) {
+            val canonical = order[position]
+            val skipped = QueueWindowEntry(canonical, cycle) in excludedEntries ||
+                (cycle == activeCycleId && canonical in consumed)
+            if (!skipped) exposed += 1
+            position += 1
         }
+        return position
     }
 
     private fun shuffledOrderAnchoredAt(anchor: Int, cycle: Long): IntArray {

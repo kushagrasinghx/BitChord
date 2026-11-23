@@ -120,6 +120,49 @@ class QueueWindowTest {
         assertTrue(window.upcoming(25).map { it.canonicalIndex }.containsAll((8 until 13).toList()))
     }
 
+    // Continuation pages under shuffle (#1544): a later page is mixed into the tracks still to
+    // play instead of being queued after the whole first page.
+
+    @Test
+    fun aLaterPageIsShuffledIntoTheTracksStillToPlay() {
+        repeat(50) { seed ->
+            fun extended() = QueueWindow(100, shuffleSeed = seed.toLong())
+                .startAt(seed, shuffle = true)
+                .extendTo(500)
+
+            val order = extended().order
+            assertEquals((0 until 500).toSet(), order.toSet())
+            assertEquals(order, extended().order, "seed $seed")
+            // Past what the player may already hold, both pages are mixed together.
+            assertTrue(order.subList(WINDOW_AHEAD + 1, 200).any { it >= 100 }, "seed $seed")
+            assertTrue(order.takeLast(100).any { it < 100 }, "seed $seed")
+        }
+    }
+
+    @Test
+    fun aLaterPageLeavesWhatThePlayerMayHoldInPlace() {
+        val window = QueueWindow(100, shuffleSeed = 7L).startAt(40, shuffle = true)
+        repeat(3) { window.advanceAutomatically() }
+        assertTrue(window.exclude(window.upcoming()[2]))
+        val played = window.order.take(window.cursor + 1)
+        val upcoming = window.upcoming()
+
+        window.extendTo(300)
+
+        assertEquals(played, window.order.take(window.cursor + 1))
+        assertEquals(upcoming, window.upcoming())
+        assertEquals(window.snapshot(), QueueWindow.restore(window.snapshot()).snapshot())
+    }
+
+    @Test
+    fun aLaterPageStaysInCanonicalOrderWithShuffleOff() {
+        val window = QueueWindow(30).startAt(5, shuffle = false)
+        window.extendTo(60)
+
+        assertEquals((0 until 60).toList(), window.order)
+        assertEquals((6 until 31).toList(), window.upcoming().map { it.canonicalIndex })
+    }
+
     @Test
     fun explicitNavigationMayReplayButDoesNotClearConsumedShuffleState() {
         val window = QueueWindow(6, shuffleSeed = 1L).startAt(0, shuffle = true)

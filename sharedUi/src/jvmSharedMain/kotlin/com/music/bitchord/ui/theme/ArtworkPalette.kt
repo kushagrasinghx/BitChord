@@ -232,7 +232,11 @@ private fun seedOf(bitmap: ImageBitmap): Seed? {
     if (all.isEmpty()) return null
     val accentCandidates = swatches(clearFilters = false).ifEmpty { all }
 
-    val dominant = all.maxBy { it.population }
+    var dominantIndex = 0
+    for (index in 1 until all.size) {
+        if (all[index].population > all[dominantIndex].population) dominantIndex = index
+    }
+    val dominant = all[dominantIndex]
     // The accent has to earn its place twice over: a colour nobody sees enough
     // of reads as arbitrary, and a grey one isn't an accent at all. Scoring on
     // saturation against the *square root* of population is what stops a sleeve
@@ -247,7 +251,7 @@ private fun seedOf(bitmap: ImageBitmap): Seed? {
         vibrant = Color(vibrant.rgb),
         edge = edge,
         topBandLuminance = bitmap.topBandRelativeLuminance(),
-        albumGround = albumGround(all, edge),
+        albumGround = albumGround(all, dominantIndex, edge),
     )
 }
 
@@ -348,10 +352,10 @@ private class AlbumSwatch(val color: Color, val population: Int) {
     val hueWeight = population * ((chroma - 0.065f) / 0.17f).coerceIn(0f, 1f)
 }
 
-private fun albumGround(swatches: List<Swatch>, edge: Color): Color {
+private fun albumGround(swatches: List<Swatch>, dominantIndex: Int, edge: Color): Color {
     val samples = swatches.map { AlbumSwatch(Color(it.rgb), it.population) }
     val total = samples.sumOf { it.population }.toFloat()
-    val dominant = samples.maxBy { it.population }
+    val dominant = samples[dominantIndex]
     // Count neighboring hues across several tones, but require the chosen
     // swatch itself to have both visible color and meaningful coverage.
     fun weight(hue: Float, sample: AlbumSwatch): Float {
@@ -363,10 +367,26 @@ private fun albumGround(swatches: List<Swatch>, edge: Color): Color {
         weight(hue, sample).toDouble()
     }.toFloat() / total
 
-    val candidate = samples.filter { it.chroma >= 0.08f }.maxByOrNull {
-        support(it.hue) * (0.45f + it.chroma) * sqrt(it.population / total)
+    val eligible = samples.filter { it.chroma >= 0.08f }
+    val first = eligible.firstOrNull()
+    var candidate = first
+    var coverage = first?.let { support(it.hue) } ?: 0f
+    if (first != null && eligible.size > 1) {
+        fun score(sample: AlbumSwatch, hueSupport: Float): Float =
+            hueSupport * (0.45f + sample.chroma) * sqrt(sample.population / total)
+        var bestScore = score(first, coverage)
+        for (index in 1 until eligible.size) {
+            val sample = eligible[index]
+            val hueSupport = support(sample.hue)
+            val sampleScore = score(sample, hueSupport)
+            // Match maxByOrNull's Float ordering and keep the first on ties.
+            if (java.lang.Float.compare(bestScore, sampleScore) < 0) {
+                candidate = sample
+                coverage = hueSupport
+                bestScore = sampleScore
+            }
+        }
     }
-    val coverage = candidate?.let { support(it.hue) } ?: 0f
     val mostlyNeutral = dominant.chroma < 0.09f && dominant.population / total >= 0.55f
     val chromatic = candidate?.takeIf { coverage >= 0.30f && !mostlyNeutral }
     if (chromatic == null) {

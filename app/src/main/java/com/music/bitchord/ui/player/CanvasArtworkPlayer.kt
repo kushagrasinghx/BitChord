@@ -843,7 +843,7 @@ private fun createBottomFade(
     bounds: IntSize,
     endPx: Float?,
     albumFade: AlbumArtworkFade? = null,
-): Shader? {
+): LinearGradient? {
     if (albumFade != null) {
         val height = bounds.height.toFloat()
         return albumFade.shader(height, endPx ?: height)
@@ -930,7 +930,7 @@ private class AppliedLook {
 private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
-    private var bottomShader: Shader? = null
+    private var bottomShader: LinearGradient? = null
     var bottomEffect: RenderEffect? = null
         private set
     private var textureOpacity = 0
@@ -943,7 +943,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var outgoingMaskFailed = false
     private var stillBounds = IntSize.Zero
     private var stillFraction = 0f
-    private var stillShader: Shader? = null
+    private var stillShader: LinearGradient? = null
     private var outgoingEffectApplied = false
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -1079,7 +1079,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
     }
-    private var gradient: Shader? = null
+    private var gradient: LinearGradient? = null
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)

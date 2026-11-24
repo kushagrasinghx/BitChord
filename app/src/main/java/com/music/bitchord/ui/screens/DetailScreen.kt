@@ -223,6 +223,8 @@ private val SLEEVE_SHADOW = 18.dp
 private const val FULL_BLEED_MAX_HEIGHT = 0.62f
 private const val ALBUM_HERO_VIEWPORT_FRACTION = 0.48f
 private const val ALBUM_HERO_TITLE_FRACTION = 0.88f
+// Feather only the foot of the visible artwork, finishing before the title.
+private const val ALBUM_HERO_FADE_FRACTION = 0.22f
 
 /** How much of a full-bleed sleeve's foot dissolves into the page — the player's banner's share. */
 private const val FULL_BLEED_FADE_FRACTION = 0.42f
@@ -626,8 +628,8 @@ fun DetailScreen(
                             // Use the album lookup's square-first order for this short hero.
                             // The portrait rendition needs more cropping to cover the width.
                             canvas = visibleCanvas,
-                            fadeFraction = FULL_BLEED_FADE_FRACTION,
-                            albumFadeEndPx = if (album) heroHeightPx.roundToInt() * ALBUM_HERO_TITLE_FRACTION else null,
+                            fadeFraction = if (album) ALBUM_HERO_FADE_FRACTION else FULL_BLEED_FADE_FRACTION,
+                            fadeEndPx = if (album) with(LocalDensity.current) { releaseTitleSpace.roundToPx().toFloat() } else null,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
@@ -1257,12 +1259,8 @@ private fun FullBleedReleaseArtwork(
     onPosterState: (AsyncImagePainter.State) -> Unit,
     modifier: Modifier,
     pauseVideo: Boolean = false,
-    albumFadeEndPx: Float? = null,
+    fadeEndPx: Float? = null,
 ) {
-    // Finish the album's still and video dissolves before the heading so
-    // the text always sits on the same surface as the rest of the page.
-    val fadeLength = if (albumFadeEndPx == null) fadeFraction else
-        (ALBUM_HERO_TITLE_FRACTION - (1f - fadeFraction)) / ALBUM_HERO_TITLE_FRACTION
     Box(modifier) {
         var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
         AsyncImage(
@@ -1279,14 +1277,14 @@ private fun FullBleedReleaseArtwork(
                 }
                 .drawWithContent {
                     drawContent()
-                    val fadeEnd = albumFadeEndPx ?: size.height
+                    val fadeEnd = fadeEndPx?.coerceAtMost(size.height) ?: size.height
                     drawRect(
                         brush = Brush.verticalGradient(
                             colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
                                 val t = i / FADE_CURVE_STOPS.toFloat()
                                 t to Color.Black.copy(alpha = 1f - smootherStep(t))
                             },
-                            startY = fadeEnd * (1f - fadeLength),
+                            startY = fadeEnd * (1f - fadeFraction),
                             endY = fadeEnd,
                         ),
                         blendMode = BlendMode.DstIn,
@@ -1301,8 +1299,8 @@ private fun FullBleedReleaseArtwork(
                     canvas = clip,
                     isPlaying = true,
                     pausedForTransition = pauseVideo,
-                    bottomFade = fadeLength,
-                    bottomFadeEndPx = albumFadeEndPx,
+                    bottomFade = fadeFraction,
+                    bottomFadeEndPx = fadeEndPx,
                     onCoverChanged = { canvasCover = it },
                     modifier = Modifier.matchParentSize(),
                 )

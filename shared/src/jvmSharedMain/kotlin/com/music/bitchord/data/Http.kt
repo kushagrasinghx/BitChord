@@ -130,13 +130,30 @@ object Http {
         chain.proceed(request)
     }
 
-    val client: OkHttpClient = OkHttpClient.Builder()
+    private val baseClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
-        .addInterceptor(webDavInterceptor)
         .apply { if (USAGE_LOGGING_ENABLED) addNetworkInterceptor(usageInterceptor) }
+        .build()
+
+    /**
+     * Shared transport without ambient WebDAV credentials.
+     *
+     * Untrusted and third-party endpoints must use this client. A hostname that
+     * happens to match the configured WebDAV server must not receive its Basic
+     * credential just because another subsystem is making the request.
+     */
+    val transportClient: OkHttpClient = baseClient
+
+    /**
+     * The shared client plus the WebDAV credential for requests aimed at the
+     * configured server. WebDAV listings, its media fetches and WebDAV cover
+     * loads use this client; addon and module endpoints use [transportClient].
+     */
+    val client: OkHttpClient = baseClient.newBuilder()
+        .addInterceptor(webDavInterceptor)
         .build()
 }

@@ -93,7 +93,7 @@ internal object StreamLengthProbe {
 
     /** A size question, so it gets a size question's time: it runs before the first note. */
     private val client: OkHttpClient by lazy {
-        Http.client.newBuilder()
+        Http.transportClient.newBuilder()
             .callTimeout(PROBE_TIMEOUT_SEC, TimeUnit.SECONDS)
             .build()
     }

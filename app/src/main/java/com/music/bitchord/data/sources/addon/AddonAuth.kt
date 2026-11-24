@@ -401,6 +401,6 @@ object AddonAuth {
     }
 
     private val client: OkHttpClient by lazy {
-        Http.client.newBuilder().callTimeout(20, TimeUnit.SECONDS).build()
+        Http.transportClient.newBuilder().callTimeout(20, TimeUnit.SECONDS).build()
     }
 }

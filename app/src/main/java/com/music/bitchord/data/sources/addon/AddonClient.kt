@@ -620,8 +620,8 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
          * not a slow trickle, so an inherited read timeout would fire first and
          * the ceiling here would never be reached.
          */
-        private val client: OkHttpClient by lazy {
-            Http.client.newBuilder()
+        internal val client: OkHttpClient by lazy {
+            Http.transportClient.newBuilder()
                 .readTimeout(60, TimeUnit.SECONDS)
                 .callTimeout(45, TimeUnit.SECONDS)
                 .build()

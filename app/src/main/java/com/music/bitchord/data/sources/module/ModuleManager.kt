@@ -136,7 +136,7 @@ class ModuleManager {
                 TrackLog.d(TAG, "▶ fetchIndex(${redactModuleUrl(sourceUrl)})")
                 runCatching {
                     val request = Request.Builder().url(sourceUrl).build()
-                    Http.client.newCall(request).execute().use { resp ->
+                    Http.transportClient.newCall(request).execute().use { resp ->
                         if (!resp.isSuccessful) {
                             throw Exception("HTTP ${resp.code} from ${redactModuleUrl(sourceUrl)}")
                         }
@@ -220,7 +220,7 @@ class ModuleManager {
 
             TrackLog.d(TAG, "  Resolved download URL: ${redactModuleUrl(downloadUrl)}")
             val request = Request.Builder().url(downloadUrl).build()
-            val jsCode = Http.client.newCall(request).execute().use { resp ->
+            val jsCode = Http.transportClient.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     throw Exception("HTTP ${resp.code} downloading module ${module.id}")
                 }

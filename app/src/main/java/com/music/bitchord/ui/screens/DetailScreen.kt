@@ -1701,8 +1701,24 @@ private fun PageBackground(
     val softenFoot = canvas == null && !reduceDynamicBlur &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val artHeightPx = with(LocalDensity.current) { artHeight.roundToPx().toFloat() }
+    // Leave the scrim on the artwork layer for Canvas and for pages that cannot stretch.
+    val staticArtworkOverscroll = if (canvas == null) artworkOverscroll else null
+    val viewportScrim = if (staticArtworkOverscroll != null) {
+        Modifier.drawWithContent {
+            drawContent()
+            val top = listState.headerTop(artHeight.toPx()).roundToInt().toFloat()
+            val pull = staticArtworkOverscroll.artworkExpansionPx
+            val scale = 1f + pull / artHeightPx.coerceAtLeast(1f)
+            val bottom = top + artHeightPx * scale
+            if (artHeightPx > 0f && bottom > 0f) {
+                // Same ramp in viewport coordinates. Its opaque end clamps to
+                // page wash instead of ending at a moving rectangle edge.
+                drawRect(artistBackdropScrim(palette.wash, startY = top, endY = bottom))
+            }
+        }
+    } else Modifier
 
-    Box(modifier.clipToBounds()) {
+    Box(modifier.clipToBounds().then(viewportScrim)) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -1761,22 +1777,26 @@ private fun PageBackground(
             // left where the artwork stops. Eased rather than run straight: a
             // gradient that changes slope at a stop shows a line at that stop,
             // however close the colours either side of it are.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.45f to Color.Transparent,
-                            0.65f to palette.wash.copy(alpha = 0.30f),
-                            0.82f to palette.wash.copy(alpha = 0.72f),
-                            0.94f to palette.wash.copy(alpha = 0.95f),
-                            1.00f to palette.wash,
-                        ),
-                    ),
-            )
+            if (staticArtworkOverscroll == null) {
+                Box(Modifier.matchParentSize().background(artistBackdropScrim(palette.wash)))
+            }
         }
     }
 }
+
+private fun artistBackdropScrim(
+    wash: Color,
+    startY: Float = 0f,
+    endY: Float = Float.POSITIVE_INFINITY,
+): Brush = Brush.verticalGradient(
+    0.45f to Color.Transparent,
+    0.65f to wash.copy(alpha = 0.30f),
+    0.82f to wash.copy(alpha = 0.72f),
+    0.94f to wash.copy(alpha = 0.95f),
+    1.00f to wash,
+    startY = startY,
+    endY = endY,
+)
 
 /**
  * Where the top of the artwork currently is.

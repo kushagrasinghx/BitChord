@@ -846,7 +846,7 @@ private fun createBottomFade(
 ): Shader? {
     if (albumFade != null) {
         val height = bounds.height.toFloat()
-        return albumFade.shader(bounds.width.toFloat(), height, endPx ?: height)
+        return albumFade.shader(height, endPx ?: height)
     }
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
     if (fraction <= 0.001f || endY <= 0f) return null

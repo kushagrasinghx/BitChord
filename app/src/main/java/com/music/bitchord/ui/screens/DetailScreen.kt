@@ -106,15 +106,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -122,7 +128,6 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
@@ -198,7 +203,6 @@ import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.AlbumArtworkFade
 import com.music.bitchord.ui.player.AndroidCanvasArtworkPlayer
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
-import com.music.bitchord.ui.player.albumArtworkTitleOpacity
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.utils.DetailArtworkOverscroll
@@ -655,13 +659,9 @@ fun DetailScreen(
                         val titleStartPx = with(LocalDensity.current) {
                             (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
                         }
-                        val titleOpacity = remember(palette.background, palette.onBackground, palette.onBackgroundVariant) {
-                            palette.albumArtworkTitleOpacity()
-                        }
                         AlbumArtworkFade(
-                            titleStartPx, albumHeader.textWidthPx,
-                            albumHeader.height.takeIf { it > 0 }?.toFloat() ?: heroHeightPx,
-                            titleOpacity,
+                            titleStartPx = titleStartPx,
+                            headerHeightPx = albumHeader.height.takeIf { it > 0 }?.toFloat() ?: heroHeightPx,
                         )
                     } else null
                     val drawableHeight = minOf(artworkHeightPx, albumFade?.headerHeightPx ?: artworkHeightPx)
@@ -1035,16 +1035,37 @@ fun DetailScreen(
 
 private class AlbumHeaderMeasurements {
     var height by mutableIntStateOf(0)
-    var title by mutableIntStateOf(0)
-    var credit by mutableIntStateOf(0)
-    var metadata by mutableIntStateOf(0)
-    val textWidthPx: Int get() = maxOf(title, credit, metadata)
 }
 
-private fun Modifier.measureAlbumHeader(
-    measurements: AlbumHeaderMeasurements?,
-    record: AlbumHeaderMeasurements.(IntSize) -> Unit,
-): Modifier = if (measurements == null) this else onSizeChanged { measurements.record(it) }
+@Composable
+private fun ReleaseHeaderText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    halo: Color?,
+    maxLines: Int,
+    modifier: Modifier,
+) {
+    val layout = if (halo != null) remember(text) { mutableStateOf<TextLayoutResult?>(null) } else null
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        textAlign = TextAlign.Center,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = if (layout == null) null else { result -> layout.value = result },
+        modifier = if (halo != null && layout != null) modifier.drawWithCache {
+            val stroke = Stroke(width = 2.dp.toPx(), join = StrokeJoin.Round)
+            onDrawWithContent {
+                // Reuse the label's own layout. Only glyph edges see the page
+                // tint behind the adaptive ink; artwork between letters stays put.
+                layout.value?.let { drawText(it, color = halo, shadow = Shadow.None, drawStyle = stroke) }
+                drawContent()
+            }
+        } else modifier,
+    )
+}
 
 /**
  * An album or playlist, laid out as Apple Music does: the sleeve framed in the
@@ -1086,6 +1107,7 @@ private fun ReleaseHeader(
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
     val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM }
+    val artworkTextHalo = if (artworkMeasurements != null) palette.background else null
 
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
@@ -1094,7 +1116,10 @@ private fun ReleaseHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .measureAlbumHeader(artworkMeasurements) { height = it.height }
+            .then(
+                if (artworkMeasurements != null) Modifier.onSizeChanged { artworkMeasurements.height = it.height }
+                else Modifier,
+            )
             // Clear of the floating bar, which only a full-bleed sleeve runs under.
             .padding(top = if (bleed || liftedArtworkSpace != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1159,30 +1184,26 @@ private fun ReleaseHeader(
         }
 
         Spacer(Modifier.height(RELEASE_TITLE_GAP))
-        Text(
+        ReleaseHeaderText(
             text = page.title,
             style = MaterialTheme.typography.headlineMedium,
             color = palette.onBackground,
-            textAlign = TextAlign.Center,
+            halo = artworkTextHalo,
             maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.measureAlbumHeader(artworkMeasurements) { title = it.width }
-                .padding(horizontal = HEADER_GUTTER),
+            modifier = Modifier.padding(horizontal = HEADER_GUTTER),
         )
         if (credit.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text(
+            ReleaseHeaderText(
                 text = credit,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Normal,
                     fontSize = 19.sp,
                 ),
                 color = palette.onBackgroundVariant,
-                textAlign = TextAlign.Center,
+                halo = artworkTextHalo,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .measureAlbumHeader(artworkMeasurements) { this.credit = it.width }
                     .padding(horizontal = HEADER_GUTTER)
                     .let { m ->
                         val id = artist?.artistId
@@ -1197,15 +1218,13 @@ private fun ReleaseHeader(
         }
         if (meta.isNotBlank()) {
             Spacer(Modifier.height(4.dp))
-            Text(
+            ReleaseHeaderText(
                 text = meta,
                 style = MaterialTheme.typography.labelMedium,
                 color = palette.onBackgroundVariant,
-                textAlign = TextAlign.Center,
+                halo = artworkTextHalo,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.measureAlbumHeader(artworkMeasurements) { metadata = it.width }
-                    .padding(horizontal = HEADER_GUTTER),
+                modifier = Modifier.padding(horizontal = HEADER_GUTTER),
             )
         }
 
@@ -1348,7 +1367,7 @@ private fun FullBleedReleaseArtwork(
                 }
                 .drawWithCache {
                     val mask = if (albumFade != null) {
-                        albumFade.shader(size.width, size.height, size.width / posterAspect)?.let { ShaderBrush(it) }
+                        albumFade.shader(size.height, size.width / posterAspect)?.let { ShaderBrush(it) }
                     } else {
                         Brush.verticalGradient(
                             colorStops = Array(FADE_CURVE_STOPS + 1) { i ->

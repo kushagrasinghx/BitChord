@@ -110,6 +110,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.vectorResource
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -183,27 +184,92 @@ internal fun PlaybackOriginCaption(
     /** Inside the touch target, so it widens what a finger can hit. */
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    /**
+     * Relative luminance of the cover behind the caption; the drop shadow
+     * deepens with it so white stays legible over a light one. Null (the
+     * landscape player) keeps the fixed shadow.
+     */
+    backdropLuminance: Float? = null,
 ) {
     val chrome = LocalPlayerChrome.current
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall.copy(
-            shadow = Shadow(
-                color = Color.Black.copy(alpha = 0.55f),
-                offset = Offset(0f, 1f),
-                blurRadius = 4f,
+    if (backdropLuminance == null) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                shadow = Shadow(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 4f,
+                ),
             ),
-        ),
-        color = Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = textAlign,
+            color = Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = textAlign,
+            modifier = modifier
+                .additiveChrome(chrome)
+                .clickable(onClick = onClick)
+                .padding(contentPadding),
+        )
+        return
+    }
+    // Eased across a track change, so the shadow doesn't jump with the cover.
+    val shade by animateFloatAsState(
+        captionShadeStrength(backdropLuminance),
+        animationSpec = tween(CAPTION_CROSSFADE_MS),
+        label = "captionShade",
+    )
+    Box(
+        contentAlignment = Alignment.Center,
         modifier = modifier
-            .additiveChrome(chrome)
             .clickable(onClick = onClick)
             .padding(contentPadding),
-    )
+    ) {
+        Crossfade(
+            targetState = text,
+            animationSpec = tween(CAPTION_CROSSFADE_MS),
+            label = "captionCrossfade",
+        ) { shown ->
+            // Not blended additively: that can only brighten, which would erase the shadow.
+            Text(
+                text = shown,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    shadow = Shadow(
+                        color = CaptionShadowColor.copy(
+                            alpha = lerp(CAPTION_SHADOW_ALPHA_MIN, CAPTION_SHADOW_ALPHA_MAX, shade),
+                        ),
+                        offset = Offset(0f, 1f),
+                        blurRadius = CAPTION_SHADOW_BLUR,
+                    ),
+                ),
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = textAlign,
+            )
+        }
+    }
 }
+
+/** How long the caption and its shadow take to swap on a track change. */
+private const val CAPTION_CROSSFADE_MS = 350
+
+/** The caption's drop shadow blur, wider than the 4 of other text so it spreads softer. */
+private const val CAPTION_SHADOW_BLUR = 40f
+
+/** The caption shadow's colour: a charcoal rather than black, so it reads softer on a light cover. */
+private val CaptionShadowColor = Color(0xFF3A3A3C)
+
+/** The caption's drop shadow opacity over a dark cover and a light one. */
+private const val CAPTION_SHADOW_ALPHA_MIN = 0.55f
+private const val CAPTION_SHADOW_ALPHA_MAX = 1.00f
+
+/** Cover luminance at which the caption's shadow is at its deepest; few sleeves average brighter. */
+private const val CAPTION_SHADE_FULL_LUMINANCE = 0.6f
+
+/** How deep the caption's shadow goes, 0..1, for the cover's relative luminance. Unknown reads as dark. */
+internal fun captionShadeStrength(luminance: Float?): Float =
+    ((luminance ?: 0f) / CAPTION_SHADE_FULL_LUMINANCE).coerceIn(0f, 1f)
 
 /** How far [PlayerScrubber] draws its times above the slot they are laid out in. */
 internal val SCRUBBER_LABEL_LIFT = 9.dp

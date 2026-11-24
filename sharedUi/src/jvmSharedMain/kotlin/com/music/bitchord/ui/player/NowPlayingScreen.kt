@@ -3199,6 +3199,7 @@ fun NowPlayingScreen(
                                     onClick = openPlaybackOrigin,
                                     textAlign = TextAlign.Center,
                                     contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 1.dp),
+                                    backdropLuminance = artTopLuminance ?: 0f,
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                         .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },

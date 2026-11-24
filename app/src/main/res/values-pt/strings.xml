@@ -222,6 +222,9 @@
     <string name="disable_blend_effects_subtitle">Mostra ícones, texto e menus escuros do player em branco, sem tingi-los com a capa</string>
     <string name="full_screen_cover_art">Capa em tela cheia</string>
     <string name="animated_cover_art">Capa animada</string>
+    <string name="canvas_shape">Forma do canvas</string>
+    <string name="canvas_shape_square">Quadrado (1:1)</string>
+    <string name="canvas_shape_portrait">Retrato (3:4)</string>
     <string name="synced_lyrics">Letras sincronizadas</string>
     <string name="synced_lyrics_subtitle">Destaca as palavras no player conforme são cantadas</string>
     <string name="lyrics_sources">Fontes de letras</string>
@@ -253,6 +256,7 @@
     <string name="full_screen_detail_cover">Capa de álbum/playlist em tela cheia</string>
     <string name="full_screen_detail_cover_subtitle">Estende as capas de álbuns e playlists até as bordas da página em vez de emoldurá-las</string>
     <string name="animated_cover_art_subtitle">Reproduz o vídeo em loop que alguns lançamentos trazem em vez de uma capa estática</string>
+    <string name="canvas_shape_subtitle">A clássica capa quadrada, ou o vídeo vertical 3:4 de alguns lançamentos</string>
     <string name="dont_repeat_songs_subtitle">A reprodução automática não sugerirá uma música já tocada ou sugerida nesta sessão</string>
     <string name="download_quality_subtitle">%1$s por faixa, independentemente da conexão</string>
     <string name="filter_non_music_audio">Filtrar áudio não musical</string>

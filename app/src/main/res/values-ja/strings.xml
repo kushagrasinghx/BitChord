@@ -215,6 +215,9 @@
     <string name="disable_blend_effects_subtitle">プレーヤーのアイコン、テキスト、ダークメニューをアートワークの色に染めず、白で表示します</string>
     <string name="full_screen_cover_art">全画面カバーアート</string>
     <string name="animated_cover_art">アニメーションカバーアート</string>
+    <string name="canvas_shape">キャンバスの形</string>
+    <string name="canvas_shape_square">正方形 (1:1)</string>
+    <string name="canvas_shape_portrait">縦長 (3:4)</string>
     <string name="synced_lyrics">同期歌詞</string>
     <string name="synced_lyrics_subtitle">歌われている歌詞をプレイヤー上でハイライト表示します</string>
     <string name="lyrics_sources">歌詞のソース</string>
@@ -246,6 +249,7 @@
     <string name="full_screen_detail_cover">アルバム/プレイリストの全画面カバー</string>
     <string name="full_screen_detail_cover_subtitle">アルバムとプレイリストのカバーを枠に収めず、ページの端まで広げます</string>
     <string name="animated_cover_art_subtitle">静止画のジャケットの代わりに一部のリリースが持つループ動画を再生します</string>
+    <string name="canvas_shape_subtitle">定番の正方形カバー、または一部の作品に付属する縦長 3:4 動画</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
     <string name="filter_non_music_audio">音楽以外の音声を除外</string>

@@ -218,6 +218,9 @@
     <string name="disable_blend_effects_subtitle">Pokazuje ikony, tekst i ciemne menu odtwarzacza w czystej bieli zamiast barwić je kolorem okładki</string>
     <string name="full_screen_cover_art">Pełnoekranowa okładka</string>
     <string name="animated_cover_art">Animowana okładka</string>
+    <string name="canvas_shape">Kształt canvasu</string>
+    <string name="canvas_shape_square">Kwadrat (1:1)</string>
+    <string name="canvas_shape_portrait">Pion (3:4)</string>
     <string name="synced_lyrics">Zsynchronizowany tekst</string>
     <string name="synced_lyrics_subtitle">Podświetla słowa na odtwarzaczu w miarę ich śpiewania</string>
     <string name="lyrics_sources">Źródła tekstów</string>
@@ -249,6 +252,7 @@
     <string name="full_screen_detail_cover">Pełnoekranowa okładka albumu/playlisty</string>
     <string name="full_screen_detail_cover_subtitle">Wyświetla okładki albumów i playlist do krawędzi strony zamiast w ramce</string>
     <string name="animated_cover_art_subtitle">Odtwarza animowaną okładkę dostępną w niektórych wydaniach zamiast statycznej</string>
+    <string name="canvas_shape_subtitle">Klasyczna kwadratowa okładka albo pionowe wideo 3:4 z niektórych wydań</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay nie zaproponuje utworu, który został już odtworzony lub zaproponowany w tej sesji</string>
     <string name="download_quality_subtitle">%1$s na utwór, niezależnie od połączenia</string>
     <string name="filter_non_music_audio">Filtruj dźwięk inny niż muzyka</string>

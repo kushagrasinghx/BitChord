@@ -215,6 +215,9 @@
     <string name="disable_blend_effects_subtitle">播放器图标、文字和深色菜单以纯白显示，不再混入封面颜色</string>
     <string name="full_screen_cover_art">全屏封面</string>
     <string name="animated_cover_art">动态封面</string>
+    <string name="canvas_shape">画布形状</string>
+    <string name="canvas_shape_square">方形 (1:1)</string>
+    <string name="canvas_shape_portrait">竖版 (3:4)</string>
     <string name="synced_lyrics">同步歌词</string>
     <string name="synced_lyrics_subtitle">随着演唱在播放器上高亮显示歌词</string>
     <string name="lyrics_sources">歌词来源</string>
@@ -246,6 +249,7 @@
     <string name="full_screen_detail_cover">全屏专辑/歌单封面</string>
     <string name="full_screen_detail_cover_subtitle">让专辑和歌单封面延伸至页面边缘，而不是显示为方形</string>
     <string name="animated_cover_art_subtitle">播放部分发行版自带的循环视频，而不是静态封面</string>
+    <string name="canvas_shape_subtitle">经典方形封面，或部分发行版提供的竖版 3:4 视频</string>
     <string name="dont_repeat_songs_subtitle">自动播放不会在本次会话中重复推荐已播放或已推荐过的歌曲</string>
     <string name="download_quality_subtitle">无论何种网络连接，每首曲目均为%1$s</string>
     <string name="filter_non_music_audio">过滤非音乐音频</string>

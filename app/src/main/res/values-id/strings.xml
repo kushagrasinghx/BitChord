@@ -215,6 +215,9 @@
     <string name="disable_blend_effects_subtitle">Menampilkan ikon, teks, dan menu gelap pemutar dalam warna putih polos, tanpa diwarnai sampul</string>
     <string name="full_screen_cover_art">Sampul layar penuh</string>
     <string name="animated_cover_art">Sampul animasi</string>
+    <string name="canvas_shape">Bentuk kanvas</string>
+    <string name="canvas_shape_square">Persegi (1:1)</string>
+    <string name="canvas_shape_portrait">Potret (3:4)</string>
     <string name="synced_lyrics">Lirik tersinkron</string>
     <string name="synced_lyrics_subtitle">Menyorot kata-kata di pemutar saat dinyanyikan</string>
     <string name="lyrics_sources">Sumber lirik</string>
@@ -246,6 +249,7 @@
     <string name="full_screen_detail_cover">Sampul album/playlist layar penuh</string>
     <string name="full_screen_detail_cover_subtitle">Membuat sampul album dan playlist memenuhi tepi halaman alih-alih berbingkai</string>
     <string name="animated_cover_art_subtitle">Memutar video berulang yang disertakan beberapa rilisan alih-alih sampul diam</string>
+    <string name="canvas_shape_subtitle">Sampul persegi klasik, atau video 3:4 tinggi dari sebagian rilisan</string>
     <string name="dont_repeat_songs_subtitle">Putar Otomatis tidak akan menyarankan lagu yang sudah diputar atau disarankan dalam sesi ini</string>
     <string name="download_quality_subtitle">%1$s per trek, apa pun koneksinya</string>
     <string name="filter_non_music_audio">Filter audio non-musik</string>

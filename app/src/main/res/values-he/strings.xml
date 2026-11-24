@@ -221,6 +221,9 @@
     <string name="disable_blend_effects_subtitle">מציג את סמלי הנגן, הטקסט והתפריטים הכהים בלבן רגיל במקום לצבוע אותם בצבעי העטיפה</string>
     <string name="full_screen_cover_art">עטיפת אלבום במסך מלא</string>
     <string name="animated_cover_art">עטיפת אלבום מונפשת</string>
+    <string name="canvas_shape">צורת הקנבס</string>
+    <string name="canvas_shape_square">ריבוע (1:1)</string>
+    <string name="canvas_shape_portrait">לאורך (3:4)</string>
     <string name="synced_lyrics">מילות שיר מסונכרנות</string>
     <string name="synced_lyrics_subtitle">מדגיש את המילים בנגן בזמן שהן מושרות</string>
     <string name="lyrics_sources">מקורות מילות שיר</string>
@@ -252,6 +255,7 @@
     <string name="full_screen_detail_cover">עטיפת אלבום/פלייליסט במסך מלא</string>
     <string name="full_screen_detail_cover_subtitle">מותח את עטיפות האלבומים והפלייליסטים עד לקצוות העמוד במקום עטיפה ממוסגרת</string>
     <string name="animated_cover_art_subtitle">מנגן את סרטון הלופ שמגיע עם חלק מההוצאות במקום עטיפה סטטית</string>
+    <string name="canvas_shape_subtitle">העטיפה המרובעת הקלאסית, או הווידאו האנכי 3:4 של חלק מהמהדורות</string>
     <string name="dont_repeat_songs_subtitle">ההשמעה האוטומטית לא תציע שיר שכבר הושמע או הוצע בהפעלה הנוכחית</string>
     <string name="download_quality_subtitle">%1$s לרצועה, ללא קשר לחיבור</string>
     <string name="filter_non_music_audio">סנן שמע שאינו מוזיקה</string>

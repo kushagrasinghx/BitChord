@@ -359,6 +359,9 @@
     <string name="player_theme_simple_subtitle">플레이어 전체 뒤에 흐린 커버를 표시합니다</string>
     <string name="player_theme_legacy_subtitle">v1.5 버전의 플레이어 뒤에서 떠다니던 색상 거품을 다시 표시합니다</string>
     <string name="animated_cover_art">움직이는 커버 아트</string>
+    <string name="canvas_shape">캔버스 모양</string>
+    <string name="canvas_shape_square">정사각형 (1:1)</string>
+    <string name="canvas_shape_portrait">세로형 (3:4)</string>
     <string name="artist_signatures">아티스트 서명</string>
     <string name="artist_signatures_subtitle">Apple Music에 타이틀 로고가 없으면 자필 서명을 표시합니다</string>
     <string name="artist_signatures_url">서명 API URL</string>
@@ -398,6 +401,7 @@
     <string name="full_screen_detail_cover">앨범/재생목록 전체화면 커버</string>
     <string name="full_screen_detail_cover_subtitle">앨범과 재생목록 커버를 액자 대신 페이지 모서리까지 확대합니다</string>
     <string name="animated_cover_art_subtitle">일부 출시 버전에 반복 동영상이 있다면 정적 커버 대신 우선으로 재생합니다</string>
+    <string name="canvas_shape_subtitle">익숙한 정사각형 커버 또는 일부 릴리스에 포함된 세로 3:4 영상</string>
     <string name="dont_repeat_songs_subtitle">이번 세션에서 제안했거나 이미 재생한 곡은 다시 자동 재생으로 제안하지 않습니다</string>
     <string name="download_quality_subtitle">연결에 상관없이 곡당 %1$s</string>
     <string name="filter_non_music_audio">음악이 아닌 소리 필터링</string>

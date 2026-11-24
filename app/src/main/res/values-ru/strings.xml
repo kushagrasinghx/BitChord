@@ -230,6 +230,9 @@
     <string name="disable_blend_effects_subtitle">Показывает значки, текст и тёмные меню плеера чисто белыми, не окрашивая их в цвета обложки</string>
     <string name="full_screen_cover_art">Обложка на весь экран</string>
     <string name="animated_cover_art">Анимированная обложка</string>
+    <string name="canvas_shape">Форма канваса</string>
+    <string name="canvas_shape_square">Квадрат (1:1)</string>
+    <string name="canvas_shape_portrait">Портрет (3:4)</string>
     <string name="synced_lyrics">Синхронизированный текст</string>
     <string name="synced_lyrics_subtitle">Подсвечивает слова в плеере по мере исполнения</string>
     <string name="lyrics_sources">Источники текстов</string>
@@ -261,6 +264,7 @@
     <string name="full_screen_detail_cover">Обложка альбома/плейлиста на весь экран</string>
     <string name="full_screen_detail_cover_subtitle">Растягивает обложки альбомов и плейлистов до краёв страницы вместо рамки</string>
     <string name="animated_cover_art_subtitle">Воспроизводит зацикленное видео, которое есть у некоторых релизов вместо неподвижной обложки</string>
+    <string name="canvas_shape_subtitle">Классическая квадратная обложка или вертикальное видео 3:4 из некоторых изданий</string>
     <string name="dont_repeat_songs_subtitle">Автовоспроизведение не будет предлагать уже сыгранную или предложенную в этой сессии песню</string>
     <string name="download_quality_subtitle">%1$s за трек, независимо от соединения</string>
     <string name="filter_non_music_audio">Фильтровать немузыкальное аудио</string>

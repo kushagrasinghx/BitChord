@@ -221,6 +221,9 @@
     <string name="disable_blend_effects_subtitle">Affiche les icônes, le texte et les menus sombres du lecteur en blanc pur, sans les teinter avec la pochette</string>
     <string name="full_screen_cover_art">Pochette plein écran</string>
     <string name="animated_cover_art">Pochette animée</string>
+    <string name="canvas_shape">Forme du canvas</string>
+    <string name="canvas_shape_square">Carré (1:1)</string>
+    <string name="canvas_shape_portrait">Portrait (3:4)</string>
     <string name="synced_lyrics">Paroles synchronisées</string>
     <string name="synced_lyrics_subtitle">Met en surbrillance les mots au fil de la chanson</string>
     <string name="lyrics_sources">Sources des paroles</string>
@@ -252,6 +255,7 @@
     <string name="full_screen_detail_cover">Pochette d\'album/playlist plein écran</string>
     <string name="full_screen_detail_cover_subtitle">Étend les pochettes d\'albums et de playlists jusqu\'aux bords de la page au lieu d\'un cadre</string>
     <string name="animated_cover_art_subtitle">Lit la vidéo en boucle que proposent certaines sorties au lieu d\'une pochette fixe</string>
+    <string name="canvas_shape_subtitle">La pochette carrée classique, ou la vidéo verticale 3:4 de certaines sorties</string>
     <string name="dont_repeat_songs_subtitle">La lecture automatique ne proposera pas une chanson déjà jouée ou suggérée pendant cette session</string>
     <string name="download_quality_subtitle">%1$s par piste, quelle que soit la connexion</string>
     <string name="filter_non_music_audio">Filtrer l\'audio non musical</string>

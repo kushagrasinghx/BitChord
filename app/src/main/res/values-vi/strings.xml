@@ -256,6 +256,9 @@
     <string name="player_theme_simple_subtitle">Ảnh bìa làm mờ phía sau toàn bộ trình phát</string>
     <string name="player_theme_legacy_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
     <string name="animated_cover_art">Ảnh bìa động</string>
+    <string name="canvas_shape">Hình dạng canvas</string>
+    <string name="canvas_shape_square">Vuông (1:1)</string>
+    <string name="canvas_shape_portrait">Dọc (3:4)</string>
     <string name="synced_lyrics">Lời bài hát đồng bộ</string>
     <string name="synced_lyrics_subtitle">Làm sáng các từ trên trình phát khi đang được hát</string>
     <string name="lyrics_sources">Nguồn lời bài hát</string>
@@ -287,6 +290,7 @@
     <string name="full_screen_detail_cover">Ảnh bìa album/danh sách phát toàn màn hình</string>
     <string name="full_screen_detail_cover_subtitle">Mở rộng ảnh bìa album và danh sách phát ra các cạnh trang thay vì khung</string>
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
+    <string name="canvas_shape_subtitle">Bìa vuông quen thuộc, hoặc video dọc 3:4 mà một số bản phát hành cung cấp</string>
     <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
     <string name="download_quality_subtitle">%1$s mỗi bài, bất kể loại kết nối</string>

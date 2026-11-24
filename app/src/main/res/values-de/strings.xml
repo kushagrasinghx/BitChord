@@ -220,6 +220,9 @@
     <string name="disable_blend_effects_subtitle">Zeigt Player-Symbole, Text und dunkle Menüs in reinem Weiß, statt sie mit dem Cover einzufärben</string>
     <string name="full_screen_cover_art">Vollbild-Cover</string>
     <string name="animated_cover_art">Animiertes Cover</string>
+    <string name="canvas_shape">Canvas-Form</string>
+    <string name="canvas_shape_square">Quadrat (1:1)</string>
+    <string name="canvas_shape_portrait">Hochformat (3:4)</string>
     <string name="synced_lyrics">Synchronisierte Songtexte</string>
     <string name="synced_lyrics_subtitle">Hebt die Wörter im Player passend zum Gesang hervor</string>
     <string name="lyrics_sources">Songtext-Quellen</string>
@@ -251,6 +254,7 @@
     <string name="full_screen_detail_cover">Vollbild-Album-/Playlist-Cover</string>
     <string name="full_screen_detail_cover_subtitle">Zieht Album- und Playlist-Cover bis an die Ränder der Seite statt sie gerahmt darzustellen</string>
     <string name="animated_cover_art_subtitle">Spielt das Endlosvideo ab, das manche Veröffentlichungen anstelle eines Standbilds mitbringen</string>
+    <string name="canvas_shape_subtitle">Die klassische quadratische Hülle oder das hohe 3:4-Video mancher Veröffentlichungen</string>
     <string name="dont_repeat_songs_subtitle">Die automatische Wiedergabe schlägt in dieser Sitzung keinen bereits gespielten oder vorgeschlagenen Song erneut vor</string>
     <string name="download_quality_subtitle">%1$s pro Track, unabhängig von der Verbindung</string>
     <string name="filter_non_music_audio">Nicht-Musik-Audio filtern</string>

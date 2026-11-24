@@ -40,6 +40,10 @@ private const val maxBounceVelocity = 10_000f
 private const val highVelocityThreshold = 5_000f
 private const val normalBounceStiffness = 247f
 private const val fastBounceStiffness = 130f
+// Half a physical pixel: matches Compose's Offset.VisibilityThreshold so the
+// critically damped release spring stops once motion is invisible instead of
+// running hundreds of milliseconds of sub-pixel decay down to 0.01f.
+private const val settleVisibilityThresholdPx = 0.5f
 
 /**
  * Converts raw pull distance to UIKit's self-limiting rubber-band curve.
@@ -58,18 +62,31 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-private class IosOverscrollEffect : OverscrollEffect {
+internal class IosOverscrollEffect : OverscrollEffect {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
     private var containerHeightPx = 0f
 
+    internal val currentPullX: Float get() = rawPullX.floatValue
+    internal val currentPullY: Float get() = rawPullY.floatValue
+
     // The release bounce runs outside the scrollable's scroll mutex, so a new drag
     // doesn't cancel it on its own. Tracked here so a touch can catch the content.
     private var settleJobs: List<Job> = emptyList()
 
-    override val isInProgress: Boolean
+    private val hasPull: Boolean
         get() = rawPullX.floatValue != 0f || rawPullY.floatValue != 0f
+
+    // Always false so Compose's ScrollableNode does not consume PointerDown in
+    // PointerEventPass.Initial (via ScrollingLogic.shouldScrollImmediately) while
+    // the rubber-band spring settles back to rest. Returning true there swallows
+    // the first tap on clickable rows (such as "Sleep timer" after scrolling to
+    // the bottom of the player menu). Active drags still catch an in-flight
+    // bounce seamlessly via stopSettling() in applyToScroll once touch slop is
+    // crossed, and real scroll flings are still caught by isScrollInProgress.
+    override val isInProgress: Boolean
+        get() = false
 
     override fun applyToScroll(
         delta: Offset,
@@ -112,7 +129,7 @@ private class IosOverscrollEffect : OverscrollEffect {
         val consumed = performFling(velocity)
         val leftover = velocity - consumed
         stopSettling()
-        if (!isInProgress && leftover == Velocity.Zero) return
+        if (!hasPull && leftover == Velocity.Zero) return
 
         coroutineScope {
             val jobs = listOf(
@@ -155,6 +172,7 @@ private class IosOverscrollEffect : OverscrollEffect {
                 } else {
                     normalBounceStiffness
                 },
+                visibilityThreshold = settleVisibilityThresholdPx,
             ),
         ) { value, _ ->
             // A frame already in flight when a drag cancels us must not stomp the drag.

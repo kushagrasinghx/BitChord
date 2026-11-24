@@ -383,6 +383,8 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
+import com.music.bitchord.ui.utils.LocalSheetTouchGuard
+import com.music.bitchord.ui.utils.SheetTouchGuard
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
@@ -4983,6 +4985,8 @@ private fun BitChordApp(
                     onDispose { }
                 }
                 val playerMenuHaze = remember { HazeState() }
+                val sheetTouchGuard = remember { SheetTouchGuard() }
+                CompositionLocalProvider(LocalSheetTouchGuard provides sheetTouchGuard) {
                 Box(
                     Modifier
                         // Where the app is holding the player, if it is — see
@@ -5006,7 +5010,7 @@ private fun BitChordApp(
                                 )
                             }
                         }
-                        .guardSheetFromContentTouches(nowPlayingSheetState)
+                        .guardSheetFromContentTouches(nowPlayingSheetState, sheetTouchGuard)
                         // The sheet fills the window, so its height is the
                         // whole of its travel: hidden sits that far down.
                         .onSizeChanged {
@@ -5069,6 +5073,7 @@ private fun BitChordApp(
                     ) { song ->
                         songMenuBody(song)
                     }
+                }
                 }
             }
         }

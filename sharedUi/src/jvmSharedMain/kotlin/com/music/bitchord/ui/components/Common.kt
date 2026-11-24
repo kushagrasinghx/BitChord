@@ -329,6 +329,12 @@ fun SongRow(
      * different catalogues sit side by side: the Addons search.
      */
     showSourceQuality: Boolean = false,
+    /** A page-supplied foreground already synchronized with its animated background. */
+    titleTint: Color? = null,
+    /** Disable the secondary line and its spacing for a title-only row. */
+    showSubtitle: Boolean = true,
+    /** Omit the duration and place the download badge just before the overflow. */
+    compactTrailing: Boolean = false,
     /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
@@ -354,6 +360,9 @@ fun SongRow(
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
             showSourceQuality = showSourceQuality,
+            titleTint = titleTint,
+            showSubtitle = showSubtitle,
+            compactTrailing = compactTrailing,
             trailing = trailing,
         )
     }
@@ -495,12 +504,15 @@ private fun SongRowContent(
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
+    titleTint: Color? = null,
+    showSubtitle: Boolean,
+    compactTrailing: Boolean,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val titleColor by animateColorAsState(
+    val titleColor = titleTint ?: animateColorAsState(
         targetValue = if (isCurrent && !searchPlayingStyle) activeTint else MaterialTheme.colorScheme.onBackground,
         label = "song row title",
-    )
+    ).value
     val activeBackground by animateColorAsState(
         targetValue = if ((isCurrent && !searchPlayingStyle) || selected) activeTint.copy(alpha = 0.14f) else Color.Transparent,
         label = "song row background",
@@ -532,7 +544,7 @@ private fun SongRowContent(
                 contentAlignment = Alignment.Center,
             ) {
                 if (searchPlayingStyle && isCurrent && isPlaying) {
-                    SearchPlayingBars()
+                    SearchPlayingBars(tint = activeTint.takeIf { titleTint != null })
                 } else if (isCurrent) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.GraphicEq else Icons.Rounded.PlayArrow,
@@ -576,6 +588,7 @@ private fun SongRowContent(
                 style = MaterialTheme.typography.titleMedium,
                 color = titleColor,
             )
+            if (!showSubtitle) return@Column
             Spacer(Modifier.height(2.dp))
             val subtitle = listOfNotNull(
                 song.artist.takeIf { it.isNotBlank() },
@@ -599,7 +612,7 @@ private fun SongRowContent(
                 )
             }
         }
-        if (downloadedTint != null) {
+        if (!compactTrailing && downloadedTint != null) {
             DownloadedBadge(song.videoId, downloadedTint)
         }
         if (selected) {
@@ -627,7 +640,7 @@ private fun SongRowContent(
                 strokeWidth = 2.dp,
                 color = subtitleColor,
             )
-        } else {
+        } else if (!compactTrailing) {
             song.durationText?.let {
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -640,6 +653,9 @@ private fun SongRowContent(
         if (trailing != null && !matching && !unavailable) {
             Spacer(Modifier.width(4.dp))
             trailing()
+        }
+        if (compactTrailing && downloadedTint != null) {
+            DownloadedBadge(song.videoId, downloadedTint)
         }
         // Same sheet the long-press opens, for anyone who doesn't think to hold.
         if (onMore != null && !matching && !unavailable) {
@@ -738,7 +754,7 @@ private fun playingBarHeight(index: Int, minimum: Float, ms: Long): Float {
 }
 
 @Composable
-fun SearchPlayingBars(modifier: Modifier = Modifier) {
+fun SearchPlayingBars(modifier: Modifier = Modifier, tint: Color? = null) {
     // Time in motion rather than an animation per bar: read only in the draw
     // below, so a frame of it redraws this canvas and never recomposes or
     // re-lays out the row it sits in.
@@ -760,7 +776,7 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(24.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.52f)),
+            .background(if (tint == null) Color.Black.copy(alpha = 0.52f) else Color.Transparent),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(width = 13.dp, height = 14.dp)) {
@@ -771,7 +787,7 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
             PLAYING_BAR_MINIMUMS.forEachIndexed { index, minimum ->
                 val height = size.height * playingBarHeight(index, minimum, ms)
                 drawRoundRect(
-                    color = Color.White,
+                    color = tint ?: Color.White,
                     topLeft = Offset(index * step, size.height - height),
                     size = Size(barWidth, height),
                     cornerRadius = corner,

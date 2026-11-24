@@ -158,6 +158,7 @@ object AppleMusicCanvas {
                 artist = attributes["artistName"]?.jsonPrimitive?.contentOrNull,
                 album = name,
                 source = CanvasSource.APPLE,
+                portraitUrl = tallUrl(video),
             )
         }
         return null

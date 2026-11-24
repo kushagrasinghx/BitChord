@@ -232,6 +232,7 @@ import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.BoundedQueuePlanner
 import com.music.bitchord.playback.playBoundedContext
 import com.music.bitchord.playback.contextEntryKey
+import com.music.bitchord.playback.queueEntryId
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toSong
 import com.music.bitchord.playback.toDirectYouTubeMediaItem
@@ -2541,6 +2542,7 @@ private fun BitChordApp(
     val detailPalette = rememberArtworkPalette(
         imageUrl = detailApple?.heroUrl ?: topDetail?.thumbnailUrl,
         keyColors = detailApple?.keyColors(),
+        immersiveAlbum = topDetail?.type == BrowseType.ALBUM,
     )
 
     // One set of numbers for the cards, the page, the stories and the shared
@@ -3440,12 +3442,47 @@ private fun BitChordApp(
                                     continuationToken = latestPage?.continuation ?: page.continuation,
                                 )
                             }
+                            val albumVisit = page.type == BrowseType.ALBUM && detail?.browseId == page.browseId
+                            var albumPlayRequest by remember(page.browseId, albumVisit, controller) {
+                                mutableStateOf<Pair<Int, Set<String>>?>(null)
+                            }
+                            var albumPlayActivated by remember(page.browseId, albumVisit, controller) {
+                                mutableStateOf(false)
+                            }
+                            fun Song?.isAlbumContext(): Boolean = this != null &&
+                                playbackSourceType == PlaybackSourceType.BROWSE &&
+                                playbackSourceId == page.browseId && queueTier == QueueTier.CONTEXT && !fromAutoplay
+
+                            val request = albumPlayRequest
+                            val albumIsCurrent = player.song.isAlbumContext()
+                            val requestIsCurrent = request != null && request.first == playRequestGeneration
+                            // An already playing copy of this album does not acknowledge a new request.
+                            val albumPlayInstalled = requestIsCurrent && albumIsCurrent &&
+                                player.song?.queueEntryId?.let { it !in request?.second.orEmpty() } == true
+                            LaunchedEffect(request, requestIsCurrent, albumPlayInstalled, albumIsCurrent, player.error) {
+                                if (request == null) return@LaunchedEffect
+                                when {
+                                    !requestIsCurrent || (albumPlayActivated && (!albumIsCurrent || player.error != null)) -> {
+                                        albumPlayRequest = null
+                                        albumPlayActivated = false
+                                    }
+                                    !albumPlayActivated && albumPlayInstalled -> albumPlayActivated = true
+                                    !albumPlayActivated -> {
+                                        // A rejected or unconfirmed request may be retried.
+                                        delay(8_000)
+                                        albumPlayRequest = null
+                                    }
+                                    else -> Unit
+                                }
+                            }
                             // This page's songs being rearranged, drawn in place of its list.
                             val reordering = reorderTarget?.takeIf { it.browseId == page.browseId }
                             DetailScreen(
                                 page = page,
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
+                                albumPlayIsPause = albumVisit && requestIsCurrent && albumIsCurrent &&
+                                    (albumPlayActivated || albumPlayInstalled) && player.isPlaying,
                                 listState = pageDetailListState,
                                 activeShelf = detailActiveShelf,
                                 onActiveShelfChange = { shelf ->
@@ -3458,7 +3495,31 @@ private fun BitChordApp(
                                 onSongLongPress = { openSongMenu(withAlbum(it)) },
                                 onSongSwipe = { onSongSwipe(withAlbum(it)) },
                                 onPlay = { songs ->
-                                    if (songs.isNotEmpty()) {
+                                    if (albumVisit) {
+                                        val c = controller
+                                        val liveSong = c?.currentMediaItem?.toSong()
+                                        val liveRequest = albumPlayRequest?.takeIf { it.first == playRequestGeneration }
+                                        val installed = liveRequest != null && liveSong.isAlbumContext() &&
+                                            (albumPlayActivated || liveSong?.queueEntryId?.let { it !in liveRequest.second } == true)
+                                        if (c != null && installed && c.playbackState != Player.STATE_ENDED && c.playerError == null) {
+                                            if (c.isPlaying || !c.playWhenReady || c.playbackState != Player.STATE_BUFFERING) {
+                                                togglePlayPause()
+                                            }
+                                        } else if (c != null && songs.isNotEmpty() &&
+                                            (liveRequest == null || albumPlayActivated)
+                                        ) {
+                                            val priorEntries = (0 until c.mediaItemCount).mapNotNull { index ->
+                                                c.getMediaItemAt(index).queueEntryId
+                                            }.toSet()
+                                            val before = playRequestGeneration
+                                            QueueShuffle.disableForNextQueue()
+                                            playDetailSongs(songs, 0)
+                                            if (playRequestGeneration != before) {
+                                                albumPlayActivated = false
+                                                albumPlayRequest = playRequestGeneration to priorEntries
+                                            }
+                                        }
+                                    } else if (page.type != BrowseType.ALBUM && songs.isNotEmpty()) {
                                         // Play is the release in order, so a shuffle left on
                                         // from the last queue goes off before this one is built.
                                         QueueShuffle.disableForNextQueue()
@@ -4022,6 +4083,7 @@ private fun BitChordApp(
                     // circles over the shared gradient — no full-width pane.
                     transparentBackdrop = true,
                     artworkPageChrome = true,
+                    compactArtworkActions = route == null && detail?.type == BrowseType.ALBUM,
                     backButtonHazeState = hazeState,
                     trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                     // Search has no large in-list header to hand the title back to —
@@ -4221,6 +4283,9 @@ private fun BitChordApp(
                             // below is left with just the sleeve, the title and
                             // Shuffle / Play / Add.
                             if ((isReleaseDetail || isLocalDetail) && detail != null) {
+                                val actionIcon = if (route == null && detail.type == BrowseType.ALBUM) {
+                                    Modifier.size(20.dp)
+                                } else Modifier
                                 val releaseSongs = (detail.songs as? UiState.Success)?.data.orEmpty()
                                 if (releaseSongs.isNotEmpty()) {
                                     IconButton(onClick = { detailSearching = !detailSearching }) {
@@ -4229,6 +4294,7 @@ private fun BitChordApp(
                                             contentDescription = stringResource(
                                                 if (detailSearching) R.string.close_search else R.string.search_this_list,
                                             ),
+                                            modifier = actionIcon,
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
@@ -4245,6 +4311,7 @@ private fun BitChordApp(
                                         contentDescription = stringResource(
                                             if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
                                         ),
+                                        modifier = actionIcon,
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
@@ -4281,6 +4348,7 @@ private fun BitChordApp(
                                         Icon(
                                             Icons.Rounded.MoreHoriz,
                                             contentDescription = stringResource(R.string.more),
+                                            modifier = actionIcon,
                                             tint = MaterialTheme.colorScheme.onSurface,
                                         )
                                     }

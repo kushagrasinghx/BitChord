@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -58,7 +59,14 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-private class IosOverscrollEffect : OverscrollEffect {
+internal interface DetailArtworkOverscroll : OverscrollEffect {
+    val artworkExpansionPx: Float
+}
+
+private class IosOverscrollEffect(
+    private val topLimitPx: Float = 0f,
+    private val allowTop: Boolean = true,
+) : DetailArtworkOverscroll {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
@@ -70,6 +78,18 @@ private class IosOverscrollEffect : OverscrollEffect {
 
     override val isInProgress: Boolean
         get() = rawPullX.floatValue != 0f || rawPullY.floatValue != 0f
+
+    private fun verticalOffsetPx(): Float {
+        val pull = rawPullY.floatValue
+        if (pull > 0f && !allowTop) return 0f
+        if (pull <= 0f || topLimitPx <= 0f) return rubberBand(pull, containerHeightPx)
+        val resisted = pull * rubberBandConstant
+        return topLimitPx * (resisted / (resisted + topLimitPx))
+    }
+
+    // Exactly the displacement applied by the list's node, not a second spring.
+    override val artworkExpansionPx: Float
+        get() = verticalOffsetPx().coerceAtLeast(0f)
 
     override fun applyToScroll(
         delta: Offset,
@@ -97,7 +117,7 @@ private class IosOverscrollEffect : OverscrollEffect {
                 rawPullX.floatValue += leftover.x
                 stretchedX = leftover.x
             }
-            if (leftover.y != 0f) {
+            if (leftover.y < 0f || (leftover.y > 0f && allowTop)) {
                 rawPullY.floatValue += leftover.y
                 stretchedY = leftover.y
             }
@@ -111,13 +131,14 @@ private class IosOverscrollEffect : OverscrollEffect {
     ) {
         val consumed = performFling(velocity)
         val leftover = velocity - consumed
+        val verticalVelocity = if (allowTop) leftover.y else leftover.y.coerceAtMost(0f)
         stopSettling()
-        if (!isInProgress && leftover == Velocity.Zero) return
+        if (!isInProgress && leftover.x == 0f && verticalVelocity == 0f) return
 
         coroutineScope {
             val jobs = listOf(
                 launch { settle(rawPullX, leftover.x) },
-                launch { settle(rawPullY, leftover.y) },
+                launch { settle(rawPullY, verticalVelocity) },
             )
             settleJobs = jobs
             jobs.forEach { it.join() }
@@ -164,7 +185,7 @@ private class IosOverscrollEffect : OverscrollEffect {
 
     override val node: DelegatableNode = IosOverscrollNode(
         offsetX = { rubberBand(rawPullX.floatValue, containerWidthPx) },
-        offsetY = { rubberBand(rawPullY.floatValue, containerHeightPx) },
+        offsetY = ::verticalOffsetPx,
         onMeasured = { width, height ->
             containerWidthPx = width
             containerHeightPx = height
@@ -213,4 +234,39 @@ fun rememberIosOverscrollFactory(): OverscrollFactory {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     return remember(density, scope) { IosOverscrollFactory(density, scope) }
+}
+
+@Composable
+internal fun rememberDetailArtworkOverscroll(topLimitPx: Float): DetailArtworkOverscroll =
+    remember(topLimitPx) { IosOverscrollEffect(topLimitPx) }
+
+/** A hard top boundary with the usual bottom-edge bounce. */
+@Composable
+internal fun rememberBottomOnlyDetailOverscroll(): OverscrollEffect =
+    remember { IosOverscrollEffect(allowTop = false) }
+
+/** Route the top pull to the same effect when a lazy list fits its viewport. */
+internal fun DetailArtworkOverscroll.nonScrollingArtworkConnection(
+    canScroll: () -> Boolean,
+): NestedScrollConnection = object : NestedScrollConnection {
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        // Scrollable calls the effect itself whenever either direction can scroll.
+        if (canScroll() || source != NestedScrollSource.UserInput || available.y == 0f) return Offset.Zero
+        if (available.y < 0f && artworkExpansionPx == 0f) return Offset.Zero
+        var upwardRemainder = 0f
+        val handled = applyToScroll(Offset(0f, available.y), source) { remaining ->
+            // An upward drag can unwind the top pull, but should not start a
+            // bottom pull on a list with no scroll range.
+            upwardRemainder = remaining.y.coerceAtMost(0f)
+            Offset(0f, upwardRemainder)
+        }
+        return Offset(0f, handled.y - upwardRemainder)
+    }
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        if (canScroll() || !isInProgress) return Velocity.Zero
+        val topVelocity = Velocity(0f, available.y.coerceAtLeast(0f))
+        applyToFling(topVelocity) { Velocity.Zero }
+        return topVelocity
+    }
 }

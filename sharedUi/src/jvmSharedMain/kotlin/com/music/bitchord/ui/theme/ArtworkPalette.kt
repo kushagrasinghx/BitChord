@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.ImageBitmap
 import coil3.compose.LocalPlatformContext
 import com.music.bitchord.ui.graphics.ColorUtils
+import com.music.bitchord.ui.graphics.Swatch
 import com.music.bitchord.ui.graphics.forPixelAccess
 import com.music.bitchord.ui.graphics.paletteSwatches
 import com.music.bitchord.ui.graphics.toImageBitmap
@@ -29,6 +30,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.player.PlayerPlatform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -41,9 +43,8 @@ import kotlin.math.sqrt
  * finished set: a page tint, an accent that is legible *on that tint*, and the
  * two text colours and hairline that go with them.
  *
- * Every value is theme-aware. The same sleeve yields a near-black tint in dark
- * mode and a pale wash of the same hue in light mode, which is the only way the
- * pages stay readable when the app's theme disagrees with the artwork's.
+ * Album pages take their foreground and background from the sleeve together;
+ * other pages adapt the sleeve to the app theme.
  */
 @Immutable
 data class ArtworkPalette(
@@ -67,6 +68,7 @@ data class ArtworkPalette(
     val onBackground: Color,
     val onBackgroundVariant: Color,
     val divider: Color,
+    val onWhiteAction: Color = Color.Black,
 )
 
 /**
@@ -102,6 +104,7 @@ fun rememberArtworkPalette(
      */
     artPx: Int = CARD_ART_PX,
     keyColors: ArtworkKeyColors? = null,
+    immersiveAlbum: Boolean = false,
 ): ArtworkPalette {
     val scheme = MaterialTheme.colorScheme
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
@@ -114,21 +117,31 @@ fun rememberArtworkPalette(
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
 
-    val target = seed?.toPalette(dark) ?: ArtworkPalette(
-        background = scheme.background,
-        wash = scheme.background,
-        elevated = scheme.surfaceVariant,
-        accent = scheme.primary,
-        onBackground = scheme.onBackground,
-        onBackgroundVariant = scheme.onSurfaceVariant,
-        divider = scheme.outline,
-    )
+    val fallback = remember(scheme) {
+        ArtworkPalette(
+            background = scheme.background,
+            wash = scheme.background,
+            elevated = scheme.surfaceVariant,
+            accent = scheme.primary,
+            onBackground = scheme.onBackground,
+            onBackgroundVariant = scheme.onSurfaceVariant,
+            divider = scheme.outline,
+        )
+    }
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
         snap()
     } else {
         tween(TINT_FADE_MS)
     }
+    if (immersiveAlbum) {
+        val ground by animateColorAsState(seed?.albumGround ?: fallback.background, spec, label = "albumTint")
+        // Recompute the foreground from the actual animated surface. Crossfading
+        // white into dark ink would make both unreadable halfway through.
+        val accent = seed?.vibrant ?: fallback.accent
+        return remember(ground, accent) { albumPalette(ground, accent) }
+    }
+    val target = remember(seed, dark, fallback) { seed?.toPalette(dark) ?: fallback }
     return ArtworkPalette(
         background = animateColorAsState(target.background, spec, label = "tintBackground").value,
         wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
@@ -202,6 +215,7 @@ private data class Seed(
     val vibrant: Color,
     val edge: Color,
     val topBandLuminance: Float,
+    val albumGround: Color,
 )
 
 private fun seedOf(bitmap: ImageBitmap): Seed? {
@@ -218,7 +232,11 @@ private fun seedOf(bitmap: ImageBitmap): Seed? {
     if (all.isEmpty()) return null
     val accentCandidates = swatches(clearFilters = false).ifEmpty { all }
 
-    val dominant = all.maxBy { it.population }
+    var dominantIndex = 0
+    for (index in 1 until all.size) {
+        if (all[index].population > all[dominantIndex].population) dominantIndex = index
+    }
+    val dominant = all[dominantIndex]
     // The accent has to earn its place twice over: a colour nobody sees enough
     // of reads as arbitrary, and a grey one isn't an accent at all. Scoring on
     // saturation against the *square root* of population is what stops a sleeve
@@ -227,11 +245,13 @@ private fun seedOf(bitmap: ImageBitmap): Seed? {
         val hsl = FloatArray(3).also { ColorUtils.colorToHSL(swatch.rgb, it) }
         hsl[1] * sqrt(swatch.population.toFloat())
     }
+    val edge = bitmap.bottomEdgeColor()
     return Seed(
         dominant = Color(dominant.rgb),
         vibrant = Color(vibrant.rgb),
-        edge = bitmap.bottomEdgeColor(),
+        edge = edge,
         topBandLuminance = bitmap.topBandRelativeLuminance(),
+        albumGround = albumGround(all, dominantIndex, edge),
     )
 }
 
@@ -244,6 +264,7 @@ private fun ArtworkKeyColors.toSeed() = Seed(
     vibrant = accent,
     edge = background,
     topBandLuminance = relativeLuminance(background.toArgb()),
+    albumGround = background,
 )
 
 private const val SWATCH_COUNT = 24
@@ -322,6 +343,154 @@ internal fun topBandScrimAlpha(artworkLuminance: Float?): Float {
 
 private const val PLAYER_STATUS_SCRIM_MIN_ALPHA = 0.16f
 private const val PLAYER_STATUS_SCRIM_MAX_ALPHA = 0.65f
+
+private class AlbumSwatch(val color: Color, val population: Int) {
+    private val hsl = FloatArray(3).also { ColorUtils.colorToHSL(color.toArgb(), it) }
+    val hue = hsl[0]
+    // HSL saturation alone rates near-white and near-black noise highly.
+    val chroma = hsl[1] * (1f - abs(2f * hsl[2] - 1f))
+    val hueWeight = population * ((chroma - 0.065f) / 0.17f).coerceIn(0f, 1f)
+}
+
+private fun albumGround(swatches: List<Swatch>, dominantIndex: Int, edge: Color): Color {
+    val samples = swatches.map { AlbumSwatch(Color(it.rgb), it.population) }
+    val total = samples.sumOf { it.population }.toFloat()
+    val dominant = samples[dominantIndex]
+    // Count neighboring hues across several tones, but require the chosen
+    // swatch itself to have both visible color and meaningful coverage.
+    fun weight(hue: Float, sample: AlbumSwatch): Float {
+        val distance = abs(hue - sample.hue)
+        val arc = minOf(distance, 360f - distance)
+        return sample.hueWeight * (1f - arc / 40f).coerceAtLeast(0f)
+    }
+    fun support(hue: Float): Float = samples.sumOf { sample ->
+        weight(hue, sample).toDouble()
+    }.toFloat() / total
+
+    val eligible = samples.filter { it.chroma >= 0.08f }
+    val first = eligible.firstOrNull()
+    var candidate = first
+    var coverage = first?.let { support(it.hue) } ?: 0f
+    if (first != null && eligible.size > 1) {
+        fun score(sample: AlbumSwatch, hueSupport: Float): Float =
+            hueSupport * (0.45f + sample.chroma) * sqrt(sample.population / total)
+        var bestScore = score(first, coverage)
+        for (index in 1 until eligible.size) {
+            val sample = eligible[index]
+            val hueSupport = support(sample.hue)
+            val sampleScore = score(sample, hueSupport)
+            // Match maxByOrNull's Float ordering and keep the first on ties.
+            if (java.lang.Float.compare(bestScore, sampleScore) < 0) {
+                candidate = sample
+                coverage = hueSupport
+                bestScore = sampleScore
+            }
+        }
+    }
+    val mostlyNeutral = dominant.chroma < 0.09f && dominant.population / total >= 0.55f
+    val chromatic = candidate?.takeIf { coverage >= 0.30f && !mostlyNeutral }
+    if (chromatic == null) {
+        val luminance = dominant.color.luminance()
+        val edgeBias = (edge.luminance() - luminance).coerceIn(-0.09f, 0.09f) * 0.18f
+        val target = (luminance + edgeBias).coerceIn(0.008f, 0.86f)
+        return dominant.color.albumTone(Color.Black, Color.White) { it.luminance() <= target }
+    }
+
+    // The winning swatch locates the hue family; it does not get to set the
+    // whole page's color. Pool its neighbors, including the muted tones.
+    val family = samples.mapNotNull { sample ->
+        val w = weight(chromatic.hue, sample)
+        if (w > 0f) Triple(sample.color, w, sample.color.luminance()) else null
+    }.sortedBy { it.third }
+    var red = 0f
+    var green = 0f
+    var blue = 0f
+    var mass = 0f
+    family.forEach { (color, weight) ->
+        red += color.red * weight
+        green += color.green * weight
+        blue += color.blue * weight
+        mass += weight
+    }
+    val representative = Color(red = red / mass, green = green / mass, blue = blue / mass)
+
+    // Distinguish genuinely high-key artwork from midtone artwork with a few
+    // highlights. Prefer white ink without forcing the whole family dark.
+    var cumulative = 0f
+    val lowerQuartile = family.first { (_, weight) ->
+        cumulative += weight
+        cumulative >= mass * 0.25f
+    }.third
+    if (lowerQuartile >= 0.5f) return representative
+    return representative.albumTone(Color.Black, representative, preserveChroma = true) {
+        it.luminance() <= ALBUM_WHITE_INK_CEILING
+    }
+}
+
+private fun albumPalette(ground: Color, artworkAccent: Color): ArtworkPalette {
+    val y = ground.luminance()
+    // Use one polarity for every role. White is preferred whenever it passes;
+    // above that point black also has enough contrast.
+    val lightInk = y <= ALBUM_WHITE_INK_CEILING
+    fun ink(candidate: Color): Color = if (lightInk) {
+        candidate.albumTone(Color.White, candidate) { it.luminance() + 0.05f >= ALBUM_TEXT_CONTRAST * (y + 0.05f) }
+    } else {
+        candidate.albumTone(Color.Black, candidate) { y + 0.05f >= ALBUM_TEXT_CONTRAST * (it.luminance() + 0.05f) }
+    }
+    fun groundInk(lightness: Float) = ground.withHsl(saturation = { it * 0.55f }, lightness = { lightness })
+    val primary = if (lightInk) Color.White else ink(groundInk(0.10f))
+    val actionInk = ground.withHsl(lightness = { 0.27f })
+    return ArtworkPalette(
+        background = ground,
+        wash = ground,
+        // Move solid control fills away from the ink so they don't spend its
+        // contrast margin. Keep this close to the underlying page tint.
+        elevated = ground.withHsl(lightness = { if (lightInk) it - 0.03f else it + 0.04f }),
+        accent = ink(artworkAccent.withHsl(lightness = { if (lightInk) 0.85f else 0.25f })),
+        onBackground = primary,
+        onBackgroundVariant = ink(groundInk(if (lightInk) 0.86f else 0.29f)),
+        divider = primary.copy(alpha = 0.13f),
+        onWhiteAction = actionInk.albumTone(Color.Black, actionInk) {
+            1.05f >= ALBUM_TEXT_CONTRAST * (it.luminance() + 0.05f)
+        },
+    )
+}
+
+// Leave a small margin over 4.5:1 for quantization at the render boundary.
+private const val ALBUM_TEXT_CONTRAST = 4.55f
+private const val ALBUM_WHITE_INK_CEILING = 1.05f / ALBUM_TEXT_CONTRAST - 0.05f
+
+/** Fit an sRGB tone without rotating its hue; keep a known passing endpoint. */
+private fun Color.albumTone(
+    passing: Color,
+    limit: Color,
+    preserveChroma: Boolean = false,
+    accepts: (Color) -> Boolean,
+): Color {
+    if (accepts(limit)) return limit
+    var best = passing
+    var passes = if (passing == Color.White) 1f else 0f
+    val hsl = FloatArray(3).also { ColorUtils.colorToHSL(toArgb(), it) }
+    val chroma = hsl[1] * (1f - abs(2f * hsl[2] - 1f))
+    var fails = if (limit == Color.White) 1f else hsl[2]
+    repeat(10) {
+        val lightness = (passes + fails) / 2f
+        hsl[2] = lightness
+        if (preserveChroma) {
+            // Holding HSL saturation fixed can increase chroma as a pale tone
+            // approaches the middle of the gamut. Keep only the color we sampled.
+            hsl[1] = (chroma / (1f - abs(2f * lightness - 1f))).coerceAtMost(1f)
+        }
+        val candidate = Color(ColorUtils.HSLToColor(hsl))
+        if (accepts(candidate)) {
+            best = candidate
+            passes = lightness
+        } else {
+            fails = lightness
+        }
+    }
+    return best
+}
 
 private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
     ArtworkPalette(

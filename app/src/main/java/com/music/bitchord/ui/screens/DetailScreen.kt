@@ -14,6 +14,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.rememberOverscrollEffect
 import com.music.bitchord.ui.components.liquidGlassRim
 import com.music.bitchord.ui.components.continuous
 import com.music.bitchord.ui.components.FadingText
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,6 +58,7 @@ import androidx.compose.material.icons.rounded.Check
 import com.music.bitchord.data.model.LibraryState
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
@@ -70,13 +73,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.draw.alpha
@@ -85,6 +92,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.geometry.Offset
@@ -97,11 +105,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -182,9 +195,15 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
+import com.music.bitchord.ui.player.AlbumArtworkFade
+import com.music.bitchord.ui.player.AndroidCanvasArtworkPlayer
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.utils.DetailArtworkOverscroll
+import com.music.bitchord.ui.utils.nonScrollingArtworkConnection
+import com.music.bitchord.ui.utils.rememberBottomOnlyDetailOverscroll
+import com.music.bitchord.ui.utils.rememberDetailArtworkOverscroll
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -211,12 +230,16 @@ private val SLEEVE_SHADOW = 18.dp
  * pushed off the bottom of the screen.
  */
 private const val FULL_BLEED_MAX_HEIGHT = 0.62f
+private const val ALBUM_HERO_VIEWPORT_FRACTION = 0.48f
+private const val ALBUM_HERO_TITLE_FRACTION = 0.88f
+private const val ALBUM_BACKDROP_ASPECT = 3f / 4f
 
 /** How much of a full-bleed sleeve's foot dissolves into the page — the player's banner's share. */
 private const val FULL_BLEED_FADE_FRACTION = 0.42f
 
 /** How far the title rides up into that dissolve, where the sleeve has all but gone. */
 private val FULL_BLEED_TITLE_OVERLAP = 44.dp
+private val RELEASE_TITLE_GAP = 20.dp
 
 /** Shuffle and Add to Library either side of the release page's Play pill. */
 private val RELEASE_SIDE_BUTTON = 50.dp
@@ -315,6 +338,7 @@ fun DetailScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    albumPlayIsPause: Boolean = false,
     activeShelf: HomeShelf? = null,
     onActiveShelfChange: (HomeShelf?) -> Unit = {},
     /**
@@ -439,6 +463,7 @@ fun DetailScreen(
     val palette = rememberArtworkPalette(
         imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
         keyColors = appleArt?.keyColors(),
+        immersiveAlbum = page.type == BrowseType.ALBUM,
     )
 
     // Narrowing the running order in place — the release equivalent of the
@@ -518,6 +543,10 @@ fun DetailScreen(
         if (isArtist) canvas = artistVideo?.takeIf { canvasEnabled }?.let { CanvasArtwork(url = it) }
     }
     val visibleCanvas = canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
+    val album = page.type == BrowseType.ALBUM
+    val playlist = page.type == BrowseType.PLAYLIST && folder == null
+    val artworkDetail = album || playlist
+    var heroPosterFailed by remember(page.browseId, page.thumbnailUrl) { mutableStateOf(false) }
 
     // Opening the search carries the page up to it, so the field lands just
     // clear of the frosted bar with the tracks under it rather than at the foot
@@ -560,31 +589,117 @@ fun DetailScreen(
                 val artHeight = (maxWidth / ARTIST_PHOTO_RATIO).coerceAtMost(maxHeight * 0.6f)
                 val sleeveSize = (maxWidth * SLEEVE_FRACTION).coerceAtMost(maxHeight * SLEEVE_MAX_HEIGHT)
                 val fullBleedSleeve = fullBleedArtwork && maxWidth <= maxHeight * FULL_BLEED_MAX_HEIGHT
+                val liftedArtwork = artworkDetail && fullBleedSleeve && reorder == null &&
+                    page.thumbnailUrl != null && !heroPosterFailed
+                val artistPoster = if (isArtist) appleArt?.heroUrl ?: page.thumbnailUrl.artworkAt(HEADER_ART_PX) else null
+                var artistPosterReady by remember(page.browseId, artistPoster) { mutableStateOf(false) }
+                var artistVideoReady by remember(page.browseId, visibleCanvas?.url) { mutableStateOf(false) }
+                // Eligibility follows the rendered banner, not the source aspect ratio
+                // or the album/playlist fullscreen preference.
+                val elasticArtist = isArtist && reorder == null && artHeight > 0.dp &&
+                    (artistPosterReady || artistVideoReady)
+                val artworkOverscroll = if (liftedArtwork || elasticArtist) {
+                    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+                    val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
+                    val maxPullPx = with(LocalDensity.current) { minOf(88.dp, maxWidth * 0.22f).toPx() }
+                    if (!reduceAnimation && systemMotion?.scaleFactor != 0f && maxPullPx > 0f) {
+                        rememberDetailArtworkOverscroll(maxPullPx)
+                    } else null
+                } else null
+                val shortArtistScroll = if (isArtist && artworkOverscroll != null) {
+                    remember(listState, artworkOverscroll) {
+                        artworkOverscroll.nonScrollingArtworkConnection {
+                            listState.canScrollForward || listState.canScrollBackward
+                        }
+                    }
+                } else null
+                // Keep the viewport stable across the poster and both video renditions.
+                val releaseHeroHeight = if (album) {
+                    minOf(maxWidth, maxHeight * ALBUM_HERO_VIEWPORT_FRACTION)
+                } else maxWidth
+                val releaseTitleSpace = if (album) {
+                    releaseHeroHeight * ALBUM_HERO_TITLE_FRACTION
+                } else (releaseHeroHeight - FULL_BLEED_TITLE_OVERLAP).coerceAtLeast(0.dp)
+                val albumHeader = if (album && liftedArtwork) {
+                    remember(page.browseId, maxWidth, LocalDensity.current) { AlbumHeaderMeasurements() }
+                } else null
                 // A folder's grid view: the same column count the Library's
                 // "Show all" grids reach at this width.
                 val gridColumns = libraryGrid(maxWidth - PAGE_GUTTER * 2).columns
 
-                // The artist photo is drawn behind the list rather than in it, so
-                // both need to agree on its height without being able to ask each
-                // other — see [artHeight]. A release has no such layer: its sleeve
-                // is an ordinary item at the top of the list.
+                // Artist and lifted release artwork are drawn behind the list.
+                // Each backdrop follows the measured position of item zero.
                 if (isArtist) {
                     PageBackground(
-                        page = page,
+                        art = artistPoster,
                         palette = palette,
                         canvas = visibleCanvas,
                         artHeight = artHeight,
                         listState = listState,
-                        heroUrl = appleArt?.heroUrl,
+                        artworkOverscroll = artworkOverscroll,
+                        onPosterReady = { artistPosterReady = it },
+                        onVideoReady = { artistVideoReady = it },
                         modifier = Modifier.matchParentSize(),
                     )
+                }
+
+                if (liftedArtwork) {
+                    // Drawing is independent of the spacer in the list. At full
+                    // width a 3:4 source needs 4/3 of that width in vertical room.
+                    val artworkHeight = if (album) minOf(maxHeight, maxWidth / ALBUM_BACKDROP_ASPECT) else releaseHeroHeight
+                    val artworkHeightPx = with(LocalDensity.current) { artworkHeight.toPx() }
+                    // Keep the decoder attached when the lazy header leaves the viewport.
+                    val heroHeightPx = with(LocalDensity.current) { releaseHeroHeight.toPx() }
+                    val albumFade = if (albumHeader != null) {
+                        val titleStartPx = with(LocalDensity.current) {
+                            (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
+                        }
+                        AlbumArtworkFade(
+                            titleStartPx = titleStartPx,
+                            headerHeightPx = albumHeader.height.takeIf { it > 0 }?.toFloat() ?: heroHeightPx,
+                        )
+                    } else null
+                    val drawableHeight = minOf(artworkHeightPx, albumFade?.headerHeightPx ?: artworkHeightPx)
+                    val offscreen by remember(listState, artworkHeightPx, drawableHeight) {
+                        derivedStateOf { listState.headerTop(artworkHeightPx) <= -drawableHeight }
+                    }
+                    val backdropCanvas = remember(visibleCanvas, album) {
+                        visibleCanvas?.let { clip ->
+                            val portrait = clip.portraitUrl
+                            if (album && portrait != null && portrait != clip.url) {
+                                clip.copy(url = portrait, fallbackUrl = clip.url)
+                            } else clip
+                        }
+                    }
+                    Box(Modifier.matchParentSize().clipToBounds()) {
+                        FullBleedReleaseArtwork(
+                            poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                            palette = palette,
+                            canvas = backdropCanvas,
+                            albumFade = albumFade,
+                            pauseVideo = offscreen,
+                            onPosterState = {
+                                if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
+                            },
+                            modifier = Modifier.fillMaxWidth().height(artworkHeight)
+                                .offset { IntOffset(0, listState.headerTop(artworkHeightPx).roundToInt()) }
+                                .stretchDetailArtwork(artworkOverscroll, drawableHeight),
+                        )
+                    }
                 }
 
                 if (reorder != null) {
                     reorder(palette)
                 } else LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().then(
+                        if (shortArtistScroll != null) Modifier.nestedScroll(shortArtistScroll) else Modifier,
+                    ),
+                    overscrollEffect = when {
+                        liftedArtwork || elasticArtist -> artworkOverscroll
+                        artworkDetail || isArtist -> rememberBottomOnlyDetailOverscroll()
+                        else -> rememberOverscrollEffect()
+                    },
                     // The artist photo runs edge-to-edge up under the glass bar;
                     // a release header clears the bar itself, see [ReleaseHeader].
                     contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
@@ -597,10 +712,13 @@ fun DetailScreen(
                         page = page,
                         palette = palette,
                         sleeveSize = sleeveSize,
-                        fullBleed = fullBleedSleeve,
+                        fullBleed = fullBleedSleeve && !artworkDetail,
+                        liftedArtworkSpace = releaseTitleSpace.takeIf { liftedArtwork },
+                        artworkMeasurements = albumHeader,
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },
+                        playIsPause = albumPlayIsPause,
                         onShuffle = { onShuffle(songs) },
                         // A folder's credit says where its tracks live, not who made them.
                         onArtistClick = onArtistClick.takeIf { folder == null },
@@ -798,6 +916,9 @@ fun DetailScreen(
                             // what the filter — or a sort — left standing.
                             trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
                             subtitleColor = palette.onBackgroundVariant,
+                            titleTint = palette.onBackground.takeIf { numbered },
+                            showSubtitle = !numbered,
+                            compactTrailing = artworkDetail,
                             downloadedTint = downloadedTint,
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,
@@ -907,6 +1028,29 @@ fun DetailScreen(
 }
 }
 
+private class AlbumHeaderMeasurements {
+    var height by mutableIntStateOf(0)
+}
+
+@Composable
+private fun ReleaseHeaderText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    maxLines: Int,
+    modifier: Modifier,
+) {
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        textAlign = TextAlign.Center,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
+}
+
 /**
  * An album or playlist, laid out as Apple Music does: the sleeve framed in the
  * middle of the page, the title, credit and meta under it, then Shuffle, a
@@ -928,9 +1072,12 @@ private fun ReleaseHeader(
      * one. Everything under it is unchanged.
      */
     fullBleed: Boolean,
+    liftedArtworkSpace: Dp?,
+    artworkMeasurements: AlbumHeaderMeasurements?,
     canvas: CanvasArtwork?,
     songs: List<Song>,
     onPlay: () -> Unit,
+    playIsPause: Boolean,
     onShuffle: () -> Unit,
     onArtistClick: ((String, String) -> Unit)?,
     onToggleLibrary: (() -> Unit)?,
@@ -943,6 +1090,8 @@ private fun ReleaseHeader(
     // own long-press "Open artist" already reads from.
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
+    val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM }
+
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
     val bleed = fullBleed && page.thumbnailUrl != null && !artFailed
@@ -950,13 +1099,23 @@ private fun ReleaseHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (artworkMeasurements != null) Modifier.onSizeChanged { artworkMeasurements.height = it.height }
+                else Modifier,
+            )
             // Clear of the floating bar, which only a full-bleed sleeve runs under.
-            .padding(top = if (bleed) 0.dp else topBarContentPadding(), bottom = 18.dp),
+            .padding(top = if (bleed || liftedArtworkSpace != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (bleed) {
-            Box(
-                Modifier
+        if (liftedArtworkSpace != null) {
+            Spacer(Modifier.height(liftedArtworkSpace))
+        } else if (bleed) {
+            FullBleedReleaseArtwork(
+                poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
+                palette = palette,
+                canvas = canvas,
+                onPosterState = { artFailed = it is AsyncImagePainter.State.Error },
+                modifier = Modifier
                     .fillMaxWidth()
                     // Laid out shorter than it draws, so the title rides up into
                     // the dissolve rather than starting under a band of page
@@ -967,53 +1126,7 @@ private fun ReleaseHeader(
                         layout(placeable.width, height) { placeable.place(0, 0) }
                     }
                     .aspectRatio(1f),
-            ) {
-                var canvasCover by remember(canvas) { mutableStateOf(0f) }
-                AsyncImage(
-                    model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    onState = { artFailed = it is AsyncImagePainter.State.Error },
-                    modifier = Modifier
-                        .matchParentSize()
-                        // The mask below erases part of what this layer drew,
-                        // which it can only do in a buffer of its own.
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                            // Hand off to the clip so its dissolve reveals the
-                            // page colour, not the still sleeve underneath.
-                            alpha = 1f - canvasCover
-                        }
-                        .drawWithContent {
-                            drawContent()
-                            // The player banner's dissolve, along smootherstep so
-                            // neither end of it shows as a line.
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
-                                        val t = i / FADE_CURVE_STOPS.toFloat()
-                                        t to Color.Black.copy(alpha = 1f - smootherStep(t))
-                                    },
-                                    startY = size.height * (1f - FULL_BLEED_FADE_FRACTION),
-                                    endY = size.height,
-                                ),
-                                blendMode = BlendMode.DstIn,
-                            )
-                        }
-                        .background(palette.elevated),
-                )
-                // Beside the still rather than inside its layer: a clip's
-                // TextureView takes no Compose mask, so it dissolves itself.
-                canvas?.let { clip ->
-                    CanvasArtworkPlayer(
-                        canvas = clip,
-                        isPlaying = true,
-                        bottomFade = FULL_BLEED_FADE_FRACTION,
-                        onCoverChanged = { canvasCover = it },
-                        modifier = Modifier.matchParentSize(),
-                    )
-                }
-            }
+            )
         } else Box(
             Modifier
                 .size(sleeveSize)
@@ -1053,28 +1166,24 @@ private fun ReleaseHeader(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
-        Text(
+        Spacer(Modifier.height(RELEASE_TITLE_GAP))
+        ReleaseHeaderText(
             text = page.title,
             style = MaterialTheme.typography.headlineMedium,
             color = palette.onBackground,
-            textAlign = TextAlign.Center,
             maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = HEADER_GUTTER),
         )
         if (credit.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text(
+            ReleaseHeaderText(
                 text = credit,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Normal,
                     fontSize = 19.sp,
                 ),
                 color = palette.onBackgroundVariant,
-                textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .padding(horizontal = HEADER_GUTTER)
                     .let { m ->
@@ -1090,13 +1199,11 @@ private fun ReleaseHeader(
         }
         if (meta.isNotBlank()) {
             Spacer(Modifier.height(4.dp))
-            Text(
+            ReleaseHeaderText(
                 text = meta,
                 style = MaterialTheme.typography.labelMedium,
                 color = palette.onBackgroundVariant,
-                textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = HEADER_GUTTER),
             )
         }
@@ -1105,26 +1212,33 @@ private fun ReleaseHeader(
             // Only where YouTube said the release can be saved and the caller
             // is willing to take the write — see [onToggleLibrary].
             val library = page.library?.takeIf { onToggleLibrary != null }
+            val compact = page.type == BrowseType.ALBUM
+            val sideButton = if (compact) 48.dp else RELEASE_SIDE_BUTTON
+            val localRelease = page.browseId.startsWith("local:")
+            val playIcon = if (playIsPause) Icons.Rounded.Pause else BitChordIcons.Play
+            val playLabel = stringResource(if (playIsPause) R.string.pause else R.string.play)
             Spacer(Modifier.height(18.dp))
             Row(
                 modifier = Modifier
                     .widthIn(max = RELEASE_ACTIONS_MAX_WIDTH)
-                    .fillMaxWidth()
+                    .fillMaxWidth(if (compact && !localRelease) 0.93f else 1f)
                     .padding(horizontal = HEADER_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(RELEASE_ACTION_GAP),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 12.dp else RELEASE_ACTION_GAP),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (page.browseId.startsWith("local:")) {
+                if (localRelease) {
                     // Already on this device — a folder, a download, a local
                     // playlist — so there is no library to add it to, and a
                     // greyed-out plus would only promise one. Apple Music's
                     // own pair for that case: Play and Shuffle, side by side.
                     ActionPill(
-                        icon = BitChordIcons.Play,
-                        label = stringResource(R.string.play),
+                        icon = playIcon,
+                        label = playLabel,
                         onClick = onPlay,
                         filled = true,
-                        size = RELEASE_SIDE_BUTTON,
+                        artworkPalette = albumPalette,
+                        size = sideButton,
+                        compact = compact,
                         modifier = Modifier.weight(1f),
                     )
                     ActionPill(
@@ -1132,7 +1246,9 @@ private fun ReleaseHeader(
                         label = stringResource(R.string.shuffle),
                         onClick = onShuffle,
                         filled = false,
-                        size = RELEASE_SIDE_BUTTON,
+                        artworkPalette = albumPalette,
+                        size = sideButton,
+                        compact = compact,
                         modifier = Modifier.weight(1f),
                     )
                     // The song cache's copies, saved to Downloads in one go —
@@ -1152,15 +1268,18 @@ private fun ReleaseHeader(
                     contentDescription = stringResource(R.string.shuffle),
                     onClick = onShuffle,
                     haptic = Haptic.Resume,
-                    size = RELEASE_SIDE_BUTTON,
+                    size = sideButton,
+                    artworkPalette = albumPalette,
                 )
                 ActionPill(
-                    icon = BitChordIcons.Play,
-                    label = stringResource(R.string.play),
+                    icon = playIcon,
+                    label = playLabel,
                     onClick = onPlay,
                     filled = true,
-                    size = RELEASE_SIDE_BUTTON,
+                    size = sideButton,
+                    compact = compact,
                     modifier = Modifier.weight(1f),
+                    artworkPalette = albumPalette,
                 )
                 if (library != null) {
                     CircleIconButton(
@@ -1174,7 +1293,8 @@ private fun ReleaseHeader(
                         },
                         onClick = { onToggleLibrary?.invoke() },
                         haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
+                        artworkPalette = albumPalette,
                     )
                 } else {
                     // Shown but greyed out for a guest, rather than leaving a
@@ -1183,10 +1303,81 @@ private fun ReleaseHeader(
                         icon = BitChordIcons.Plus,
                         contentDescription = stringResource(R.string.add_to_library),
                         onClick = {},
-                        size = RELEASE_SIDE_BUTTON,
+                        size = sideButton,
                         enabled = false,
+                        artworkPalette = albumPalette,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullBleedReleaseArtwork(
+    poster: String?,
+    palette: ArtworkPalette,
+    canvas: CanvasArtwork?,
+    onPosterState: (AsyncImagePainter.State) -> Unit,
+    modifier: Modifier,
+    pauseVideo: Boolean = false,
+    albumFade: AlbumArtworkFade? = null,
+) {
+    Box(modifier) {
+        var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
+        var posterAspect by remember(poster) { mutableStateOf(1f) }
+        AsyncImage(
+            model = poster,
+            contentDescription = null,
+            contentScale = if (albumFade != null) ContentScale.FillWidth else ContentScale.Crop,
+            alignment = if (albumFade != null) Alignment.TopCenter else Alignment.Center,
+            onState = { state ->
+                if (albumFade != null && state is AsyncImagePainter.State.Success) {
+                    val image = state.result.image
+                    if (image.width > 0 && image.height > 0) posterAspect = image.width.toFloat() / image.height
+                }
+                onPosterState(state)
+            },
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                    // Once the video owns the hero, its bottom fade reveals only the page.
+                    alpha = 1f - canvasCover
+                }
+                .drawWithCache {
+                    val mask = if (albumFade != null) {
+                        albumFade.shader(size.height, size.width / posterAspect)?.let { ShaderBrush(it) }
+                    } else {
+                        Brush.verticalGradient(
+                            colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+                                val t = i / FADE_CURVE_STOPS.toFloat()
+                                t to Color.Black.copy(alpha = 1f - smootherStep(t))
+                            },
+                            startY = size.height * (1f - FULL_BLEED_FADE_FRACTION),
+                            endY = size.height,
+                        )
+                    }
+                    onDrawWithContent {
+                        drawContent()
+                        if (mask != null) drawRect(brush = mask, blendMode = BlendMode.DstIn)
+                    }
+                }
+                .then(if (albumFade == null) Modifier.background(palette.elevated) else Modifier),
+        )
+        // The TextureView owns its own matching feather on Android.
+        canvas?.let { clip ->
+            key(clip.url, clip.fallbackUrl) {
+                AndroidCanvasArtworkPlayer(
+                    canvas = clip,
+                    isPlaying = true,
+                    frameCapturePx = 0,
+                    pausedForTransition = pauseVideo,
+                    bottomFade = if (albumFade == null) FULL_BLEED_FADE_FRACTION else 0f,
+                    albumFade = albumFade,
+                    onCoverChanged = { canvasCover = it },
+                    modifier = Modifier.matchParentSize(),
+                )
             }
         }
     }
@@ -1223,6 +1414,9 @@ private fun DetailSearchField(
             onFocused()
         }
     }
+    val album = type == BrowseType.ALBUM
+    val fill = if (album) palette.elevated else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+    val rim = if (album) palette.divider else Color.White.copy(alpha = 0.10f)
 
     Row(
         modifier = Modifier
@@ -1231,8 +1425,8 @@ private fun DetailSearchField(
             .padding(bottom = 10.dp)
             .height(46.dp)
             .clip(PILL_SHAPE)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
+            .background(fill)
+            .border(0.5.dp, rim, PILL_SHAPE)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1491,12 +1685,14 @@ private fun ArtistHeader(
  */
 @Composable
 private fun PageBackground(
-    page: DetailPage,
+    art: String?,
     palette: ArtworkPalette,
     canvas: CanvasArtwork?,
     artHeight: Dp,
     listState: LazyListState,
-    heroUrl: String? = null,
+    artworkOverscroll: DetailArtworkOverscroll?,
+    onPosterReady: (Boolean) -> Unit,
+    onVideoReady: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -1504,14 +1700,31 @@ private fun PageBackground(
     // freeze the bottom of the video into the wrong picture.
     val softenFoot = canvas == null && !reduceDynamicBlur &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val art = heroUrl ?: page.thumbnailUrl.artworkAt(HEADER_ART_PX)
+    val artHeightPx = with(LocalDensity.current) { artHeight.roundToPx().toFloat() }
+    // Leave the scrim on the artwork layer for Canvas and for pages that cannot stretch.
+    val staticArtworkOverscroll = if (canvas == null) artworkOverscroll else null
+    val viewportScrim = if (staticArtworkOverscroll != null) {
+        Modifier.drawWithContent {
+            drawContent()
+            val top = listState.headerTop(artHeight.toPx()).roundToInt().toFloat()
+            val pull = staticArtworkOverscroll.artworkExpansionPx
+            val scale = 1f + pull / artHeightPx.coerceAtLeast(1f)
+            val bottom = top + artHeightPx * scale
+            if (artHeightPx > 0f && bottom > 0f) {
+                // Same ramp in viewport coordinates. Its opaque end clamps to
+                // page wash instead of ending at a moving rectangle edge.
+                drawRect(artistBackdropScrim(palette.wash, startY = top, endY = bottom))
+            }
+        }
+    } else Modifier
 
-    Box(modifier.clipToBounds()) {
+    Box(modifier.clipToBounds().then(viewportScrim)) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(artHeight)
-                .offset { IntOffset(0, listState.headerTop(artHeight.toPx()).roundToInt()) },
+                .offset { IntOffset(0, listState.headerTop(artHeight.toPx()).roundToInt()) }
+                .stretchDetailArtwork(artworkOverscroll, artHeightPx),
         ) {
             AsyncImage(
                 model = art,
@@ -1520,6 +1733,7 @@ private fun PageBackground(
                 modifier = Modifier
                     .matchParentSize()
                     .background(palette.elevated),
+                onState = { onPosterReady(it is AsyncImagePainter.State.Success) },
             )
 
             // Above the still art but below the scrim, so the scrim that
@@ -1530,6 +1744,7 @@ private fun PageBackground(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = true,
+                    onRenderedChanged = onVideoReady,
                     modifier = Modifier.matchParentSize(),
                 )
             }
@@ -1562,22 +1777,26 @@ private fun PageBackground(
             // left where the artwork stops. Eased rather than run straight: a
             // gradient that changes slope at a stop shows a line at that stop,
             // however close the colours either side of it are.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.45f to Color.Transparent,
-                            0.65f to palette.wash.copy(alpha = 0.30f),
-                            0.82f to palette.wash.copy(alpha = 0.72f),
-                            0.94f to palette.wash.copy(alpha = 0.95f),
-                            1.00f to palette.wash,
-                        ),
-                    ),
-            )
+            if (staticArtworkOverscroll == null) {
+                Box(Modifier.matchParentSize().background(artistBackdropScrim(palette.wash)))
+            }
         }
     }
 }
+
+private fun artistBackdropScrim(
+    wash: Color,
+    startY: Float = 0f,
+    endY: Float = Float.POSITIVE_INFINITY,
+): Brush = Brush.verticalGradient(
+    0.45f to Color.Transparent,
+    0.65f to wash.copy(alpha = 0.30f),
+    0.82f to wash.copy(alpha = 0.72f),
+    0.94f to wash.copy(alpha = 0.95f),
+    1.00f to wash,
+    startY = startY,
+    endY = endY,
+)
 
 /**
  * Where the top of the artwork currently is.
@@ -1590,6 +1809,16 @@ private fun PageBackground(
  */
 private fun LazyListState.headerTop(artHeightPx: Float): Float =
     if (firstVisibleItemIndex == 0) -firstVisibleItemScrollOffset.toFloat() else -artHeightPx * 2f
+
+private fun Modifier.stretchDetailArtwork(effect: DetailArtworkOverscroll?, heightPx: Float): Modifier =
+    graphicsLayer {
+        // Match the list's displacement at the foot without uncovering the top.
+        val pull = effect?.artworkExpansionPx ?: 0f
+        val scale = 1f + pull / heightPx.coerceAtLeast(1f)
+        transformOrigin = TransformOrigin(0.5f, 0f)
+        scaleX = scale
+        scaleY = scale
+    }
 
 /** Where the blurred copy starts to show and where it has fully taken over. */
 private val SOFT_FOOT_MASK = Brush.verticalGradient(
@@ -1669,7 +1898,7 @@ private fun ActionRow(
 
 /**
  * A labelled pill in the release page's action row. [filled] is Play: white
- * with black content, so the primary action survives every palette, filling
+ * with dark content, so the primary action survives every palette, filling
  * whatever width the row leaves it. Otherwise it wears the light veil and glass
  * rim of the circles beside it — Shuffle, on a page with no Add to sit opposite.
  */
@@ -1681,30 +1910,36 @@ private fun ActionPill(
     filled: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 50.dp,
+    artworkPalette: ArtworkPalette? = null,
+    compact: Boolean = false,
 ) {
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val content = if (filled) {
+        artworkPalette?.onWhiteAction ?: Color.Black
+    } else {
+        artworkPalette?.onBackground ?: MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = modifier
-            .height(size)
+            .then(if (compact) Modifier.heightIn(min = size) else Modifier.height(size))
             .clip(CircleShape)
             .then(
                 if (filled) {
                     Modifier.background(Color.White)
                 } else {
                     Modifier
-                        .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+                        .background(artworkPalette?.elevated ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
                         .liquidGlassRim(CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                        .border(1.dp, artworkPalette?.divider ?: Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
                 },
             )
             .clickable {
                 haptics.play(Haptic.Resume)
                 onClick()
             }
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = if (compact) 10.dp else 24.dp, vertical = if (compact) 4.dp else 0.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1720,6 +1955,7 @@ private fun ActionPill(
             style = MaterialTheme.typography.titleMedium,
             color = content,
             maxLines = 1,
+            overflow = if (compact) TextOverflow.Ellipsis else TextOverflow.Clip,
         )
     }
 }
@@ -1794,6 +2030,7 @@ private fun CircleIconButton(
      * Dimmed rather than dropped, so the row keeps its shape.
      */
     enabled: Boolean = true,
+    artworkPalette: ArtworkPalette? = null,
 ) {
     val haptics = rememberHaptics()
     Box(
@@ -1801,11 +2038,11 @@ private fun CircleIconButton(
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+            .background(artworkPalette?.elevated ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
             // The glass rim the floating bars wear, with Liquid Glass on. Rim
             // only: over the page's flat tint a blurred fill would look the same.
             .liquidGlassRim(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+            .border(1.dp, artworkPalette?.divider ?: Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
             .clickable(enabled = enabled) {
                 haptics.play(haptic)
                 onClick()
@@ -1815,7 +2052,7 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = artworkPalette?.onBackground ?: MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(size * 0.44f),
         )
     }

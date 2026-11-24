@@ -204,6 +204,12 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">ממזג רצועה אחת לתוך הבאה</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_art_transition">מעבר עטיפה</string>
+    <string name="automix_art_transition_subtitle">ממזג בעדינות את העטיפה בין שירים במהלך AutoMix.</string>
+    <string name="automix_mini_art_transition">מעבר עטיפה במיני-נגן</string>
+    <string name="automix_mini_art_transition_subtitle">מציג מעברי עטיפה במיני-נגן במהלך AutoMix.</string>
+    <string name="show_best_part">כפתור הקטע הטוב</string>
+    <string name="show_best_part_subtitle">כפתור על העטיפה שקופץ לקטע שהכי חוזרים עליו בשיר</string>
     <string name="automix_overview">סקירה כללית של Automix</string>
     <string name="skip_silence">דילוג על שקט</string>
     <string name="skip_silence_subtitle">קיצוץ הפסקות ארוכות משנייה</string>
@@ -1569,4 +1575,65 @@
     <string name="drive_backup_row_subtitle">גיבוי וסנכרון של Replay בין המכשירים שלך</string>
     <string name="drive_over_cellular">סנכרון בחבילת גלישה</string>
     <string name="drive_over_cellular_subtitle">כשכבוי, סנכרונים אוטומטיים ממתינים ל-Wi-Fi</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">פתח את ה-Replay שלך לשנת %1$s</string>
+    <string name="replay_year_building">בונה את השנה שלך…</string>
+    <string name="replay_year_opener_start">שנת</string>
+    <string name="replay_year_opener_end">שלך ב-BitChord</string>
+    <string name="replay_year_opener_detail">נחזור למה שהקשבת.</string>
+    <string name="replay_year_minutes_start">השנה הקשבת</string>
+    <string name="replay_year_minutes_days_start">זה</string>
+    <string name="replay_year_minutes_days_value">%1$s ימים</string>
+    <string name="replay_year_minutes_hours_value">%1$s שעות</string>
+    <string name="replay_year_minutes_days_end">של מוזיקה.</string>
+    <string name="replay_year_busiest_start">היום הגדול שלך היה</string>
+    <string name="replay_year_busiest_minutes">%1$s דקות של מוזיקה ביום אחד</string>
+    <string name="replay_year_busiest_song">בעיקר %1$s</string>
+    <string name="replay_year_clock_start">פרחו לך החיים בסביבות</string>
+    <string name="replay_year_night_owl">ינשוף לילה</string>
+    <string name="replay_year_night_owl_detail">רוב ההאזנה שלך הייתה אחרי 22:00.</string>
+    <string name="replay_year_early_bird">ציפור מוקדמת</string>
+    <string name="replay_year_early_bird_detail">הימים שלך התחילו עם מוזיקה לפני 10:00.</string>
+    <string name="replay_year_golden_hour">שעת הזהב</string>
+    <string name="replay_year_golden_hour_detail">בערבים המוזיקה יצאה לאור.</string>
+    <string name="replay_year_daytime">תועה ביום</string>
+    <string name="replay_year_daytime_detail">המשכת את המוזיקה לאורך כל היום.</string>
+    <string name="replay_year_all_day">מסביב לשעון</string>
+    <string name="replay_year_all_day_detail">בוקר, צהריים או לילה — משהו תמיד התנגן.</string>
+    <string name="replay_year_genres_start">הסאונד שלך השנה</string>
+    <string name="replay_year_artist_start">האמן המוביל שלך השנה היה…</string>
+    <string name="replay_year_minutes_together">%1$s דקות יחד</string>
+    <string name="replay_year_top_artists">האמנים המובילים שלך</string>
+    <string name="replay_year_song_start">והשיר של השנה…</string>
+    <string name="replay_year_top_songs">שאר השירים המובילים שלך</string>
+    <string name="replay_year_albums">אלבומים שחיית בהם</string>
+    <string name="replay_year_months">השנה שלך, חודש אחר חודש</string>
+    <string name="replay_year_discovery_start">השנה חקרת</string>
+    <string name="replay_year_summary_title">%1$s שלך</string>
+    <string name="replay_year_summary_artists">אמנים מובילים</string>
+    <string name="replay_year_summary_songs">שירים מובילים</string>
+    <string name="replay_year_summary_minutes">דקות האזנה</string>
+    <string name="replay_year_mute">השתק את הסיפור</string>
+    <string name="replay_year_unmute">בטל השתקה של הסיפור</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">דקה</item>
+        <item quantity="other">דקות</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">הושמע %1$s פעם</item>
+        <item quantity="other">הושמע %1$s פעמים</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">שיר</item>
+        <item quantity="other">שירים</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">אמן</item>
+        <item quantity="other">אמנים</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">אלבום</item>
+        <item quantity="other">אלבומים</item>
+    </plurals>
 </resources>

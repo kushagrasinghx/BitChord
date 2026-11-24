@@ -198,6 +198,12 @@
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
     <string name="automix">Automix [測試版]</string>
+    <string name="automix_art_transition">封面轉場</string>
+    <string name="automix_art_transition_subtitle">在 AutoMix 期間讓封面在歌曲之間平順轉場。</string>
+    <string name="automix_mini_art_transition">迷你播放器封面轉場</string>
+    <string name="automix_mini_art_transition_subtitle">在 AutoMix 期間於迷你播放器中顯示封面轉場。</string>
+    <string name="show_best_part">最佳片段按鈕</string>
+    <string name="show_best_part_subtitle">封面上的按鈕，可跳至歌曲中最常被重播的片段</string>
     <string name="automix_overview">Automix 概覽</string>
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
@@ -1540,4 +1546,60 @@
     <string name="drive_backup_row_subtitle">在你的所有裝置間備份並同步 Replay</string>
     <string name="drive_over_cellular">使用行動數據同步</string>
     <string name="drive_over_cellular_subtitle">關閉時，自動同步會等待 Wi-Fi</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">開啟你的 %1$s 年度回顧</string>
+    <string name="replay_year_building">正在建立你的年度…</string>
+    <string name="replay_year_opener_start">你的</string>
+    <string name="replay_year_opener_end">BitChord 年度</string>
+    <string name="replay_year_opener_detail">一起回顧你聽過什麼。</string>
+    <string name="replay_year_minutes_start">這一年你聽了</string>
+    <string name="replay_year_minutes_days_start">相當於</string>
+    <string name="replay_year_minutes_days_value">%1$s 天</string>
+    <string name="replay_year_minutes_hours_value">%1$s 小時</string>
+    <string name="replay_year_minutes_days_end">的音樂。</string>
+    <string name="replay_year_busiest_start">你最投入的一天是</string>
+    <string name="replay_year_busiest_minutes">一天聽了 %1$s 分鐘音樂</string>
+    <string name="replay_year_busiest_song">主要是 %1$s</string>
+    <string name="replay_year_clock_start">你最有活力的時段是</string>
+    <string name="replay_year_night_owl">夜貓子</string>
+    <string name="replay_year_night_owl_detail">你的大部分收聽發生在晚上 10 點之後。</string>
+    <string name="replay_year_early_bird">早起鳥</string>
+    <string name="replay_year_early_bird_detail">你的一天從早上 10 點前的音樂開始。</string>
+    <string name="replay_year_golden_hour">黃金時段</string>
+    <string name="replay_year_golden_hour_detail">傍晚是音樂出現的時刻。</string>
+    <string name="replay_year_daytime">白日漫遊者</string>
+    <string name="replay_year_daytime_detail">你讓音樂陪伴了一整天。</string>
+    <string name="replay_year_all_day">全天候</string>
+    <string name="replay_year_all_day_detail">無論早晨、中午還是深夜，總有什麼在播放。</string>
+    <string name="replay_year_genres_start">你這一年的聲音</string>
+    <string name="replay_year_artist_start">你今年最常聽的藝人是…</string>
+    <string name="replay_year_minutes_together">一起聽了 %1$s 分鐘</string>
+    <string name="replay_year_top_artists">你最常聽的藝人</string>
+    <string name="replay_year_song_start">還有你的年度歌曲…</string>
+    <string name="replay_year_top_songs">其餘最常聽的歌曲</string>
+    <string name="replay_year_albums">你曾經生活其中的專輯</string>
+    <string name="replay_year_months">你的這一年，逐月回顧</string>
+    <string name="replay_year_discovery_start">這一年你探索了</string>
+    <string name="replay_year_summary_title">你的 %1$s</string>
+    <string name="replay_year_summary_artists">最常聽的藝人</string>
+    <string name="replay_year_summary_songs">最常聽的歌曲</string>
+    <string name="replay_year_summary_minutes">收聽分鐘數</string>
+    <string name="replay_year_mute">將故事靜音</string>
+    <string name="replay_year_unmute">取消故事靜音</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">分鐘</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">播放了 %1$s 次</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">首歌曲</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">位藝人</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">張專輯</item>
+    </plurals>
 </resources>

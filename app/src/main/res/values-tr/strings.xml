@@ -216,6 +216,12 @@
     <string name="crossfade">Çapraz geçiş</string>
     <string name="crossfade_subtitle">Bir parçayı diğerine karıştırır</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_art_transition">Kapak geçişi</string>
+    <string name="automix_art_transition_subtitle">AutoMix sırasında kapak resmini parçalar arasında yumuşakça birleştirir.</string>
+    <string name="automix_mini_art_transition">Mini oynatıcıda kapak geçişi</string>
+    <string name="automix_mini_art_transition_subtitle">AutoMix sırasında mini oynatıcıda kapak geçişlerini gösterir.</string>
+    <string name="show_best_part">En İyi Bölüm düğmesi</string>
+    <string name="show_best_part_subtitle">Kapak resminin üzerinde, şarkının en çok tekrar edilen bölümüne atlayan düğme</string>
     <string name="automix_overview">Automix genel bakışı</string>
     <string name="automix_performance">Automix performansı</string>
     <string name="automix_performance_subtitle">Arka plan analizinin ne kadar CPU kullanabileceğini ayarlar</string>
@@ -1521,4 +1527,65 @@
     <string name="drive_backup_row_subtitle">Replay\'i tüm cihazlarınızda yedekleyin ve eşitleyin</string>
     <string name="drive_over_cellular">Mobil veriyle eşitle</string>
     <string name="drive_over_cellular_subtitle">Kapalıyken otomatik eşitlemeler Wi-Fi\'ı bekler</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">%1$s Replay’ini aç</string>
+    <string name="replay_year_building">Yılın hazırlanıyor…</string>
+    <string name="replay_year_opener_start">Senin</string>
+    <string name="replay_year_opener_end">yılın BitChord’da</string>
+    <string name="replay_year_opener_detail">Neler dinlediğine birlikte bakalım.</string>
+    <string name="replay_year_minutes_start">Bu yıl şu kadar dinledin</string>
+    <string name="replay_year_minutes_days_start">Yani</string>
+    <string name="replay_year_minutes_days_value">%1$s gün</string>
+    <string name="replay_year_minutes_hours_value">%1$s saat</string>
+    <string name="replay_year_minutes_days_end">müzik.</string>
+    <string name="replay_year_busiest_start">En yoğun günün</string>
+    <string name="replay_year_busiest_minutes">Tek günde %1$s dakika müzik</string>
+    <string name="replay_year_busiest_song">Çoğunlukla %1$s</string>
+    <string name="replay_year_clock_start">En canlı olduğun saatler</string>
+    <string name="replay_year_night_owl">Gece Kuşu</string>
+    <string name="replay_year_night_owl_detail">Dinlediklerinin çoğu 22.00’den sonraydı.</string>
+    <string name="replay_year_early_bird">Erken Kalkan</string>
+    <string name="replay_year_early_bird_detail">Günlerin 10.00’dan önce müzikle başlıyordu.</string>
+    <string name="replay_year_golden_hour">Altın Saat</string>
+    <string name="replay_year_golden_hour_detail">Akşamları müzik ortaya çıkıyordu.</string>
+    <string name="replay_year_daytime">Gündüz Gezgini</string>
+    <string name="replay_year_daytime_detail">Müziği gün boyu sürdürdün.</string>
+    <string name="replay_year_all_day">Günün Her Saati</string>
+    <string name="replay_year_all_day_detail">Sabah, öğlen ya da gece, hep bir şey çalıyordu.</string>
+    <string name="replay_year_genres_start">Bu yılki sesin</string>
+    <string name="replay_year_artist_start">Bu yıl en çok dinlediğin sanatçı…</string>
+    <string name="replay_year_minutes_together">%1$s dakika birlikte</string>
+    <string name="replay_year_top_artists">En çok dinlediğin sanatçılar</string>
+    <string name="replay_year_song_start">Ve yılın şarkısı…</string>
+    <string name="replay_year_top_songs">Diğer en çok dinlediğin şarkılar</string>
+    <string name="replay_year_albums">İçinde yaşadığın albümler</string>
+    <string name="replay_year_months">Yılın, ay ay</string>
+    <string name="replay_year_discovery_start">Bu yıl keşfettiklerin</string>
+    <string name="replay_year_summary_title">Senin %1$s</string>
+    <string name="replay_year_summary_artists">En çok dinlenen sanatçılar</string>
+    <string name="replay_year_summary_songs">En çok dinlenen şarkılar</string>
+    <string name="replay_year_summary_minutes">Dinlenen dakikalar</string>
+    <string name="replay_year_mute">Hikâyeyi sessize al</string>
+    <string name="replay_year_unmute">Hikâyenin sesini aç</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">dakika</item>
+        <item quantity="other">dakika</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">%1$s kez çalındı</item>
+        <item quantity="other">%1$s kez çalındı</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">şarkı</item>
+        <item quantity="other">şarkı</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">sanatçı</item>
+        <item quantity="other">sanatçı</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">albüm</item>
+        <item quantity="other">albüm</item>
+    </plurals>
 </resources>

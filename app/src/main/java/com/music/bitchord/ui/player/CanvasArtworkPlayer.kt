@@ -250,6 +250,7 @@ internal fun AndroidCanvasArtworkPlayer(
     // nothing needing doing to it. See the repaint effect below.
     var surfaceGeneration by remember(canvas) { mutableIntStateOf(0) }
     val currentContentMode by rememberUpdatedState(contentMode)
+    val currentAlbumWidthFit by rememberUpdatedState(albumFade != null)
     val currentAlignPortraitTop by rememberUpdatedState(alignPortraitTop)
     val currentPortraitRevealBounds by rememberUpdatedState(portraitRevealBounds)
     val currentPresentationAlpha by rememberUpdatedState(presentationAlpha)
@@ -275,12 +276,12 @@ internal fun AndroidCanvasArtworkPlayer(
             reportResumed()
         }
         if (rendered) return true
-        val transformed = view.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop)
+        val transformed = view.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop, currentAlbumWidthFit)
         val portrait = currentContentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect > 0f && clipAspect < 1f
         val expected = currentPortraitRevealBounds
         val layoutReady = !portrait ||
             (expected != IntSize.Zero && view.width == expected.width && view.height == expected.height)
-        if (!layoutReady || (currentContentMode != CanvasContentMode.CROP && !transformed)) return false
+        if (!layoutReady || ((currentAlbumWidthFit || currentContentMode != CanvasContentMode.CROP) && !transformed)) return false
         rendered = true
         frameTick++
         return true
@@ -308,7 +309,7 @@ internal fun AndroidCanvasArtworkPlayer(
                 if (aspect != clipAspect) rendered = false
                 clipAspect = aspect
                 reportAspect(aspect)
-                textureView?.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop)
+                textureView?.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop, currentAlbumWidthFit)
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -602,8 +603,10 @@ internal fun AndroidCanvasArtworkPlayer(
             val applied = frame.applied
             // Set on the view itself. A Compose alpha layer over a TextureView
             // is not reliably composited, and this is the same fade either way.
+            val albumWidthFit = albumFade != null
             val visibility = if ((nowPlaying && !rendered) ||
-                (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f)
+                ((albumWidthFit || contentMode == CanvasContentMode.FIT_PORTRAIT) && clipAspect <= 0f) ||
+                (albumWidthFit && (bounds.width <= 0 || bounds.height <= 0))
             ) {
                 0f
             } else {
@@ -619,12 +622,13 @@ internal fun AndroidCanvasArtworkPlayer(
             // closing into the mini player, and each pass built a fresh matrix,
             // gradient and three RenderEffects for a picture that hadn't
             // moved — and re-setting the effect makes the node rebuild it.
-            if (applied.transformDiffers(clipAspect, contentMode, alignPortraitTop, view.width, view.height)) {
-                view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
+            if (applied.transformDiffers(clipAspect, contentMode, alignPortraitTop, albumWidthFit, view.width, view.height)) {
+                view.applyContentTransform(clipAspect, contentMode, alignPortraitTop, albumWidthFit)
             }
+            val fadeEndPx = if (albumWidthFit && clipAspect > 0f) bounds.width / clipAspect else bottomFadeEndPx
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx, albumFade)
-                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx, albumFade)
+                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, fadeEndPx, albumFade)
+                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, fadeEndPx, albumFade)
                 val generation = organicReveal?.generation?.takeIf {
                     organicReveal.allowSpatialMask && nowPlaying && visibility > 0f &&
                         reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
@@ -637,7 +641,7 @@ internal fun AndroidCanvasArtworkPlayer(
                 }
             } else {
                 frame.fadeFraction = bottomFade
-                frame.fadeEndPx = bottomFadeEndPx
+                frame.fadeEndPx = fadeEndPx
                 frame.albumFade = albumFade
                 false
             }
@@ -788,6 +792,7 @@ private fun TextureView.applyContentTransform(
     clipAspect: Float,
     contentMode: CanvasContentMode,
     alignPortraitTop: Boolean,
+    albumWidthFit: Boolean,
 ): Boolean {
     val bounds = IntSize(width, height)
     if (bounds.width <= 0 || bounds.height <= 0 || !clipAspect.isFinite() || clipAspect <= 0f) {
@@ -795,6 +800,12 @@ private fun TextureView.applyContentTransform(
         return false
     }
     val viewAspect = bounds.width.toFloat() / bounds.height
+    if (albumWidthFit) {
+        // Fit the source to the full width, top aligned. A square fallback
+        // ends earlier than a portrait instead of being zoomed into its slot.
+        setTransform(Matrix().apply { setScale(1f, viewAspect / clipAspect, 0f, 0f) })
+        return true
+    }
     val pivotX = bounds.width / 2f
     val pivotY = if (alignPortraitTop && contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f) {
         0f
@@ -832,8 +843,11 @@ private fun createBottomFade(
     bounds: IntSize,
     endPx: Float?,
     albumFade: AlbumArtworkFade? = null,
-): LinearGradient? {
-    if (albumFade != null) return albumFade.shader(bounds.height.toFloat())
+): Shader? {
+    if (albumFade != null) {
+        val height = bounds.height.toFloat()
+        return albumFade.shader(bounds.width.toFloat(), height, endPx ?: height)
+    }
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
     if (fraction <= 0.001f || endY <= 0f) return null
     // Along smootherstep, as the still sleeve's banner dissolves, so the clip
@@ -874,6 +888,7 @@ private class AppliedLook {
     private var aspect = Float.NaN
     private var mode: CanvasContentMode? = null
     private var alignTop = false
+    private var widthFit = false
     private var width = -1
     private var height = -1
 
@@ -886,15 +901,17 @@ private class AppliedLook {
         clipAspect: Float,
         contentMode: CanvasContentMode,
         alignPortraitTop: Boolean,
+        albumWidthFit: Boolean,
         viewWidth: Int,
         viewHeight: Int,
     ): Boolean {
-        if (clipAspect == aspect && contentMode == mode && alignPortraitTop == alignTop &&
+        if (clipAspect == aspect && contentMode == mode && alignPortraitTop == alignTop && albumWidthFit == widthFit &&
             viewWidth == width && viewHeight == height
         ) return false
         aspect = clipAspect
         mode = contentMode
         alignTop = alignPortraitTop
+        widthFit = albumWidthFit
         width = viewWidth
         height = viewHeight
         return true
@@ -913,7 +930,7 @@ private class AppliedLook {
 private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
-    private var bottomShader: LinearGradient? = null
+    private var bottomShader: Shader? = null
     var bottomEffect: RenderEffect? = null
         private set
     private var textureOpacity = 0
@@ -926,7 +943,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var outgoingMaskFailed = false
     private var stillBounds = IntSize.Zero
     private var stillFraction = 0f
-    private var stillShader: LinearGradient? = null
+    private var stillShader: Shader? = null
     private var outgoingEffectApplied = false
 
     @RequiresApi(Build.VERSION_CODES.S)
@@ -1062,7 +1079,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
     }
-    private var gradient: LinearGradient? = null
+    private var gradient: Shader? = null
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)

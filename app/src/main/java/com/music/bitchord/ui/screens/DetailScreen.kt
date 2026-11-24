@@ -111,6 +111,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -121,6 +122,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
@@ -231,6 +233,7 @@ private val SLEEVE_SHADOW = 18.dp
 private const val FULL_BLEED_MAX_HEIGHT = 0.62f
 private const val ALBUM_HERO_VIEWPORT_FRACTION = 0.48f
 private const val ALBUM_HERO_TITLE_FRACTION = 0.88f
+private const val ALBUM_BACKDROP_ASPECT = 3f / 4f
 
 /** How much of a full-bleed sleeve's foot dissolves into the page — the player's banner's share. */
 private const val FULL_BLEED_FADE_FRACTION = 0.42f
@@ -618,6 +621,9 @@ fun DetailScreen(
                 val releaseTitleSpace = if (album) {
                     releaseHeroHeight * ALBUM_HERO_TITLE_FRACTION
                 } else (releaseHeroHeight - FULL_BLEED_TITLE_OVERLAP).coerceAtLeast(0.dp)
+                val albumHeader = if (album && liftedArtwork) {
+                    remember(page.browseId, maxWidth, LocalDensity.current) { AlbumHeaderMeasurements() }
+                } else null
                 // A folder's grid view: the same column count the Library's
                 // "Show all" grids reach at this width.
                 val gridColumns = libraryGrid(maxWidth - PAGE_GUTTER * 2).columns
@@ -639,34 +645,50 @@ fun DetailScreen(
                 }
 
                 if (liftedArtwork) {
+                    // Drawing is independent of the spacer in the list. At full
+                    // width a 3:4 source needs 4/3 of that width in vertical room.
+                    val artworkHeight = if (album) minOf(maxHeight, maxWidth / ALBUM_BACKDROP_ASPECT) else releaseHeroHeight
+                    val artworkHeightPx = with(LocalDensity.current) { artworkHeight.toPx() }
                     // Keep the decoder attached when the lazy header leaves the viewport.
                     val heroHeightPx = with(LocalDensity.current) { releaseHeroHeight.toPx() }
-                    val offscreen by remember(listState, heroHeightPx) {
-                        derivedStateOf { listState.headerTop(heroHeightPx) <= -heroHeightPx }
-                    }
-                    val albumFade = if (album) {
+                    val albumFade = if (albumHeader != null) {
                         val titleStartPx = with(LocalDensity.current) {
                             (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
                         }
-                        remember(titleStartPx, palette.background, palette.onBackground, palette.onBackgroundVariant) {
-                            AlbumArtworkFade(titleStartPx, palette.albumArtworkTitleOpacity())
+                        val titleOpacity = remember(palette.background, palette.onBackground, palette.onBackgroundVariant) {
+                            palette.albumArtworkTitleOpacity()
                         }
+                        AlbumArtworkFade(
+                            titleStartPx, albumHeader.textWidthPx,
+                            albumHeader.height.takeIf { it > 0 }?.toFloat() ?: heroHeightPx,
+                            titleOpacity,
+                        )
                     } else null
+                    val drawableHeight = minOf(artworkHeightPx, albumFade?.headerHeightPx ?: artworkHeightPx)
+                    val offscreen by remember(listState, artworkHeightPx, drawableHeight) {
+                        derivedStateOf { listState.headerTop(artworkHeightPx) <= -drawableHeight }
+                    }
+                    val backdropCanvas = remember(visibleCanvas, album) {
+                        visibleCanvas?.let { clip ->
+                            val portrait = clip.portraitUrl
+                            if (album && portrait != null && portrait != clip.url) {
+                                clip.copy(url = portrait, fallbackUrl = clip.url)
+                            } else clip
+                        }
+                    }
                     Box(Modifier.matchParentSize().clipToBounds()) {
                         FullBleedReleaseArtwork(
                             poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                             palette = palette,
-                            // Use the album lookup's square-first order for this short hero.
-                            // The portrait rendition needs more cropping to cover the width.
-                            canvas = visibleCanvas,
+                            canvas = backdropCanvas,
                             albumFade = albumFade,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
                             },
-                            modifier = Modifier.fillMaxWidth().height(releaseHeroHeight)
-                                .offset { IntOffset(0, listState.headerTop(heroHeightPx).roundToInt()) }
-                                .stretchDetailArtwork(artworkOverscroll, heroHeightPx),
+                            modifier = Modifier.fillMaxWidth().height(artworkHeight)
+                                .offset { IntOffset(0, listState.headerTop(artworkHeightPx).roundToInt()) }
+                                .stretchDetailArtwork(artworkOverscroll, drawableHeight),
                         )
                     }
                 }
@@ -697,6 +719,7 @@ fun DetailScreen(
                         sleeveSize = sleeveSize,
                         fullBleed = fullBleedSleeve && !artworkDetail,
                         liftedArtworkSpace = releaseTitleSpace.takeIf { liftedArtwork },
+                        artworkMeasurements = albumHeader,
                         canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onPlay(songs) },
@@ -1010,6 +1033,19 @@ fun DetailScreen(
 }
 }
 
+private class AlbumHeaderMeasurements {
+    var height by mutableIntStateOf(0)
+    var title by mutableIntStateOf(0)
+    var credit by mutableIntStateOf(0)
+    var metadata by mutableIntStateOf(0)
+    val textWidthPx: Int get() = maxOf(title, credit, metadata)
+}
+
+private fun Modifier.measureAlbumHeader(
+    measurements: AlbumHeaderMeasurements?,
+    record: AlbumHeaderMeasurements.(IntSize) -> Unit,
+): Modifier = if (measurements == null) this else onSizeChanged { measurements.record(it) }
+
 /**
  * An album or playlist, laid out as Apple Music does: the sleeve framed in the
  * middle of the page, the title, credit and meta under it, then Shuffle, a
@@ -1032,6 +1068,7 @@ private fun ReleaseHeader(
      */
     fullBleed: Boolean,
     liftedArtworkSpace: Dp?,
+    artworkMeasurements: AlbumHeaderMeasurements?,
     canvas: CanvasArtwork?,
     songs: List<Song>,
     onPlay: () -> Unit,
@@ -1057,6 +1094,7 @@ private fun ReleaseHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .measureAlbumHeader(artworkMeasurements) { height = it.height }
             // Clear of the floating bar, which only a full-bleed sleeve runs under.
             .padding(top = if (bleed || liftedArtworkSpace != null) 0.dp else topBarContentPadding(), bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1128,7 +1166,8 @@ private fun ReleaseHeader(
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = HEADER_GUTTER),
+            modifier = Modifier.measureAlbumHeader(artworkMeasurements) { title = it.width }
+                .padding(horizontal = HEADER_GUTTER),
         )
         if (credit.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
@@ -1143,6 +1182,7 @@ private fun ReleaseHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
+                    .measureAlbumHeader(artworkMeasurements) { this.credit = it.width }
                     .padding(horizontal = HEADER_GUTTER)
                     .let { m ->
                         val id = artist?.artistId
@@ -1164,7 +1204,8 @@ private fun ReleaseHeader(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = HEADER_GUTTER),
+                modifier = Modifier.measureAlbumHeader(artworkMeasurements) { metadata = it.width }
+                    .padding(horizontal = HEADER_GUTTER),
             )
         }
 
@@ -1285,11 +1326,19 @@ private fun FullBleedReleaseArtwork(
 ) {
     Box(modifier) {
         var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
+        var posterAspect by remember(poster) { mutableStateOf(1f) }
         AsyncImage(
             model = poster,
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            onState = onPosterState,
+            contentScale = if (albumFade != null) ContentScale.FillWidth else ContentScale.Crop,
+            alignment = if (albumFade != null) Alignment.TopCenter else Alignment.Center,
+            onState = { state ->
+                if (albumFade != null && state is AsyncImagePainter.State.Success) {
+                    val image = state.result.image
+                    if (image.width > 0 && image.height > 0) posterAspect = image.width.toFloat() / image.height
+                }
+                onPosterState(state)
+            },
             modifier = Modifier
                 .matchParentSize()
                 .graphicsLayer {
@@ -1299,7 +1348,7 @@ private fun FullBleedReleaseArtwork(
                 }
                 .drawWithCache {
                     val mask = if (albumFade != null) {
-                        albumFade.shader(size.height)?.let { ShaderBrush(it) }
+                        albumFade.shader(size.width, size.height, size.width / posterAspect)?.let { ShaderBrush(it) }
                     } else {
                         Brush.verticalGradient(
                             colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
@@ -1315,7 +1364,7 @@ private fun FullBleedReleaseArtwork(
                         if (mask != null) drawRect(brush = mask, blendMode = BlendMode.DstIn)
                     }
                 }
-                .background(palette.elevated),
+                .then(if (albumFade == null) Modifier.background(palette.elevated) else Modifier),
         )
         // The TextureView owns its own matching feather on Android.
         canvas?.let { clip ->

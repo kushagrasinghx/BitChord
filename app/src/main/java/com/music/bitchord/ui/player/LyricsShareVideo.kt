@@ -104,9 +104,7 @@ internal fun shareTimeline(lines: List<LyricsShareLine>): ShareTimeline? {
             ?: (if (line.isGap) lines.drop(index + 1).firstOrNull { !it.isGap && it.startMs != null }?.startMs else null)
             ?: return@forEachIndexed
 
-        val room = MAX_SHARE_MS - cursor
-        if (room <= MIN_LINE_MS) return@forEachIndexed
-        val end = minOf(rawEnd, start + room)
+        val end = rawEnd
         if (end - start < MIN_LINE_MS) return@forEachIndexed
         val last = segments.lastOrNull()
         if (last != null && last.second == start) {
@@ -204,7 +202,7 @@ internal suspend fun exportLyricsVideo(
                 EditedMediaItemSequence.Builder(item).setIsLooping(true).build()
             } else {
                 val length = probeLengthMs(context, url) ?: continue
-                val repeats = ceil(lengthMs / length.toDouble()).toInt().coerceIn(1, MAX_REPEATS)
+                val repeats = ceil(lengthMs / length.toDouble()).toInt().coerceAtLeast(1)
                 EditedMediaItemSequence.Builder(List(repeats) { item }).build()
             }
             if (transform(context, video, audio, overlay, out, onProgress)) return true
@@ -538,16 +536,12 @@ private const val VIDEO_MIME = "video/mp4"
 /** Long enough to read five lines in a story before it loops. */
 private const val MIN_LENGTH_MS = 10_000L
 
-/** Instagram's limit for one story clip. */
-private const val MAX_SHARE_MS = 60_000L
-
 /** Shorter than this and a "line" is a stamp glitch, not something sung. */
 private const val MIN_LINE_MS = 300L
 
 private const val FRAME_RATE = 60
 private const val BACKDROP_FILE_NAME = "lyrics-backdrop.png"
 private const val TAG = "LyricsShareVideo"
-private const val MAX_REPEATS = 6
 private const val PROBE_TIMEOUT_MS = 10_000L
 
 /** At quarter size: about the blur the preview draws at full size. */

@@ -1,9 +1,13 @@
 package com.music.bitchord
 
+import com.music.bitchord.ui.player.LyricsShareLine
 import com.music.bitchord.ui.player.SHARE_CARD_CHAR_BUDGET
 import com.music.bitchord.ui.player.fitsOnCard
 import com.music.bitchord.ui.player.isRtl
+import com.music.bitchord.ui.player.shareTimeline
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,5 +59,23 @@ class LyricsShareCardTest {
         val arabicText = "حبيبي يا نور العين يا ساكن خيالي"
         assertTrue(fitsOnCard(0, arabicText))
         assertTrue(isRtl(arabicText))
+    }
+
+    @Test fun clipTimelineNotLimitedToOneMinuteAndIncludesAllPickedLines() {
+        val lines = listOf(
+            LyricsShareLine(text = "Line 1", subText = null, startMs = 0L, endMs = 40_000L),
+            LyricsShareLine(text = "Line 2", subText = null, startMs = 40_000L, endMs = 80_000L),
+            LyricsShareLine(text = "Line 3", subText = null, startMs = 80_000L, endMs = 110_000L),
+        )
+        val timeline = shareTimeline(lines)
+        assertNotNull(timeline)
+        assertEquals(110_000L, timeline!!.durationMs)
+        assertEquals(3, timeline.windows.size)
+        assertEquals(0L, timeline.windows[0].fromUs)
+        assertEquals(40_000_000L, timeline.windows[0].toUs)
+        assertEquals(40_000_000L, timeline.windows[1].fromUs)
+        assertEquals(80_000_000L, timeline.windows[1].toUs)
+        assertEquals(80_000_000L, timeline.windows[2].fromUs)
+        assertEquals(110_000_000L, timeline.windows[2].toUs)
     }
 }

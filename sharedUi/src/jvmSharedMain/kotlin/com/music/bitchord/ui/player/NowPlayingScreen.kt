@@ -1311,6 +1311,7 @@ fun NowPlayingScreen(
         subLines = lyricsTranslation.subLines,
         artworkUrl = remoteArt,
         haptics = haptics,
+        currentPositionMs = { lyricsPlayhead.positionMs },
         onCard = { request ->
             shareScope.launch {
                 val backdrop = runCatching { backdropLayer.toImageBitmap() }.getOrNull()

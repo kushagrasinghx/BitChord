@@ -169,6 +169,7 @@ internal fun rememberLyricsPicker(
     subLines: List<LyricLine>?,
     artworkUrl: String?,
     haptics: Haptics,
+    currentPositionMs: (() -> Long)? = null,
     /** Where the finished card goes; never called on a platform that has none. */
     onCard: (LyricsShareRequest) -> Unit,
 ): LyricsPicker {
@@ -246,20 +247,41 @@ internal fun rememberLyricsPicker(
         picks = emptySet()
         overBudget = false
     }
-    // Header share button: the same mode a long-press opens, but with nothing
-    // preselected — the header names no line, so there is nothing to fold in.
-    // Kept separate from [pick] so a tap on it can never seek or toggle.
+    // Header share button: open the pick mode pre-selecting the currently active
+    // lyric line so the listener can immediately share what is playing, or adjust
+    // the selection to include adjacent lines.
     val beginPicking: () -> Unit = {
         if (!picking) {
             haptics.play(Haptic.Select)
             picking = true
-            picks = emptySet()
+            val nowMs = currentPositionMs?.invoke()
+            val candidate = if (nowMs != null) {
+                activeLyricRows(lines.orEmpty(), nowMs).firstOrNull { index ->
+                    lines.orEmpty().getOrNull(index)?.isGap != true
+                }
+            } else null
+            val activeText = lines.orEmpty().getOrNull(candidate ?: -1)?.text
+            if (candidate != null && fitsOnCard(0, activeText)) {
+                picks = setOf(candidate)
+            } else {
+                picks = emptySet()
+            }
             overBudget = false
         }
     }
     val share: () -> Unit = {
         val source = lines.orEmpty()
-        val chosen = picks.sorted()
+        val chosen = if (picks.isEmpty()) {
+            val nowMs = currentPositionMs?.invoke()
+            val active = if (nowMs != null) {
+                activeLyricRows(source, nowMs).firstOrNull { index ->
+                    source.getOrNull(index)?.isGap != true
+                }
+            } else null
+            if (active != null) listOf(active) else emptyList()
+        } else {
+            picks.sorted()
+        }
         val synced = source.any { it.timeMs > 0L }
         val picked = buildList<LyricsShareLine> {
             chosen.forEachIndexed { position, index ->

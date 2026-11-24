@@ -2,6 +2,7 @@ package com.music.bitchord
 
 import com.music.bitchord.ui.player.SHARE_CARD_CHAR_BUDGET
 import com.music.bitchord.ui.player.fitsOnCard
+import com.music.bitchord.ui.player.isRtl
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,5 +40,14 @@ class LyricsShareCardTest {
 
     @Test fun aLineThePanelHasNoWordsForCostsNothing() {
         assertTrue(fitsOnCard(SHARE_CARD_CHAR_BUDGET, null))
+    }
+
+    @Test fun arabicAndRtlScriptDetectedCorrectly() {
+        assertTrue("Arabic text must be detected as RTL", isRtl("حبيبي يا نور العين"))
+        assertTrue("Hebrew text must be detected as RTL", isRtl("שלום עולם"))
+        assertTrue("Arabic with leading numbers must be detected as RTL", isRtl("1. حبيبي يا نور العين"))
+        assertTrue("Arabic with brackets must be detected as RTL", isRtl("(حبيبي)"))
+        assertFalse("Latin text must be detected as LTR", isRtl("Hello world"))
+        assertFalse("Empty string must not be detected as RTL", isRtl(""))
     }
 }

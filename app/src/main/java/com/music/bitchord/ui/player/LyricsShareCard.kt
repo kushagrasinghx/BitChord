@@ -103,14 +103,16 @@ internal class PlacedRow internal constructor(val row: Row, val x: Float, val ba
 
 internal class CardLayout internal constructor(val width: Int, val height: Int, val base: Bitmap, val rows: List<PlacedRow>)
 
-/** Places [plan]'s rows from [top] down, starting at [x]. */
+/** Places [plan]'s rows from [top] down, starting at [x], right-aligning RTL lines. */
 private fun place(plan: Plan, x: Float, top: Float): List<PlacedRow> {
     var y = top
     return plan.rows.map { row ->
         val baseline = y + row.gapBefore - row.paint.ascent() +
             if (row.isGap) row.paint.textSize * GAP_MARKER_OFFSET else 0f
         y += row.gapBefore + row.height
-        PlacedRow(row, x, baseline)
+        val rowW = row.paint.measureText(row.text)
+        val rowX = if (row.rtl) x + plan.width - rowW else x
+        PlacedRow(row, rowX, baseline)
     }
 }
 
@@ -427,6 +429,15 @@ internal class LyricsCardPainter internal constructor(
 
             scratch.set(row.paint)
             scratch.alpha = (alpha * lit).roundToInt()
+            if (lit > 0.6f && !row.isSub) {
+                val glowAlpha = (alpha * (lit - 0.6f) / 0.4f * 0.4f).roundToInt().coerceIn(0, 255)
+                if (glowAlpha > 0) {
+                    glow.set(row.paint)
+                    glow.alpha = glowAlpha
+                    glow.maskFilter = blurFilterFor(row.paint.textSize * GLOW_RATIO)
+                    canvas.drawText(row.text, placed.x, placed.baseline, glow)
+                }
+            }
             canvas.drawText(row.text, placed.x, placed.baseline, scratch)
             return
         }
@@ -533,6 +544,8 @@ internal class LyricsCardPainter internal constructor(
         val totalWidth = GAP_DOTS * dotSize + (GAP_DOTS - 1) * dotGap
         val startX = if (row.centered) {
             placed.x - totalWidth / 2f + radius
+        } else if (row.rtl) {
+            (placed.x + row.paint.measureText(row.text)) - totalWidth + radius
         } else {
             placed.x + radius
         }
@@ -571,8 +584,9 @@ internal class LyricsCardPainter internal constructor(
         val blurFilter = blurFilterFor(size * GLOW_RATIO)
 
         for (dot in 0 until GAP_DOTS) {
-            // Each dot owns its 1/3 share of the break and fills across it (v/1.9.10-re timing)
-            val lit = ((through * GAP_DOTS - dot).coerceIn(0f, 1f) * standDown).coerceIn(0f, 1f)
+            // For RTL scripts, fill from right to left; for LTR, left to right.
+            val dotOrder = if (row.rtl) (GAP_DOTS - 1 - dot) else dot
+            val lit = ((through * GAP_DOTS - dotOrder).coerceIn(0f, 1f) * standDown).coerceIn(0f, 1f)
             val dotAlpha = GAP_DOT_REST + (1f - GAP_DOT_REST) * lit
             val alphaInt = (255f * dotAlpha).roundToInt().coerceIn(0, 255)
             val cx = startX + dot * stride
@@ -841,7 +855,7 @@ internal class Row internal constructor(
 )
 
 /** The rows at one size, with everything needed to place them. */
-private class Plan(val rows: List<Row>, val ascent: Float) {
+private class Plan(val rows: List<Row>, val ascent: Float, val width: Float = CARD_CONTENT_W) {
     /** Distance from the top of the first line to the bottom of the last. */
     val content: Float
         get() = ascent + rows.fold(0f) { total, row -> total + row.gapBefore + row.height }
@@ -885,24 +899,25 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
     val subSize = (size * SUB_RATIO).coerceAtLeast(SUB_FLOOR)
     val secondary = type.heading(subSize, SUB_COLOR).apply { letterSpacing = SUB_TRACKING }
 
-    fun paintFor(base: Paint, text: String): Paint =
-        if (text.hasComplexScript() && base.letterSpacing != 0f) {
+    fun paintFor(base: Paint, text: String, rtl: Boolean): Paint =
+        if ((rtl || text.hasComplexScript()) && base.letterSpacing != 0f) {
             Paint(base).apply { letterSpacing = 0f }
         } else {
             base
         }
 
+    val cardIsRtl = lines.any { !it.isGap && isRtl(it.text) }
     val rows = mutableListOf<Row>()
     lines.forEachIndexed { index, line ->
         if (line.isGap) {
             // The skipped lines, as "(...)" — the conventional editorial mark
-            // for an omission. Hung off the left edge with the words, smaller
-            // and a dim grey. Keep its row compact so the marker follows the
-            // preceding lyric closely; the regular gap on the next lyric line
-            // provides the separation below it.
+            // for an omission. Sits on the right edge when the surrounding lines are RTL.
             val marker = type.body(size * 0.65f, 0x66FFFFFF.toInt())
             val markerHeight = marker.descent() - marker.ascent()
-            rows += Row("(...)", marker, markerHeight, 0f, isGap = true, line = index)
+            val gapRtl = lines.getOrNull(index - 1)?.text?.let(::isRtl)
+                ?: lines.getOrNull(index + 1)?.text?.let(::isRtl)
+                ?: cardIsRtl
+            rows += Row("(...)", marker, markerHeight, 0f, isGap = true, line = index, rtl = gapRtl)
             return@forEachIndexed
         }
         var firstOfLine = true
@@ -920,9 +935,10 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
         }
         // Each row remembers where it starts in its line, so the sweep — which
         // counts characters of the whole line — can be found within it.
+        val lineRtl = isRtl(line.text)
         fun rows(source: String, paint: Paint, height: Float, isSub: Boolean) {
-            val rtl = isRtl(source)
-            val effectivePaint = paintFor(paint, source)
+            val rtl = isRtl(source) || (isSub && lineRtl)
+            val effectivePaint = paintFor(paint, source, rtl)
             var cursor = 0
             wrap(source, effectivePaint, width).forEach { piece ->
                 val at = source.indexOf(piece, cursor).takeIf { it >= 0 } ?: cursor
@@ -930,15 +946,15 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
                 add(piece, effectivePaint, height, at, isSub, rtl)
             }
         }
-        val lead = if (line.text.hasComplexScript()) size * 1.30f else size * LEAD
+        val lead = if (lineRtl || line.text.hasComplexScript()) size * 1.30f else size * LEAD
         rows(line.text, primary, lead, isSub = false)
         val sub = line.subText
         if (!sub.isNullOrBlank() && sub != line.text) {
-            val subLead = if (sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
+            val subLead = if (isRtl(sub) || lineRtl || sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
             rows(sub, secondary, subLead, isSub = true)
         }
     }
-    return Plan(rows, -primary.ascent())
+    return Plan(rows, -primary.ascent(), width)
 }
 
 // ── Text ───────────────────────────────────────────────────────────────────
@@ -1049,7 +1065,10 @@ private const val HEADROOM_RATIO = 0.45f
 
 /** Whether a character belongs to a complex or joined Indic / Southeast Asian / Middle Eastern script. */
 private fun Char.isComplexScript(): Boolean =
-    this in '֐'..'᯿' || this in '\u1CD0'..'\u1CFF' || this in '\uA8E0'..'\uA8FF' || this in '\u200C'..'\u200D'
+    this in '֐'..'᯿' || this in '\u1CD0'..'\u1CFF' || this in '\uA8E0'..'\uA8FF' || this in '\u200C'..'\u200D' ||
+    this.code in 0x0600..0x06FF || this.code in 0x0750..0x077F ||
+    this.code in 0x08A0..0x08FF || this.code in 0xFB50..0xFDFF ||
+    this.code in 0xFE70..0xFEFF
 
 private fun String.hasComplexScript(): Boolean =
     any { it.isComplexScript() }
@@ -1074,8 +1093,29 @@ private fun wordRangesOf(text: String): List<IntRange> {
 /** The bloom behind a held letter: GLOW_RADIUS, 6dp. */
 private const val GLOW_RATIO = 6f / 34f
 
-private fun isRtl(text: String): Boolean =
-    !java.text.Bidi(text, java.text.Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT).baseIsLeftToRight()
+internal fun isRtl(text: String): Boolean {
+    var rtlCount = 0
+    var ltrCount = 0
+    for (ch in text) {
+        val code = ch.code
+        if (code in 0xFB1D..0xFB4F || code in 0x0600..0x06FF || code in 0x0750..0x077F ||
+            code in 0x08A0..0x08FF || code in 0xFB50..0xFDFF || code in 0xFE70..0xFEFF
+        ) {
+            rtlCount++
+            continue
+        }
+        when (Character.getDirectionality(ch)) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> rtlCount++
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT -> ltrCount++
+        }
+    }
+    return if (rtlCount != 0 || ltrCount != 0) {
+        rtlCount > ltrCount
+    } else {
+        !java.text.Bidi(text, java.text.Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT).baseIsLeftToRight()
+    }
+}
 
 /** Small visual correction so the omission marker sits below the line above. */
 private const val GAP_MARKER_OFFSET = 0.18f

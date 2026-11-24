@@ -399,7 +399,7 @@ internal class LyricsCardPainter internal constructor(
         val distance = kotlin.math.abs(lineRank.toFloat() - activeRank)
         val alpha = row.paint.alpha * falloffAt(distance)
         val start = line.startMs ?: timing?.timeMs ?: 0L
-        val swept = timing != null && timing.isWordSynced && !row.rtl
+        val swept = timing != null && timing.isWordSynced
 
         if (!swept) {
             // No word timings (or a script the sweep can't follow): the line
@@ -482,10 +482,8 @@ internal class LyricsCardPainter internal constructor(
         }
 
         val size = row.paint.textSize
-        val edge = placed.x + sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
-        // The feather runs ahead of the sweep, into what is still to come, and
-        // grows in over the first stretch of each row — the panel's own wipe.
-        val feather = minOf(size * FEATHER_RATIO, (edge - placed.x).coerceAtLeast(0f))
+        val rowW = row.paint.measureText(row.text)
+        val textW = sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
         val top = placed.baseline + row.paint.ascent() - size * HEADROOM_RATIO
         val bottom = placed.baseline + row.paint.descent() + size * HEADROOM_RATIO
 
@@ -494,25 +492,53 @@ internal class LyricsCardPainter internal constructor(
         scratch.alpha = (alpha * baseAlphaFactor).roundToInt()
         drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
 
-        // 2. Overlay the lit pass up to (edge + feather) on top.
+        // 2. Overlay the lit pass on top.
         // Inside saveLayer, the lit overlay's opacity is scaled by overlayFactor, so that
         // as the line finishes, the bright white letters and their glowing bloom smoothly
         // fade out from 1.0 down to 0.0, leaving the resting dim line underneath.
         val overlayAlpha = alpha * overlayFactor
-        if (overlayAlpha > 0.001f && edge + feather > placed.x) {
-            val save = canvas.saveLayer(0f, top, edge + feather + 1f, bottom, null)
-            canvas.clipRect(0f, top, edge + feather, bottom)
-            scratch.set(row.paint)
-            scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
-            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
-            if (feather > 0.5f) {
-                fade.shader = LinearGradient(
-                    edge, 0f, edge + feather, 0f,
-                    Color.WHITE, Color.TRANSPARENT, Shader.TileMode.CLAMP,
-                )
-                canvas.drawRect(0f, top, edge + feather + 1f, bottom, fade)
+        if (overlayAlpha > 0.001f) {
+            if (row.rtl) {
+                // RTL: the sweep starts at the right edge and moves leftwards as characters are revealed.
+                val edge = placed.x + rowW - textW
+                val feather = minOf(size * FEATHER_RATIO, (placed.x + rowW - edge).coerceAtLeast(0f))
+                val clipLeft = (edge - feather).coerceAtLeast(0f)
+                val clipRight = layout.width.toFloat()
+                if (clipRight > clipLeft && placed.x + rowW > edge - feather) {
+                    val save = canvas.saveLayer(clipLeft, top, clipRight, bottom, null)
+                    canvas.clipRect(clipLeft, top, clipRight, bottom)
+                    scratch.set(row.paint)
+                    scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
+                    drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+                    if (feather > 0.5f) {
+                        fade.shader = LinearGradient(
+                            edge - feather, 0f, edge, 0f,
+                            Color.TRANSPARENT, Color.WHITE, Shader.TileMode.CLAMP,
+                        )
+                        canvas.drawRect(clipLeft, top, clipRight, bottom, fade)
+                    }
+                    canvas.restoreToCount(save)
+                }
+            } else {
+                // LTR: the sweep starts at the left edge (placed.x) and moves rightwards.
+                val edge = placed.x + textW
+                val feather = minOf(size * FEATHER_RATIO, (edge - placed.x).coerceAtLeast(0f))
+                if (edge + feather > placed.x) {
+                    val save = canvas.saveLayer(0f, top, edge + feather + 1f, bottom, null)
+                    canvas.clipRect(0f, top, edge + feather, bottom)
+                    scratch.set(row.paint)
+                    scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
+                    drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+                    if (feather > 0.5f) {
+                        fade.shader = LinearGradient(
+                            edge, 0f, edge + feather, 0f,
+                            Color.WHITE, Color.TRANSPARENT, Shader.TileMode.CLAMP,
+                        )
+                        canvas.drawRect(0f, top, edge + feather + 1f, bottom, fade)
+                    }
+                    canvas.restoreToCount(save)
+                }
             }
-            canvas.restoreToCount(save)
         }
     }
 
@@ -625,6 +651,16 @@ internal class LyricsCardPainter internal constructor(
     ) {
         val row = placed.row
         val text = row.text
+        if (row.rtl) {
+            if (bloom) {
+                glow.set(paint)
+                glow.alpha = (paint.alpha * 0.45f).roundToInt().coerceIn(0, 255)
+                glow.maskFilter = blurFilterFor(paint.textSize * GLOW_RATIO)
+                canvas.drawText(text, placed.x, placed.baseline, glow)
+            }
+            canvas.drawText(text, placed.x, placed.baseline, paint)
+            return
+        }
         if (!lifts || !timing.isLifted(positionMs)) {
             canvas.drawText(text, placed.x, placed.baseline, paint)
             return

@@ -50,4 +50,10 @@ class LyricsShareCardTest {
         assertFalse("Latin text must be detected as LTR", isRtl("Hello world"))
         assertFalse("Empty string must not be detected as RTL", isRtl(""))
     }
+
+    @Test fun arabicWordSyncedLineFitsAndDetected() {
+        val arabicText = "حبيبي يا نور العين يا ساكن خيالي"
+        assertTrue(fitsOnCard(0, arabicText))
+        assertTrue(isRtl(arabicText))
+    }
 }

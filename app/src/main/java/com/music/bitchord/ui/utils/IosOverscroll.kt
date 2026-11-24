@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -243,3 +244,29 @@ internal fun rememberDetailArtworkOverscroll(topLimitPx: Float): DetailArtworkOv
 @Composable
 internal fun rememberBottomOnlyDetailOverscroll(): OverscrollEffect =
     remember { IosOverscrollEffect(allowTop = false) }
+
+/** Route the top pull to the same effect when a lazy list fits its viewport. */
+internal fun DetailArtworkOverscroll.nonScrollingArtworkConnection(
+    canScroll: () -> Boolean,
+): NestedScrollConnection = object : NestedScrollConnection {
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        // Scrollable calls the effect itself whenever either direction can scroll.
+        if (canScroll() || source != NestedScrollSource.UserInput || available.y == 0f) return Offset.Zero
+        if (available.y < 0f && artworkExpansionPx == 0f) return Offset.Zero
+        var upwardRemainder = 0f
+        val handled = applyToScroll(Offset(0f, available.y), source) { remaining ->
+            // An upward drag can unwind the top pull, but should not start a
+            // bottom pull on a list with no scroll range.
+            upwardRemainder = remaining.y.coerceAtMost(0f)
+            Offset(0f, upwardRemainder)
+        }
+        return Offset(0f, handled.y - upwardRemainder)
+    }
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        if (canScroll() || !isInProgress) return Velocity.Zero
+        val topVelocity = Velocity(0f, available.y.coerceAtLeast(0f))
+        applyToFling(topVelocity) { Velocity.Zero }
+        return topVelocity
+    }
+}

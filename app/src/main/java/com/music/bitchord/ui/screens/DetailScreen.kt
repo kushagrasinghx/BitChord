@@ -106,6 +106,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -193,6 +194,8 @@ import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.utils.DetailArtworkOverscroll
+import com.music.bitchord.ui.utils.nonScrollingArtworkConnection
 import com.music.bitchord.ui.utils.rememberBottomOnlyDetailOverscroll
 import com.music.bitchord.ui.utils.rememberDetailArtworkOverscroll
 import kotlin.math.roundToInt
@@ -582,13 +585,27 @@ fun DetailScreen(
                 val fullBleedSleeve = fullBleedArtwork && maxWidth <= maxHeight * FULL_BLEED_MAX_HEIGHT
                 val liftedArtwork = artworkDetail && fullBleedSleeve && reorder == null &&
                     page.thumbnailUrl != null && !heroPosterFailed
-                val artworkOverscroll = if (liftedArtwork) {
+                val artistPoster = if (isArtist) appleArt?.heroUrl ?: page.thumbnailUrl.artworkAt(HEADER_ART_PX) else null
+                var artistPosterReady by remember(page.browseId, artistPoster) { mutableStateOf(false) }
+                var artistVideoReady by remember(page.browseId, visibleCanvas?.url) { mutableStateOf(false) }
+                // Eligibility follows the rendered banner, not the source aspect ratio
+                // or the album/playlist fullscreen preference.
+                val elasticArtist = isArtist && reorder == null && artHeight > 0.dp &&
+                    (artistPosterReady || artistVideoReady)
+                val artworkOverscroll = if (liftedArtwork || elasticArtist) {
                     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
                     val systemMotion = rememberCoroutineScope().coroutineContext[MotionDurationScale]
                     val maxPullPx = with(LocalDensity.current) { minOf(88.dp, maxWidth * 0.22f).toPx() }
                     if (!reduceAnimation && systemMotion?.scaleFactor != 0f && maxPullPx > 0f) {
                         rememberDetailArtworkOverscroll(maxPullPx)
                     } else null
+                } else null
+                val shortArtistScroll = if (isArtist && artworkOverscroll != null) {
+                    remember(listState, artworkOverscroll) {
+                        artworkOverscroll.nonScrollingArtworkConnection {
+                            listState.canScrollForward || listState.canScrollBackward
+                        }
+                    }
                 } else null
                 // Keep the viewport stable across the poster and both video renditions.
                 val releaseHeroHeight = if (album) {
@@ -605,12 +622,14 @@ fun DetailScreen(
                 // Each backdrop follows the measured position of item zero.
                 if (isArtist) {
                     PageBackground(
-                        page = page,
+                        art = artistPoster,
                         palette = palette,
                         canvas = visibleCanvas,
                         artHeight = artHeight,
                         listState = listState,
-                        heroUrl = appleArt?.heroUrl,
+                        artworkOverscroll = artworkOverscroll,
+                        onPosterReady = { artistPosterReady = it },
+                        onVideoReady = { artistVideoReady = it },
                         modifier = Modifier.matchParentSize(),
                     )
                 }
@@ -636,15 +655,7 @@ fun DetailScreen(
                             },
                             modifier = Modifier.fillMaxWidth().height(releaseHeroHeight)
                                 .offset { IntOffset(0, listState.headerTop(heroHeightPx).roundToInt()) }
-                                .graphicsLayer {
-                                    // The list moves down; the hero stays anchored at the top.
-                                    // Grow its bottom edge by exactly the list's displacement.
-                                    val pull = artworkOverscroll?.artworkExpansionPx ?: 0f
-                                    val scale = 1f + pull / heroHeightPx.coerceAtLeast(1f)
-                                    transformOrigin = TransformOrigin(0.5f, 0f)
-                                    scaleX = scale
-                                    scaleY = scale
-                                },
+                                .stretchDetailArtwork(artworkOverscroll, heroHeightPx),
                         )
                     }
                 }
@@ -653,10 +664,12 @@ fun DetailScreen(
                     reorder(palette)
                 } else LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().then(
+                        if (shortArtistScroll != null) Modifier.nestedScroll(shortArtistScroll) else Modifier,
+                    ),
                     overscrollEffect = when {
-                        liftedArtwork -> artworkOverscroll
-                        artworkDetail -> rememberBottomOnlyDetailOverscroll()
+                        liftedArtwork || elasticArtist -> artworkOverscroll
+                        artworkDetail || isArtist -> rememberBottomOnlyDetailOverscroll()
                         else -> rememberOverscrollEffect()
                     },
                     // The artist photo runs edge-to-edge up under the glass bar;
@@ -1611,12 +1624,14 @@ private fun ArtistHeader(
  */
 @Composable
 private fun PageBackground(
-    page: DetailPage,
+    art: String?,
     palette: ArtworkPalette,
     canvas: CanvasArtwork?,
     artHeight: Dp,
     listState: LazyListState,
-    heroUrl: String? = null,
+    artworkOverscroll: DetailArtworkOverscroll?,
+    onPosterReady: (Boolean) -> Unit,
+    onVideoReady: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -1624,14 +1639,15 @@ private fun PageBackground(
     // freeze the bottom of the video into the wrong picture.
     val softenFoot = canvas == null && !reduceDynamicBlur &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val art = heroUrl ?: page.thumbnailUrl.artworkAt(HEADER_ART_PX)
+    val artHeightPx = with(LocalDensity.current) { artHeight.roundToPx().toFloat() }
 
     Box(modifier.clipToBounds()) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(artHeight)
-                .offset { IntOffset(0, listState.headerTop(artHeight.toPx()).roundToInt()) },
+                .offset { IntOffset(0, listState.headerTop(artHeight.toPx()).roundToInt()) }
+                .stretchDetailArtwork(artworkOverscroll, artHeightPx),
         ) {
             AsyncImage(
                 model = art,
@@ -1640,6 +1656,7 @@ private fun PageBackground(
                 modifier = Modifier
                     .matchParentSize()
                     .background(palette.elevated),
+                onState = { onPosterReady(it is AsyncImagePainter.State.Success) },
             )
 
             // Above the still art but below the scrim, so the scrim that
@@ -1650,6 +1667,7 @@ private fun PageBackground(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = true,
+                    onRenderedChanged = onVideoReady,
                     modifier = Modifier.matchParentSize(),
                 )
             }
@@ -1710,6 +1728,16 @@ private fun PageBackground(
  */
 private fun LazyListState.headerTop(artHeightPx: Float): Float =
     if (firstVisibleItemIndex == 0) -firstVisibleItemScrollOffset.toFloat() else -artHeightPx * 2f
+
+private fun Modifier.stretchDetailArtwork(effect: DetailArtworkOverscroll?, heightPx: Float): Modifier =
+    graphicsLayer {
+        // Match the list's displacement at the foot without uncovering the top.
+        val pull = effect?.artworkExpansionPx ?: 0f
+        val scale = 1f + pull / heightPx.coerceAtLeast(1f)
+        transformOrigin = TransformOrigin(0.5f, 0f)
+        scaleX = scale
+        scaleY = scale
+    }
 
 /** Where the blurred copy starts to show and where it has fully taken over. */
 private val SOFT_FOOT_MASK = Brush.verticalGradient(

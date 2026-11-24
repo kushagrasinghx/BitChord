@@ -78,4 +78,13 @@ class LyricsShareCardTest {
         assertEquals(80_000_000L, timeline.windows[2].fromUs)
         assertEquals(110_000_000L, timeline.windows[2].toUs)
     }
+
+    @Test fun englishPronunciationOrTranslationUnderArabicLineIsNotRtl() {
+        val arabicLine = "حبيبي يا نور العين"
+        val englishPronunciation = "Habibi ya nour el ain"
+        val englishTranslation = "My darling, you are the light of my eyes"
+        assertTrue(isRtl(arabicLine))
+        assertFalse(isRtl(englishPronunciation))
+        assertFalse(isRtl(englishTranslation))
+    }
 }

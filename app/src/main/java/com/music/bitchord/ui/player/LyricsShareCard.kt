@@ -973,7 +973,7 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
         // counts characters of the whole line — can be found within it.
         val lineRtl = isRtl(line.text)
         fun rows(source: String, paint: Paint, height: Float, isSub: Boolean) {
-            val rtl = isRtl(source) || (isSub && lineRtl)
+            val rtl = isRtl(source)
             val effectivePaint = paintFor(paint, source, rtl)
             var cursor = 0
             wrap(source, effectivePaint, width).forEach { piece ->
@@ -986,7 +986,7 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
         rows(line.text, primary, lead, isSub = false)
         val sub = line.subText
         if (!sub.isNullOrBlank() && sub != line.text) {
-            val subLead = if (isRtl(sub) || lineRtl || sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
+            val subLead = if (isRtl(sub) || sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
             rows(sub, secondary, subLead, isSub = true)
         }
     }

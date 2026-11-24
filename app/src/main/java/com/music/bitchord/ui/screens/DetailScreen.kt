@@ -106,21 +106,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -1042,11 +1037,9 @@ private fun ReleaseHeaderText(
     text: String,
     style: TextStyle,
     color: Color,
-    halo: Color?,
     maxLines: Int,
     modifier: Modifier,
 ) {
-    val layout = if (halo != null) remember(text) { mutableStateOf<TextLayoutResult?>(null) } else null
     Text(
         text = text,
         style = style,
@@ -1054,16 +1047,7 @@ private fun ReleaseHeaderText(
         textAlign = TextAlign.Center,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        onTextLayout = if (layout == null) null else { result -> layout.value = result },
-        modifier = if (halo != null && layout != null) modifier.drawWithCache {
-            val stroke = Stroke(width = 2.dp.toPx(), join = StrokeJoin.Round)
-            onDrawWithContent {
-                // Reuse the label's own layout. Only glyph edges see the page
-                // tint behind the adaptive ink; artwork between letters stays put.
-                layout.value?.let { drawText(it, color = halo, shadow = Shadow.None, drawStyle = stroke) }
-                drawContent()
-            }
-        } else modifier,
+        modifier = modifier,
     )
 }
 
@@ -1107,7 +1091,6 @@ private fun ReleaseHeader(
     val artist = songs.firstOrNull()
     var artFailed by remember(page.thumbnailUrl) { mutableStateOf(false) }
     val albumPalette = palette.takeIf { page.type == BrowseType.ALBUM }
-    val artworkTextHalo = if (artworkMeasurements != null) palette.background else null
 
     // A placeholder is a sleeve or it is nothing, as on the player: blown out
     // to the page's width it would only tint the top of the screen.
@@ -1188,7 +1171,6 @@ private fun ReleaseHeader(
             text = page.title,
             style = MaterialTheme.typography.headlineMedium,
             color = palette.onBackground,
-            halo = artworkTextHalo,
             maxLines = 2,
             modifier = Modifier.padding(horizontal = HEADER_GUTTER),
         )
@@ -1201,7 +1183,6 @@ private fun ReleaseHeader(
                     fontSize = 19.sp,
                 ),
                 color = palette.onBackgroundVariant,
-                halo = artworkTextHalo,
                 maxLines = 1,
                 modifier = Modifier
                     .padding(horizontal = HEADER_GUTTER)
@@ -1222,7 +1203,6 @@ private fun ReleaseHeader(
                 text = meta,
                 style = MaterialTheme.typography.labelMedium,
                 color = palette.onBackgroundVariant,
-                halo = artworkTextHalo,
                 maxLines = 1,
                 modifier = Modifier.padding(horizontal = HEADER_GUTTER),
             )

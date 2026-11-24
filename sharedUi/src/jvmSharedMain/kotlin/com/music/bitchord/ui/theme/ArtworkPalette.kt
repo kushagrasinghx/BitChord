@@ -354,10 +354,13 @@ private fun albumGround(swatches: List<Swatch>, edge: Color): Color {
     val dominant = samples.maxBy { it.population }
     // Count neighboring hues across several tones, but require the chosen
     // swatch itself to have both visible color and meaningful coverage.
-    fun support(hue: Float): Float = samples.sumOf { sample ->
+    fun weight(hue: Float, sample: AlbumSwatch): Float {
         val distance = abs(hue - sample.hue)
         val arc = minOf(distance, 360f - distance)
-        (sample.hueWeight * (1f - arc / 40f).coerceAtLeast(0f)).toDouble()
+        return sample.hueWeight * (1f - arc / 40f).coerceAtLeast(0f)
+    }
+    fun support(hue: Float): Float = samples.sumOf { sample ->
+        weight(hue, sample).toDouble()
     }.toFloat() / total
 
     val candidate = samples.filter { it.chroma >= 0.08f }.maxByOrNull {
@@ -366,33 +369,49 @@ private fun albumGround(swatches: List<Swatch>, edge: Color): Color {
     val coverage = candidate?.let { support(it.hue) } ?: 0f
     val mostlyNeutral = dominant.chroma < 0.09f && dominant.population / total >= 0.55f
     val chromatic = candidate?.takeIf { coverage >= 0.30f && !mostlyNeutral }
-    val source = chromatic ?: dominant
-    val luminance = source.color.luminance()
-    val edgeBias = (edge.luminance() - luminance).coerceIn(-0.09f, 0.09f) * 0.18f
-    val natural = (luminance + edgeBias).coerceIn(0.008f, 0.86f)
-    // A broad, chromatic midtone can carry a richer tint. Leave neutral,
-    // high-key and already dark covers close to their own luminance.
-    val strength = if (chromatic == null) 0f else
-        ((coverage - 0.24f) / 0.28f).coerceIn(0f, 1f) *
-            ((source.chroma - 0.10f) / 0.29f).coerceIn(0f, 1f) *
-            ((0.66f - luminance) / 0.27f).coerceIn(0f, 1f)
-    val target = natural - (natural - 0.158f).coerceAtLeast(0f) * strength
-    val compression = ((natural - target) / 0.13f).coerceIn(0f, 1f)
-    return source.color.withHsl(saturation = {
-        // Tame very saturated colors only when tone compression would make
-        // them read as neon. Dark covers already at their own tone keep it.
-        it - (it - 0.55f).coerceAtLeast(0f) * compression * 0.85f
-    }).atMostAlbumLuminance(target)
-}
+    if (chromatic == null) {
+        val luminance = dominant.color.luminance()
+        val edgeBias = (edge.luminance() - luminance).coerceIn(-0.09f, 0.09f) * 0.18f
+        val target = (luminance + edgeBias).coerceIn(0.008f, 0.86f)
+        return dominant.color.albumTone(Color.Black, Color.White) { it.luminance() <= target }
+    }
 
-private fun Color.atMostAlbumLuminance(target: Float): Color =
-    albumTone(Color.Black, Color.White) { it.luminance() <= target }
+    // The winning swatch locates the hue family; it does not get to set the
+    // whole page's color. Pool its neighbors, including the muted tones.
+    val family = samples.mapNotNull { sample ->
+        val w = weight(chromatic.hue, sample)
+        if (w > 0f) Triple(sample.color, w, sample.color.luminance()) else null
+    }.sortedBy { it.third }
+    var red = 0f
+    var green = 0f
+    var blue = 0f
+    var mass = 0f
+    family.forEach { (color, weight) ->
+        red += color.red * weight
+        green += color.green * weight
+        blue += color.blue * weight
+        mass += weight
+    }
+    val representative = Color(red = red / mass, green = green / mass, blue = blue / mass)
+
+    // Distinguish genuinely high-key artwork from midtone artwork with a few
+    // highlights. Prefer white ink without forcing the whole family dark.
+    var cumulative = 0f
+    val lowerQuartile = family.first { (_, weight) ->
+        cumulative += weight
+        cumulative >= mass * 0.25f
+    }.third
+    if (lowerQuartile >= 0.5f) return representative
+    return representative.albumTone(Color.Black, representative, preserveChroma = true) {
+        it.luminance() <= ALBUM_WHITE_INK_CEILING
+    }
+}
 
 private fun albumPalette(ground: Color, artworkAccent: Color): ArtworkPalette {
     val y = ground.luminance()
     // Use one polarity for every role. White is preferred whenever it passes;
     // above that point black also has enough contrast.
-    val lightInk = 1.05f >= ALBUM_TEXT_CONTRAST * (y + 0.05f)
+    val lightInk = y <= ALBUM_WHITE_INK_CEILING
     fun ink(candidate: Color): Color = if (lightInk) {
         candidate.albumTone(Color.White, candidate) { it.luminance() + 0.05f >= ALBUM_TEXT_CONTRAST * (y + 0.05f) }
     } else {
@@ -419,17 +438,29 @@ private fun albumPalette(ground: Color, artworkAccent: Color): ArtworkPalette {
 
 // Leave a small margin over 4.5:1 for quantization at the render boundary.
 private const val ALBUM_TEXT_CONTRAST = 4.55f
+private const val ALBUM_WHITE_INK_CEILING = 1.05f / ALBUM_TEXT_CONTRAST - 0.05f
 
 /** Fit an sRGB tone without rotating its hue; keep a known passing endpoint. */
-private fun Color.albumTone(passing: Color, limit: Color, accepts: (Color) -> Boolean): Color {
+private fun Color.albumTone(
+    passing: Color,
+    limit: Color,
+    preserveChroma: Boolean = false,
+    accepts: (Color) -> Boolean,
+): Color {
     if (accepts(limit)) return limit
     var best = passing
     var passes = if (passing == Color.White) 1f else 0f
     val hsl = FloatArray(3).also { ColorUtils.colorToHSL(toArgb(), it) }
+    val chroma = hsl[1] * (1f - abs(2f * hsl[2] - 1f))
     var fails = if (limit == Color.White) 1f else hsl[2]
     repeat(10) {
         val lightness = (passes + fails) / 2f
         hsl[2] = lightness
+        if (preserveChroma) {
+            // Holding HSL saturation fixed can increase chroma as a pale tone
+            // approaches the middle of the gamut. Keep only the color we sampled.
+            hsl[1] = (chroma / (1f - abs(2f * lightness - 1f))).coerceAtMost(1f)
+        }
         val candidate = Color(ColorUtils.HSLToColor(hsl))
         if (accepts(candidate)) {
             best = candidate

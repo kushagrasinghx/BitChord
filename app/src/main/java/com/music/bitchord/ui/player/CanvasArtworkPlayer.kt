@@ -207,6 +207,8 @@ internal fun AndroidCanvasArtworkPlayer(
     bottomFade: Float = 0f,
     /** Optional end of the fade in view pixels; defaults to the view's bottom edge. */
     bottomFadeEndPx: Float? = null,
+    /** Release pages use the same coverage as their still poster. */
+    albumFade: AlbumArtworkFade? = null,
     /**
      * Halts decoding for the length of a caller-driven transition — the sleeve
      * collapsing into the queue or lyrics panel and back — rather than only at
@@ -621,8 +623,8 @@ internal fun AndroidCanvasArtworkPlayer(
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             }
             val masked = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)
-                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx)
+                val fadeChanged = applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx, albumFade)
+                if (fadeChanged) frame.updateBottomFade(bottomFade, bounds, bottomFadeEndPx, albumFade)
                 val generation = organicReveal?.generation?.takeIf {
                     organicReveal.allowSpatialMask && nowPlaying && visibility > 0f &&
                         reducedMotion?.value != true && systemMotion?.scaleFactor != 0f
@@ -636,6 +638,7 @@ internal fun AndroidCanvasArtworkPlayer(
             } else {
                 frame.fadeFraction = bottomFade
                 frame.fadeEndPx = bottomFadeEndPx
+                frame.albumFade = albumFade
                 false
             }
             // Texture paint keeps hidden standby traversable so it can latch a frame.
@@ -824,7 +827,13 @@ private fun TextureView.applyContentTransform(
  * [RenderEffect] is API 31+; below that [FadingBottomFrame] does the same job
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
-private fun createBottomFade(fraction: Float, bounds: IntSize, endPx: Float?): LinearGradient? {
+private fun createBottomFade(
+    fraction: Float,
+    bounds: IntSize,
+    endPx: Float?,
+    albumFade: AlbumArtworkFade? = null,
+): LinearGradient? {
+    if (albumFade != null) return albumFade.shader(bounds.height.toFloat())
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
     if (fraction <= 0.001f || endY <= 0f) return null
     // Along smootherstep, as the still sleeve's banner dissolves, so the clip
@@ -871,6 +880,7 @@ private class AppliedLook {
     private var fade = Float.NaN
     private var fadeBounds = IntSize(-1, -1)
     private var fadeEnd: Float? = Float.NaN
+    private var fadeProfile: AlbumArtworkFade? = null
 
     fun transformDiffers(
         clipAspect: Float,
@@ -890,11 +900,12 @@ private class AppliedLook {
         return true
     }
 
-    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?): Boolean {
-        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd) return false
+    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?, profile: AlbumArtworkFade?): Boolean {
+        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd && profile == fadeProfile) return false
         fade = fraction
         fadeBounds = bounds
         fadeEnd = endPx
+        fadeProfile = profile
         return true
     }
 }
@@ -919,8 +930,8 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     private var outgoingEffectApplied = false
 
     @RequiresApi(Build.VERSION_CODES.S)
-    fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
-        bottomShader = createBottomFade(fraction, bounds, endPx)
+    fun updateBottomFade(fraction: Float, bounds: IntSize, endPx: Float?, albumFade: AlbumArtworkFade?) {
+        bottomShader = createBottomFade(fraction, bounds, endPx, albumFade)
         bottomEffect = bottomShader?.let {
             RenderEffect.createBlendModeEffect(
                 RenderEffect.createOffsetEffect(0f, 0f), // This node's own content.
@@ -1040,6 +1051,13 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             gradient = null
             invalidate()
         }
+    var albumFade: AlbumArtworkFade? = null
+        set(value) {
+            if (value == field) return
+            field = value
+            gradient = null
+            invalidate()
+        }
 
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
@@ -1052,7 +1070,7 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
     }
 
     override fun dispatchDraw(canvas: Canvas) {
-        val shader = gradient ?: createBottomFade(fadeFraction, IntSize(width, height), fadeEndPx)
+        val shader = gradient ?: createBottomFade(fadeFraction, IntSize(width, height), fadeEndPx, albumFade)
             ?.also { gradient = it }
         if (shader == null) {
             super.dispatchDraw(canvas)

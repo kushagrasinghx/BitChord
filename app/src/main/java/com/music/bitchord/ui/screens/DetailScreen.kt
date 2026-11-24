@@ -92,6 +92,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.geometry.Offset
@@ -104,6 +105,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -191,7 +193,10 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
+import com.music.bitchord.ui.player.AlbumArtworkFade
+import com.music.bitchord.ui.player.AndroidCanvasArtworkPlayer
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
+import com.music.bitchord.ui.player.albumArtworkTitleOpacity
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.utils.DetailArtworkOverscroll
@@ -226,8 +231,6 @@ private val SLEEVE_SHADOW = 18.dp
 private const val FULL_BLEED_MAX_HEIGHT = 0.62f
 private const val ALBUM_HERO_VIEWPORT_FRACTION = 0.48f
 private const val ALBUM_HERO_TITLE_FRACTION = 0.88f
-// Feather only the foot of the visible artwork, finishing before the title.
-private const val ALBUM_HERO_FADE_FRACTION = 0.22f
 
 /** How much of a full-bleed sleeve's foot dissolves into the page — the player's banner's share. */
 private const val FULL_BLEED_FADE_FRACTION = 0.42f
@@ -641,6 +644,14 @@ fun DetailScreen(
                     val offscreen by remember(listState, heroHeightPx) {
                         derivedStateOf { listState.headerTop(heroHeightPx) <= -heroHeightPx }
                     }
+                    val albumFade = if (album) {
+                        val titleStartPx = with(LocalDensity.current) {
+                            (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
+                        }
+                        remember(titleStartPx, palette.background, palette.onBackground, palette.onBackgroundVariant) {
+                            AlbumArtworkFade(titleStartPx, palette.albumArtworkTitleOpacity())
+                        }
+                    } else null
                     Box(Modifier.matchParentSize().clipToBounds()) {
                         FullBleedReleaseArtwork(
                             poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
@@ -648,12 +659,7 @@ fun DetailScreen(
                             // Use the album lookup's square-first order for this short hero.
                             // The portrait rendition needs more cropping to cover the width.
                             canvas = visibleCanvas,
-                            fadeFraction = if (album) ALBUM_HERO_FADE_FRACTION else FULL_BLEED_FADE_FRACTION,
-                            // Use the gap above the title, not just the artwork spacer.
-                            // Both masks cap this at the bottom of the actual hero.
-                            fadeEndPx = if (album) with(LocalDensity.current) {
-                                (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
-                            } else null,
+                            albumFade = albumFade,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
@@ -1062,7 +1068,6 @@ private fun ReleaseHeader(
                 poster = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                 palette = palette,
                 canvas = canvas,
-                fadeFraction = FULL_BLEED_FADE_FRACTION,
                 onPosterState = { artFailed = it is AsyncImagePainter.State.Error },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1273,11 +1278,10 @@ private fun FullBleedReleaseArtwork(
     poster: String?,
     palette: ArtworkPalette,
     canvas: CanvasArtwork?,
-    fadeFraction: Float,
     onPosterState: (AsyncImagePainter.State) -> Unit,
     modifier: Modifier,
     pauseVideo: Boolean = false,
-    fadeEndPx: Float? = null,
+    albumFade: AlbumArtworkFade? = null,
 ) {
     Box(modifier) {
         var canvasCover by remember(canvas?.url, canvas?.fallbackUrl) { mutableStateOf(0f) }
@@ -1293,32 +1297,36 @@ private fun FullBleedReleaseArtwork(
                     // Once the video owns the hero, its bottom fade reveals only the page.
                     alpha = 1f - canvasCover
                 }
-                .drawWithContent {
-                    drawContent()
-                    val fadeEnd = fadeEndPx?.coerceAtMost(size.height) ?: size.height
-                    drawRect(
-                        brush = Brush.verticalGradient(
+                .drawWithCache {
+                    val mask = if (albumFade != null) {
+                        albumFade.shader(size.height)?.let { ShaderBrush(it) }
+                    } else {
+                        Brush.verticalGradient(
                             colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
                                 val t = i / FADE_CURVE_STOPS.toFloat()
                                 t to Color.Black.copy(alpha = 1f - smootherStep(t))
                             },
-                            startY = fadeEnd * (1f - fadeFraction),
-                            endY = fadeEnd,
-                        ),
-                        blendMode = BlendMode.DstIn,
-                    )
+                            startY = size.height * (1f - FULL_BLEED_FADE_FRACTION),
+                            endY = size.height,
+                        )
+                    }
+                    onDrawWithContent {
+                        drawContent()
+                        if (mask != null) drawRect(brush = mask, blendMode = BlendMode.DstIn)
+                    }
                 }
                 .background(palette.elevated),
         )
         // The TextureView owns its own matching feather on Android.
         canvas?.let { clip ->
             key(clip.url, clip.fallbackUrl) {
-                CanvasArtworkPlayer(
+                AndroidCanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = true,
+                    frameCapturePx = 0,
                     pausedForTransition = pauseVideo,
-                    bottomFade = fadeFraction,
-                    bottomFadeEndPx = fadeEndPx,
+                    bottomFade = if (albumFade == null) FULL_BLEED_FADE_FRACTION else 0f,
+                    albumFade = albumFade,
                     onCoverChanged = { canvasCover = it },
                     modifier = Modifier.matchParentSize(),
                 )

@@ -584,7 +584,7 @@ private fun Char.isBlockScript(): Boolean =
         this in '゠'..'ヿ' || this in '가'..'힯'
 
 private fun Char.isJoinedScript(): Boolean =
-    this in '֐'..'ࣿ'
+    this in '֐'..'᯿' || this in '\u1CD0'..'\u1CFF' || this in '\uA8E0'..'\uA8FF' || this in '\u200C'..'\u200D'
 
 /** Longest word worth running a wave through; past this it reads as a ripple. */
 private const val GROW_MAX_CHARS = 7

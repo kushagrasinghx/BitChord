@@ -741,7 +741,7 @@ internal class Fonts(context: Context) {
         paint(semibold, size, color).apply { letterSpacing = tracking }
 
     private fun paint(face: Typeface, size: Float, color: Int) =
-        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             typeface = face
             textSize = size
             this.color = color

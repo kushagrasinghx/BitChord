@@ -103,14 +103,16 @@ internal class PlacedRow internal constructor(val row: Row, val x: Float, val ba
 
 internal class CardLayout internal constructor(val width: Int, val height: Int, val base: Bitmap, val rows: List<PlacedRow>)
 
-/** Places [plan]'s rows from [top] down, starting at [x]. */
+/** Places [plan]'s rows from [top] down, starting at [x], right-aligning RTL lines. */
 private fun place(plan: Plan, x: Float, top: Float): List<PlacedRow> {
     var y = top
     return plan.rows.map { row ->
         val baseline = y + row.gapBefore - row.paint.ascent() +
             if (row.isGap) row.paint.textSize * GAP_MARKER_OFFSET else 0f
         y += row.gapBefore + row.height
-        PlacedRow(row, x, baseline)
+        val rowW = row.paint.measureText(row.text)
+        val rowX = if (row.rtl) x + plan.width - rowW else x
+        PlacedRow(row, rowX, baseline)
     }
 }
 
@@ -295,10 +297,22 @@ internal class LyricsCardPainter internal constructor(
     val height: Int get() = layout.height
 
     private val basePaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    private val scratch = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val scratch = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
+    private val glow = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG)
     private val fade = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
     private val growth = CharGrowth()
+    private var cachedCanvas: Canvas? = null
+    private var cachedCanvasTarget: Bitmap? = null
+    private var cachedBlurRadius: Float = -1f
+    private var cachedBlurFilter: BlurMaskFilter? = null
+
+    private fun blurFilterFor(radius: Float): BlurMaskFilter {
+        if (radius != cachedBlurRadius || cachedBlurFilter == null) {
+            cachedBlurRadius = radius
+            cachedBlurFilter = BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL)
+        }
+        return cachedBlurFilter!!
+    }
 
     /** Each line's place among the sung lines (gaps don't count), for the falloff. */
     private val rank = IntArray(lines.size).also { ranks ->
@@ -306,57 +320,128 @@ internal class LyricsCardPainter internal constructor(
         lines.forEachIndexed { index, line -> ranks[index] = if (line.isGap) -1 else next++ }
     }
 
+    /** Start timestamps of all sung lines (in order of rank), for smooth line handovers. */
+    private val sungStarts = LongArray(lines.count { !it.isGap }).also { starts ->
+        var next = 0
+        lines.forEach { line ->
+            if (!line.isGap) {
+                starts[next++] = line.startMs ?: line.timing?.timeMs ?: 0L
+            }
+        }
+    }
+
     /** The card at [positionMs] (track time; null for the still card), into [into] when given. */
     fun render(positionMs: Long?, into: Bitmap? = null): Bitmap {
         val bitmap = into ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)
-        drawOn(Canvas(bitmap), positionMs)
+        val canvas = if (cachedCanvasTarget === bitmap) {
+            cachedCanvas!!
+        } else {
+            Canvas(bitmap).also {
+                cachedCanvas = it
+                cachedCanvasTarget = bitmap
+            }
+        }
+        drawOn(canvas, positionMs)
         return bitmap
     }
 
     /** Draws the card onto [canvas] at the card's own pixel size. */
     fun drawOn(canvas: Canvas, positionMs: Long?) {
         canvas.drawBitmap(layout.base, 0f, 0f, basePaint)
-        val active = positionMs?.let(::activeLine) ?: -1
-        for (placed in layout.rows) drawRow(canvas, placed, positionMs, active)
+        val activeRank = positionMs?.let(::activeRank) ?: -1f
+        for (placed in layout.rows) drawRow(canvas, placed, positionMs, activeRank)
     }
 
-    /** The line being sung at [positionMs]: the last one to have started, or the first. */
-    private fun activeLine(positionMs: Long): Int {
-        var first = -1
-        var last = -1
-        lines.forEachIndexed { index, line ->
-            if (line.isGap) return@forEachIndexed
-            val start = line.startMs ?: line.timing?.timeMs ?: return@forEachIndexed
-            if (first < 0) first = index
-            if (positionMs >= start) last = index
+    /** Continuous cursor rank across the sung lines, easing smoothly during line changes. */
+    private fun activeRank(positionMs: Long): Float {
+        if (sungStarts.isEmpty()) return -1f
+        val lastIndex = sungStarts.lastIndex
+        if (lastIndex == 0) return 0f
+
+        val sFirst = sungStarts[0]
+        if (positionMs <= sFirst) return 0f
+
+        for (i in 1..lastIndex) {
+            val sPrev = sungStarts[i - 1]
+            val sCurr = sungStarts[i]
+            val seg = (sCurr - sPrev).coerceAtLeast(1L)
+            // Handover leads into sCurr so line i is illuminated and focused ahead of vocal start
+            val handover = minOf(LINE_CROSSFADE_MS * 1.5f, seg * 0.5f).coerceAtLeast(1f)
+            val hStart = sCurr - handover * 0.75f
+            val hEnd = sCurr + handover * 0.25f
+
+            if (positionMs < hStart) {
+                return (i - 1).toFloat()
+            }
+            if (positionMs <= hEnd) {
+                val p = ((positionMs - hStart) / (hEnd - hStart)).coerceIn(0f, 1f)
+                return (i - 1).toFloat() + smootherstep(p)
+            }
         }
-        return if (last >= 0) last else first
+
+        return lastIndex.toFloat()
     }
 
-    private fun drawRow(canvas: Canvas, placed: PlacedRow, positionMs: Long?, active: Int) {
+    private fun drawRow(canvas: Canvas, placed: PlacedRow, positionMs: Long?, activeRank: Float) {
         val row = placed.row
         val line = lines.getOrNull(row.line)
-        if (positionMs == null || row.isGap || line == null || active < 0) {
+        val lineRank = rank.getOrNull(row.line) ?: -1
+        if (row.isGap) {
+            drawGapDots(canvas, placed, line, positionMs)
+            return
+        }
+        if (positionMs == null || line == null || activeRank < 0f || lineRank < 0) {
             canvas.drawText(row.text, placed.x, placed.baseline, row.paint)
             return
         }
         val timing = line.timing
-        val distance = kotlin.math.abs(rank[row.line] - rank[active]).coerceAtMost(LINE_FALLOFF.lastIndex)
-        val alpha = row.paint.alpha * LINE_FALLOFF[distance]
+        val distance = kotlin.math.abs(lineRank.toFloat() - activeRank)
+        val alpha = row.paint.alpha * falloffAt(distance)
         val start = line.startMs ?: timing?.timeMs ?: 0L
-        val swept = timing != null && timing.isWordSynced && !row.rtl
+        val swept = timing != null && timing.isWordSynced
 
         if (!swept) {
             // No word timings (or a script the sweep can't follow): the line
-            // lights whole the moment it starts, as the panel's does.
-            val lit = if (positionMs >= start) 1f else UNSUNG_ALPHA
+            // smoothly fades in as it starts and fades out on handover / line end.
+            val lineEnd = line.endMs
+                ?: lines.getOrNull(row.line + 1)?.let { it.startMs ?: it.timing?.timeMs }
+                ?: (start + LINE_CROSSFADE_MS * 4).toLong()
+
+            val lit = when {
+                positionMs < start -> {
+                    val before = start - positionMs
+                    if (before <= LINE_CROSSFADE_MS) {
+                        val p = 1f - (before.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+                        UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * smootherstep(p)
+                    } else {
+                        UNSUNG_ALPHA
+                    }
+                }
+                positionMs <= lineEnd -> {
+                    1f
+                }
+                else -> {
+                    val fadeOut = ((positionMs - lineEnd).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+                    UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * (1f - smootherstep(fadeOut))
+                }
+            }
+
             scratch.set(row.paint)
             scratch.alpha = (alpha * lit).roundToInt()
+            if (lit > 0.6f && !row.isSub) {
+                val glowAlpha = (alpha * (lit - 0.6f) / 0.4f * 0.4f).roundToInt().coerceIn(0, 255)
+                if (glowAlpha > 0) {
+                    glow.set(row.paint)
+                    glow.alpha = glowAlpha
+                    glow.maskFilter = blurFilterFor(row.paint.textSize * GLOW_RATIO)
+                    canvas.drawText(row.text, placed.x, placed.baseline, glow)
+                }
+            }
             canvas.drawText(row.text, placed.x, placed.baseline, scratch)
             return
         }
-        timing!!
+
         // How far the sweep has got, in this row's own characters.
         val revealedInLine = if (row.isSub) {
             val lead = timing.text.length.coerceAtLeast(1)
@@ -366,38 +451,189 @@ internal class LyricsCardPainter internal constructor(
         }
         val revealed = (revealedInLine - row.start).coerceIn(0f, row.text.length.toFloat())
         val sung = positionMs >= timing.endMs
-        val dim = if (sung) 1f else UNSUNG_ALPHA
+
+        // When the line finishes singing, the bright lit overlay smoothly fades down to
+        // resting unsung alpha over LINE_CROSSFADE_MS, giving a buttery line change fade-out.
+        val fadeOut = if (sung) {
+            ((positionMs - timing.endMs).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val overlayFactor = if (sung) 1f - smootherstep(fadeOut) else 1f
         val lifts = !row.isSub
 
-        // The unsung copy underneath, then the lit one over it up to the sweep.
-        scratch.set(row.paint)
-        scratch.alpha = (alpha * dim).roundToInt()
-        drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
-        if (revealed <= 0f || (sung && revealed >= row.text.length)) return
+        // In the lead-in to this line, smoothly raise its base brightness from UNSUNG_ALPHA
+        // so that the upcoming line illuminates ahead of the vocal, making line changes unmistakable.
+        val leadInProgress = if (positionMs < start) {
+            val before = start - positionMs
+            if (before <= LINE_CROSSFADE_MS) 1f - (before.toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f) else 0f
+        } else {
+            1f
+        }
+        val baseAlphaFactor = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * 0.45f * smootherstep(leadInProgress)
 
-        scratch.alpha = alpha.roundToInt()
-        if (revealed >= row.text.length) {
-            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+        // If the row hasn't started revealing yet, or if it has finished singing and
+        // the lit overlay has completely faded out: draw base dim pass directly and return.
+        if (revealed <= 0f || (sung && overlayFactor <= 0.001f)) {
+            scratch.set(row.paint)
+            scratch.alpha = (alpha * baseAlphaFactor).roundToInt()
+            drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
             return
         }
+
         val size = row.paint.textSize
-        val edge = placed.x + sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
-        // The feather runs ahead of the sweep, into what is still to come, and
-        // grows in over the first stretch of each row — the panel's own wipe.
-        val feather = minOf(size * FEATHER_RATIO, edge - placed.x)
+        val rowW = row.paint.measureText(row.text)
+        val textW = sweepX(row, revealed, if (row.isSub) emptyList() else timing.sweepSpans)
         val top = placed.baseline + row.paint.ascent() - size * HEADROOM_RATIO
-        val bottom = placed.baseline + row.paint.descent() + size * 0.1f
-        val save = canvas.saveLayer(0f, top, layout.width.toFloat(), bottom, null)
-        canvas.clipRect(0f, top, edge + feather, bottom)
-        drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
-        if (feather > 0.5f) {
-            fade.shader = LinearGradient(
-                edge, 0f, edge + feather, 0f,
-                Color.WHITE, Color.TRANSPARENT, Shader.TileMode.CLAMP,
-            )
-            canvas.drawRect(0f, top, layout.width.toFloat(), bottom, fade)
+        val bottom = placed.baseline + row.paint.descent() + size * HEADROOM_RATIO
+
+        // 1. Draw the complete row at the base dim alpha (unclipped, unbroken native font anti-aliasing).
+        scratch.set(row.paint)
+        scratch.alpha = (alpha * baseAlphaFactor).roundToInt()
+        drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = false)
+
+        // 2. Overlay the lit pass on top.
+        // Inside saveLayer, the lit overlay's opacity is scaled by overlayFactor, so that
+        // as the line finishes, the bright white letters and their glowing bloom smoothly
+        // fade out from 1.0 down to 0.0, leaving the resting dim line underneath.
+        val overlayAlpha = alpha * overlayFactor
+        if (overlayAlpha > 0.001f) {
+            if (row.rtl) {
+                // RTL: the sweep starts at the right edge and moves leftwards as characters are revealed.
+                val edge = placed.x + rowW - textW
+                val feather = minOf(size * FEATHER_RATIO, (placed.x + rowW - edge).coerceAtLeast(0f))
+                val clipLeft = (edge - feather).coerceAtLeast(0f)
+                val clipRight = layout.width.toFloat()
+                if (clipRight > clipLeft && placed.x + rowW > edge - feather) {
+                    val save = canvas.saveLayer(clipLeft, top, clipRight, bottom, null)
+                    canvas.clipRect(clipLeft, top, clipRight, bottom)
+                    scratch.set(row.paint)
+                    scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
+                    drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+                    if (feather > 0.5f) {
+                        fade.shader = LinearGradient(
+                            edge - feather, 0f, edge, 0f,
+                            Color.TRANSPARENT, Color.WHITE, Shader.TileMode.CLAMP,
+                        )
+                        canvas.drawRect(clipLeft, top, clipRight, bottom, fade)
+                    }
+                    canvas.restoreToCount(save)
+                }
+            } else {
+                // LTR: the sweep starts at the left edge (placed.x) and moves rightwards.
+                val edge = placed.x + textW
+                val feather = minOf(size * FEATHER_RATIO, (edge - placed.x).coerceAtLeast(0f))
+                if (edge + feather > placed.x) {
+                    val save = canvas.saveLayer(0f, top, edge + feather + 1f, bottom, null)
+                    canvas.clipRect(0f, top, edge + feather, bottom)
+                    scratch.set(row.paint)
+                    scratch.alpha = overlayAlpha.roundToInt().coerceIn(0, 255)
+                    drawPieces(canvas, placed, scratch, positionMs, timing, lifts, bloom = true)
+                    if (feather > 0.5f) {
+                        fade.shader = LinearGradient(
+                            edge, 0f, edge + feather, 0f,
+                            Color.WHITE, Color.TRANSPARENT, Shader.TileMode.CLAMP,
+                        )
+                        canvas.drawRect(0f, top, edge + feather + 1f, bottom, fade)
+                    }
+                    canvas.restoreToCount(save)
+                }
+            }
         }
-        canvas.restoreToCount(save)
+    }
+
+    /**
+     * Three dots lighting in turn across an instrumental break, matching the player's
+     * interlude animation. Dots rest dim, fill bright from left to right as the silence runs,
+     * and smoothly return to rest once the next line begins singing.
+     */
+    private fun drawGapDots(
+        canvas: Canvas,
+        placed: PlacedRow,
+        line: LyricsShareLine?,
+        positionMs: Long?,
+    ) {
+        val row = placed.row
+
+        // On the still card (null positionMs), draw the standard editorial omission marker "(...)"
+        if (positionMs == null) {
+            canvas.drawText(row.text, placed.x, placed.baseline, row.paint)
+            return
+        }
+
+        // On video clips and animated preview: render the 3 interactive counting dots
+        val size = row.paint.textSize
+        val dotSize = (size * DOT_TO_TYPE).coerceAtLeast(8f)
+        val dotGap = (size * DOT_GAP_TO_TYPE).coerceAtLeast(4f)
+        val radius = dotSize / 2f
+        val stride = dotSize + dotGap
+        val totalWidth = GAP_DOTS * dotSize + (GAP_DOTS - 1) * dotGap
+        val startX = if (row.centered) {
+            placed.x - totalWidth / 2f + radius
+        } else if (row.rtl) {
+            (placed.x + row.paint.measureText(row.text)) - totalWidth + radius
+        } else {
+            placed.x + radius
+        }
+        val centerY = placed.baseline - size * 0.65f * 0.30f
+
+        val start = line?.startMs
+            ?: lines.take(row.line).lastOrNull { !it.isGap && (it.endMs != null || it.startMs != null) }?.let { it.endMs ?: it.startMs }
+        val end = line?.endMs
+            ?: lines.drop(row.line + 1).firstOrNull { !it.isGap && it.startMs != null }?.startMs
+
+        scratch.set(row.paint)
+        scratch.color = Color.WHITE
+
+        if (start == null || end == null || end <= start) {
+            scratch.alpha = (255f * GAP_DOT_REST).roundToInt().coerceIn(0, 255)
+            for (dot in 0 until GAP_DOTS) {
+                canvas.drawCircle(startX + dot * stride, centerY, radius, scratch)
+            }
+            return
+        }
+
+        val through = when {
+            positionMs <= start -> 0f
+            positionMs >= end -> 1f
+            else -> ((positionMs - start).toFloat() / (end - start)).coerceIn(0f, 1f)
+        }
+
+        // When the break finishes, the dots smoothly fade back down to resting alpha
+        val standDown = if (positionMs >= end) {
+            val fade = ((positionMs - end).toFloat() / LINE_CROSSFADE_MS).coerceIn(0f, 1f)
+            1f - smootherstep(fade)
+        } else {
+            1f
+        }
+
+        val blurFilter = blurFilterFor(size * GLOW_RATIO)
+
+        for (dot in 0 until GAP_DOTS) {
+            // For RTL scripts, fill from right to left; for LTR, left to right.
+            val dotOrder = if (row.rtl) (GAP_DOTS - 1 - dot) else dot
+            val lit = ((through * GAP_DOTS - dotOrder).coerceIn(0f, 1f) * standDown).coerceIn(0f, 1f)
+            val dotAlpha = GAP_DOT_REST + (1f - GAP_DOT_REST) * lit
+            val alphaInt = (255f * dotAlpha).roundToInt().coerceIn(0, 255)
+            val cx = startX + dot * stride
+
+            // Subtle tactile swell: resting dot at 88%, expanding smoothly to 100% as it lights
+            val scale = 0.88f + 0.12f * lit
+            val dotRadius = radius * scale
+
+            // Glowing bloom behind active/filling dot
+            if (lit > 0.05f) {
+                glow.set(row.paint)
+                glow.color = Color.WHITE
+                glow.alpha = (alphaInt * 0.55f * lit).roundToInt().coerceIn(0, 255)
+                glow.maskFilter = blurFilter
+                canvas.drawCircle(cx, centerY, dotRadius, glow)
+            }
+
+            // Crisp anti-aliased white dot
+            scratch.alpha = alphaInt
+            canvas.drawCircle(cx, centerY, dotRadius, scratch)
+        }
     }
 
     /**
@@ -415,7 +651,17 @@ internal class LyricsCardPainter internal constructor(
     ) {
         val row = placed.row
         val text = row.text
-        if (!lifts) {
+        if (row.rtl) {
+            if (bloom) {
+                glow.set(paint)
+                glow.alpha = (paint.alpha * 0.45f).roundToInt().coerceIn(0, 255)
+                glow.maskFilter = blurFilterFor(paint.textSize * GLOW_RATIO)
+                canvas.drawText(text, placed.x, placed.baseline, glow)
+            }
+            canvas.drawText(text, placed.x, placed.baseline, paint)
+            return
+        }
+        if (!lifts || !timing.isLifted(positionMs)) {
             canvas.drawText(text, placed.x, placed.baseline, paint)
             return
         }
@@ -423,38 +669,100 @@ internal class LyricsCardPainter internal constructor(
         val rise = size * RISE_RATIO
         val rowStart = row.start
         val rowEnd = rowStart + text.length
+
+        // When no word overlapping this row is currently lifting or growing,
+        // render the unbroken string directly to avoid unnecessary clips and measurements.
+        val hasMotion = timing.wordSpans.indices.any { index ->
+            val span = timing.wordSpans[index]
+            val from = maxOf(span.first, rowStart) - rowStart
+            val to = minOf(span.last + 1, rowEnd) - rowStart
+            if (to <= from) return@any false
+            val grow = timing.growingAt(index)
+            val isGrown = grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs
+            isGrown || timing.wordLift(index, positionMs) > 0.001f
+        }
+        if (!hasMotion) {
+            canvas.drawText(text, placed.x, placed.baseline, paint)
+            return
+        }
+
+        val top = placed.baseline + paint.ascent() - size * HEADROOM_RATIO
+        val bottom = placed.baseline + paint.descent() + size * HEADROOM_RATIO
+
+        // Place clip boundaries safely within inter-word whitespace so glyphs,
+        // matras, and ligatures are never sliced mid-letter by rectangular clips.
+        fun splitAt(k: Int): Float {
+            if (k <= 0) return placed.x - 4f
+            if (k >= text.length) return layout.width.toFloat()
+            val here = placed.x + paint.measureText(text, 0, k)
+            if (text[k - 1].isWhitespace()) {
+                val prev = placed.x + paint.measureText(text, 0, k - 1)
+                return (prev + here) / 2f
+            } else if (text[k].isWhitespace()) {
+                val next = placed.x + paint.measureText(text, 0, (k + 1).coerceAtMost(text.length))
+                return (here + next) / 2f
+            }
+            return here
+        }
+
         fun run(from: Int, to: Int, dy: Float) {
             if (to <= from) return
-            canvas.drawText(text, from, to, placed.x + paint.measureText(text, 0, from), placed.baseline + dy, paint)
+            val clipLeft = splitAt(from)
+            val clipRight = splitAt(to)
+            if (clipLeft >= clipRight) return
+            canvas.save()
+            canvas.clipRect(clipLeft, top + minOf(0f, dy), clipRight, bottom + maxOf(0f, dy))
+            canvas.drawText(text, placed.x, placed.baseline + dy, paint)
+            canvas.restore()
         }
+
+        val blurFilter = if (bloom) blurFilterFor(size * GLOW_RATIO) else null
+        val centerY = placed.baseline + (paint.ascent() + paint.descent()) / 2f
+
+        val hasComplex = text.hasComplexScript()
         var cursor = 0
         timing.wordSpans.forEachIndexed { index, span ->
             val from = maxOf(span.first, rowStart) - rowStart
             val to = minOf(span.last + 1, rowEnd) - rowStart
             if (to <= from) return@forEachIndexed
+
+            val grow = if (hasComplex) null else timing.growingAt(index)
+            val isGrown = grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs
+            val lift = timing.wordLift(index, positionMs)
+
+            if (!isGrown && lift <= 0.001f) {
+                // Word is resting flat; keep it part of the continuous flat run.
+                return@forEachIndexed
+            }
+
+            // Flush preceding flat run
             run(cursor, from, 0f)
-            val grow = timing.growingAt(index)
-            if (grow != null && positionMs >= grow.startMs && positionMs <= grow.restsAtMs) {
+
+            if (isGrown && grow != null) {
                 for (k in from until to) {
                     val letter = rowStart + k - span.first
                     grow.sampleInto(letter, positionMs, growth)
-                    val left = placed.x + paint.measureText(text, 0, k)
-                    val w = paint.measureText(text, k, k + 1)
-                    val cx = left + w / 2f + growth.shift * size
-                    val y = placed.baseline - growth.rise * rise
+                    val charLeft = placed.x + paint.measureText(text, 0, k)
+                    val charRight = placed.x + paint.measureText(text, 0, k + 1)
+                    val charW = charRight - charLeft
+                    val dx = growth.shift * size
+                    val dy = -growth.rise * rise
+                    val overhang = (charW * (growth.scale - 1f)) / 2f
                     canvas.save()
-                    canvas.scale(growth.scale, growth.scale, cx, y)
-                    if (bloom && growth.bloom > 0.01f) {
+                    canvas.translate(dx, dy)
+                    canvas.clipRect(charLeft - overhang, top, charRight + overhang, bottom)
+                    canvas.scale(growth.scale, growth.scale, charLeft + charW / 2f, centerY)
+                    if (bloom && growth.bloom > 0.01f && blurFilter != null) {
                         glow.set(paint)
                         glow.alpha = (paint.alpha * growth.bloom.coerceAtMost(1f)).roundToInt()
-                        glow.maskFilter = BlurMaskFilter(size * GLOW_RATIO, BlurMaskFilter.Blur.NORMAL)
-                        canvas.drawText(text, k, k + 1, cx - w / 2f, y, glow)
+                        glow.maskFilter = blurFilter
+                        canvas.drawText(text, placed.x, placed.baseline, glow)
                     }
-                    canvas.drawText(text, k, k + 1, cx - w / 2f, y, paint)
+                    canvas.drawText(text, placed.x, placed.baseline, paint)
                     canvas.restore()
                 }
             } else {
-                run(from, to, -timing.wordLift(index, positionMs) * rise)
+                run(from, to, -lift * rise)
             }
             cursor = to
         }
@@ -465,19 +773,68 @@ internal class LyricsCardPainter internal constructor(
     private fun sweepX(row: Row, chars: Float, spans: List<IntRange>): Float {
         val text = row.text
         val paint = row.paint
-        val at = row.start + chars
-        // Within a timed piece the edge crosses its width at a steady pace.
-        val piece = spans.firstOrNull { at >= it.first && at < it.last + 1 }
-        if (piece != null && piece.first >= row.start && piece.last + 1 <= row.start + text.length) {
-            val from = paint.measureText(text, 0, piece.first - row.start)
-            val to = paint.measureText(text, 0, piece.last + 1 - row.start)
-            return from + (to - from) * (at - piece.first) / (piece.last + 1 - piece.first)
+        if (text.isEmpty() || chars <= 0f) return 0f
+        if (chars >= text.length) return paint.measureText(text)
+
+        val rowStart = row.start
+        val rowEnd = rowStart + text.length
+
+        // Spans mapped to this row's character indices [0, text.length]
+        val rowSpans: List<IntRange> = if (spans.isNotEmpty()) {
+            spans.mapNotNull { span ->
+                val s = maxOf(span.first, rowStart) - rowStart
+                val e = minOf(span.last + 1, rowEnd) - rowStart
+                if (e > s) s until e else null
+            }
+        } else {
+            wordRangesOf(text)
         }
-        // A space between words, or a piece broken over a wrap: letter by letter.
-        val k = chars.toInt().coerceIn(0, text.length)
-        val here = paint.measureText(text, 0, k)
-        val next = paint.measureText(text, 0, (k + 1).coerceAtMost(text.length))
-        return here + (next - here) * (chars - k)
+
+        if (rowSpans.isEmpty()) {
+            val totalW = paint.measureText(text)
+            return totalW * (chars / text.length.toFloat()).coerceIn(0f, 1f)
+        }
+
+        val at = chars.coerceIn(0f, text.length.toFloat())
+
+        // 1. Check if 'at' is inside a timed span
+        for (span in rowSpans) {
+            val s = span.first
+            val e = span.last + 1
+            if (at in s.toFloat()..e.toFloat()) {
+                val fromX = paint.measureText(text, 0, s)
+                val toX = paint.measureText(text, 0, e)
+                val p = if (e > s) (at - s) / (e - s).toFloat() else 0f
+                return fromX + (toX - fromX) * p
+            }
+        }
+
+        // 2. Check if 'at' is in the gap (space) between two consecutive spans
+        for (i in 0 until rowSpans.size - 1) {
+            val endPrev = rowSpans[i].last + 1
+            val startNext = rowSpans[i + 1].first
+            if (at in endPrev.toFloat()..startNext.toFloat()) {
+                val fromX = paint.measureText(text, 0, endPrev)
+                val toX = paint.measureText(text, 0, startNext)
+                val p = if (startNext > endPrev) (at - endPrev) / (startNext - endPrev).toFloat() else 0f
+                return fromX + (toX - fromX) * p
+            }
+        }
+
+        // 3. Before first span
+        val firstStart = rowSpans.first().first
+        if (at < firstStart) {
+            val toX = paint.measureText(text, 0, firstStart)
+            val p = if (firstStart > 0) at / firstStart.toFloat() else 0f
+            return toX * p
+        }
+
+        // 4. After last span
+        val lastEnd = rowSpans.last().last + 1
+        val fromX = paint.measureText(text, 0, lastEnd)
+        val toX = paint.measureText(text)
+        val p = if (text.length > lastEnd) (at - lastEnd) / (text.length - lastEnd).toFloat() else 0f
+        return fromX + (toX - fromX) * p
     }
 }
 
@@ -534,7 +891,7 @@ internal class Row internal constructor(
 )
 
 /** The rows at one size, with everything needed to place them. */
-private class Plan(val rows: List<Row>, val ascent: Float) {
+private class Plan(val rows: List<Row>, val ascent: Float, val width: Float = CARD_CONTENT_W) {
     /** Distance from the top of the first line to the bottom of the last. */
     val content: Float
         get() = ascent + rows.fold(0f) { total, row -> total + row.gapBefore + row.height }
@@ -578,17 +935,25 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
     val subSize = (size * SUB_RATIO).coerceAtLeast(SUB_FLOOR)
     val secondary = type.heading(subSize, SUB_COLOR).apply { letterSpacing = SUB_TRACKING }
 
+    fun paintFor(base: Paint, text: String, rtl: Boolean): Paint =
+        if ((rtl || text.hasComplexScript()) && base.letterSpacing != 0f) {
+            Paint(base).apply { letterSpacing = 0f }
+        } else {
+            base
+        }
+
+    val cardIsRtl = lines.any { !it.isGap && isRtl(it.text) }
     val rows = mutableListOf<Row>()
     lines.forEachIndexed { index, line ->
         if (line.isGap) {
             // The skipped lines, as "(...)" — the conventional editorial mark
-            // for an omission. Hung off the left edge with the words, smaller
-            // and a dim grey. Keep its row compact so the marker follows the
-            // preceding lyric closely; the regular gap on the next lyric line
-            // provides the separation below it.
+            // for an omission. Sits on the right edge when the surrounding lines are RTL.
             val marker = type.body(size * 0.65f, 0x66FFFFFF.toInt())
             val markerHeight = marker.descent() - marker.ascent()
-            rows += Row("(...)", marker, markerHeight, 0f, isGap = true, line = index)
+            val gapRtl = lines.getOrNull(index - 1)?.text?.let(::isRtl)
+                ?: lines.getOrNull(index + 1)?.text?.let(::isRtl)
+                ?: cardIsRtl
+            rows += Row("(...)", marker, markerHeight, 0f, isGap = true, line = index, rtl = gapRtl)
             return@forEachIndexed
         }
         var firstOfLine = true
@@ -606,22 +971,26 @@ private fun planAt(type: Fonts, lines: List<LyricsShareLine>, size: Float, width
         }
         // Each row remembers where it starts in its line, so the sweep — which
         // counts characters of the whole line — can be found within it.
+        val lineRtl = isRtl(line.text)
         fun rows(source: String, paint: Paint, height: Float, isSub: Boolean) {
             val rtl = isRtl(source)
+            val effectivePaint = paintFor(paint, source, rtl)
             var cursor = 0
-            wrap(source, paint, width).forEach { piece ->
+            wrap(source, effectivePaint, width).forEach { piece ->
                 val at = source.indexOf(piece, cursor).takeIf { it >= 0 } ?: cursor
                 cursor = at + piece.length
-                add(piece, paint, height, at, isSub, rtl)
+                add(piece, effectivePaint, height, at, isSub, rtl)
             }
         }
-        rows(line.text, primary, size * LEAD, isSub = false)
+        val lead = if (lineRtl || line.text.hasComplexScript()) size * 1.30f else size * LEAD
+        rows(line.text, primary, lead, isSub = false)
         val sub = line.subText
         if (!sub.isNullOrBlank() && sub != line.text) {
-            rows(sub, secondary, subSize * SUB_LEAD, isSub = true)
+            val subLead = if (isRtl(sub) || sub.hasComplexScript()) subSize * 1.30f else subSize * SUB_LEAD
+            rows(sub, secondary, subLead, isSub = true)
         }
     }
-    return Plan(rows, -primary.ascent())
+    return Plan(rows, -primary.ascent(), width)
 }
 
 // ── Text ───────────────────────────────────────────────────────────────────
@@ -699,8 +1068,27 @@ private const val SUB_FLOOR = 24f
 /** The words not yet sung: the panel's UNSUNG_ALPHA. */
 private const val UNSUNG_ALPHA = 0.45f
 
-/** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA. */
-private val LINE_FALLOFF = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
+/** Lines further from the one being sung: the panel's LINE_FALLOFF_ALPHA_PHONE. */
+private val LINE_FALLOFF = floatArrayOf(1f, 0.70f, 0.52f, 0.40f, 0.32f)
+
+/** How long a line change takes to hand over: crossfade window in milliseconds. */
+private const val LINE_CROSSFADE_MS = 450f
+
+/** Quintic polynomial with zero 1st and 2nd derivatives at endpoints for zero jerk. */
+private fun smootherstep(t: Float): Float {
+    val p = t.coerceIn(0f, 1f)
+    return p * p * p * (p * (p * 6f - 15f) + 10f)
+}
+
+/** Smoothly interpolate LINE_FALLOFF by distance from the active line cursor without slope kinks. */
+private fun falloffAt(distance: Float): Float {
+    val d = distance.coerceIn(0f, LINE_FALLOFF.lastIndex.toFloat())
+    val i0 = d.toInt()
+    val i1 = minOf(i0 + 1, LINE_FALLOFF.lastIndex)
+    val frac = d - i0
+    val smoothFrac = frac * frac * (3f - 2f * frac)
+    return LINE_FALLOFF[i0] + (LINE_FALLOFF[i1] - LINE_FALLOFF[i0]) * smoothFrac
+}
 
 /** The sweep's soft leading edge: WIPE_FEATHER, 30dp. */
 private const val FEATHER_RATIO = 30f / 34f
@@ -709,16 +1097,72 @@ private const val FEATHER_RATIO = 30f / 34f
 private const val RISE_RATIO = 2f / 34f
 
 /** Room above a row for a lifted, swelling letter: GROW_HEADROOM rises and the swell. */
-private const val HEADROOM_RATIO = 0.35f
+private const val HEADROOM_RATIO = 0.45f
+
+/** Whether a character belongs to a complex or joined Indic / Southeast Asian / Middle Eastern script. */
+private fun Char.isComplexScript(): Boolean =
+    this in '֐'..'᯿' || this in '\u1CD0'..'\u1CFF' || this in '\uA8E0'..'\uA8FF' || this in '\u200C'..'\u200D' ||
+    this.code in 0x0600..0x06FF || this.code in 0x0750..0x077F ||
+    this.code in 0x08A0..0x08FF || this.code in 0xFB50..0xFDFF ||
+    this.code in 0xFE70..0xFEFF
+
+private fun String.hasComplexScript(): Boolean =
+    any { it.isComplexScript() }
+
+private fun wordRangesOf(text: String): List<IntRange> {
+    val ranges = mutableListOf<IntRange>()
+    var start = -1
+    for (i in text.indices) {
+        if (!text[i].isWhitespace()) {
+            if (start < 0) start = i
+        } else {
+            if (start >= 0) {
+                ranges += start until i
+                start = -1
+            }
+        }
+    }
+    if (start >= 0) ranges += start until text.length
+    return ranges
+}
 
 /** The bloom behind a held letter: GLOW_RADIUS, 6dp. */
 private const val GLOW_RATIO = 6f / 34f
 
-private fun isRtl(text: String): Boolean =
-    !java.text.Bidi(text, java.text.Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT).baseIsLeftToRight()
+internal fun isRtl(text: String): Boolean {
+    var rtlCount = 0
+    var ltrCount = 0
+    for (ch in text) {
+        val code = ch.code
+        if (code in 0xFB1D..0xFB4F || code in 0x0600..0x06FF || code in 0x0750..0x077F ||
+            code in 0x08A0..0x08FF || code in 0xFB50..0xFDFF || code in 0xFE70..0xFEFF
+        ) {
+            rtlCount++
+            continue
+        }
+        when (Character.getDirectionality(ch)) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> rtlCount++
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT -> ltrCount++
+        }
+    }
+    return if (rtlCount != 0 || ltrCount != 0) {
+        rtlCount > ltrCount
+    } else {
+        !java.text.Bidi(text, java.text.Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT).baseIsLeftToRight()
+    }
+}
 
 /** Small visual correction so the omission marker sits below the line above. */
 private const val GAP_MARKER_OFFSET = 0.18f
+
+/** A dot's diameter, and the air between dots, against the lyric's own size. */
+private const val DOT_TO_TYPE = 0.38f
+private const val DOT_GAP_TO_TYPE = 0.16f
+
+/** How many dots a break fills, and how bright a dot rests before its turn. */
+private const val GAP_DOTS = 3
+private const val GAP_DOT_REST = 0.25f
 
 /**
  * The sizes tried, largest first.

@@ -224,6 +224,7 @@ internal fun ShareAction(
      */
     busy: Boolean = false,
     busyLabel: String? = null,
+    progress: Int? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -269,11 +270,20 @@ internal fun ShareAction(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (now == ActionState.BUSY) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(17.dp),
-                        strokeWidth = 2.dp,
-                        color = foreground,
-                    )
+                    if (progress != null && progress > 0) {
+                        CircularProgressIndicator(
+                            progress = { progress / 100f },
+                            modifier = Modifier.size(17.dp),
+                            strokeWidth = 2.dp,
+                            color = foreground,
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(17.dp),
+                            strokeWidth = 2.dp,
+                            color = foreground,
+                        )
+                    }
                 } else {
                     Icon(
                         imageVector = if (now == ActionState.SAVED) Icons.Rounded.Check else icon,
@@ -282,7 +292,7 @@ internal fun ShareAction(
                         modifier = Modifier.size(19.dp),
                     )
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = when (now) {
                         ActionState.BUSY -> busyLabel ?: label
@@ -295,6 +305,15 @@ internal fun ShareAction(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (now == ActionState.BUSY && progress != null && progress > 0) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "$progress%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = foreground,
+                    )
+                }
             }
         }
     }

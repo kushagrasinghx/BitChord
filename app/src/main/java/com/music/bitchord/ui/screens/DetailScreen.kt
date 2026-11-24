@@ -234,6 +234,7 @@ private const val FULL_BLEED_FADE_FRACTION = 0.42f
 
 /** How far the title rides up into that dissolve, where the sleeve has all but gone. */
 private val FULL_BLEED_TITLE_OVERLAP = 44.dp
+private val RELEASE_TITLE_GAP = 20.dp
 
 /** Shuffle and Add to Library either side of the release page's Play pill. */
 private val RELEASE_SIDE_BUTTON = 50.dp
@@ -648,7 +649,11 @@ fun DetailScreen(
                             // The portrait rendition needs more cropping to cover the width.
                             canvas = visibleCanvas,
                             fadeFraction = if (album) ALBUM_HERO_FADE_FRACTION else FULL_BLEED_FADE_FRACTION,
-                            fadeEndPx = if (album) with(LocalDensity.current) { releaseTitleSpace.roundToPx().toFloat() } else null,
+                            // Use the gap above the title, not just the artwork spacer.
+                            // Both masks cap this at the bottom of the actual hero.
+                            fadeEndPx = if (album) with(LocalDensity.current) {
+                                (releaseTitleSpace.roundToPx() + RELEASE_TITLE_GAP.roundToPx()).toFloat()
+                            } else null,
                             pauseVideo = offscreen,
                             onPosterState = {
                                 if (it is AsyncImagePainter.State.Error) heroPosterFailed = true
@@ -1110,7 +1115,7 @@ private fun ReleaseHeader(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(RELEASE_TITLE_GAP))
         Text(
             text = page.title,
             style = MaterialTheme.typography.headlineMedium,

@@ -61,6 +61,12 @@ object SpotifyLibrary {
     private const val PLAYLIST = "346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763"
     /** The pseudo-playlist id for the Liked Songs collection, which has no playlist uri. */
     const val LIKED_ID = "liked"
+    /**
+     * Spotify's daylist: one playlist uri for everyone, which Spotify answers
+     * with the signed-in listener's own, renamed through the day ("chill indie
+     * tuesday afternoon"). Empty for an account with too little listening yet.
+     */
+    const val DAYLIST_ID = "37i9dQZF1EP6YuccBxUcC1"
     /** Spotify's own Liked Songs artwork, the purple heart; the collection has no cover of its own. */
     private const val LIKED_COVER = "https://misc.scdn.co/liked-songs/liked-songs-640.png"
     private const val LIKED = "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240"
@@ -165,6 +171,20 @@ object SpotifyLibrary {
         largestSource(root.obj("data")?.obj("playlistV2")?.obj("images"))
     }
 
+    /**
+     * The listener's daylist, named as Spotify names it right now, or null
+     * while Spotify has none for them (the playlist comes back empty).
+     */
+    suspend fun daylist(): SpotifyPlaylist? = withContext(Dispatchers.IO) {
+        val variables = buildJsonObject {
+            put("uri", "spotify:playlist:$DAYLIST_ID")
+            put("offset", 0)
+            put("limit", 1)
+            put("enableWatchFeedEntrypoint", false)
+        }
+        parseDaylist(gql("fetchPlaylist", PLAYLIST, variables, authHeaders()))
+    }
+
     private fun likedPage(headers: Map<String, String>, offset: Int): Triple<List<SpotifyTrack>, Int, Int> {
         val variables = buildJsonObject {
             put("offset", offset)
@@ -265,6 +285,19 @@ internal fun parseTrackPage(root: JsonObject): Triple<List<SpotifyTrack>, Int, I
         )
     }
     return Triple(items, content.int("totalCount") ?: rawItems.size, rawItems.size)
+}
+
+/** The daylist out of a `fetchPlaylist` answer, or null when it holds nothing yet. */
+internal fun parseDaylist(root: JsonObject): SpotifyPlaylist? {
+    val playlist = root.obj("data")?.obj("playlistV2") ?: return null
+    if ((playlist.obj("content")?.int("totalCount") ?: 0) == 0) return null
+    val name = playlist.str("name")?.takeIf { it.isNotBlank() } ?: return null
+    return SpotifyPlaylist(
+        id = SpotifyLibrary.DAYLIST_ID,
+        name = name,
+        owner = playlist.obj("ownerV2")?.obj("data")?.str("name"),
+        imageUrl = largestSource(playlist.obj("images")),
+    )
 }
 
 /** The Liked Songs page: `me.library.tracks`, each entry wrapping the track under `track`. */

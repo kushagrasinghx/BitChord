@@ -65,4 +65,29 @@ class SpotifyLibraryTest {
         assertNull(SpotifyImporter.extractPlaylistId("https://open.spotify.com/playlist/short"))
         assertNull(SpotifyImporter.extractPlaylistId(""))
     }
+
+    @Test
+    fun daylistReadsTodaysNameAndCover() {
+        val root = json.parseToJsonElement(
+            """
+            {"data":{"playlistV2":{"name":"chill indie tuesday afternoon",
+              "ownerV2":{"data":{"name":"Spotify"}},
+              "images":{"items":[{"sources":[{"url":"https://small","width":60},{"url":"https://large","width":640}]}]},
+              "content":{"totalCount":50,"items":[]}}}}
+            """.trimIndent(),
+        ).jsonObject
+        val daylist = parseDaylist(root)!!
+        assertEquals(SpotifyLibrary.DAYLIST_ID, daylist.id)
+        assertEquals("chill indie tuesday afternoon", daylist.name)
+        assertEquals("Spotify", daylist.owner)
+        assertEquals("https://large", daylist.imageUrl)
+    }
+
+    @Test
+    fun noDaylistUntilSpotifyHasMadeOne() {
+        val root = json.parseToJsonElement(
+            """{"data":{"playlistV2":{"name":"daylist","content":{"totalCount":0,"items":[]}}}}""",
+        ).jsonObject
+        assertNull(parseDaylist(root))
+    }
 }

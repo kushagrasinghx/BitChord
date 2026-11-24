@@ -3,7 +3,8 @@ import { useSyncExternalStore } from 'react';
 import type { SpotifyTrack } from '@bitchord/shared/bridge';
 import type { Track } from '@/data/music/types';
 import { useSpotifyAuth, useSpotifySignedIn } from '@/extension/useSpotifyAuth';
-import { fetchSpotifyPlaylistInfo, fetchSpotifyPlaylists, fetchSpotifyTracks, matchToYouTube, pendingTrack } from './api';
+import type { MusicItem } from '@/data/music/types';
+import { DAYLIST_ID, fetchSpotifyPlaylistInfo, fetchSpotifyPlaylists, fetchSpotifyTracks, matchToYouTube, pendingTrack, spotifyPlaylistItem } from './api';
 
 export function useSpotifyPlaylists() {
   const signedIn = useSpotifySignedIn();
@@ -12,6 +13,22 @@ export function useSpotifyPlaylists() {
     queryFn: fetchSpotifyPlaylists,
     enabled: signedIn,
     staleTime: 5 * 60_000,
+  });
+}
+
+/** The listener's daylist, or null while Spotify has none for them (an empty playlist). */
+export function useSpotifyDaylist() {
+  const signedIn = useSpotifySignedIn();
+  return useQuery({
+    queryKey: ['spotify', 'data', 'daylist'],
+    queryFn: async (): Promise<MusicItem | null> => {
+      const info = await fetchSpotifyPlaylistInfo(DAYLIST_ID);
+      return info.total > 0 ? { ...spotifyPlaylistItem({ id: DAYLIST_ID, ...info }), subtitle: 'daylist • Spotify' } : null;
+    },
+    enabled: signedIn,
+    // It changes through the day.
+    staleTime: 30 * 60_000,
+    retry: false,
   });
 }
 

@@ -87,7 +87,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -124,6 +126,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.ui.components.LINE_FADE
+import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.graphics.fadingEdges
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -1852,6 +1855,23 @@ internal fun MarqueeText(
     trailing: (@Composable () -> Unit)? = null,
     onOverflowChange: (Boolean) -> Unit = {},
 ) {
+    MarqueeContent(text, style, modifier, enabled, startDelayMillis, leading, trailing, onOverflowChange) {
+        MarqueeLine(text = text, style = style, color = color)
+    }
+}
+
+@Composable
+private fun MarqueeContent(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier,
+    enabled: Boolean,
+    startDelayMillis: Long,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onOverflowChange: (Boolean) -> Unit = {},
+    line: @Composable () -> Unit,
+) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -1859,29 +1879,43 @@ internal fun MarqueeText(
             leading()
             Spacer(Modifier.width(6.dp))
         }
-        BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
-            val maxWidthPx = constraints.maxWidth
-            val layout = remember(text, style, maxWidthPx) {
+        // BoxWithConstraints is a SubcomposeLayout and cannot answer the
+        // intrinsic-height query made by the glass bar's inline row.
+        var viewportWidth by remember { mutableIntStateOf(0) }
+        Box(
+            Modifier.weight(1f, fill = false).clipToBounds()
+                .onSizeChanged { viewportWidth = it.width },
+        ) {
+            val layout = remember(text, style, textMeasurer) {
                 textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
             }
-            val overflowing = layout.size.width > maxWidthPx
-            val crawls = enabled && overflowing
+            val overflowing = viewportWidth > 0 && viewportWidth < Int.MAX_VALUE &&
+                layout.size.width > viewportWidth
+            val gapPx = with(density) { MARQUEE_GAP.toPx() }
+            val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
+            val validGeometry = gapPx.isFinite() && gapPx >= 0f &&
+                pxPerMs.isFinite() && pxPerMs > 0f
+            val gap = if (validGeometry) gapPx.roundToInt() else 0
+            val distance = layout.size.width.toLong() + gap.toLong()
+            val duration = if (validGeometry) distance.toFloat() / pxPerMs else 0f
+            val crawls = enabled && overflowing && validGeometry &&
+                distance > 0L && distance <= Int.MAX_VALUE.toLong() &&
+                duration.isFinite() && duration <= Int.MAX_VALUE
             LaunchedEffect(crawls) { onOverflowChange(crawls) }
 
             // One whole copy plus the gap behind it: that is the distance at
             // which the second copy is sitting exactly where the first was.
             val travelPx = if (crawls) {
-                layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
+                distance.toInt()
             } else {
                 0
             }
 
             val offsetX = remember { Animatable(0f) }
-            LaunchedEffect(text, travelPx, startDelayMillis) {
+            LaunchedEffect(text, travelPx, startDelayMillis, duration) {
                 offsetX.snapTo(0f)
                 if (travelPx <= 0) return@LaunchedEffect
-                val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
-                val scrollMs = (travelPx / pxPerMs).roundToInt().coerceAtLeast(400)
+                val scrollMs = duration.roundToInt().coerceAtLeast(400)
                 delay(startDelayMillis)
                 while (true) {
                     offsetX.animateTo(-travelPx.toFloat(), tween(scrollMs, easing = LinearEasing))
@@ -1899,15 +1933,15 @@ internal fun MarqueeText(
                 // the text is truncated during its own measurement and sliding
                 // it sideways just moves an already-cut string.
                 modifier = Modifier
-                    .marqueeFade(overflowing, travelPx) { offsetX.value }
+                    .marqueeFade(overflowing && validGeometry, travelPx) { offsetX.value }
                     .wrapContentWidth(align = Alignment.Start, unbounded = true)
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MarqueeLine(text = text, style = style, color = color)
+                line()
                 if (crawls) {
                     Spacer(Modifier.width(MARQUEE_GAP))
-                    MarqueeLine(text = text, style = style, color = color)
+                    line()
                 }
             }
         }
@@ -1993,56 +2027,31 @@ internal fun ArtistCreditsMarquee(
     enabled: Boolean = true,
     startDelayMillis: Long = 0L,
 ) {
-    val density = LocalDensity.current
-    val textMeasurer = rememberTextMeasurer()
     val segments = remember(text, credits) { creditSegments(text, credits) }
+    MarqueeContent(text, style, modifier, enabled, startDelayMillis) {
+        CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
+    }
+}
 
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
-            val maxWidthPx = constraints.maxWidth
-            // Measured as one string, exactly as the single-line version measured
-            // it, so the line starts crawling at the same moment and travels the
-            // same distance.
-            val layout = remember(text, style, maxWidthPx) {
-                textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
-            }
-            val overflowing = layout.size.width > maxWidthPx
-            val crawls = enabled && overflowing
-            val travelPx = if (crawls) {
-                layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
-            } else {
-                0
-            }
-
-            val offsetX = remember { Animatable(0f) }
-            LaunchedEffect(text, travelPx, startDelayMillis) {
-                offsetX.snapTo(0f)
-                if (travelPx <= 0) return@LaunchedEffect
-                val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
-                val scrollMs = (travelPx / pxPerMs).roundToInt().coerceAtLeast(400)
-                delay(startDelayMillis)
-                while (true) {
-                    offsetX.animateTo(-travelPx.toFloat(), tween(scrollMs, easing = LinearEasing))
-                    // Invisible, for the reason the single-line version's is: the
-                    // trailing copy has arrived where the leading one started.
-                    offsetX.snapTo(0f)
-                    delay(MARQUEE_REST_MS)
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .marqueeFade(overflowing, travelPx) { offsetX.value }
-                    .wrapContentWidth(align = Alignment.Start, unbounded = true)
-                    .offset { IntOffset(offsetX.value.roundToInt(), 0) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
-                if (crawls) {
-                    Spacer(Modifier.width(MARQUEE_GAP))
-                    CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
-                }
-            }
+/** Song credits for the mini players, with the player's timing and overflow rules. */
+@Composable
+fun SongMarquee(song: Song, titleStyle: TextStyle, artistStyle: TextStyle, titleColor: Color, artistColor: Color) {
+    key(song.videoId) {
+        var titleOverflowing by remember { mutableStateOf(false) }
+        Column {
+            MarqueeText(
+                text = song.title,
+                style = titleStyle,
+                color = titleColor,
+                leading = if (song.isExplicit == true) { { ExplicitBadge(color = artistColor) } } else null,
+                onOverflowChange = { titleOverflowing = it },
+            )
+            MarqueeText(
+                text = song.artist,
+                style = artistStyle,
+                color = artistColor,
+                startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
+            )
         }
     }
 }

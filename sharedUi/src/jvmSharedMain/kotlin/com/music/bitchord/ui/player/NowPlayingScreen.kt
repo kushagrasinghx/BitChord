@@ -4183,19 +4183,10 @@ fun NowPlayingScreen(
                                         transformOrigin = TransformOrigin(0f, 0.5f)
                                     },
                             ) {
-
-                                // Only while these credits are the screen. Collapsed into
-                                // a header over the queue or the lyrics they are a label
-                                // on a list, and a label that crawls pulls the eye off
-                                // whatever is being read below it.
-                                //
-                                // Asked inside each sliding block's content, so the
-                                // switch recomposes the two lines and not the box
-                                // round the whole sleeve — and asked of the panels
-                                // first, so a collapse a tap asked for stops the crawl
-                                // with the tap, instead of a frame into the movement.
+                                // The queue header scrolls too; lyrics keep their still label.
+                                // Read inside each sliding block to preserve its transition.
                                 val scrolls = {
-                                    !(lyricsOpen || queueOpen || queueDragging) && !collapsePastSettling
+                                    !lyricsOpen && !queueDragging && (queueOpen || !collapsePastSettling)
                                 }
                                 SlidingSongInfo(
                                     song = song,
@@ -4207,6 +4198,7 @@ fun NowPlayingScreen(
                                     var titleOverflowing by remember { mutableStateOf(false) }
                                     val scrolling = scrolls()
                                     val artistColor = chromeWhite(0.55f)
+                                    key(if (queueOpen) song.videoId else null) {
                                     Column {
                                         MarqueeText(
                                             text = song.title,
@@ -4244,6 +4236,7 @@ fun NowPlayingScreen(
                                             startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
                                             onOpenArtist = onOpenArtist,
                                         )
+                                    }
                                     }
                                 }
                             }

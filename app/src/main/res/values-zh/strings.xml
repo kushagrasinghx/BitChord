@@ -87,7 +87,7 @@
     <string name="account_integrations">账号与集成</string>
     <string name="youtube_premium_audio">YouTube Premium 音频</string>
     <string name="youtube_premium_audio_subtitle">我有 Premium：串流更高音质的约 256 kbps Opus，而不是标准的 160 kbps</string>
-    <string name="account_scrobbling">账号与Scrobbling</string>
+    <string name="account_scrobbling">账号与听歌记录</string>
     <string name="rich_presence">Discord 状态展示</string>
     <string name="scrobbling">听歌记录同步</string>
     <string name="now_playing">正在播放</string>
@@ -757,7 +757,7 @@
     <string name="listen_together_official_server_dialog_message">此派对托管在 BitChord 官方服务器上。\n\n要切换回官方服务器并加入派对 %1$s 吗？</string>
     <string name="listen_together_switch_failed_stayed_in_party">无法加入派对：%1$s。仍留在派对 %2$s 中。</string>
     <string name="listen_together_switch_failed">无法加入派对：%1$s。</string>
-    <string name="listen_together_ping">%1$d 毫秒</string>
+    <string name="listen_together_ping">%1$d ms</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">服务器 URL 无效。请输入有效地址（例如 https://your-server.com）</string>
     <string name="listen_together_err_whitespace">服务器 URL 不能包含空格</string>
@@ -1556,7 +1556,7 @@
     <string name="replay_year_minutes_hours_value">%1$s 小时</string>
     <string name="replay_year_minutes_days_end">天的音乐。</string>
     <string name="replay_year_busiest_start">你听歌最多的一天是</string>
-    <string name="replay_year_busiest_minutes">当天共听歌 %1$s 分钟</string>
+    <string name="replay_year_busiest_minutes">当天听歌时长：%1$s 分钟</string>
     <string name="replay_year_busiest_song">当天主要在听：%1$s</string>
     <string name="replay_year_clock_start">你听歌最活跃的时段</string>
     <string name="replay_year_night_owl">夜猫子</string>
@@ -1571,7 +1571,7 @@
     <string name="replay_year_all_day_detail">无论清晨、中午还是夜晚，总有音乐在播放。</string>
     <string name="replay_year_genres_start">今年你的音乐风格</string>
     <string name="replay_year_artist_start">你的年度热门艺人是……</string>
-    <string name="replay_year_minutes_together">与你一起听歌 %1$s 分钟</string>
+    <string name="replay_year_minutes_together">累计播放 %1$s 分钟</string>
     <string name="replay_year_top_artists">最常听的艺人</string>
     <string name="replay_year_song_start">而年度歌曲是……</string>
     <plurals name="replay_year_played_times">

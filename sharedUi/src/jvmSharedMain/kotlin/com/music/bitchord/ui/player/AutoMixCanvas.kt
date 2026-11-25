@@ -193,6 +193,7 @@ internal fun rememberAutoMixCanvasPair(
     landscape: Boolean,
     fullWindow: Boolean,
     fullBleed: Boolean,
+    extendAnimated: Boolean,
     artworkGate: AutoMixArtworkGate,
 ): AutoMixCanvasPair {
     val host = PlayerPlatform.host
@@ -208,11 +209,11 @@ internal fun rememberAutoMixCanvasPair(
     val currentQueue by rememberUpdatedState(queue)
     val pair = remember(feed) { AutoMixCanvasPair() }
     val canvasAllowed = enabled && (metered != true || cellular)
-    LaunchedEffect(canvasAllowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed) {
+    LaunchedEffect(canvasAllowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed, extendAnimated) {
         pair.invalidatePromotion()
     }
     // Rotation and layout changes cancel the effect, but cannot prepare the same generation again.
-    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed, artworkGate) {
+    LaunchedEffect(feed, allowed, spotifyDisabled, spotifyFirst, landscape, fullWindow, fullBleed, extendAnimated, artworkGate) {
         if (feed == null || !host.supportsAutoMixCanvas || !allowed || !artworkGate.enabled) return@LaunchedEffect
         var active: AutoMixCanvasTracks? = null
         var resolve: Job? = null

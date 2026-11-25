@@ -1054,7 +1054,9 @@ fun NowPlayingScreen(
     // to it, in place of the full-width box at the video's shape.
     val squareVideo = videoMode && VideoThumbnails.square
     val fullCanvasWindow = playerFillsWindow(windowWidth)
-    val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val savedFullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val extendAnimatedArt by PlayerSettings.extendAnimatedArtwork.collectAsStateWithLifecycle()
+    val fullBleedArt = savedFullBleedArt && !extendAnimatedArt
     val sessionCanvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
         ?.nowPlayingRendition(fullCanvasWindow)
     val coverEntry = remember(song.videoId, song.queueEntryId, queue, queueIndex) {
@@ -1074,7 +1076,7 @@ fun NowPlayingScreen(
     var fullscreenRequested by remember { mutableStateOf(false) }
     val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
     val artworkGate = autoMixArtworkGate()
-    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, artworkGate)
+    val canvasPair = rememberAutoMixCanvasPair(coverEntry, queue, isPlaying, sideways, fullCanvasWindow, fullBleedArt, extendAnimatedArt, artworkGate)
     val pair = canvasPair.visual?.takeIf { artworkGate.allows(it.generation) && it.contains(coverEntry) }
     val promotedCanvas = canvasPair.promoted?.takeIf { it.incoming == coverEntry && !videoMode }
     // An outgoing Spotify Canvas fades back to its cover as the mix starts, well
@@ -1582,13 +1584,15 @@ fun NowPlayingScreen(
     // API level now, and both layers answer to this.
     val spotifyCanvasOnPhone = canvas?.source == CanvasSource.SPOTIFY &&
         playerFillsWindow(windowWidth)
-    // Spotify Canvas is the player background on a phone, independent of the
-    // still-art full-bleed preference. Other providers and static artwork keep
-    // answering to that preference exactly as before.
+    // Spotify Canvas is the player background on a phone, preserving its legacy
+    // behavior independently of either artwork preference. The animated-art
+    // option adds full bleed for other actual canvases; it never promotes
+    // static artwork. Other providers' still artwork only uses the general
+    // preference when animated-art mode is off.
     // A music video sits in the card's place at its own 16:9, never full bleed.
     val heroMode = !videoMode && (
         spotifyCanvasOnPhone ||
-            (fullBleedArt && playerFillsWindow(windowWidth))
+            ((fullBleedArt && !extendAnimatedArt) || (extendAnimatedArt && canvas != null)) && playerFillsWindow(windowWidth)
         )
 
     // Whether there's a still image to blow out — a placeholder tile is a card

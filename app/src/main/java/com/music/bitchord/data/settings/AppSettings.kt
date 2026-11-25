@@ -635,6 +635,8 @@ object AppSettings {
      * [NowPlayingScreen][com.music.bitchord.ui.player.NowPlayingScreen].
      */
     val fullBleedArtwork = MutableStateFlow(true)
+    /** Allows animated canvas artwork to extend while still covers remain square. */
+    val extendAnimatedArtwork = MutableStateFlow(false)
 
     /**
      * The album and playlist page's answer to [fullBleedArtwork]: the sleeve
@@ -1155,6 +1157,7 @@ object AppSettings {
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
+        extendAnimatedArtwork.value = prefs.getBoolean(KEY_EXTEND_ANIMATED_ARTWORK, false)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
         showTotalDuration.value = prefs.getBoolean(KEY_SHOW_TOTAL_DURATION, false)
         // The old legacy mesh switch answers until a theme has been picked.
@@ -1863,6 +1866,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_ARTWORK, value).apply()
     }
 
+    fun setExtendAnimatedArtwork(value: Boolean) {
+        extendAnimatedArtwork.value = value
+        prefs.edit().putBoolean(KEY_EXTEND_ANIMATED_ARTWORK, value).apply()
+    }
+
     fun setFullBleedDetailArtwork(value: Boolean) {
         fullBleedDetailArtwork.value = value
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
@@ -2494,6 +2502,7 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
+    private const val KEY_EXTEND_ANIMATED_ARTWORK = "extend_animated_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
     private const val KEY_SHOW_TOTAL_DURATION = "show_total_duration"
     private const val KEY_PLAYER_THEME = "player_theme"

@@ -84,6 +84,42 @@ object BitChordIcons {
         }.build()
     }
 
+    /**
+     * The Karaoke control: a microphone, for the voice that takes the vocal's
+     * place once the drawer's slider has taken it away. Stroked like the rest
+     * of the player's glyphs — the capsule body stays hollow at 24dp where a
+     * filled one would read as a solid pill.
+     */
+    val KaraokeMic: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_karaoke_mic", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke, strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // The capsule body.
+                moveTo(9f, 6f)
+                quadTo(9f, 3f, 12f, 3f)
+                quadTo(15f, 3f, 15f, 6f)
+                lineTo(15f, 10f)
+                quadTo(15f, 13f, 12f, 13f)
+                quadTo(9f, 13f, 9f, 10f)
+                close()
+                // The cradle, reaching under the body and back up the far side.
+                moveTo(5.5f, 11f)
+                quadTo(5.5f, 16.5f, 12f, 16.5f)
+                quadTo(18.5f, 16.5f, 18.5f, 11f)
+                // The stem and the base it stands on.
+                moveTo(12f, 16.5f)
+                lineTo(12f, 19.5f)
+                moveTo(8.5f, 21f)
+                lineTo(15.5f, 21f)
+            }
+        }.build()
+    }
+
     val Play: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_play",

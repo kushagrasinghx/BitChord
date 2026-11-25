@@ -779,6 +779,7 @@ internal fun PlayerActionRow(
     autoplayEnabled: Boolean,
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
+    onOpenKaraoke: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onToggleAutoplay: () -> Unit,
@@ -788,6 +789,7 @@ internal fun PlayerActionRow(
     onOpenListenTogetherMembers: () -> Unit,
 ) {
     val showPartyButton by PlayerSettings.showListenTogetherButton.collectAsStateWithLifecycle()
+    val karaokeOn by PlayerSettings.karaokeEnabled.collectAsStateWithLifecycle()
     val inParty = rememberPartyBadge().inParty
     // Just the output glyph in the middle.
     val compact = !queueOpen && !showPartyButton && !inParty
@@ -888,6 +890,8 @@ internal fun PlayerActionRow(
                     }
                 } else {
                     OutputPartyPill(
+                        karaokeOn = karaokeOn,
+                        onKaraoke = onOpenKaraoke,
                         onOutput = onOpenOutput,
                         onParty = onListenTogether,
                         onOpenMembers = onOpenListenTogetherMembers,
@@ -1355,19 +1359,28 @@ private fun PillDivider() {
 }
 
 /**
- * The two ends of "where is this playing": the output capsule.
+ * The sound capsule: where the music is leaving from, what this phone is
+ * doing to it on the way out, and — when there is one — the party it is
+ * all for.
  *
- * Both halves answer the same question and so belong to one control rather than
- * two glyphs that happen to sit side by side — the device the sound leaves by
- * (see [rememberOutputGlyph]), the party for which *people* it reaches.
+ * The output half answers "where" (see [rememberOutputGlyph]). The Karaoke
+ * half is the vocal reduction's switch — a state rather than a pane, lit
+ * while it is on, and the drawer it opens holds the level and the off
+ * switch. The party half answers "for *people*". Three controls joined
+ * rather than glyphs that happen to sit side by side, because that is the
+ * shape this player reads as one control.
  *
  * Video vs audio-only used to live here as a third segment; it now lives in
  * the player's own three-dot menu, beside Revert to original and Upgrade
- * quality — the same kind of choice, offered the same way. This capsule is
- * back to the two icons it always otherwise had, at their original spacing.
+ * quality — the same kind of choice, offered the same way. Karaoke is not
+ * that kind of choice: it is audio processing this phone owns outright,
+ * which is the capsule's own question, and it has no other home on these
+ * controls — the row has no room for a third edge glyph at phone widths.
  */
 @Composable
 private fun OutputPartyPill(
+    karaokeOn: Boolean,
+    onKaraoke: () -> Unit,
     onOutput: () -> Unit,
     onParty: () -> Unit,
     /** Who's in it, before the settings page — see [ListenTogetherMembersSheet]. */
@@ -1377,16 +1390,22 @@ private fun OutputPartyPill(
     val shown by PlayerSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val output = rememberOutputGlyph()
     // Party half hidden only outside a party: once in one, this is the way to
-    // who's in it. Without it the output glyph stands alone, drawn like the
-    // lyrics and queue glyphs either side rather than as half a capsule.
+    // who's in it. Without one the capsule is the sound alone — the output it
+    // leaves by and what is being done to it — two segments wide, the very
+    // width the row's compact spacing was always sized for, where the output
+    // glyph used to stand alone.
     if (!shown && !badge.inParty) {
-        BottomGlyph(
-            icon = output.icon,
-            iconSize = output.size * (BOTTOM_ICON_SIZE / PILL_OUTPUT_SIZE),
-            contentDescription = stringResource(Res.string.audio_output),
-            onClick = onOutput,
-            vibrant = true,
-        )
+        Pill {
+            PillSegment(
+                icon = output.icon,
+                iconSize = output.size,
+                contentDescription = stringResource(Res.string.audio_output),
+                onClick = onOutput,
+                vibrant = true,
+            )
+            PillDivider()
+            KaraokeSegment(karaokeOn = karaokeOn, onClick = onKaraoke)
+        }
         return
     }
     Pill {
@@ -1397,6 +1416,8 @@ private fun OutputPartyPill(
             onClick = onOutput,
             vibrant = true,
         )
+        PillDivider()
+        KaraokeSegment(karaokeOn = karaokeOn, onClick = onKaraoke)
         PillDivider()
         PillSegment(
             // Person rather than Groups: the three-person glyph is drawn half
@@ -1420,6 +1441,24 @@ private fun OutputPartyPill(
             trailingLabel = badge.members.takeIf { badge.inParty }?.toString(),
         )
     }
+}
+
+/**
+ * The vocal reduction's half of the sound capsule. Lit while it is on; the
+ * press turns it on at the level the listener last chose and opens the
+ * drawer that holds the level, the off switch, and the reasons it might be
+ * paused.
+ */
+@Composable
+private fun KaraokeSegment(karaokeOn: Boolean, onClick: () -> Unit) {
+    PillSegment(
+        icon = BitChordIcons.KaraokeMic,
+        contentDescription = stringResource(if (karaokeOn) Res.string.karaoke_button_on else Res.string.karaoke),
+        onClick = onClick,
+        highlighted = karaokeOn,
+        haptic = if (karaokeOn) Haptic.Tap else Haptic.ToggleOn,
+        vibrant = true,
+    )
 }
 
 /**

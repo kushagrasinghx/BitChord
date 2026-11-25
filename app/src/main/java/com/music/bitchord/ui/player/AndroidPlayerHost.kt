@@ -22,7 +22,9 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.playback.KaraokeProcessingAvailability
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
@@ -117,12 +119,37 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val syncedLyrics get() = AppSettings.syncedLyrics
         override val translationLanguage get() = AppSettings.translationLanguage
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
+        override val karaokeEnabled get() = AppSettings.karaokeEnabled
+        override val karaokeVocalLevel get() = AppSettings.karaokeVocalLevel
+        override val karaokeAvailability get() = this@AndroidPlayerHost.karaokeAvailability
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
         override fun setMixViewOpen(open: Boolean) {
             AppSettings.mixViewOpen.value = open
         }
+        // Only ever reached from the drawer's own Enable synced lyrics tap —
+        // the preference gates third-party lookups, so nothing writes it but
+        // the listener. See [PlayerSettingsSource.setSyncedLyrics].
+        override fun setSyncedLyrics(value: Boolean) = AppSettings.setSyncedLyrics(value)
+        override fun setKaraokeEnabled(value: Boolean) = AppSettings.setKaraokeEnabled(value)
+        override fun setKaraokeVocalLevel(value: Float) = AppSettings.setKaraokeVocalLevel(value)
+    }
+
+    /**
+     * Karaoke's runtime verdict, in the shared player's name for it. Eager so
+     * the drawer hears a route flip the moment the service publishes one —
+     * [AppSettings.karaokeProcessingAvailability] already only changes on
+     * format, route, Cast, watch and bit-perfect transitions.
+     */
+    private val karaokeAvailability: StateFlow<KaraokeAvailability> by lazy {
+        AppSettings.karaokeProcessingAvailability
+            .map { it.toKaraokeAvailabilityUi() }
+            .stateIn(
+                scope,
+                SharingStarted.Eagerly,
+                AppSettings.karaokeProcessingAvailability.value.toKaraokeAvailabilityUi(),
+            )
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)
@@ -193,6 +220,13 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         // watch picks the queue up from where the phone's player is.
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = false)
         WearBridge.selectWatchOutput()
+    }
+
+    override fun useNormalOutput() {
+        // Karaoke's recovery action, on an explicit tap only: bit-perfect
+        // carries the track to the DAC untouched and so bypasses the vocal
+        // stage, and normal processed output is the way back to it.
+        AppSettings.setBitPerfectMode(BitPerfectMode.OFF)
     }
 
     override val outputFormat: StateFlow<OutputFormatUi> by lazy {
@@ -277,6 +311,15 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         request: LyricsShareRequest,
         onDismiss: () -> Unit,
     ) = AndroidLyricsShareSheet(hazeState = hazeState, request = request, onDismiss = onDismiss)
+}
+
+/** The service's Karaoke verdict, in the shared player's name for it. */
+private fun KaraokeProcessingAvailability.toKaraokeAvailabilityUi() = when (this) {
+    KaraokeProcessingAvailability.AVAILABLE -> KaraokeAvailability.AVAILABLE
+    KaraokeProcessingAvailability.NEEDS_STEREO -> KaraokeAvailability.NEEDS_STEREO
+    KaraokeProcessingAvailability.NEEDS_LINEAR_PCM -> KaraokeAvailability.NEEDS_LINEAR_PCM
+    KaraokeProcessingAvailability.BIT_PERFECT_ACTIVE -> KaraokeAvailability.BIT_PERFECT_ACTIVE
+    KaraokeProcessingAvailability.REMOTE_OUTPUT_ACTIVE -> KaraokeAvailability.REMOTE_OUTPUT_ACTIVE
 }
 
 /**

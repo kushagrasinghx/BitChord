@@ -66,4 +66,10 @@ kotlin {
 android {
     namespace = "com.music.bitchord.shared"
     compileSdk = 36
+    // Without a minSdk the library's manifest has no <uses-sdk>, which the
+    // manifest merger reads as targetSdk < 4 and answers by granting every app
+    // that depends on it READ_PHONE_STATE — a permission nothing here uses.
+    defaultConfig {
+        minSdk = 26
+    }
 }

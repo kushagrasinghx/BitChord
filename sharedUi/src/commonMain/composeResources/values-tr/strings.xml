@@ -198,4 +198,15 @@
     <string name="search_library_empty">Yerel Müzik klasörünüzdeki şarkıları arar.</string>
     <string name="search_library_hint">Şarkılar, Sanatçılar ve Albümler</string>
     <string name="search_library_no_results">Yerel Müzik’te “%1$s” ile eşleşen bir şey yok.</string>
+    <string name="add_to_queue">Sıraya ekle</string>
+    <string name="queue_selected_count">%1$d seçildi</string>
+    <string name="queue_select_all">Tümünü seç</string>
+    <string name="queue_select">Seç</string>
+    <string name="queue_close_selection">Seçim modunu kapat</string>
+    <string name="queue_add_to_playlist">Çalma listesi</string>
+    <string name="queue_download">İndir</string>
+    <string name="queue_selection_remove">Kaldır</string>
+    <string name="queue_add_all_to_playlist">Tümünü çalma listesine ekle</string>
+    <string name="mixes_yours">Mikslerin</string>
+    <string name="mixes_none">Henüz miks yok. Dinlemeye devam et, YouTube Music senin için miksler oluşturacak.</string>
 </resources>

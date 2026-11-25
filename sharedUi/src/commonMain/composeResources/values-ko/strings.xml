@@ -208,6 +208,8 @@
     <string name="sign_in_with_google">Google로 로그인</string>
     <string name="top_picks_for_you">회원님을 위한 추천</string>
     <string name="top_pick_made_for_you">회원님을 위한 맞춤</string>
+    <string name="mixes_yours">내 믹스</string>
+    <string name="mixes_none">아직 믹스가 없습니다. 계속 들으면 YouTube Music이 믹스를 만들어 드립니다.</string>
     <string name="top_pick_mood_for_you">회원님을 위한 분위기</string>
     <string name="top_pick_featuring">%1$s 피처링</string>
     <string name="top_pick_and_similar">%1$s 외 비슷한 아티스트</string>
@@ -278,4 +280,13 @@
     <string name="mix_view_one_bar">1마디</string>
     <string name="mix_view_seconds">%1$d초</string>
     <string name="mix_view_bpm">%1$d bpm</string>
+    <string name="add_to_queue">대기열에 추가</string>
+    <string name="queue_selected_count">%1$d개 선택됨</string>
+    <string name="queue_select_all">모두 선택</string>
+    <string name="queue_select">선택</string>
+    <string name="queue_close_selection">선택 모드 닫기</string>
+    <string name="queue_add_to_playlist">재생목록</string>
+    <string name="queue_download">다운로드</string>
+    <string name="queue_selection_remove">제거</string>
+    <string name="queue_add_all_to_playlist">모두 재생목록에 추가</string>
 </resources>

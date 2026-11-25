@@ -15,6 +15,7 @@ import com.music.bitchord.playback.queueTier
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.canonicalIndex
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -814,6 +815,20 @@ class QueueCoordinatorTest {
                     if (activeIndex > index) activeIndex--
                     null
                 }
+                "moveMediaItem" -> {
+                    val from = args[0] as Int
+                    val to = args[1] as Int
+                    queueEditCallCount++
+                    items.add(to, items.removeAt(from))
+                    // ExoPlayer keeps the playing item current through a move.
+                    activeIndex = when {
+                        activeIndex == from -> to
+                        from < activeIndex && to >= activeIndex -> activeIndex - 1
+                        from > activeIndex && to <= activeIndex -> activeIndex + 1
+                        else -> activeIndex
+                    }
+                    null
+                }
                 "prepare" -> null
                 "play" -> null
                 else -> null
@@ -861,6 +876,55 @@ class QueueCoordinatorTest {
         val upcoming = (testPlayer.activeIndex + 1 until testPlayer.items.size).map { testPlayer.items[it].mediaId }
         assertEquals(listOf("c0", "c1"), history)
         assertEquals(listOf("c3", "c4"), upcoming)
+    }
+
+    @Test
+    fun `replayFromHistory plays the row at the playhead and keeps later history behind it`() {
+        // A search pick, its AutoPlay, the next search pick (playing), then what is upcoming.
+        val tiers = listOf(
+            "s1" to QueueTier.CONTEXT,
+            "a1" to QueueTier.AUTOPLAY,
+            "s2" to QueueTier.CONTEXT,
+            "a2" to QueueTier.AUTOPLAY,
+            "s3" to QueueTier.CONTEXT,
+            "u1" to QueueTier.USER_QUEUE,
+            "a3" to QueueTier.AUTOPLAY,
+        )
+        val items = tiers.map { (id, tier) ->
+            QueueShuffle.withQueueMetadata(testSong(id, tier = tier, entryId = "entry-$id").toMediaItem(), newTier = tier)
+        }.toMutableList()
+        val testPlayer = TestPlayer(items, activeIndex = 4)
+
+        assertTrue(QueueCoordinator.replayFromHistory(testPlayer.player, targetIndex = 0))
+
+        assertEquals(listOf("a1", "s2", "a2", "s3", "s1", "u1", "a3"), testPlayer.items.map { it.mediaId })
+        assertEquals(4, testPlayer.activeIndex)
+        assertEquals("s1", testPlayer.items[testPlayer.activeIndex].mediaId)
+        assertEquals(1, testPlayer.seekCallCount)
+    }
+
+    @Test
+    fun `replayFromHistory of the row just before the playhead leaves the order unchanged`() {
+        val items = (0..3).map { testSong("c$it", tier = QueueTier.CONTEXT, entryId = "entry-c$it").toMediaItem() }.toMutableList()
+        val testPlayer = TestPlayer(items, activeIndex = 2)
+
+        assertTrue(QueueCoordinator.replayFromHistory(testPlayer.player, targetIndex = 1))
+
+        assertEquals(listOf("c0", "c2", "c1", "c3"), testPlayer.items.map { it.mediaId })
+        assertEquals("c1", testPlayer.items[testPlayer.activeIndex].mediaId)
+    }
+
+    @Test
+    fun `replayFromHistory ignores rows that are not history`() {
+        val items = (0..3).map { testSong("c$it", tier = QueueTier.CONTEXT, entryId = "entry-c$it").toMediaItem() }.toMutableList()
+        val testPlayer = TestPlayer(items, activeIndex = 1)
+
+        assertFalse(QueueCoordinator.replayFromHistory(testPlayer.player, targetIndex = 1))
+        assertFalse(QueueCoordinator.replayFromHistory(testPlayer.player, targetIndex = 3))
+
+        assertEquals(listOf("c0", "c1", "c2", "c3"), testPlayer.items.map { it.mediaId })
+        assertEquals(0, testPlayer.seekCallCount)
+        assertEquals(0, testPlayer.queueEditCallCount)
     }
 
     @Test

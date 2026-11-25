@@ -10,6 +10,14 @@ enum class QueueTier {
     AUTOPLAY,
 }
 
+/** Identity of one occurrence in a live queue, independent of its timeline index. */
+data class QueueEntryIdentity(
+    val mediaId: String,
+    val queueEntryId: String?,
+    /** Zero-based occurrence among entries with the same media and queue-entry ids. */
+    val occurrence: Int,
+)
+
 /**
  * One credited artist, as YouTube Music itself states them.
  *
@@ -412,6 +420,9 @@ const val NOTIFICATION_ART_PX = 544
  */
 const val PLAYER_ART_PX = 1200
 
+/** Memory-cache namespace shared by the player and same-resolution widgets. */
+const val PLAYER_ART_MEMORY_CACHE_KEY_EXTRA = "bitchord_player_art_px"
+
 enum class BrowseType { ALBUM, ARTIST, PLAYLIST, OTHER }
 
 /** A queue-level origin shown above Now Playing, in the style of Spotify. */
@@ -471,6 +482,13 @@ data class ShelfItem(
      */
     val isVideo: Boolean = false,
 )
+
+/**
+ * A "Mixed for you" card and its English title, which is what says what kind
+ * of mix it is whatever language [item] is shown in — see
+ * [com.music.bitchord.data.YtMusicRepository.mixedForYouKeyed].
+ */
+data class KeyedMix(val item: ShelfItem, val englishTitle: String)
 
 /** How a shelf's items are laid out — the web player's `ShelfLayout`, by the same rules. */
 enum class ShelfLayout {

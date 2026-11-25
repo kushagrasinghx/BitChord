@@ -235,6 +235,8 @@ class CrossfadeController(
     private val loudnessGain: (String) -> Float = { 1f },
     /** The session's playhead moved on purpose during a loop mix: a loop wrap (true) or a re-anchor (false). */
     private val onMixPositionJump: (wrapped: Boolean) -> Unit = {},
+    /** Request fresh positions for the position-driven AutoMix audio fade, not its optional artwork. */
+    private val onAutoMixAudioClockNeeded: (Boolean) -> Unit = {},
 ) {
 
     private enum class Phase {
@@ -893,6 +895,7 @@ class CrossfadeController(
     }
 
     fun release() {
+        onAutoMixAudioClockNeeded(false)
         clearAutoMixVisual()
         tickerJob?.cancel()
         tickerJob = null
@@ -1611,6 +1614,8 @@ class CrossfadeController(
             }
         }
 
+        // Arm early: a wake already scheduled by Media3 cannot be pulled forward by this hint.
+        onAutoMixAudioClockNeeded(smart)
         phase = Phase.ARMING
         if (smart) {
             armAutoMixVisual(out, into, nextIndex, items)
@@ -3098,6 +3103,7 @@ class CrossfadeController(
      * away gracefully.
      */
     private fun bail() {
+        onAutoMixAudioClockNeeded(false)
         cancelAutoMixVisual()
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         if (phase == Phase.LOOP_ARMING || phase == Phase.LOOP_RUNNING) {
@@ -3129,6 +3135,7 @@ class CrossfadeController(
     private fun leavingOnBail(): ExoPlayer? = if (handedOff) outgoing else incoming
 
     private fun finish() {
+        onAutoMixAudioClockNeeded(false)
         clearAutoMixVisual()
         val wasTransitioning = phase != Phase.IDLE
         if (phase != Phase.IDLE) {

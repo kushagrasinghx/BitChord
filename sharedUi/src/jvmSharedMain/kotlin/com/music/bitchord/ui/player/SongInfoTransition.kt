@@ -28,7 +28,7 @@ private const val SONG_INFO_CONFIRM_MS = 1_000L
 private fun Song.infoKey(): Pair<String, String?> = videoId to queueEntryId
 
 /** The session's shuffle order is the physical queue, including repeat-all wraps. */
-internal fun songInfoNeighbour(queue: List<Song>, index: Int, next: Boolean, available: Boolean): Song? {
+fun songInfoNeighbour(queue: List<Song>, index: Int, next: Boolean, available: Boolean): Song? {
     if (!available || index !in queue.indices) return null
     val neighbour = if (next) {
         if (index == queue.lastIndex) 0 else index + 1
@@ -38,19 +38,21 @@ internal fun songInfoNeighbour(queue: List<Song>, index: Int, next: Boolean, ava
     return queue.getOrNull(neighbour)
 }
 
-internal class SongInfoLayer(val song: Song, x: Float) {
+class SongInfoLayer(val song: Song, x: Float) {
     // In viewport widths, so resizing does not strand the destination off-centre.
     var x by mutableFloatStateOf(x)
 }
 
 /** One owner for direct dragging, settlement, and the metadata handoff. */
-internal class SongInfoTransition(private val scope: CoroutineScope) {
+class SongInfoTransition(private val scope: CoroutineScope) {
     private var job: Job? = null
     private var source by mutableStateOf<Song?>(null)
     private var target by mutableStateOf<Song?>(null)
     private var settled = false
     private var actionDispatched = false
     private var pendingSwipe = false
+    val isPendingSwipe: Boolean get() = pendingSwipe
+    val isSlideActive: Boolean get() = source != null && !settled
     private var next: Song? = null
     private var previous: Song? = null
     private var dragStarts = emptyList<Pair<SongInfoLayer, Float>>()
@@ -112,19 +114,41 @@ internal class SongInfoTransition(private val scope: CoroutineScope) {
         incoming.x = start + drag
     }
 
+    /** Disposing a viewport must not cancel an accepted or dispatched swipe. */
+    fun cancelUncommittedDrag() {
+        if (!pendingSwipe && !actionDispatched && source != null) cancelDrag()
+    }
+
     fun cancelDrag() {
         job?.cancel()
         val origin = source ?: return
         settle(origin, direction = if (drag < 0f) 1f else -1f) { clear() }
     }
 
-    fun finishDrag(next: Boolean, currentSong: () -> Song?, canSlide: () -> Boolean, action: () -> Unit) {
+    fun finishDrag(
+        next: Boolean,
+        currentSong: () -> Song?,
+        canSlide: () -> Boolean,
+        liveNeighbour: (() -> Song?)? = null,
+        action: () -> Unit,
+    ) {
         val origin = source ?: return
         if (currentSong()?.infoKey() != origin.infoKey()) {
             clear()
             return
         }
         val destination = if (next) this.next else previous
+        fun neighbourMatches(): Boolean {
+            val live = liveNeighbour?.invoke() ?: return false
+            // Without occurrence IDs, equal recordings do not prove equal queue entries.
+            return destination?.queueEntryId != null && live.queueEntryId != null &&
+                live.infoKey() == destination.infoKey()
+        }
+        if (destination != null && liveNeighbour != null && !neighbourMatches()) {
+            clear()
+            action()
+            return
+        }
         if (destination == null || !canSlide()) {
             cancelDrag()
             action()
@@ -137,6 +161,11 @@ internal class SongInfoTransition(private val scope: CoroutineScope) {
             // Song: auto-advance may have happened before the UI observed it.
             if (currentSong()?.infoKey() != origin.infoKey()) {
                 clear()
+                return@settle
+            }
+            if (liveNeighbour != null && !neighbourMatches()) {
+                clear()
+                action()
                 return@settle
             }
             pendingSwipe = false
@@ -191,7 +220,7 @@ internal class SongInfoTransition(private val scope: CoroutineScope) {
  * The fixed right edge is the marquee's end, before the stationary action row.
  */
 @Composable
-internal fun SlidingSongInfo(
+fun SlidingSongInfo(
     song: Song,
     transition: SongInfoTransition,
     modifier: Modifier = Modifier,

@@ -15,6 +15,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,6 +40,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -63,6 +66,9 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConne
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
+import com.music.bitchord.ui.player.SongInfoTransition
+import com.music.bitchord.ui.player.SlidingSongInfo
+import com.music.bitchord.ui.player.songInfoNeighbour
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.rememberPlayerSkipMotion
 import com.music.bitchord.ui.player.PlayerPlayPauseGlyph
@@ -116,6 +122,14 @@ fun GlassNavBar(
     /** Called when the user taps the currently active tab (scroll-to-top). */
     onActiveTabTap: () -> Unit = {},
     autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
+    canStartSwipe: () -> Boolean = { true },
+    infoTransition: SongInfoTransition? = null,
+    queue: List<Song> = emptyList(),
+    queueIndex: Int = 0,
+    hasNext: Boolean = false,
+    currentPlaybackSong: () -> Song? = { null },
+    previousRestarts: () -> Boolean = { true },
+    liveNeighbour: (Boolean) -> Song? = { null },
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
@@ -125,6 +139,23 @@ fun GlassNavBar(
     val selectedColor = contentColor
     val unselectedColor = contentColor.copy(alpha = 0.65f)
     val haptics = rememberHaptics()
+    DisposableEffect(infoTransition) {
+        onDispose { infoTransition?.cancelUncommittedDrag() }
+    }
+    val fold = updateTransition(scrollConnection.isInline, label = "barFold")
+    val foldRunning = fold.isRunning || fold.currentState != fold.targetState ||
+        fold.currentState != scrollConnection.isInline
+    val foldEpoch = remember { intArrayOf(0) }
+    val foldWasRunning = remember { booleanArrayOf(false) }
+    val lastFoldTarget = remember { booleanArrayOf(scrollConnection.isInline) }
+    SideEffect {
+        if (foldRunning && (!foldWasRunning[0] || lastFoldTarget[0] != scrollConnection.isInline)) {
+            foldEpoch[0]++
+            infoTransition?.cancelUncommittedDrag()
+        }
+        foldWasRunning[0] = foldRunning
+        lastFoldTarget[0] = scrollConnection.isInline
+    }
 
     // The tab content lambdas below are captured once per contentKey and held
     // until it changes, so a click handler that reached back to this call's
@@ -146,6 +177,7 @@ fun GlassNavBar(
     FloatingTabBar(
         selectedTabKey = selectedIndex,
         scrollConnection = scrollConnection,
+        foldTransition = fold,
         modifier = modifier
             .windowInsetsPadding(floatingBarInsets)
             .padding(horizontal = NAV_BAR_GUTTER)
@@ -167,6 +199,17 @@ fun GlassNavBar(
                     onExpand = onExpand,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
+                    canStartSwipe = canStartSwipe,
+                    foldRunning = foldRunning,
+                    foldTarget = scrollConnection.isInline == true,
+                    swipeEpoch = { foldEpoch[0] * 2 + if (scrollConnection.isInline) 1 else 0 },
+                    infoTransition = infoTransition,
+                    queue = queue,
+                    queueIndex = queueIndex,
+                    hasNext = hasNext,
+                    currentPlaybackSong = currentPlaybackSong,
+                    previousRestarts = previousRestarts,
+                    liveNeighbour = liveNeighbour,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.then(glassSurface()),
@@ -189,6 +232,17 @@ fun GlassNavBar(
                     onExpand = onExpand,
                     controlsLocked = controlsLocked,
                     onBlockedControl = onBlockedControl,
+                    canStartSwipe = canStartSwipe,
+                    foldRunning = foldRunning,
+                    foldTarget = scrollConnection.isInline == false,
+                    swipeEpoch = { foldEpoch[0] * 2 + if (scrollConnection.isInline) 1 else 0 },
+                    infoTransition = infoTransition,
+                    queue = queue,
+                    queueIndex = queueIndex,
+                    hasNext = hasNext,
+                    currentPlaybackSong = currentPlaybackSong,
+                    previousRestarts = previousRestarts,
+                    liveNeighbour = liveNeighbour,
                     dock = dock,
                     pull = pull,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
@@ -311,6 +365,17 @@ private fun GlassNowPlaying(
     onExpand: () -> Unit,
     controlsLocked: Boolean,
     onBlockedControl: () -> Unit,
+    canStartSwipe: () -> Boolean,
+    foldRunning: Boolean,
+    foldTarget: Boolean,
+    swipeEpoch: () -> Int,
+    infoTransition: SongInfoTransition?,
+    queue: List<Song>,
+    queueIndex: Int,
+    hasNext: Boolean,
+    currentPlaybackSong: () -> Song?,
+    previousRestarts: () -> Boolean,
+    liveNeighbour: (Boolean) -> Song?,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
     modifier: Modifier = Modifier,
@@ -371,6 +436,28 @@ private fun GlassNowPlaying(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                canStartSwipe = { !foldRunning && foldTarget && canStartSwipe() },
+                canExpand = { infoTransition?.isSlideActive != true },
+                swipeEpoch = swipeEpoch,
+                onSwipeStart = if (foldRunning || !foldTarget || infoTransition == null ||
+                    song.queueEntryId == null || queue.isEmpty()) null else {
+                    { infoTransition.beginDrag(
+                        song,
+                        songInfoNeighbour(queue, queueIndex, true, hasNext),
+                        songInfoNeighbour(queue, queueIndex, false, !previousRestarts()),
+                    ) }
+                },
+                onSwipeDrag = { infoTransition?.dragBy(it) },
+                onSwipeEnd = { direction ->
+                    if (direction == 0) infoTransition?.cancelDrag()
+                    else if (direction > 0) {
+                        haptics.play(Haptic.SkipNext)
+                        infoTransition?.finishDrag(true, currentPlaybackSong, { true }, { liveNeighbour(true) }, onNext)
+                    } else {
+                        haptics.play(Haptic.SkipPrevious)
+                        infoTransition?.finishDrag(false, currentPlaybackSong, { !previousRestarts() }, { liveNeighbour(false) }, onPrevious)
+                    }
+                },
             )
             .graphicsLayer {
                 scaleX = pressScale
@@ -380,7 +467,7 @@ private fun GlassNowPlaying(
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
-                onClick = onExpand,
+                onClick = { if (infoTransition?.isSlideActive != true) onExpand() },
             ),
     ) {
         Row(
@@ -405,45 +492,74 @@ private fun GlassNowPlaying(
                 targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
                 label = "glassMiniArtWidth",
             )
-            Box(
-                modifier = Modifier
-                    .size(width = artWidth, height = ACCESSORY_ART_SIZE)
-                    // Whichever of the two densities is on screen is the one
-                    // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, ACCESSORY_ART_CORNER)
-                    .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                MiniPlayerArtwork(song, autoMixArtwork)
-                if (showsPicture) {
-                    AndroidMusicVideo(
-                        videoId = song.videoId,
-                        fit = false,
-                        onRenderedChanged = {},
-                        modifier = Modifier.fillMaxSize(),
-                        priority = 0,
+            val art: @Composable (Song, Boolean) -> Unit = { displayedSong, stationary ->
+                Box(
+                    modifier = Modifier
+                        .size(width = artWidth, height = ACCESSORY_ART_SIZE)
+                        .then(if (stationary && foldTarget) Modifier.playerDockArt(dock, ACCESSORY_ART_CORNER) else Modifier.graphicsLayer {
+                            alpha = if (dock?.coversMiniArt == true) 0f else 1f
+                        })
+                        .clip(RoundedCornerShape(ACCESSORY_ART_CORNER))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    MiniPlayerArtwork(
+                        displayedSong,
+                        autoMixArtwork.takeIf {
+                            displayedSong.videoId == song.videoId && displayedSong.queueEntryId == song.queueEntryId
+                        },
                     )
+                    if (stationary && showsPicture) {
+                        AndroidMusicVideo(
+                            videoId = song.videoId,
+                            fit = false,
+                            onRenderedChanged = {},
+                            modifier = Modifier.fillMaxSize(),
+                            priority = 0,
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
             // Title and artist at both densities, as Apple Music has them, in its
             // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline
             // row shares its width with the tab pill and the Search circle, so
             // a long line fades out at its end, as Apple's does.
-            Column(Modifier.weight(1f)) {
-                val secondary = contentColor.copy(alpha = 0.7f)
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = contentColor,
-                    badgeColor = secondary,
-                    fadeOverflow = true,
-                )
-                FadingLine(
-                    text = song.artist,
-                    style = artistStyle,
-                    color = secondary,
-                )
+            val infoContent: @Composable (Song) -> Unit = { displayedSong ->
+                Column {
+                    val secondary = contentColor.copy(alpha = 0.7f)
+                    ExplicitSongTitle(
+                        song = displayedSong,
+                        style = titleStyle,
+                        color = contentColor,
+                        badgeColor = secondary,
+                        fadeOverflow = true,
+                    )
+                    FadingLine(
+                        text = displayedSong.artist,
+                        style = artistStyle,
+                        color = secondary,
+                    )
+                }
+            }
+            if (showsPicture || !foldTarget || infoTransition == null) {
+                art(song, true)
+                Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+                if (foldTarget && infoTransition != null) {
+                    SlidingSongInfo(song, infoTransition, Modifier.weight(1f), infoContent)
+                } else {
+                    Box(Modifier.weight(1f)) { infoContent(song) }
+                }
+            } else {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    // This slot remains at rest while the content layers slide.
+                    Box(Modifier.size(width = artWidth, height = ACCESSORY_ART_SIZE).playerDockArt(dock, ACCESSORY_ART_CORNER))
+                    SlidingSongInfo(song, infoTransition) { displayedSong ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            art(displayedSong, false)
+                            Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
+                            Box(Modifier.weight(1f)) { infoContent(displayedSong) }
+                        }
+                    }
+                }
             }
             if (isLoading) {
                 Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
@@ -482,6 +598,7 @@ private fun GlassNowPlaying(
                 Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = {
+                        if (!canStartSwipe()) return@IconButton
                         haptics.play(Haptic.SkipNext)
                         nextMotion.onTap()
                         onNext()

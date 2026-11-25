@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 /** A desktop has no motor; every haptic is a no-op. */
 actual class Haptics {
     actual fun play(haptic: Haptic) = Unit
+    actual fun playPlayback(haptic: Haptic) = Unit
 }
 
 private val NoHaptics = Haptics()

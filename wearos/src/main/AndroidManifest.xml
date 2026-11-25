@@ -16,6 +16,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <!-- Playback haptics: Vibrator.vibrate needs the normal VIBRATE grant. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!--
       No INTERNET: everything this app knows comes from the phone over the
       Wearable Data Layer, which Play services carries.

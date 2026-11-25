@@ -155,6 +155,8 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.ui.haptics.Haptic
+import com.music.bitchord.ui.haptics.hapticsFor
 import com.music.bitchord.ui.player.discardBlockedAutoMixAmbient
 import com.music.bitchord.ui.player.prefetchAutoMixArtwork
 import com.music.bitchord.widget.MediaWidget
@@ -712,6 +714,9 @@ class PlaybackService : MediaLibraryService() {
     /** Automix's DSP analyzer — see [com.music.bitchord.playback.smart.TrackAnalyzer]. */
     private val trackAnalyzer = com.music.bitchord.playback.smart.TrackAnalyzer(this, AudioCache)
 
+    /** Buzzes when playback pauses, resumes or moves to another track. */
+    private val playbackHaptics by lazy { hapticsFor(this) }
+
     /** Shared with the crossfade's tail player, so both read the same disk cache. */
     private var mediaSourceFactory: DefaultMediaSourceFactory? = null
 
@@ -1081,6 +1086,12 @@ class PlaybackService : MediaLibraryService() {
          * on the audio, which is what the media notification shows too.
          */
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            // A pause or resume the listener asked for, or one that arrived
+            // from a headset, the notification or audio focus. The queue
+            // running out is not a pause: the next track is about to arrive.
+            if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                playbackHaptics.playPlayback(if (playWhenReady) Haptic.Resume else Haptic.Pause)
+            }
             // The audio controller may use an end-of-item hold to hand off late.
             if (!playWhenReady && reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
                 crossfade?.cancelAutoMixVisual()
@@ -1141,6 +1152,18 @@ class PlaybackService : MediaLibraryService() {
             ) {
                 swappingMediaId = null
                 return
+            }
+
+            // A real change of song: the queue moving on, a repeat, or a skip.
+            // The first item of a freshly loaded playlist is not a change, and
+            // a quality swap was already sent back above.
+            if (!isQueueUndoRestoring(exoPlayer) &&
+                mediaItem != null &&
+                (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+            ) {
+                playbackHaptics.playPlayback(Haptic.TrackChange)
             }
 
             // A receiver, if it is the speaker, is put on whatever became

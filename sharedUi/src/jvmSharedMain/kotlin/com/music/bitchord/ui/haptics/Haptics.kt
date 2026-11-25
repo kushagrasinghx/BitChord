@@ -51,6 +51,12 @@ enum class Haptic {
      * one under it, like a thud. For a story's big reveal, not for controls.
      */
     Slam,
+
+    /**
+     * The queue moved on by itself: one track ended and the next arrived.
+     * Softer and shorter than [SkipNext], which is someone pressing a button.
+     */
+    TrackChange,
 }
 
 /**
@@ -61,6 +67,14 @@ enum class Haptic {
  */
 expect class Haptics {
     fun play(haptic: Haptic)
+
+    /**
+     * Plays a haptic for a playback state change, unless a button press just
+     * gave one for the same action. The player reports a pause a few
+     * milliseconds after the control that caused it already buzzed, and two
+     * buzzes read as a fault rather than emphasis.
+     */
+    fun playPlayback(haptic: Haptic)
 }
 
 /** `val haptics = rememberHaptics()`, then `haptics.play(Haptic.Select)`. */

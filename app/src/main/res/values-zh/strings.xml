@@ -204,6 +204,8 @@
     <string name="skip_silence_float_subtitle">32 位浮点输出时不可用</string>
     <string name="equalizer">均衡器</string>
     <string name="equalizer_subtitle">设备的系统面板</string>
+    <string name="show_best_part">高光片段按钮</string>
+    <string name="show_best_part_subtitle">在封面上显示按钮，点按可跳转到歌曲中大家最常重听的片段。</string>
     <string name="show_nerd_stats">显示技术统计信息</string>
     <string name="show_nerd_stats_subtitle">在播放器上显示编解码器、比特率和采样率</string>
     <string name="theme">主题</string>
@@ -806,6 +808,10 @@
     <string name="automix_mode_performance_subtitle">4 个线程 · 分析最快 · 发热和耗电较高</string>
 
 
+    <string name="automix_art_transition">封面过渡效果</string>
+    <string name="automix_art_transition_subtitle">AutoMix 播放期间，在曲目之间平滑过渡封面。</string>
+    <string name="automix_mini_art_transition">迷你播放器封面过渡效果</string>
+    <string name="automix_mini_art_transition_subtitle">AutoMix 播放期间，在迷你播放器中显示封面过渡效果。</string>
     <string name="automix_performance">Automix 性能</string>
 
     <string name="automix_performance_subtitle">设置后台分析可使用的 CPU 上限</string>
@@ -1536,4 +1542,58 @@
     <string name="drive_backup_row_subtitle">在你的所有设备间备份并同步 Replay</string>
     <string name="drive_over_cellular">使用移动数据同步</string>
     <string name="drive_over_cellular_subtitle">关闭时，自动同步会等待 Wi-Fi</string>
+    <string name="replay_year_open">打开你的 %1$s 年度回顾</string>
+    <string name="replay_year_building">正在生成你的年度回顾…</string>
+    <string name="replay_year_opener_start">你在 BitChord 的</string>
+    <string name="replay_year_opener_end">年度回顾</string>
+    <string name="replay_year_opener_detail">一起回顾你这一年听过的音乐吧。</string>
+    <string name="replay_year_minutes_start">今年你听了</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">分钟</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">相当于</string>
+    <string name="replay_year_minutes_days_value">%1$s 天</string>
+    <string name="replay_year_minutes_hours_value">%1$s 小时</string>
+    <string name="replay_year_minutes_days_end">天的音乐。</string>
+    <string name="replay_year_busiest_start">你听歌最多的一天是</string>
+    <string name="replay_year_busiest_minutes">当天共听歌 %1$s 分钟</string>
+    <string name="replay_year_busiest_song">当天主要在听：%1$s</string>
+    <string name="replay_year_clock_start">你听歌最活跃的时段</string>
+    <string name="replay_year_night_owl">夜猫子</string>
+    <string name="replay_year_night_owl_detail">你有很多听歌时间都在晚上 10 点之后。</string>
+    <string name="replay_year_early_bird">早起型</string>
+    <string name="replay_year_early_bird_detail">你的每一天都从早上 10 点前的音乐开始。</string>
+    <string name="replay_year_golden_hour">黄金时段</string>
+    <string name="replay_year_golden_hour_detail">你常在傍晚开始听歌。</string>
+    <string name="replay_year_daytime">白日漫游者</string>
+    <string name="replay_year_daytime_detail">你一整天都在听音乐。</string>
+    <string name="replay_year_all_day">全天候听歌</string>
+    <string name="replay_year_all_day_detail">无论清晨、中午还是夜晚，总有音乐在播放。</string>
+    <string name="replay_year_genres_start">今年你的音乐风格</string>
+    <string name="replay_year_artist_start">你的年度热门艺人是……</string>
+    <string name="replay_year_minutes_together">与你一起听歌 %1$s 分钟</string>
+    <string name="replay_year_top_artists">最常听的艺人</string>
+    <string name="replay_year_song_start">而年度歌曲是……</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">播放 %1$s 次</item>
+    </plurals>
+    <string name="replay_year_top_songs">其他热门歌曲</string>
+    <string name="replay_year_albums">你反复聆听的专辑</string>
+    <string name="replay_year_months">你的年度逐月回顾</string>
+    <string name="replay_year_discovery_start">今年你探索了</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">首歌曲</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">位艺人</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">张专辑</item>
+    </plurals>
+    <string name="replay_year_summary_title">你的 %1$s 年度回顾</string>
+    <string name="replay_year_summary_artists">热门艺人</string>
+    <string name="replay_year_summary_songs">热门歌曲</string>
+    <string name="replay_year_summary_minutes">听歌时长（分钟）</string>
+    <string name="replay_year_mute">静音年度回顾</string>
+    <string name="replay_year_unmute">取消静音</string>
 </resources>

@@ -190,9 +190,10 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
     )
     ReplayStoryPage.SUMMARY -> runs(
         context.getString(R.string.replay_summary_start) to false,
-        " " to false,
+        context.getString(R.string.replay_summary_separator) to false,
         if (period == ReplayPeriod.THIS_WEEK) context.getString(R.string.replay_summary_end_week) to true else label to true,
-        if (period == ReplayPeriod.THIS_WEEK) " in music." to false else " in music." to false,
+        context.getString(R.string.replay_summary_separator) to false,
+        context.getString(R.string.replay_summary_suffix) to false,
     )
 }
 

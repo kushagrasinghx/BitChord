@@ -12,6 +12,8 @@ export function clock(seconds: number): string {
 
 /** How long the fill takes to glide out to full width, and back, around a blend. */
 const COVER_SEC = 0.7;
+/** Between redraws of a steadily playing bar (see the draw loop). */
+const STEADY_MS = 250;
 /** How long the beat pulse takes to swell in as a blend starts and settle as it ends. */
 const PULSE_FADE_SEC = 0.9;
 /** Opacity between beats, as a share of the fill's own: low enough to read, never gone. */
@@ -88,6 +90,7 @@ export function useScrubber() {
     const element = bar.current;
     if (!audio || !element) return;
     let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const draw = () => {
       const duration = audio.duration;
       // during a loop mix the element is paused under the decks: the mix's own playhead
@@ -105,13 +108,18 @@ export function useScrubber() {
         if (span) span.style.opacity = mix.active ? String(1 - mix.cover) : '';
       }
       if (mixLabel.current) mixLabel.current.style.opacity = mix.active ? String(mix.cover * (0.35 + 0.65 * mix.alpha)) : '0';
-      if (!paused || dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
+      if (dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
+      // Plain playback moves the bar a pixel or two a second: four redraws a second are enough,
+      // rather than one per display refresh for as long as music plays. Still through a frame,
+      // so a hidden window doesn't draw at all.
+      else if (!paused) timer = setTimeout(() => (frame = requestAnimationFrame(draw)), STEADY_MS);
     };
     draw();
     const onSeeked = () => draw();
     audio.addEventListener('seeked', onSeeked);
     return () => {
       cancelAnimationFrame(frame);
+      clearTimeout(timer);
       audio.removeEventListener('seeked', onSeeked);
     };
   }, [status, deck, dragging, mixing, showTotal]);

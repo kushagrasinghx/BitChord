@@ -237,7 +237,7 @@
     <string name="hide_song_status_subtitle">隐藏主播放器中的“播放自”或“播放者”文字</string>
     <string name="off">关闭</string>
     <string name="low">低</string>
-    <string name="medium">中</string>
+    <string name="medium">中等</string>
     <string name="high">高</string>
     <string name="standard">标准</string>
     <string name="lossless">无损</string>
@@ -1102,17 +1102,17 @@
 
     <string name="equalizer_tone">音色</string>
 
-    <string name="equalizer_tilt">倾斜</string>
+    <string name="equalizer_tilt">Tilt</string>
 
-    <string name="equalizer_contour">轮廓</string>
+    <string name="equalizer_contour">Contour</string>
 
-    <string name="equalizer_broad">宽范围</string>
+    <string name="equalizer_broad">宽频段</string>
 
-    <string name="equalizer_focused">窄范围</string>
+    <string name="equalizer_focused">窄频段</string>
 
-    <string name="equalizer_broad_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。宽范围模式会同时调整更宽的频率范围。</string>
+    <string name="equalizer_broad_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。宽频段模式会同时调整更宽的频率范围。</string>
 
-    <string name="equalizer_focused_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。窄范围模式作用于更窄的频率范围，因此对周边频段的影响更小。</string>
+    <string name="equalizer_focused_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。窄频段模式作用于更窄的频率范围，因此对周边频段的影响更小。</string>
 
     <string name="equalizer_preset">预设</string>
 

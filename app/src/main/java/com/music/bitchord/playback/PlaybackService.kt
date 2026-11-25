@@ -1269,6 +1269,11 @@ class PlaybackService : MediaLibraryService() {
             // Turning repeat-all back off can leave the current item at the end
             // of the queue, which is the same trigger as a normal transition.
             loadAutoplayForCurrentTrack()
+            player?.let { if (it.isPlaying) prefetchAround(it) }
+        }
+
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            player?.let { if (it.isPlaying) prefetchAround(it) }
         }
 
         /**
@@ -4525,7 +4530,7 @@ class PlaybackService : MediaLibraryService() {
         if (exoPlayer.isPlaying) registerCurrentPlay()
         savePlaybackState(exoPlayer)
         convertVideosAround(exoPlayer)
-        prefetchAround(exoPlayer)
+        if (exoPlayer.isPlaying) prefetchAround(exoPlayer)
         // The second look belongs to the track it was started for; the
         // queue moving on ends it — unless it is already proving what it
         // found, see [cancelStaleUpgradeJob] — and starts the new
@@ -7120,16 +7125,17 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val nextIndex = player.nextMediaItemIndex
-        val upcomingSongs = if (nextIndex != C.INDEX_UNSET) {
+        val upcomingItems = if (nextIndex != C.INDEX_UNSET && nextIndex != player.currentMediaItemIndex) {
             val end = (nextIndex + AudioCache.QUEUE_DEPTH - 1).coerceAtMost(player.mediaItemCount - 1)
             // A video about to be converted plays under another id, so every
             // byte warmed for it now would be wasted.
             (nextIndex..end).map(player::getMediaItemAt)
                 .filterNot(MusicOnlyPlayback::wants)
-                .map { it.toSong() }
+                .map { it.toSong() to it.localConfiguration?.uri }
         } else {
             emptyList()
         }
+        val upcomingSongs = upcomingItems.map { it.first }
         // So whatever read-ahead writes for these can be named in the Cached
         // songs folder; its own requests carry nothing but an id.
         AudioCache.noteSongs(upcomingSongs)
@@ -7137,21 +7143,22 @@ class PlaybackService : MediaLibraryService() {
         if (request == preferredPrefetchRequest) return
         preferredPrefetchRequest = request
 
-        fun warm(songs: List<Song>) {
+        fun warm(items: List<Pair<Song, Uri?>>) {
             AudioCache.prefetchQueue(
-                songs.map { song ->
+                items.map { (song, uri) ->
                     // The title, artist and runtime the item was built with —
                     // see [Song.toMediaItem]. Read from the queued item because
                     // read-ahead has no other way to reach this metadata.
                     AudioCache.Upcoming(
                         mediaId = song.videoId,
                         target = TrackMatcher.targetOf(song),
+                        uri = uri,
                     )
                 },
             )
         }
 
-        warm(upcomingSongs)
+        warm(upcomingItems)
     }
 
     /** Audio-version lookups running for the music-only setting, by video id. */

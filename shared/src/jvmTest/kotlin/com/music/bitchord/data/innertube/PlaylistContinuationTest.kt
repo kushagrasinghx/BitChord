@@ -32,6 +32,27 @@ class PlaylistContinuationTest {
     )
 
     @Test
+    fun `non playlist continuation keeps non browse executor commands`() {
+        val root = Json.parseToJsonElement(
+            """{"continuationItemRenderer":{"continuationEndpoint":{"commandExecutorCommand":{"commands":[{"continuationCommand":{"request":"CONTINUATION_REQUEST_TYPE_SEARCH","token":"SEARCH_NEXT"}}]}}}}""",
+        )
+        assertEquals("SEARCH_NEXT", InnertubeParser.continuationToken(root))
+    }
+
+    @Test
+    fun `appended pages preserve duplicate occurrences for membership while display deduplicates`() {
+        val root = Json.parseToJsonElement(
+            """{ "onResponseReceivedActions": [ { "appendContinuationItemsAction": { "continuationItems": [
+              ${row("aaaaaaaaaaa", "SET1")}, ${row("aaaaaaaaaaa", "SET2")}
+            ] } } ] }""",
+        )
+        val display = assertNotNull(InnertubeParser.parsePlaylistShelf(root))
+        val membership = assertNotNull(InnertubeParser.parsePlaylistShelf(root, preserveDuplicates = true))
+        assertEquals(listOf("SET1"), display.songs.map { it.setVideoId })
+        assertEquals(listOf("SET1", "SET2"), membership.songs.map { it.setVideoId })
+    }
+
+    @Test
     fun `an appended continuation page reads as the playlist's next rows`() {
         val page = assertNotNull(InnertubeParser.parsePlaylistShelf(appendedPage))
         assertEquals(listOf("SET1", "SET2"), page.songs.map { it.setVideoId })

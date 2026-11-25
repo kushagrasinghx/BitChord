@@ -74,6 +74,7 @@ import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -96,6 +97,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import com.music.bitchord.data.sources.AddonSource
 import com.music.bitchord.data.sources.SourceKind
@@ -118,6 +121,19 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
 enum class SearchSource { YOUTUBE, LIBRARY, ADDONS }
+
+/** Only acknowledged playlist edits belong in Save feedback; skipped duplicates are not edits. */
+data class PlaylistMembershipSaveResult(
+    val added: List<UserPlaylist>,
+    val removed: List<UserPlaylist>,
+    val failed: Int,
+)
+
+data class PlaylistMembershipSaveEvent(
+    val id: Long,
+    val identity: String,
+    val result: PlaylistMembershipSaveResult,
+)
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -941,15 +957,158 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _playlistsLoading = MutableStateFlow(false)
     val playlistsLoading: StateFlow<Boolean> = _playlistsLoading.asStateFlow()
+    private val _playlistsError = MutableStateFlow(false)
+    val playlistsError: StateFlow<Boolean> = _playlistsError.asStateFlow()
 
     /** Re-fetched rather than cached for the session: playlists are edited here. */
     fun loadPlaylists() {
         if (!_signedIn.value || _playlistsLoading.value) return
         val identity = listenerKey()
         _playlistsLoading.value = true
+        _playlistsError.value = false
         viewModelScope.launch {
-            YtMusicRepository.userPlaylists().onSuccess { if (identity == listenerKey()) _playlists.value = it }
-            if (identity == listenerKey()) _playlistsLoading.value = false
+            val result = YtMusicRepository.userPlaylists { page ->
+                if (identity == listenerKey()) _playlists.value = page
+            }
+            if (identity == listenerKey()) {
+                result.onSuccess { _playlists.value = it }
+                _playlistsError.value = result.isFailure
+                _playlistsLoading.value = false
+            }
+        }
+    }
+
+    // Only visible rows request entries. A completed snapshot answers any song;
+    // unfinished reads never establish absence. In-flight work survives scroll.
+    private data class MembershipSnapshot(val entries: List<Song>, val fetchedAt: Long)
+    private val membershipSnapshots = LruCache<String, MembershipSnapshot>(12)
+    private val membershipFlights = mutableMapOf<String, Deferred<Result<List<Song>>>>()
+    private val membershipVersions = mutableMapOf<String, Int>()
+    private val membershipLimiter = Semaphore(3)
+    private val membershipWrites = Mutex()
+    private val membershipSaves = mutableMapOf<String, Job>()
+    private var nextPlaylistSaveEventId = 0L
+    private val _playlistSaveEvents = MutableStateFlow<List<PlaylistMembershipSaveEvent>>(emptyList())
+    val playlistSaveEvents: StateFlow<List<PlaylistMembershipSaveEvent>> = _playlistSaveEvents.asStateFlow()
+
+    private fun publishPlaylistSave(identity: String?, result: PlaylistMembershipSaveResult) {
+        if (identity == null || identity != listenerKey()) return
+        if (result.added.isEmpty() && result.removed.isEmpty() && result.failed == 0) return
+        _playlistSaveEvents.value = _playlistSaveEvents.value +
+            PlaylistMembershipSaveEvent(++nextPlaylistSaveEventId, identity, result)
+    }
+
+    fun isPlaylistSaveEventCurrent(event: PlaylistMembershipSaveEvent): Boolean =
+        event.identity == listenerKey()
+
+    /** Consume once, and never show an earlier listener's result to another. */
+    fun takePlaylistSaveEvent(id: Long): PlaylistMembershipSaveResult? {
+        val event = _playlistSaveEvents.value.firstOrNull { it.id == id } ?: return null
+        _playlistSaveEvents.value = _playlistSaveEvents.value.filterNot { it.id == id }
+        return event.result.takeIf { event.identity == listenerKey() }
+    }
+
+    private fun membershipKey(playlist: UserPlaylist): String? =
+        listenerKey()?.let { "$it:${playlist.playlistId}" }
+
+    private fun invalidateMembership(playlist: UserPlaylist) = invalidateMembership(playlist.browseId)
+
+    private fun invalidateMembership(browseId: String) {
+        val key = listenerKey()?.let { "$it:${browseId.removePrefix("VL")}" } ?: return
+        membershipVersions[key] = (membershipVersions[key] ?: 0) + 1
+        membershipSnapshots.remove(key)
+        // Existing awaiters finish against their old generation and retry;
+        // cancelling their deferred would cancel the row effect indefinitely.
+        membershipFlights.remove(key)
+    }
+
+    suspend fun playlistMembership(playlist: UserPlaylist, song: Song): Result<Boolean> {
+        val key = membershipKey(playlist) ?: return Result.failure(IllegalStateException("No account"))
+        membershipSaves[key]?.join()
+        if (key != membershipKey(playlist)) return Result.failure(IllegalStateException("Account changed"))
+        membershipSnapshots.get(key)?.let { snapshot ->
+            if (System.currentTimeMillis() - snapshot.fetchedAt < 120_000L) {
+                return Result.success(snapshot.entries.any { entry -> entry.videoId == song.videoId })
+            }
+            membershipSnapshots.remove(key)
+        }
+        val version = membershipVersions[key] ?: 0
+        val flight = membershipFlights.getOrPut(key) {
+            viewModelScope.async {
+                membershipLimiter.withPermit { YtMusicRepository.playlistEntries(playlist.browseId) }
+            }.also { deferred ->
+                deferred.invokeOnCompletion {
+                    viewModelScope.launch {
+                        if (membershipFlights[key] === deferred) membershipFlights.remove(key)
+                    }
+                }
+            }
+        }
+        val result = flight.await()
+        if (key != membershipKey(playlist)) return Result.failure(IllegalStateException("Account changed"))
+        if (version != (membershipVersions[key] ?: 0)) return playlistMembership(playlist, song)
+        result.onSuccess { membershipSnapshots.put(key, MembershipSnapshot(it, System.currentTimeMillis())) }
+        return result.map { entries -> entries.any { it.videoId == song.videoId } }
+    }
+
+    fun updatePlaylistMembership(
+        additions: List<UserPlaylist>, removals: List<UserPlaylist>, pending: List<UserPlaylist>, song: Song,
+    ) {
+        if (additions.isEmpty() && removals.isEmpty() && pending.isEmpty()) return
+        val identity = listenerKey()
+        if (!requireSignIn()) {
+            publishPlaylistSave(identity, PlaylistMembershipSaveResult(emptyList(), emptyList(), additions.size + removals.size + pending.size))
+            return
+        }
+        val keys = (additions + removals + pending).mapNotNull(::membershipKey)
+        val save = viewModelScope.launch {
+            membershipWrites.withLock {
+                var failed = 0
+                val added = mutableListOf<UserPlaylist>()
+                val removed = mutableListOf<UserPlaylist>()
+                // A tap on an unknown row means toggle the first confirmed
+                // value. Resolve it here so submission survives sheet disposal.
+                val edits: List<Pair<UserPlaylist, Boolean?>> =
+                    additions.map { it to true } + removals.map { it to false } + pending.map { it to null }
+                for ((playlist, requested) in edits) {
+                    if (identity != listenerKey()) { failed++; continue }
+                    val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()
+                    val owned = YtMusicRepository.playlistOwned(playlist.browseId).getOrNull()
+                    if (entries == null || owned != true || identity != listenerKey()) { failed++; continue }
+                    val matches = entries.filter { it.videoId == song.videoId }
+                    val wantPresent = requested ?: matches.isEmpty()
+                    if (wantPresent && matches.isNotEmpty() || !wantPresent && matches.isEmpty()) continue
+                    val result: Result<String?> = if (wantPresent) {
+                        YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId))
+                            .map { added -> added[song.videoId] }
+                    } else {
+                        YtMusicRepository.removeFromPlaylist(playlist.playlistId,
+                            matches.map { it.setVideoId!! to it.videoId }).map { null }
+                    }
+                    if (identity != listenerKey()) { failed++; continue }
+                    if (result.isSuccess) {
+                        libraryStale = true
+                        invalidateMembership(playlist)
+                        if (wantPresent) added += playlist else removed += playlist
+                        if (wantPresent) appendToOpenPlaylist(playlist.browseId, song, result.getOrNull())
+                        else {
+                            val ids = matches.mapTo(HashSet()) { it.setVideoId }
+                            _detailStack.value = _detailStack.value.map { page ->
+                                val rows = (page.songs as? UiState.Success)?.data
+                                if (page.browseId != playlist.browseId || rows == null) page
+                                else page.copy(songs = UiState.Success(rows.filterNot { it.setVideoId in ids }))
+                            }
+                        }
+                    } else failed++
+                }
+                publishPlaylistSave(identity, PlaylistMembershipSaveResult(added, removed, failed))
+            }
+        }
+        keys.forEach { membershipSaves[it] = save }
+        save.invokeOnCompletion {
+            viewModelScope.launch {
+                keys.forEach { if (membershipSaves[it] === save) membershipSaves.remove(it) }
+            }
         }
     }
 
@@ -1068,6 +1227,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     YtMusicRepository.addToPlaylist(playlist.playlistId, chunk.map { it.videoId }).fold(
                         onSuccess = { returned ->
                             libraryStale = true
+                            invalidateMembership(playlist)
                             addedCount += chunk.size
                             chunk.forEach { song ->
                                 appendToOpenPlaylist(playlist.browseId, song, returned[song.videoId])
@@ -1092,6 +1252,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
             onSuccess = { added ->
                 libraryStale = true
+                invalidateMembership(playlist)
                 // The playlist's page may be open behind the picker — it is
                 // reachable from a row's own menu on it — so the track goes
                 // into it for the same reason [addSuggestedSong] does.
@@ -1281,7 +1442,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Drops [song] from the playlist page it is being read on, and takes the
      * row out from under the reader rather than waiting for a re-fetch.
      */
-    fun removeFromPlaylist(browseId: String, song: Song) {
+    fun removeFromPlaylist(browseId: String, song: Song, onRemoved: () -> Unit = {}) {
         val setVideoId = song.setVideoId ?: return
         if (!requireSignIn()) return
         val playlistId = browseId.removePrefix("VL")
@@ -1292,6 +1453,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ).fold(
                 onSuccess = {
                     libraryStale = true
+                    invalidateMembership(browseId)
                     _detailStack.value = _detailStack.value.map { page ->
                         val songs = (page.songs as? UiState.Success)?.data
                         if (page.browseId != browseId || songs == null) {
@@ -1304,6 +1466,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         }
                     }
+                    onRemoved()
                 },
                 onFailure = {},
             )
@@ -1334,6 +1497,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             YtMusicRepository.addToPlaylist(playlistId, listOf(song.videoId)).fold(
                 onSuccess = { added ->
                     libraryStale = true
+                    invalidateMembership(browseId)
                     _detailStack.value = _detailStack.value.map { page ->
                         if (page.browseId != browseId) {
                             page
@@ -3718,6 +3882,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         likedSyncJob?.cancel()
         LikeState.clear()
         _playlistsLoading.value = false
+        _playlistsError.value = false
+        membershipSnapshots.evictAll()
+        membershipFlights.keys.forEach { key -> membershipVersions[key] = (membershipVersions[key] ?: 0) + 1 }
+        membershipFlights.values.forEach { it.cancel() }
+        membershipFlights.clear()
+        membershipSaves.clear()
         _playlists.value = emptyList()
         _playlistOwned.value = emptyMap()
         ownershipInFlight.clear()

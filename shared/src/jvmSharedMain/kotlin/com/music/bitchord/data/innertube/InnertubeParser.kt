@@ -594,28 +594,44 @@ object InnertubeParser {
      * playlist-shaped in scope (an album, say), so callers fall back to the
      * generic walk.
      */
-    fun parsePlaylistShelf(root: JsonElement): PlaylistShelfPage? {
-        // A later page of the playlist's own rows can also come appended by an
-        // action, with no `continuationContents` at all: the shape a long
-        // playlist's second page now has. Read as nothing, a reorder saw only
-        // the first 100 rows (#947).
-        val appended = root.a("onResponseReceivedActions")?.firstNotNullOfOrNull { it.o("appendContinuationItemsAction") }
+    fun parsePlaylistShelf(root: JsonElement, preserveDuplicates: Boolean = false): PlaylistShelfPage? {
         val scope: JsonElement = root.o("continuationContents")
-            ?: appended
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
-            ?: return null
+            ?: root.o("contents").o("singleColumnBrowseResultsRenderer")
+            ?: root
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
-            ?: appended?.takeIf { scope === it }
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
+        // Newer browse continuations append rows directly, rather than wrapping
+        // them in a musicPlaylistShelfContinuation. Restrict this to the one
+        // append action on a continuation response; never walk unrelated actions.
+        val appendActions = if (playlistScope == null) root.a("onResponseReceivedActions")
+            ?.mapNotNull { it.o("appendContinuationItemsAction") }.orEmpty() else emptyList()
+        if (preserveDuplicates && appendActions.size > 1) error("ambiguous playlist continuation")
+        val appendedItems = (if (preserveDuplicates) appendActions.singleOrNull() else appendActions.firstOrNull())
+            ?.a("continuationItems")
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }
-        if (playlistScope == null && suggestionShelves.isEmpty()) return null
+        if (preserveDuplicates && playlistScope == null && appendedItems == null) return null
+        if (playlistScope == null && appendedItems == null && suggestionShelves.isEmpty()) return null
+
+        val contents = playlistScope?.a("contents") ?: appendedItems
+        if (preserveDuplicates && contents == null) error("playlist contents unavailable")
+        if (preserveDuplicates && contents.orEmpty().any { item ->
+                item.o("musicResponsiveListItemRenderer") == null &&
+                    item.o("continuationItemRenderer") == null
+            }) error("unsupported playlist entry")
 
         val pageCredit = pageCredit(root)
-        val songs = playlistScope?.let { playlist ->
-            collectRenderers(playlist, "musicResponsiveListItemRenderer")
-                .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
+        val songs = contents?.let { items ->
+            val rows = collectRenderers(items, "musicResponsiveListItemRenderer")
+                .mapNotNull { row ->
+                    val song = parseResponsiveListItem(row, pageCredit)
+                    if (preserveDuplicates && (song == null || song.setVideoId.isNullOrBlank())) {
+                        error("unreadable playlist entry")
+                    }
+                    song
+                }
+            if (preserveDuplicates) rows else rows.distinctBy { it.videoId }
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves
@@ -627,7 +643,7 @@ object InnertubeParser {
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
         // continuation means more real tracks.
-        val token = playlistScope?.let { continuationToken(it) }
+        val token = (playlistScope ?: appendedItems)?.let { continuationToken(it, browseOnly = true) }
         return PlaylistShelfPage(songs, suggested, token)
     }
 
@@ -677,12 +693,15 @@ object InnertubeParser {
      * A page with several shelves can carry several renderers, and a token
      * found anywhere deeper may page a different shelf than the one asked for.
      */
-    fun continuationToken(root: JsonElement): String? {
+    fun continuationToken(root: JsonElement, browseOnly: Boolean = false): String? {
         val endpoint = collectRenderers(root, "continuationItemRenderer").firstOrNull()
             .o("continuationEndpoint")
         (endpoint.o("continuationCommand")
             ?: endpoint.o("commandExecutorCommand").a("commands")
-                ?.firstNotNullOfOrNull { it.o("continuationCommand") })
+                ?.firstNotNullOfOrNull { command ->
+                    command.o("continuationCommand")
+                        ?.takeIf { !browseOnly || it.s("request") == null || it.s("request") == "CONTINUATION_REQUEST_TYPE_BROWSE" }
+                })
             .s("token")
             ?.let { return it }
         return collectRenderers(root, "nextContinuationData").firstOrNull().s("continuation")

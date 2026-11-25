@@ -80,14 +80,17 @@ fun QueuePlaylistPicker(
         viewModel.playlists.collectAsState().value
     }
     val loading = if (device) false else viewModel.playlistsLoading.collectAsState().value
+    val discoveryError = if (device) false else viewModel.playlistsError.collectAsState().value
 
     PlaylistPickerSheet(
         playlists = choices,
         loading = loading,
+        discoveryError = discoveryError,
+        onRetryDiscovery = { viewModel.loadPlaylists() },
         songs = selected,
         offline = device,
         onDismiss = cancel,
-        onAdd = { picked ->
+        mode = PlaylistPickerMode.Batch { picked ->
             if (!submitted && !finished) {
                 submitted = true
                 when {

@@ -26,10 +26,12 @@ actual class Haptics internal constructor(context: Context) {
     private val app = context.applicationContext
 
     actual fun play(haptic: Haptic) {
+        if (!HapticsSettings.enabled) return
         if (HapticDevice.of(app)?.play(haptic) == true) PlaybackHapticGate.mark()
     }
 
     actual fun playPlayback(haptic: Haptic) {
+        if (!HapticsSettings.enabled) return
         // The player reports a state change after the control that caused it
         // has already buzzed. One haptic per action is the point; a second
         // arriving on top of the first feels like a defect.

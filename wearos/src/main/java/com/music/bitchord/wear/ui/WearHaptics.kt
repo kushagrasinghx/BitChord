@@ -90,12 +90,18 @@ fun PlaybackHapticsEffect(np: NowPlaying) {
     var lastMediaId by remember { mutableStateOf<String?>(null) }
     var lastPlaying by remember { mutableStateOf<Boolean?>(null) }
 
-    LaunchedEffect(np.mediaId, np.playing, ambient.active) {
+    LaunchedEffect(np.mediaId, np.playing, np.hapticFeedback, ambient.active) {
         val previousMediaId = lastMediaId
         val previousPlaying = lastPlaying
         lastMediaId = np.mediaId
         lastPlaying = np.playing
-        if (previousMediaId == null || previousPlaying == null || ambient.active) return@LaunchedEffect
+        if (!np.hapticFeedback ||
+            previousMediaId == null ||
+            previousPlaying == null ||
+            ambient.active
+        ) {
+            return@LaunchedEffect
+        }
         if (previousMediaId != np.mediaId) {
             haptics.trackChange()
         } else if (previousPlaying != np.playing) {

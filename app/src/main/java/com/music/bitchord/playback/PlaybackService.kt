@@ -8033,6 +8033,12 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         scope.launch {
+            // The watch keeps its own copy of the switch from the now-playing
+            // item, so push a fresh one when it changes rather than waiting
+            // for the next track or pause.
+            AppSettings.hapticFeedbackEnabled.drop(1).collect { publishWidgetState() }
+        }
+        scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
         }
         scope.launch {

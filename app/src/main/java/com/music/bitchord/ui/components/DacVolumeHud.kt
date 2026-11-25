@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
+import com.music.bitchord.ui.haptics.HapticsSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -208,7 +209,9 @@ fun DacVolumeHud(hazeState: HazeState) {
     /** Pulled past an end: stretch away from the bound, then snap back with a little bounce. */
     fun rubberBand(direction: Int) {
         stretchFromTop = direction < 0
-        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (HapticsSettings.enabled) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
         scope.launch {
             stretch.animateTo(1.07f, tween(durationMillis = 90))
             stretch.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 380f))

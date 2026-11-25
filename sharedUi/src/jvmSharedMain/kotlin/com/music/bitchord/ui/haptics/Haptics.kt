@@ -60,6 +60,17 @@ enum class Haptic {
 }
 
 /**
+ * The app-level haptic switch, kept in step with BitChord's own setting.
+ *
+ * The system touch-feedback switch is checked separately by the Android
+ * implementation. Both have to be on for anything to buzz: the app switch is
+ * the one a listener can find without leaving the player.
+ */
+object HapticsSettings {
+    @Volatile var enabled: Boolean = true
+}
+
+/**
  * A handle on the device's motor, obtained with [rememberHaptics].
  *
  * The phone's is the vibrator; a desktop has nothing to buzz, and its handle

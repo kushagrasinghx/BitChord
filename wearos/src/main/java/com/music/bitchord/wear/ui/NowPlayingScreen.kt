@@ -112,6 +112,7 @@ fun NowPlayingScreen(
     actions: PlayerActions,
 ) {
     val view = LocalView.current
+    val latestHapticsEnabled by rememberUpdatedState(np.hapticFeedback)
     var rotary by remember { mutableFloatStateOf(0f) }
     // Bumped on every crown step; the readout shows while it keeps changing.
     var volumeNudge by remember { mutableIntStateOf(0) }
@@ -164,7 +165,9 @@ fun NowPlayingScreen(
                         actions.volume(steps)
                         volumeNudge++
                     }
-                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    if (latestHapticsEnabled) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    }
                 }
                 true
             }
@@ -336,6 +339,7 @@ private fun PlayDisc(
     // Read by the gesture blocks, which live across recompositions.
     val latestScrubbing by rememberUpdatedState(scrubbing)
     val latestDuration by rememberUpdatedState(np.durationMs)
+    val latestHapticsEnabled by rememberUpdatedState(np.hapticFeedback)
     val toggleLabel = stringResource(if (np.playing) R.string.pause else R.string.play)
 
     Box(
@@ -415,7 +419,9 @@ private fun PlayDisc(
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
                         if (latestDuration > 0) {
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            if (latestHapticsEnabled) {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            }
                             onScrubStart()
                         }
                     },

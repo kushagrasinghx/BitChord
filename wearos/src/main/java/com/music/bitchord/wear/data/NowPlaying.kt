@@ -28,6 +28,8 @@ data class NowPlaying(
     val repeatMode: Int,
     val colors: List<Color>,
     val artId: String?,
+    /** The phone's BitChord haptic switch. The watch still checks its own system switch too. */
+    val hapticFeedback: Boolean = true,
 ) {
     /** Where the playhead is now, run on from the phone's last reading while it is moving. */
     fun positionAt(wallMs: Long): Long {
@@ -62,6 +64,7 @@ data class NowPlaying(
                 repeatMode = map.getInt(P.KEY_REPEAT),
                 colors = map.getIntegerArrayList(P.KEY_COLORS)?.map { Color(it) }.orEmpty(),
                 artId = map.getString(P.KEY_ART_ID),
+                hapticFeedback = map.getBoolean(P.KEY_HAPTIC_FEEDBACK, true),
             )
         }
     }

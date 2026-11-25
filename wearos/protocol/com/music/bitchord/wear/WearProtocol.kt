@@ -174,6 +174,9 @@ object WearProtocol {
     const val KEY_VOLUME = "volume"
     const val KEY_VOLUME_MAX = "volume_max"
 
+    /** The phone's in-app haptic feedback switch, mirrored so the watch can honour it. */
+    const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+
     // ---- PATH_OUTPUTS keys ----
 
     /** DataMap list: [KEY_OUTPUT_ID], [KEY_OUTPUT_NAME], [KEY_OUTPUT_KIND], [KEY_OUTPUT_ACTIVE]. */

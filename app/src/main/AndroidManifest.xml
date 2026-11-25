@@ -59,6 +59,14 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!--
+      Never requested: the manifest merger adds it on behalf of any library whose
+      manifest declares no minSdk (it reads that as targetSdk < 4). The watch
+      installer's ADB library is one; nothing in the app reads phone state.
+    -->
+    <uses-permission
+        android:name="android.permission.READ_PHONE_STATE"
+        tools:node="remove" />
 
     <application
         android:name=".BitChordApplication"

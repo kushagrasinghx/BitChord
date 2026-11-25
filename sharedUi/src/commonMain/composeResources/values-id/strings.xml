@@ -207,4 +207,6 @@
     <string name="queue_download">Unduh</string>
     <string name="queue_selection_remove">Hapus</string>
     <string name="queue_add_all_to_playlist">Tambahkan semua ke playlist</string>
+    <string name="mixes_yours">Mix Anda</string>
+    <string name="mixes_none">Belum ada mix. Terus dengarkan dan YouTube Music akan membuatkannya untuk Anda.</string>
 </resources>

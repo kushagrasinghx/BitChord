@@ -207,4 +207,6 @@
     <string name="queue_download">İndir</string>
     <string name="queue_selection_remove">Kaldır</string>
     <string name="queue_add_all_to_playlist">Tümünü çalma listesine ekle</string>
+    <string name="mixes_yours">Mikslerin</string>
+    <string name="mixes_none">Henüz miks yok. Dinlemeye devam et, YouTube Music senin için miksler oluşturacak.</string>
 </resources>

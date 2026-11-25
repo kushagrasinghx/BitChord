@@ -63,6 +63,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaLibraryService.LibraryParams
@@ -102,6 +103,7 @@ import com.music.bitchord.data.listentogether.partyUpcomingAfter
 import com.music.bitchord.R
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.OfflinePlaylists
+import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
@@ -136,6 +138,7 @@ import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.remote.RemoteArtworkStore
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
 import com.music.bitchord.data.scrobbling.ScrobbleManager
@@ -152,6 +155,8 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.ui.player.discardBlockedAutoMixAmbient
+import com.music.bitchord.ui.player.prefetchAutoMixArtwork
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
 import com.music.bitchord.wear.WearBridge
@@ -273,6 +278,12 @@ const val ACTION_QUEUE_MOVE_TO_USER = "com.music.bitchord.action.QUEUE_MOVE_TO_U
 const val EXTRA_QUEUE_MOVE_INDEX = "bitchord.queueMove.index"
 const val EXTRA_QUEUE_MOVE_ENTRY = "bitchord.queueMove.entry"
 const val EXTRA_QUEUE_MOVE_MEDIA = "bitchord.queueMove.media"
+
+/**
+ * Play a history row again from the queue screen, keeping later history as
+ * history. Takes the same index/entry/media extras as [ACTION_QUEUE_MOVE_TO_USER].
+ */
+const val ACTION_QUEUE_REPLAY_HISTORY = "com.music.bitchord.action.QUEUE_REPLAY_HISTORY"
 
 /** A full first page for an explicitly requested station. */
 private const val INITIAL_STATION_TRACKS = 24
@@ -852,6 +863,7 @@ class PlaybackService : MediaLibraryService() {
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
     private val queueMoveToUserCommand = SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY)
+    private val queueReplayHistoryCommand = SessionCommand(ACTION_QUEUE_REPLAY_HISTORY, Bundle.EMPTY)
     private val queueMoveMutex = Mutex()
     private val queueRemoveUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_WITH_UNDO, Bundle.EMPTY)
     private val queueRemoveEntriesUndoCommand = SessionCommand(ACTION_QUEUE_REMOVE_ENTRIES_WITH_UNDO, Bundle.EMPTY)
@@ -1069,6 +1081,10 @@ class PlaybackService : MediaLibraryService() {
          * on the audio, which is what the media notification shows too.
          */
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            // The audio controller may use an end-of-item hold to hand off late.
+            if (!playWhenReady && reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                crossfade?.cancelAutoMixVisual()
+            }
             // Something started the phone's own player while a receiver is the
             // speaker — an internal path, since the session player's door
             // already sends a listener's play to the receiver. The phone goes
@@ -1175,6 +1191,7 @@ class PlaybackService : MediaLibraryService() {
          * broken app looks like from the outside.
          */
         override fun onPlayerError(error: PlaybackException) {
+            crossfade?.cancelAutoMixVisual()
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
@@ -1184,6 +1201,7 @@ class PlaybackService : MediaLibraryService() {
         // Nothing follows the last track, so there is no transition to
         // pause on — the queue simply runs out and the timer is spent.
         override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_IDLE) crossfade?.cancelAutoMixVisual()
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
@@ -1270,6 +1288,7 @@ class PlaybackService : MediaLibraryService() {
             // stage switches to that track on its own at the boundary.
             activeLoudness().nextMediaId = nextMediaIdOf(exoPlayer)
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                crossfade?.checkAutoMixVisualTimeline(exoPlayer)
                 speakers.onLocalQueueChanged()
                 saveQueueSnapshot(exoPlayer)
                 refreshCustomLayouts()
@@ -1992,6 +2011,7 @@ class PlaybackService : MediaLibraryService() {
         )
             .setId(SESSION_ID)
             .setSessionActivity(sessionActivity())
+            .setSessionExtras(transportSlotReservations())
             .build()
         refreshCustomLayouts()
 
@@ -1999,6 +2019,26 @@ class PlaybackService : MediaLibraryService() {
         // whose queue is already restored.
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+    }
+
+    /**
+     * Keeps Previous and Next in their places even while there is nowhere to go.
+     *
+     * Without these, Media3 converts the custom layout by moving its first
+     * button into the Back slot when Previous is unavailable, and into the
+     * Forward slot when Next is: on the last song of a queue, or a single song
+     * opened from a link, that was Favorite, sitting exactly where Next was.
+     * System UI follows the same two keys when it lays out the platform
+     * session. Phones whose panels hold their button positions turned a tap on
+     * "Next" into a Like on YouTube Music. With them set, an unavailable
+     * Previous or Next just leaves its slot empty or disabled.
+     *
+     * Queue edits copy [MediaSession.getSessionExtras] before adding to them,
+     * so these stay set for the life of the session.
+     */
+    private fun transportSlotReservations() = Bundle().apply {
+        putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, true)
+        putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, true)
     }
 
     private fun newSessionPlayer(player: Player, crossfade: CrossfadeController) = SessionPlayer(
@@ -2048,6 +2088,60 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    private var autoMixArtworkJob: Job? = null
+    private var autoMixArtworkGeneration: Long? = null
+
+    private fun allowsAutoMixArtwork(generation: Long, mini: Boolean = false): Boolean =
+        AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, generation, mini)
+
+    private fun allowsAnyAutoMixArtwork(generation: Long): Boolean =
+        allowsAutoMixArtwork(generation) || allowsAutoMixArtwork(generation, mini = true)
+
+    private fun prefetchAutoMixIncoming(item: MediaItem) {
+        autoMixArtworkJob?.cancel()
+        val coverGeneration = AutoMixVisualFeed.state.value?.takeIf {
+            it.phase == AutoMixVisualPhase.ARMED && allowsAnyAutoMixArtwork(it.generation)
+        }?.generation
+        autoMixArtworkGeneration = coverGeneration
+        if (coverGeneration == null) return
+        autoMixArtworkJob = scope.launch {
+            val song = item.toSong()
+            // Canvas resolution is independent of still-art extraction and decoding.
+            launch {
+                if (allowsAutoMixArtwork(coverGeneration) &&
+                    AppSettings.animatedCanvas.value &&
+                    (AppSettings.meteredConnection.value != true || AppSettings.canvasOverCellular.value)
+                ) {
+                    // The repository handles provider settings and caches both hits and settled misses.
+                    CanvasRepository.canvasFor(song)
+                }
+            }
+
+            try {
+                val artUrl = song.thumbnailUrl ?: if (
+                    song.videoId.startsWith("webdav:") || song.videoId.startsWith("smb:")
+                ) {
+                    withContext(Dispatchers.IO) { RemoteArtworkStore.resolveArt(this@PlaybackService, song) }
+                } else {
+                    null
+                }
+                if (artUrl != null) {
+                    prefetchAutoMixArtwork(
+                        this@PlaybackService, artUrl, coverGeneration,
+                        prepareCover = { allowsAutoMixArtwork(it) },
+                        prepareMiniCover = { allowsAutoMixArtwork(it, mini = true) },
+                    ) { generation ->
+                        AutoMixVisualFeed.pending(generation)?.phase == AutoMixVisualPhase.ARMED
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("BitChord", "AutoMix artwork prefetch failed", e)
+            }
+        }
+    }
+
     private fun createCrossfadeController() = CrossfadeController(
             scope,
             active = { requireNotNull(player) },
@@ -2093,6 +2187,7 @@ class PlaybackService : MediaLibraryService() {
             // levelled on its own sink before it renders a frame, and the
             // outgoing track keeps its own gain for the rest of the blend.
             onArmIncoming = { item, nextId -> spareLoudness().track(item.mediaId, nextId) },
+            onArmAutoMixIncoming = ::prefetchAutoMixIncoming,
             // Both sinks, not a role: the trim is about what the pair sums to.
             onBlendHeadroom = { trim ->
                 loudnessA.setBlendTrim(trim)
@@ -2204,6 +2299,11 @@ class PlaybackService : MediaLibraryService() {
                 CommandButton.ICON_SHUFFLE_OFF
             },
         )
+            // The player's own crossed strands, as with the star above; Previous
+            // and Next follow it through res/drawable-anydpi-v4/media3_icon_*.
+            .setCustomIconResId(
+                if (shuffleEnabled) R.drawable.ic_notification_shuffle else R.drawable.ic_notification_shuffle_off,
+            )
             .setSessionCommand(shuffleCommand)
             .setDisplayName(if (shuffleEnabled) "Shuffle off" else "Shuffle on")
             .build()
@@ -2240,24 +2340,25 @@ class PlaybackService : MediaLibraryService() {
     private val carControllers = mutableSetOf<MediaSession.ControllerInfo>()
 
     /**
-     * Pushes the current button state to every surface. The phone/lock-screen
-     * notification is driven by Media3's own internal controller, so it gets
-     * an explicit override limited to Favorite/Shuffle; every other connected
-     * controller falls back to the broadcast layout, which also carries
-     * Radio/Revert.
+     * Pushes the current button state to every surface: Favorite/Shuffle on
+     * the phone, plus Radio/Revert while a car is connected.
      *
-     * Media3 mirrors the notification controller's layout into the platform
-     * session's custom actions, and Android Auto reads the platform session,
-     * not the broadcast layout. So while a car is connected the notification
-     * override carries the car buttons too, or Radio/Revert vanish from Auto.
+     * The phone's media panel, Android Auto and a car's own media centre all
+     * read the platform session's custom actions, and Media3 has one slot for
+     * those that both the broadcast layout and the notification controller's
+     * override write into: whichever lands last wins. So both get the same
+     * list. A broadcast that always carried the car buttons put Start radio
+     * and Revert on the phone's panel and made its buttons flicker between
+     * two and four, depending on which write a playback update caught.
      */
     private fun refreshCustomLayouts() {
         val session = mediaSession ?: return
-        val car = carButtons()
-        session.setCustomLayout(car)
-        session.getMediaNotificationControllerInfo()?.let {
-            session.setCustomLayout(it, if (carControllers.isEmpty()) notificationButtons() else car)
-        }
+        val buttons = if (carControllers.isEmpty()) notificationButtons() else carButtons()
+        session.setCustomLayout(buttons)
+        // The broadcast reaches the notification controller and the platform
+        // session too, but only this per-controller call republishes the
+        // platform playback state straight away.
+        session.getMediaNotificationControllerInfo()?.let { session.setCustomLayout(it, buttons) }
     }
 
     /**
@@ -3173,6 +3274,44 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * A queue-screen tap on a history row. Outside a party and a bounded
+     * context, the row is played again at the playhead (see
+     * [QueueCoordinator.replayFromHistory]). A bounded context's cursor follows
+     * its CONTEXT rows' source order and a party's queue is the server's, so
+     * there it stays the plain backward seek it always was. False means the
+     * row could not be found or the caller should fall back to that seek.
+     */
+    private suspend fun replayFromHistory(args: Bundle): Boolean {
+        if (ListenTogether.state.value.controlsLocked || ListenTogether.state.value.inParty) return false
+        val before = mediaSession?.player ?: return false
+        val requestedIndex = args.getInt(EXTRA_QUEUE_MOVE_INDEX, -1)
+        val entryId = args.getString(EXTRA_QUEUE_MOVE_ENTRY)
+        val mediaId = args.getString(EXTRA_QUEUE_MOVE_MEDIA)
+        val candidates = (0 until before.mediaItemCount).filter { index ->
+            val candidate = before.getMediaItemAt(index)
+            candidate.mediaId == mediaId && candidate.queueEntryId == entryId
+        }
+        val originalIndex = if (entryId != null) {
+            candidates.singleOrNull() ?: candidates.firstOrNull { it == requestedIndex }
+        } else candidates.firstOrNull { it == requestedIndex }
+        if (originalIndex == null || originalIndex >= before.currentMediaItemIndex) return false
+        val original = before.getMediaItemAt(originalIndex)
+        if (boundedContextWindow != null && original.queueTier == QueueTier.CONTEXT) return false
+        val contextGeneration = boundedEditState.contextGeneration
+        // A standby owns a snapshot of the old running order. Settle it before
+        // editing, then reacquire the player in case the handoff adopted it.
+        if (!settleQueueUndoEdit() || ListenTogether.state.value.controlsLocked ||
+            ListenTogether.state.value.inParty || boundedEditState.contextGeneration != contextGeneration
+        ) return false
+        val activePlayer = mediaSession?.player as? SessionPlayer ?: return false
+        val from = (0 until activePlayer.mediaItemCount)
+            .filter { activePlayer.getMediaItemAt(it) === original }.singleOrNull() ?: return false
+        if (!activePlayer.replayFromHistory(from)) return false
+        player?.let(::saveQueueSnapshotImmediately)
+        return true
+    }
+
     private suspend fun moveQueueEntryToUser(args: Bundle): Boolean {
         if (ListenTogether.state.value.controlsLocked) return false
         val before = mediaSession?.player ?: return false
@@ -3261,6 +3400,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun toggleShuffleFromSession() {
+        crossfade?.cancelAutoMixVisual()
         val window = boundedContextWindow
         if (window != null && !ListenTogether.state.value.inParty) {
             val target = !(boundedEditState.desiredShuffle ?: window.isShuffleEnabled)
@@ -3346,6 +3486,7 @@ class PlaybackService : MediaLibraryService() {
         val request = BoundedContextRequests.take(requestToken) ?: return
         val result = prepareBoundedContext(request) ?: return
         val exoPlayer = player ?: return
+        crossfade?.cancelAutoMixVisual()
         exoPlayer.setMediaItems(result.mediaItems, result.startIndex, result.startPositionMs)
         saveBoundedContextSnapshot(exoPlayer)
         exoPlayer.prepare()
@@ -7855,6 +7996,20 @@ class PlaybackService : MediaLibraryService() {
 
     private fun observeSettings() {
         scope.launch {
+            AppSettings.autoMixArtwork.collect {
+                if (autoMixArtworkGeneration?.let { !allowsAnyAutoMixArtwork(it) } == true) {
+                    autoMixArtworkJob?.cancel()
+                    autoMixArtworkGeneration = null
+                }
+                discardBlockedAutoMixAmbient { allowsAutoMixArtwork(it) }
+            }
+        }
+        scope.launch {
+            AppSettings.smartFadeEnabled.collect { enabled ->
+                if (!enabled) crossfade?.cancelAutoMixVisual()
+            }
+        }
+        scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
         }
         scope.launch {
@@ -8432,6 +8587,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         if (AppSettings.stopOnTaskRemoved.value) {
+            crossfade?.cancelAutoMixVisual()
             // A receiver left playing with nothing on the phone to drive it
             // would run out its few queued tracks and stop on its own anyway;
             // better to say so now than leave the TV on a casting screen.
@@ -8445,6 +8601,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        crossfade?.cancelAutoMixVisual()
         invalidateQueueUndo()
         queueUndoRestoreBatch = null
         queueUndoMutationSettled = null
@@ -9017,7 +9174,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun pause() {
             if (lockedTransport(false)) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 cast.pause()
                 return
@@ -9029,6 +9186,7 @@ class PlaybackService : MediaLibraryService() {
         // is the listener's own business, and the lifecycle paths that call it
         // are not asking to move the party.
         override fun stop() {
+            crossfade.cancelAutoMixVisual()
             if (locked()) { super.stop(); return }
             onUserIntent()
             super.stop()
@@ -9063,7 +9221,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun setPlayWhenReady(playWhenReady: Boolean) {
             if (lockedTransport(playWhenReady)) return
-            onUserIntent()
+            if (playWhenReady) onUserIntent() else onAutoMixInterruptingIntent()
             if (playWhenReady && deferPlayToParty()) return
             if (cast.active) {
                 if (playWhenReady) cast.play() else cast.pause()
@@ -9072,12 +9230,17 @@ class PlaybackService : MediaLibraryService() {
             super.setPlayWhenReady(playWhenReady)
         }
 
+        private fun onAutoMixInterruptingIntent() {
+            crossfade.cancelAutoMixVisual()
+            onUserIntent()
+        }
+
         // The playhead belongs to the party while locked: it goes where the
         // host puts it, and a local seek would only be dragged back by the next
         // reconcile anyway.
         override fun seekTo(positionMs: Long) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 cast.seekTo(positionMs)
                 return
@@ -9087,7 +9250,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun seekBack() {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 cast.seekTo(cast.positionMs - seekBackIncrement)
                 return
@@ -9097,7 +9260,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun seekForward() {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 cast.seekTo(cast.positionMs + seekForwardIncrement)
                 return
@@ -9107,7 +9270,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun seekToPrevious() {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 castPrevious()
                 return
@@ -9117,7 +9280,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun seekToDefaultPosition() {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             if (cast.active) {
                 cast.seekTo(0L)
                 return
@@ -9127,13 +9290,13 @@ class PlaybackService : MediaLibraryService() {
 
         override fun seekToDefaultPosition(mediaItemIndex: Int) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.seekToDefaultPosition(mediaItemIndex)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, resetPosition)
         }
 
@@ -9143,7 +9306,7 @@ class PlaybackService : MediaLibraryService() {
             startPositionMs: Long,
         ) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
         }
 
@@ -9156,37 +9319,37 @@ class PlaybackService : MediaLibraryService() {
         // who can reorder it is still choosing the music.
         override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.addMediaItems(index, mediaItems)
         }
 
         override fun addMediaItems(mediaItems: List<MediaItem>) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.addMediaItems(mediaItems)
         }
 
         override fun removeMediaItem(index: Int) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.removeMediaItem(index)
         }
 
         override fun removeMediaItems(fromIndex: Int, toIndex: Int) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.removeMediaItems(fromIndex, toIndex)
         }
 
         override fun moveMediaItem(currentIndex: Int, newIndex: Int) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.moveMediaItem(currentIndex, newIndex)
         }
 
         override fun moveMediaItems(fromIndex: Int, toIndex: Int, newIndex: Int) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.moveMediaItems(fromIndex, toIndex, newIndex)
         }
 
@@ -9196,13 +9359,13 @@ class PlaybackService : MediaLibraryService() {
             mediaItems: List<MediaItem>,
         ) {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.replaceMediaItems(fromIndex, toIndex, mediaItems)
         }
 
         override fun clearMediaItems() {
             if (locked()) return
-            onUserIntent()
+            onAutoMixInterruptingIntent()
             super.clearMediaItems()
         }
 
@@ -9245,6 +9408,20 @@ class PlaybackService : MediaLibraryService() {
                 positionMs = positionMs,
                 play = false,
             )
+        }
+
+        /**
+         * The queue screen's history tap: [QueueCoordinator.replayFromHistory]
+         * on the native player, so the moved row keeps its source and metadata.
+         * Not a [seekTo] override, which every surface shares and which keeps
+         * an earlier index a plain backward seek.
+         */
+        fun replayFromHistory(index: Int): Boolean {
+            if (locked()) return false
+            if (index !in 0 until wrappedPlayer.currentMediaItemIndex) return false
+            onUserIntent()
+            crossfade.onSkipRequested()
+            return QueueCoordinator.replayFromHistory(wrappedPlayer, index)
         }
 
         override fun seekToPreviousMediaItem() {
@@ -9298,6 +9475,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(swapVersionCommand)
                 .add(queueDragCommand)
                 .add(queueMoveToUserCommand)
+                .add(queueReplayHistoryCommand)
                 .add(queueRemoveUndoCommand)
                 .add(queueRemoveEntriesUndoCommand)
                 .add(queueClearUndoCommand)
@@ -9351,6 +9529,17 @@ class PlaybackService : MediaLibraryService() {
                         queueMoveMutex.withLock {
                             SessionResult(
                                 if (moveQueueEntryToUser(moveArgs)) SessionResult.RESULT_SUCCESS
+                                else SessionError.ERROR_INVALID_STATE,
+                            )
+                        }
+                    }
+                }
+                ACTION_QUEUE_REPLAY_HISTORY -> {
+                    val replayArgs = Bundle(args)
+                    return scope.future {
+                        queueMoveMutex.withLock {
+                            SessionResult(
+                                if (replayFromHistory(replayArgs)) SessionResult.RESULT_SUCCESS
                                 else SessionError.ERROR_INVALID_STATE,
                             )
                         }
@@ -10594,15 +10783,16 @@ class PlaybackService : MediaLibraryService() {
 /**
  * The stock renderers, plus FFmpeg after the MediaCodec one.
  *
- * FFmpeg comes last so it only gets a track no platform decoder takes: AC-4
- * and Dolby Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
+ * FFmpeg comes last so it only gets a track no platform decoder takes: Dolby
+ * Digital (Plus, Atmos) on phones without Dolby's own decoder. Atmos
  * then plays as its 5.1 bed, folded down to stereo — the object layer needs
  * Dolby's decoder, which is the only thing that can read it. Same sink as the
  * MediaCodec renderer, so the DSP chain and the precision path see no
  * difference between the two.
  *
- * ALAC goes to FFmpeg on every device, because MediaCodec is never offered it
- * ([withoutPlatformAlac]). Samsung ships no ALAC codec, which is where FFmpeg
+ * ALAC and AC-4 go to FFmpeg on every device, because MediaCodec is never
+ * offered them ([withoutUnreliablePlatformDecoders]); the platform AC-4 decoders proved
+ * unreliable, much as the ALAC ones below did. Samsung ships no ALAC codec, which is where FFmpeg
  * was proved; Qualcomm vendor images ship `c2.qti.alac.sw.decoder`, which
  * released itself on its first input buffer (realme RMX3842, Android 16) and
  * misreports position on the tracks it does play. A codec that fails mid-
@@ -10628,7 +10818,7 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
         super.buildAudioRenderers(
             context,
             extensionRendererMode,
-            withoutPlatformAlac(mediaCodecSelector),
+            withoutUnreliablePlatformDecoders(mediaCodecSelector),
             enableDecoderFallback,
             audioSink,
             eventHandler,
@@ -10640,15 +10830,24 @@ private open class FfmpegFallbackRenderersFactory(context: Context) : DefaultRen
 }
 
 /**
- * [selector] with no decoders for ALAC, so `MediaCodecAudioRenderer` reports
- * it unsupported and the track selector hands it to FFmpeg — unless this
- * build's FFmpeg cannot decode it (an ABI it was not built for), where a
- * vendor codec is still better than none. Wraps rather than replaces, so a
- * subclass's own selector (the FLAC one) keeps working underneath.
+ * [selector] with no decoders for ALAC or AC-4, so `MediaCodecAudioRenderer`
+ * reports them unsupported and the track selector hands them to FFmpeg —
+ * unless this build's FFmpeg cannot decode one (an ABI it was not built for),
+ * where a vendor codec is still better than none. Wraps rather than replaces,
+ * so a subclass's own selector (the FLAC one) keeps working underneath.
+ *
+ * AC-4 joins ALAC for the same reason: the platform decoders that claim it
+ * misbehave mid-track, and a codec that fails mid-playback is never retried
+ * on the next renderer.
  */
-private fun withoutPlatformAlac(selector: MediaCodecSelector) =
+private fun withoutUnreliablePlatformDecoders(selector: MediaCodecSelector) =
     MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-        if (mimeType == MimeTypes.AUDIO_ALAC && ffmpegDecodesAlac) {
+        val ffmpegFirst = when (mimeType) {
+            MimeTypes.AUDIO_ALAC -> ffmpegDecodesAlac
+            MimeTypes.AUDIO_AC4 -> ffmpegDecodesAc4
+            else -> false
+        }
+        if (ffmpegFirst) {
             emptyList()
         } else {
             selector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
@@ -10656,11 +10855,12 @@ private fun withoutPlatformAlac(selector: MediaCodecSelector) =
     }
 
 /**
- * Asked once per process, and only when an ALAC track is first looked at: the
+ * Asked once per process, and only when such a track is first looked at: the
  * native library then loads on the playback thread, as it did before, rather
  * than on the main thread while a player is built.
  */
 private val ffmpegDecodesAlac by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_ALAC) }
+private val ffmpegDecodesAc4 by lazy { FfmpegLibrary.supportsFormat(MimeTypes.AUDIO_AC4) }
 
 /**
  * Every lyric setting the service's lyrics depend on, emitting once per real

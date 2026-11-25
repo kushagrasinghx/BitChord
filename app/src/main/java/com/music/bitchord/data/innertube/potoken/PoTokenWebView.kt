@@ -6,7 +6,6 @@ import android.os.Looper
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.MainThread
@@ -35,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.music.bitchord.data.web.QuietWebChromeClient
 
 class PoTokenWebView private constructor(
     context: Context,
@@ -79,7 +79,7 @@ class PoTokenWebView private constructor(
         // so that we can run async functions and get back the result
         webView.addJavascriptInterface(this, JS_INTERFACE)
 
-        webView.webChromeClient = object : WebChromeClient() {
+        webView.webChromeClient = object : QuietWebChromeClient() {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                 val msg = m.message()
                 // Log all console messages for debugging
@@ -113,7 +113,8 @@ class PoTokenWebView private constructor(
                         }
                     }
                 }
-                return super.onConsoleMessage(m)
+                // Recorded above for Copy Log; handled, so WebView does not echo it to logcat.
+                return true
             }
         }
 

@@ -207,4 +207,6 @@
     <string name="queue_download">डाउनलोड करें</string>
     <string name="queue_selection_remove">हटाएं</string>
     <string name="queue_add_all_to_playlist">सभी को प्लेलिस्ट में जोड़ें</string>
+    <string name="mixes_yours">आपके मिक्स</string>
+    <string name="mixes_none">अभी कोई मिक्स नहीं है। सुनते रहें, YouTube Music आपके लिए मिक्स बनाएगा।</string>
 </resources>

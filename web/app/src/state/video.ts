@@ -25,6 +25,8 @@ interface VideoState {
   quality: VideoQuality;
   /** The height actually on screen, as Shaka reports the active rendition. */
   activeHeight: number | null;
+  /** The front surface's height in device pixels: Auto streams no more than this needs. */
+  displayHeight: number;
 }
 
 const QUALITY_KEY = 'bitchord:video-quality';
@@ -42,6 +44,7 @@ export const useVideo = create<VideoState>()(() => ({
   heights: [],
   quality: storedQuality(),
   activeHeight: null,
+  displayHeight: 0,
 }));
 
 /** Holds the picture at [quality] from now on; the deck reloads it at the same moment. */
@@ -83,13 +86,21 @@ export type VideoFit = 'cover' | 'contain';
 
 const stack: { host: HTMLElement; fit: VideoFit }[] = [];
 
+// The front surface's size, so a 40px preview isn't fed a 1080p stream (videoDeck.ts autoHeight).
+const measure = new ResizeObserver(([entry]) => {
+  const height = Math.round((entry?.contentRect.height ?? 0) * (window.devicePixelRatio || 1));
+  if (height !== useVideo.getState().displayHeight) useVideo.setState({ displayHeight: height });
+});
+
 function place() {
   const top = stack[stack.length - 1];
   const video = getVideoElement();
+  measure.disconnect();
   if (!top) {
     video.remove();
     return;
   }
+  measure.observe(top.host);
   video.className = top.fit === 'contain' ? 'block size-full object-contain' : 'block size-full object-cover';
   if (video.parentElement !== top.host) top.host.append(video);
 }

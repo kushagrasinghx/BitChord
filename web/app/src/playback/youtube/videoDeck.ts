@@ -1,4 +1,5 @@
 import shaka from 'shaka-player/dist/shaka-player.compiled';
+import { autoHeight } from './videoHeight';
 import { getVideoElement, qualityLabel, setVideoQuality, useVideo, type VideoQuality } from '@/state/video';
 import { trackLog } from '../trackLog';
 import type { YouTubeEngine } from './engine';
@@ -23,14 +24,6 @@ const SYNC_EVERY_MS = 250;
  * can't hold this is measured within seconds and backed off.
  */
 const AUTO_START_BPS = 6_000_000;
-
-/**
- * What Auto climbs to: H.264 tops out here on YouTube and every browser
- * decodes it in hardware, so Auto never asks the machine for a VP9 2K or 4K
- * frame it may have to decode in software. Above this is the listener's call,
- * in the quality switcher.
- */
-const AUTO_MAX_HEIGHT = 1080;
 
 let player: shaka.Player | null = null;
 let source: { engine: YouTubeEngine; audio: HTMLAudioElement } | null = null;
@@ -71,13 +64,15 @@ async function ensurePlayer(): Promise<shaka.Player> {
   return created;
 }
 
-/** Holds the picture at [quality]: Auto adapts up to the H.264 ceiling, a picked height doesn't move. */
-function configureQuality(target: shaka.Player, quality: VideoQuality) {
+
+/** Holds the picture at [quality]: Auto adapts up to what the surface needs, a picked height doesn't move. */
+function configureQuality(target: shaka.Player, quality: VideoQuality, heights = useVideo.getState().heights) {
+  const { displayHeight } = useVideo.getState();
   target.configure({
     abr: {
       enabled: quality === 'auto',
       defaultBandwidthEstimate: AUTO_START_BPS,
-      restrictions: { maxHeight: quality === 'auto' ? AUTO_MAX_HEIGHT : Infinity },
+      restrictions: { maxHeight: quality === 'auto' ? autoHeight(displayHeight, heights) : Infinity },
     },
   });
 }
@@ -102,6 +97,10 @@ export function stopVideo(): void {
 
 useVideo.subscribe((state, previous) => {
   if (state.surfaces > 0 !== previous.surfaces > 0 || state.quality !== previous.quality) void refresh();
+  // A surface resized or a bigger one came to the front: Shaka applies a new ceiling without reloading.
+  else if (player && loaded && state.quality === 'auto' && (state.displayHeight !== previous.displayHeight || state.heights !== previous.heights)) {
+    configureQuality(player, 'auto');
+  }
 });
 
 async function refresh(): Promise<void> {
@@ -125,7 +124,7 @@ async function refresh(): Promise<void> {
   const video = getVideoElement();
   try {
     const shakaPlayer = await ensurePlayer();
-    configureQuality(shakaPlayer, quality);
+    configureQuality(shakaPlayer, quality, stream.heights);
     await shakaPlayer.load(`data:application/dash+xml;base64,${btoa(stream.manifest)}`, resumeAt, 'application/dash+xml');
     if (run !== generation) return;
     if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {

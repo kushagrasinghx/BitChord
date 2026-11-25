@@ -964,8 +964,8 @@ fun NowPlayingScreen(
      */
     windowHeight: Dp,
     /**
-     * Whether the host's ⋯ menu is up over the player. Like the player's own
-     * drawers it pauses a canvas — see [overlayOpen]. Asked rather than
+     * Whether the host's ⋯ menu is up over the player, for frost and chrome
+     * rather than pausing a canvas — see [overlayOpen]. Asked rather than
      * passed: as a value, every open and close of the menu re-ran all of this
      * screen, on the very frame the menu starts to grow.
      */
@@ -1290,9 +1290,8 @@ fun NowPlayingScreen(
     val backdropLayer = rememberGraphicsLayer()
     val shareScope = rememberCoroutineScope()
     // Whether anything is up over the player: a drawer, a popup, the ⋯ menu.
-    // A canvas holds still under them, as it does for the lyrics and the
-    // queue — each blurs a still of the player, and a clip playing on behind
-    // it is decoding and compositing for nothing anyone can see.
+    // Frost captures and chrome follow every overlay independently of
+    // whether that overlay pauses the clip.
     //
     // Derived, and read only where it is used: read here, opening any of them
     // re-ran this whole screen on the frame it starts to animate in.
@@ -1302,6 +1301,14 @@ fun NowPlayingScreen(
         derivedStateOf {
             currentMenuOpen() || showAudioPipeline || showCast || showAudioOutput || showVideoQuality ||
                 showLyricsProviders || showListenTogetherMembers || lyricsShare != null || currentLyricsOffsetOpen
+        }
+    }
+    // Keep supplying frames under the flyout and Audio output so a replacement
+    // surface fills on return. Other overlays retain their independent pauses.
+    val overlayPausesCanvas = remember {
+        derivedStateOf {
+            showAudioPipeline || showCast || showVideoQuality || showLyricsProviders ||
+                showListenTogetherMembers || lyricsShare != null || currentLyricsOffsetOpen
         }
     }
     val lyricsShareEnabled = lyricsShareAvailable
@@ -2415,7 +2422,7 @@ fun NowPlayingScreen(
                             onClipResumed = onClipResumed,
                             // A clip decoding behind a player on its way to the
                             // bar is work nobody sees — see [dockMoving].
-                            pausedForTransition = dockMoving || overlayOpen.value,
+                            pausedForTransition = dockMoving || overlayPausesCanvas.value,
                             sleeveShape = landscapeArtShape,
                             // Let go of on the way to the mini player, whose
                             // cover sits flat in its bar.
@@ -2867,7 +2874,7 @@ fun NowPlayingScreen(
                             // full-screen Spotify Canvas, though: that is the whole
                             // screen, and keeps playing under them, blurred live.
                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
-                                collapseStarted || dockMoving || (overlayOpen.value && !fullscreen) ||
+                                collapseStarted || dockMoving || (overlayPausesCanvas.value && !fullscreen) ||
                                 (standby && pair?.started != true) || (!standby && freezeOutgoingCanvas),
                             // Spotify's 9:16 Canvas is the phone background, so it
                             // covers every edge. Other providers retain the contained
@@ -3932,7 +3939,7 @@ fun NowPlayingScreen(
                                             isPlaying = isPlaying,
                                             // Pause as soon as the panels ask for the collapse.
                                             pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
-                                                collapseStarted || dockMoving || overlayOpen.value ||
+                                                collapseStarted || dockMoving || overlayPausesCanvas.value ||
                                                 (standby && pair?.started != true) || (!standby && freezeOutgoingCanvas),
                                             presentationAlpha = {
                                                 if (gesturePair != null || stillTakesOver()) 0f

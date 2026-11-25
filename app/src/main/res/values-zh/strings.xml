@@ -88,8 +88,8 @@
     <string name="youtube_premium_audio">YouTube Premium 音频</string>
     <string name="youtube_premium_audio_subtitle">我有 Premium：串流更高音质的约 256 kbps Opus，而不是标准的 160 kbps</string>
     <string name="account_scrobbling">账号与Scrobbling</string>
-    <string name="rich_presence">Rich Presence</string>
-    <string name="scrobbling">Scrobbling</string>
+    <string name="rich_presence">Discord 状态展示</string>
+    <string name="scrobbling">听歌记录同步</string>
     <string name="now_playing">正在播放</string>
     <string name="selected">已选择</string>
     <string name="password">密码</string>
@@ -145,7 +145,7 @@
     <string name="spatial_audio_subtitle">拓宽立体声音轨，带来更沉浸的体验</string>
     <string name="spatial_audio_atmos_subtitle">此曲目已暂停 — Dolby Atmos 本身就是空间音频</string>
     <string name="animated_cover_cellular">在移动数据下播放动态封面</string>
-    <string name="replay">Replay</string>
+    <string name="replay">听歌回顾</string>
     <string name="replay_subtitle">你的热门歌曲、艺人、专辑和流派</string>
     <string name="work_out_genres">推算流派</string>
     <string name="export_data">导出数据</string>
@@ -268,9 +268,9 @@
     <string name="activity">活动</string>
     <string name="activity_competing">竞赛</string>
     <string name="activity_dialog_message">显示在卡片上方的动词。</string>
-    <string name="activity_listening">收听</string>
+    <string name="activity_listening">正在收听</string>
     <string name="activity_name_message">显示在个人资料中动词后面的内容。留空则使用 %1$s。</string>
-    <string name="activity_playing">玩</string>
+    <string name="activity_playing">正在播放</string>
     <string name="activity_watching">观看</string>
     <string name="add_to_queue">添加到播放队列</string>
     <string name="after_this_song">在这首歌之后</string>
@@ -436,7 +436,7 @@
     <string name="scrobble_timing">Scrobble 时机</string>
     <string name="scrobble_tracks">Scrobble 曲目</string>
     <string name="scrobble_tracks_subtitle">将播放记录同步到你的 Last.fm 时间线</string>
-    <string name="scrobbling_footer">将你的收听记录 Scrobble 到 Last.fm 和 ListenBrainz。</string>
+    <string name="scrobbling_footer">将你的听歌记录同步到 Last.fm 和 ListenBrainz。</string>
     <string name="scrobbling_paused_footer">Last.fm 和 ListenBrainz 在此版本中已暂停，稍后会恢复。已有的连接仍会保留。</string>
     <string name="search_this_folder">搜索此文件夹</string>
     <string name="search_this_list">搜索此列表</string>
@@ -494,7 +494,7 @@
         <item quantity="other">%1$d 分钟</item>
     </plurals>
     <string name="biggest_day_note">你收听最多的一天是 %1$s，共收听了 %2$s。</string>
-    <string name="close_replay">关闭 Replay</string>
+    <string name="close_replay">关闭听歌回顾</string>
     <string name="couldnt_draw_picture">无法生成图片</string>
     <string name="default_replay_holder">BitChord 听众</string>
     <string name="different_albums">不同专辑</string>
@@ -523,7 +523,7 @@
     <string name="minutes_listened">收听分钟数</string>
     <string name="minutes_short">%1$d 分钟</string>
     <string name="not_enough_listening">收听记录还不够多</string>
-    <string name="not_enough_this_month">本月再多播放几首歌曲即可解锁你的 Replay。</string>
+    <string name="not_enough_this_month">本月再多听几首歌曲，即可解锁听歌回顾。</string>
     <string name="pinned">已固定</string>
     <string name="replay_across">跨越</string>
     <string name="replay_album_end">占据了你的关注。</string>
@@ -532,7 +532,7 @@
     <string name="replay_artist_end">让你一听再听。</string>
     <string name="replay_artist_focus">同一位艺人</string>
     <string name="replay_artist_start">整月里，</string>
-    <string name="replay_empty_description">再多听一会儿，BitChord 就会把你的收听记录变成一份 Replay。</string>
+    <string name="replay_empty_description">再多听一些，BitChord 就会根据你的收听记录生成听歌回顾。</string>
     <string name="replay_genre_end">塑造了你的听感。</string>
     <string name="replay_genre_focus">你的流派</string>
     <string name="replay_genre_start">总的来说，</string>
@@ -548,17 +548,17 @@
         <item quantity="other">%1$s 分钟</item>
     </plurals>
     <string name="replay_mostly_around">，主要集中在%1$s左右。</string>
-    <string name="replay_private_counting">根据你在此设备上的收听记录私密生成</string>
-    <string name="replay_share_card_description">一张精美的卡片，展示你的主要收听亮点。</string>
-    <string name="replay_share_summary_description">完整呈现歌曲、艺人、专辑、流派和收听习惯。</string>
+    <string name="replay_private_counting">根据此设备上的听歌记录私密生成。</string>
+    <string name="replay_share_card_description">一张精美卡片，展示你最重要的听歌亮点。</string>
+    <string name="replay_share_summary_description">完整呈现你的歌曲、艺人、专辑、流派和收听习惯。</string>
     <string name="replay_songs_end"> 填满了你的这个月。</string>
     <string name="replay_songs_start">总共，</string>
-    <string name="replay_summary_start">你的收听呈现出 </string>
+    <string name="replay_summary_start">你的</string>
     <string name="saved">已保存</string>
     <string name="saved_bang">已保存！</string>
-    <string name="share_my_replay">分享我的 Replay</string>
+    <string name="share_my_replay">分享我的听歌回顾</string>
     <string name="share_your_lyrics">发送歌词卡片</string>
-    <string name="share_your_replay">分享你的 Replay</string>
+    <string name="share_your_replay">分享你的听歌回顾</string>
     <string name="tap_share_for_picture">点按分享以生成图片</string>
     <string name="top_album">热门专辑</string>
     <string name="top_artist">热门艺人</string>
@@ -568,7 +568,7 @@
     <string name="your_biggest_day">你收听最多的一天：%1$s</string>
     <string name="your_listening_experience">你的收听体验</string>
     <string name="your_lyrics_card">你的歌词卡片</string>
-    <string name="your_replay">你的 Replay</string>
+    <string name="your_replay">你的听歌回顾</string>
     <plurals name="replay_artist_count">
         <item quantity="other">%1$s 位艺人</item>
     </plurals>
@@ -611,7 +611,7 @@
     <string name="smb_not_configured">请在“来源”中连接共享</string>
     <string name="smb_empty">SMB 共享中没有找到音频文件。请在“来源”中检查服务器。</string>
     <string name="smb_description">将 BitChord 指向一个共享音乐文件夹 — 支持 SMB 的 NAS 或 Windows 共享。</string>
-    <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
+    <string name="smb_server_hint">nas.local 或 192.168.1.10:4445</string>
     <string name="smb_share_hint">共享名称，例如 Music</string>
     <string name="smb_folder_hint">文件夹（可选）</string>
     <string name="smb_disconnect">断开连接</string>
@@ -649,7 +649,7 @@
     <string name="song_cache_large_subtitle">最多在磁盘上保留 %1$s 的已下载音频，这可能会占用较多可用空间。</string>
     <string name="song_cache_limit_subtitle">将已下载的音频保留在磁盘上，以便即时跳转和重播</string>
     <string name="replay_genres_enabled_subtitle">向 Last.fm 请求艺人的流派信息，仅会发送艺人名称。</string>
-    <string name="replay_genres_disabled_subtitle">关闭此项时，Replay 的流派图表将保持隐藏</string>
+    <string name="replay_genres_disabled_subtitle">关闭此项时，听歌回顾中的流派图表会保持隐藏。</string>
     <string name="swipe_plays_next">滑动歌曲后将其设为下一首播放</string>
     <string name="swipe_adds_to_queue">关闭后，滑动会将歌曲添加到播放队列末尾</string>
     <string name="import_backup_warning">这将用文件中的内容替换此设备上的设置和收听记录。如果想保留当前数据，请先将其导出。</string>
@@ -665,7 +665,7 @@
         <item quantity="other">%1$d 个月的收听记录</item>
     </plurals>
     <string name="no_local_albums">这里还没有任何属于专辑或播放列表的内容。下载完整的专辑或播放列表后，它们会显示在这里。</string>
-    <string name="play_your_replay">播放你的 Replay</string>
+    <string name="play_your_replay">播放你的听歌回顾</string>
     <string name="counted_on_device_with_bitchord">由 BitChord 在此设备上统计</string>
     <string name="this_month">本月</string>
     <string name="this_year">今年</string>
@@ -757,7 +757,7 @@
     <string name="listen_together_official_server_dialog_message">此派对托管在 BitChord 官方服务器上。\n\n要切换回官方服务器并加入派对 %1$s 吗？</string>
     <string name="listen_together_switch_failed_stayed_in_party">无法加入派对：%1$s。仍留在派对 %2$s 中。</string>
     <string name="listen_together_switch_failed">无法加入派对：%1$s。</string>
-    <string name="listen_together_ping">%1$d ms</string>
+    <string name="listen_together_ping">%1$d 毫秒</string>
     <string name="listen_together_server_offline_dash">—</string>
     <string name="listen_together_invalid_server_url">服务器 URL 无效。请输入有效地址（例如 https://your-server.com）</string>
     <string name="listen_together_err_whitespace">服务器 URL 不能包含空格</string>
@@ -1036,220 +1036,220 @@
     <string name="use_this_profile">使用此资料</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">歌词偏移量</string>
 
 
 
 
 
-    <string name="auto_quick_picks">Quick picks</string>
+    <string name="auto_quick_picks">为你精选</string>
 
-    <string name="auto_recents">Recent</string>
+    <string name="auto_recents">最近播放</string>
 
-    <string name="auto_liked">Liked songs</string>
+    <string name="auto_liked">我喜欢的歌曲</string>
 
-    <string name="auto_login_title">Sign in to YouTube on your phone</string>
+    <string name="auto_login_title">在手机上登录 YouTube</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">在手机上打开 BitChord 以登录</string>
 
-    <string name="auto_empty_recents_title">No recent songs</string>
+    <string name="auto_empty_recents_title">暂无最近播放的歌曲</string>
 
-    <string name="auto_empty_recents_subtitle">Songs you play will appear here</string>
+    <string name="auto_empty_recents_subtitle">你播放的歌曲会显示在这里</string>
 
-    <string name="auto_empty_quick_picks_title">No suggestions</string>
+    <string name="auto_empty_quick_picks_title">暂无推荐内容</string>
 
-    <string name="auto_empty_quick_picks_subtitle">Check your connection and try again</string>
+    <string name="auto_empty_quick_picks_subtitle">请检查网络连接后重试</string>
 
-    <string name="auto_empty_playlists_title">No playlists available</string>
+    <string name="auto_empty_playlists_title">暂无可用播放列表</string>
 
-    <string name="auto_empty_playlists_subtitle">Check your connection and try again</string>
+    <string name="auto_empty_playlists_subtitle">请检查网络连接后重试</string>
 
-    <string name="auto_empty_liked_title">No liked songs</string>
+    <string name="auto_empty_liked_title">暂无喜欢的歌曲</string>
 
-    <string name="auto_empty_liked_subtitle">Tap the heart on a song to save it here</string>
+    <string name="auto_empty_liked_subtitle">点按歌曲旁的心形图标，即可将其收藏在这里</string>
 
-    <string name="auto_empty_offline_title">No offline songs</string>
+    <string name="auto_empty_offline_title">暂无离线歌曲</string>
 
-    <string name="auto_empty_offline_subtitle">Download songs on your phone to listen here</string>
+    <string name="auto_empty_offline_subtitle">在手机上下载歌曲，即可在这里收听</string>
 
-    <string name="auto_unavailable_title">Content unavailable</string>
+    <string name="auto_unavailable_title">内容不可用</string>
 
-    <string name="auto_unavailable_subtitle">Reopen the folder and try again</string>
+    <string name="auto_unavailable_subtitle">重新打开文件夹后重试</string>
 
-    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_hint">搜索设置</string>
 
-    <string name="settings_search_empty">No settings match “%1$s”</string>
+    <string name="settings_search_empty">没有与“%1$s”匹配的设置</string>
 
 
-    <string name="content_preferences">Content Preferences</string>
-    <string name="hide_recents">Hide Recents</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
-    <string name="hide_top_picks">Hide Top Picks for You</string>
-    <string name="hide_home_moods">Hide Find Your Mood</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="prefer_music_only">Prefer music-only version</string>
-    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
+    <string name="content_preferences">内容偏好设置</string>
+    <string name="hide_recents">隐藏最近播放</string>
+    <string name="hide_home_videos">在首页隐藏视频</string>
+    <string name="hide_home_videos_subtitle">同时隐藏仅包含视频的内容栏。搜索结果、艺人页面和播放列表中仍会显示视频。</string>
+    <string name="hide_top_picks">隐藏“为你精选”</string>
+    <string name="hide_home_moods">隐藏“发现你的心情”</string>
+    <string name="square_video_thumbnails">视频缩略图显示为正方形</string>
+    <string name="square_video_thumbnails_subtitle">在各处（包括播放器中）都将音乐视频显示为正方形封面</string>
+    <string name="prefer_music_only">优先播放音频版本</string>
+    <string name="prefer_music_only_subtitle">播放音乐视频时优先使用音频版，并预先转换队列中的下一首歌曲，以确保 AutoMix 和交叉淡化正常工作</string>
     <string name="smart_version_alignment">智能音频对齐</string>
     <string name="smart_version_alignment_subtitle">分析音频波形，精确匹配对应的播放时刻</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord， before it reaches the system.</string>
+    <string name="equalizer_footer">在声音送往系统之前，先在 BitChord 中调整音效。</string>
 
-    <string name="equalizer_dynamic">Dynamic</string>
+    <string name="equalizer_dynamic">动态</string>
 
-    <string name="equalizer_manual">Manual</string>
+    <string name="equalizer_manual">手动</string>
 
-    <string name="equalizer_tone">Tone</string>
+    <string name="equalizer_tone">音色</string>
 
-    <string name="equalizer_tilt">Tilt</string>
+    <string name="equalizer_tilt">倾斜</string>
 
-    <string name="equalizer_contour">Contour</string>
+    <string name="equalizer_contour">轮廓</string>
 
-    <string name="equalizer_broad">Broad</string>
+    <string name="equalizer_broad">宽范围</string>
 
-    <string name="equalizer_focused">Focused</string>
+    <string name="equalizer_focused">窄范围</string>
 
-    <string name="equalizer_broad_footer">Drag left for a warmer sound and right for a brighter one； down scoops the middle， up brings it forward. Broad moves wide stretches of the spectrum at once.</string>
+    <string name="equalizer_broad_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。宽范围模式会同时调整更宽的频率范围。</string>
 
-    <string name="equalizer_focused_footer">Drag left for a warmer sound and right for a brighter one； down scoops the middle， up brings it forward. Focused works on narrower stretches， so it changes less around what it moves.</string>
+    <string name="equalizer_focused_footer">向左拖动可让声音更温暖，向右则更明亮；向下拖动会削弱中频，向上则会突出中频。窄范围模式作用于更窄的频率范围，因此对周边频段的影响更小。</string>
 
-    <string name="equalizer_preset">Preset</string>
+    <string name="equalizer_preset">预设</string>
 
-    <string name="equalizer_bands">Bands</string>
+    <string name="equalizer_bands">频段</string>
 
-    <string name="equalizer_bands_footer">Moving a band leaves the preset behind and the curve becomes your own.</string>
+    <string name="equalizer_bands_footer">调整任一频段后，原预设将不再适用，曲线会成为你的自定义设置。</string>
 
-    <string name="equalizer_reset">Reset all bands</string>
+    <string name="equalizer_reset">重置所有频段</string>
 
-    <string name="equalizer_balance">Balance</string>
+    <string name="equalizer_balance">左右平衡</string>
 
     <string name="equalizer_balance_left">L</string>
 
     <string name="equalizer_balance_right">R</string>
 
-    <string name="equalizer_balance_footer">Shifts the sound towards one ear by quietening the other.</string>
+    <string name="equalizer_balance_footer">降低一侧音量，即可将声音偏向另一只耳朵。</string>
     <string name="equalizer_bitstream_title">当前未运行</string>
     <string name="equalizer_bitstream_subtitle">此曲目未经解码直接发送到输出</string>
     <string name="equalizer_bitstream_footer">均衡器作用于解码后的音频。此曲目以比特流形式直通，由你的设备解码，因此这里没有可供处理的采样。</string>
 
-    <string name="system_equalizer">System equalizer</string>
+    <string name="system_equalizer">系统均衡器</string>
 
-    <string name="system_equalizer_subtitle">Your device\'s own panel</string>
+    <string name="system_equalizer_subtitle">打开设备自带的均衡器面板</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s， on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">系统均衡器会在 BitChord 均衡器之后处理整段音频。两者同时启用时，效果会叠加。</string>
 
-    <string name="eq_preset_flat">Flat</string>
+    <string name="eq_preset_flat">平直</string>
 
-    <string name="eq_preset_acoustic">Acoustic</string>
+    <string name="eq_preset_acoustic">原声</string>
 
-    <string name="eq_preset_bass_boost">Bass boost</string>
+    <string name="eq_preset_bass_boost">低音增强</string>
 
-    <string name="eq_preset_bass_cut">Bass cut</string>
+    <string name="eq_preset_bass_cut">低音削减</string>
 
-    <string name="eq_preset_vocal">Vocal</string>
+    <string name="eq_preset_vocal">人声</string>
 
-    <string name="eq_preset_treble_boost">Treble boost</string>
+    <string name="eq_preset_treble_boost">高音增强</string>
 
-    <string name="eq_preset_treble_cut">Treble cut</string>
+    <string name="eq_preset_treble_cut">高音削减</string>
 
-    <string name="eq_preset_loudness">Loudness</string>
+    <string name="eq_preset_loudness">响度</string>
 
-    <string name="eq_preset_spoken_word">Spoken word</string>
+    <string name="eq_preset_spoken_word">语音</string>
 
-    <string name="eq_preset_electronic">Electronic</string>
+    <string name="eq_preset_electronic">电子乐</string>
 
-    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_rock">摇滚</string>
 
-    <string name="eq_preset_hip_hop">Hip-hop</string>
+    <string name="eq_preset_hip_hop">嘻哈</string>
 
-    <string name="eq_preset_jazz">Jazz</string>
+    <string name="eq_preset_jazz">爵士</string>
 
-    <string name="eq_preset_classical">Classical</string>
+    <string name="eq_preset_classical">古典乐</string>
 
-    <string name="eq_preset_small_speakers">Small speakers</string>
+    <string name="eq_preset_small_speakers">小型扬声器</string>
 
-    <string name="eq_preset_late_night">Late night</string>
+    <string name="eq_preset_late_night">深夜</string>
 
-    <string name="eq_preset_custom">Custom</string>
+    <string name="eq_preset_custom">自定义</string>
 
-    <string name="translation_language">Translation language</string>
+    <string name="translation_language">翻译语言</string>
 
-    <string name="translation_language_description">The language the translate button turns lyrics into.</string>
+    <string name="translation_language_description">歌词翻译按钮使用的目标语言。</string>
 
-    <string name="translation_language_app_default">App language</string>
+    <string name="translation_language_app_default">应用语言</string>
 
-    <string name="translation_language_subtitle">Follows the app language</string>
+    <string name="translation_language_subtitle">跟随应用语言</string>
 
-    <string name="search_languages">Search languages</string>
+    <string name="search_languages">搜索语言</string>
 
-    <string name="no_languages_match">No languages match</string>
+    <string name="no_languages_match">没有匹配的语言</string>
 
 
 
-    <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="cast_dialog_title">Cast</string>
-    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
-    <string name="cast_searching">Looking for devices…</string>
-    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
-    <string name="cast_device_connecting">Connecting…</string>
-    <string name="cast_device_connected">Casting</string>
-    <string name="cast_stop">Stop casting</string>
-    <string name="cast_track_unsupported">This track can\'t be cast</string>
-    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
+    <string name="audio_pipeline">音频处理链路</string>
+    <string name="cast_dialog_title">投放</string>
+    <string name="cast_dialog_subtitle">投放到 Chromecast 或支持 Google Cast 的扬声器</string>
+    <string name="cast_searching">正在查找设备…</string>
+    <string name="cast_searching_hint">手机和接收设备需要连接到同一 Wi-Fi 网络。</string>
+    <string name="cast_device_connecting">正在连接…</string>
+    <string name="cast_device_connected">正在投放</string>
+    <string name="cast_stop">停止投放</string>
+    <string name="cast_track_unsupported">无法投放此曲目</string>
+    <string name="cast_connect_failed">无法连接到接收设备</string>
     <string name="audio_pipeline_subtitle">实时信号路径，从解码器到输出</string>
 
-    <string name="pipeline_track_info">Track Info</string>
+    <string name="pipeline_track_info">曲目信息</string>
 
-    <string name="pipeline_decoder">Decoder</string>
+    <string name="pipeline_decoder">解码器</string>
 
-    <string name="pipeline_resampler">Resampler</string>
+    <string name="pipeline_resampler">重采样器</string>
 
     <string name="pipeline_dsp">DSP</string>
 
-    <string name="pipeline_output_device">Output Device</string>
+    <string name="pipeline_output_device">输出设备</string>
 
-    <string name="pipeline_source">Source</string>
+    <string name="pipeline_source">来源</string>
 
-    <string name="pipeline_format">Format</string>
+    <string name="pipeline_format">格式</string>
 
-    <string name="pipeline_bit_depth">Bit Depth</string>
+    <string name="pipeline_bit_depth">位深</string>
 
-    <string name="pipeline_sample_rate">Sample Rate</string>
+    <string name="pipeline_sample_rate">采样率</string>
 
-    <string name="pipeline_bitrate">Bitrate</string>
+    <string name="pipeline_bitrate">比特率</string>
 
-    <string name="pipeline_channels">Channels</string>
+    <string name="pipeline_channels">声道</string>
 
-    <string name="pipeline_decoder_name">Decoder Name</string>
+    <string name="pipeline_decoder_name">解码器名称</string>
 
-    <string name="pipeline_io_rate">I/O Rate</string>
+    <string name="pipeline_io_rate">输入/输出速率</string>
 
-    <string name="pipeline_type">Type</string>
+    <string name="pipeline_type">类型</string>
 
-    <string name="pipeline_cutoff">Cutoff</string>
+    <string name="pipeline_cutoff">截止频率</string>
 
-    <string name="pipeline_quality">Quality</string>
+    <string name="pipeline_quality">音质</string>
 
-    <string name="pipeline_pcm_format">PCM Format</string>
+    <string name="pipeline_pcm_format">PCM 格式</string>
 
-    <string name="pipeline_eq_preset">EQ Preset</string>
+    <string name="pipeline_eq_preset">均衡器预设</string>
 
-    <string name="pipeline_stereo_expand">Stereo Expand</string>
+    <string name="pipeline_stereo_expand">立体声扩展</string>
 
-    <string name="pipeline_buffers">Buffers</string>
+    <string name="pipeline_buffers">缓冲区</string>
 
-    <string name="pipeline_output_api">Output API</string>
+    <string name="pipeline_output_api">输出 API</string>
 
-    <string name="pipeline_device_name">Device Name</string>
+    <string name="pipeline_device_name">设备名称</string>
 
 
 
-    <string name="shared_link">Shared link</string>
+    <string name="shared_link">分享链接</string>
 
-    <string name="song_will_play_next">Song will play next</string>
+    <string name="song_will_play_next">歌曲将作为下一首播放</string>
 
-    <string name="song_added_to_queue">Song added to queue</string>
+    <string name="song_added_to_queue">歌曲已加入播放队列</string>
     <string name="song_added_to_playlist">已添加到播放列表</string>
     <string name="song_already_in_playlist">已在播放列表中</string>
     <plurals name="add_to_playlists_count">
@@ -1260,11 +1260,11 @@
     </plurals>
     <string name="party_queue_full">队列已满（派对最多 %d 首歌曲）</string>
 
-    <string name="paxsenix_api_key">PaxSenix API key</string>
+    <string name="paxsenix_api_key">PaxSenix API 密钥</string>
 
-    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
+    <string name="paxsenix_api_key_configured">PaxSenix API 密钥：已配置</string>
 
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional， not configured</string>
+    <string name="paxsenix_api_key_missing">PaxSenix API 密钥（可选，尚未配置）</string>
 
 
 
@@ -1333,22 +1333,22 @@
     <string name="app_icon_default">默认</string>
     <string name="show_queue_history">显示队列历史</string>
     <string name="show_queue_history_subtitle">在队列中“正在播放”上方显示最多 25 首已播放的歌曲</string>
-    <string name="not_enough_this_week">本周再多播放几首歌曲即可解锁你的 Replay。</string>
-    <string name="replay_artist_start_week">整周里，</string>
+    <string name="not_enough_this_week">本周再多听几首歌曲，即可解锁听歌回顾。</string>
+    <string name="replay_artist_start_week">本周，</string>
     <string name="replay_songs_end_week"> 填满了你的这一周。</string>
-    <string name="replay_summary_end_week">周</string>
+    <string name="replay_summary_end_week">本周</string>
     <string name="replay_this_week">本周</string>
     <string name="replay_period_weekly">每周</string>
     <string name="replay_period_monthly">每月</string>
     <string name="replay_period_yearly">每年</string>
-    <string name="replay_period_lifetime">全部</string>
+    <string name="replay_period_lifetime">累计</string>
     <string name="onboarding_title">数百万首歌曲，在 BitChord 上畅听</string>
     <string name="onboarding_name_prompt">我们该怎么称呼你？</string>
     <string name="onboarding_name_hint">你的名字</string>
     <string name="onboarding_name_footer">使用“一起听”时，好友会看到这个名字。你可以稍后在“设置”中修改。</string>
     <string name="onboarding_next">下一步</string>
     <string name="onboarding_connect_title">连接你的 YouTube 账号</string>
-    <string name="onboarding_connect_body">带上你的音乐库、播放列表和合辑，与好友开启“一起听”派对。</string>
+    <string name="onboarding_connect_body">带上你的音乐库、播放列表和混音歌单，与好友开启“一起听”派对。</string>
     <string name="onboarding_sign_in_google">使用 Google 登录</string>
     <string name="onboarding_skip_sign_in">跳过登录</string>
     <string name="onboarding_back">返回</string>
@@ -1401,9 +1401,9 @@
     <string name="song_info_unavailable">暂无信息</string>
     <string name="song_info_error">部分信息无法加载。</string>
     <string name="song_info_retry">重试</string>
-    <string name="no_audio_version">No audio version found for this video</string>
-    <string name="no_video_version">No video version found for this song</string>
-    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="no_audio_version">找不到这段视频对应的音频版本</string>
+    <string name="no_video_version">找不到这首歌曲对应的视频版本</string>
+    <string name="version_switch_in_party">一起听时，所有人都会听到同一版本</string>
     <string name="opened_file">已打开的文件</string>
     <string name="folders">文件夹</string>
     <string name="folder">文件夹</string>
@@ -1419,8 +1419,8 @@
     <string name="remove_from_history">从历史记录中移除</string>
     <string name="remove_from_history_failed">无法从历史记录中移除</string>
     <string name="addon_blocked_title">无法播放这首歌</string>
-    <string name="addon_blocked_quality">%1$s 下的音频质量设为%2$s。来自 %3$s 的歌曲仅以无损播放——请在 设置 → 音频质量 中更改后再播放。</string>
-    <string name="addon_blocked_watch">音乐正通过你的手表播放，手表会将音频限制在无损以下。手机重新接管播放后，来自 %1$s 的歌曲即可再次播放。</string>
+    <string name="addon_blocked_quality">%1$s 的音频质量当前设为 %2$s。%3$s 提供的歌曲只能以无损音质播放；请前往“设置 → 音频质量”调整后再播放这首歌。</string>
+    <string name="addon_blocked_watch">音乐当前通过手表播放，受手表限制无法达到无损音质。手机重新接管播放后，即可继续播放来自 %1$s 的歌曲。</string>
     <string name="download_addon_left_out_title">正在下载（不使用 %1$s）</string>
     <string name="download_addon_not_allowed">%1$s 不允许下载，因此你的歌曲将从其他来源保存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 仅在连接有线、USB 或 LDAC 级耳机时提供音乐。在连接此类耳机前，下载会跳过它，因此你的歌曲将从其他来源保存。</string>
@@ -1507,22 +1507,22 @@
     <string name="drive_device_synced">同步于 %1$s</string>
     <string name="drive_devices_checking">正在查找设备…</string>
     <string name="drive_devices_failed">无法加载设备：%1$s</string>
-    <string name="drive_devices_footer">所有设备的收听记录会在 Replay 中合计。点按设备可删除其备份。</string>
+    <string name="drive_devices_footer">所有设备的收听记录都会计入听歌回顾。点按设备可删除其备份。</string>
     <string name="drive_devices_header">设备</string>
     <string name="drive_devices_none">此账号中还没有设备</string>
     <string name="drive_devices_none_other">此账号中还没有其他设备</string>
     <string name="drive_devices_title">备份或恢复为</string>
     <string name="drive_forked_notice">另一部手机已恢复为此设备，因此此手机现在以 %1$s 的身份同步。</string>
     <string name="drive_new_device">作为新设备备份</string>
-    <string name="drive_new_device_footer">此手机的收听记录将作为独立设备保存，你其他设备的收听记录会在 Replay 中一并合计。</string>
+    <string name="drive_new_device_footer">此手机的收听记录将作为独立设备保存；你其他设备的收听记录也会一并计入听歌回顾。</string>
     <string name="drive_remove_confirm_title">要删除 %1$s 的备份吗？</string>
-    <string name="drive_remove_confirm_body">它的备份将从 Google 云端硬盘中删除，其收听记录也会从你所有设备的 Replay 中移除。此操作无法撤消。</string>
-    <string name="drive_delete_mine_body">这部手机的备份将从 Google 云端硬盘中删除，并关闭自动同步。这部手机上的 Replay 会保留所有记录，点按“立即同步”即可创建新的备份。</string>
+    <string name="drive_remove_confirm_body">该设备的备份将从 Google 云端硬盘中删除，其收听记录也会从你所有设备的听歌回顾中移除。此操作无法撤销。</string>
+    <string name="drive_delete_mine_body">这部手机的备份将从 Google 云端硬盘中删除，并关闭自动同步。这部手机上的听歌回顾仍会保留所有记录；点按“立即同步”即可创建新的备份。</string>
     <string name="drive_rename">重命名</string>
     <string name="drive_rename_title">重命名此手机</string>
     <string name="drive_rename_message">你的其他设备将以此名称显示此手机。</string>
     <string name="drive_restore_as_done">现以 %1$s 的身份同步 · %2$s</string>
-    <string name="drive_restore_as_footer">此手机将成为你选择的设备：该设备的收听记录和设置会替换此手机上的。</string>
+    <string name="drive_restore_as_footer">此手机将切换为你选择的设备：该设备的收听记录和设置将覆盖此手机上的对应内容。</string>
     <string name="drive_restore_as_header">恢复为</string>
     <string name="drive_restore_as_subtitle">选择云端硬盘中的一个设备以继续使用</string>
     <string name="drive_restore_as_title">恢复为其他设备</string>
@@ -1537,9 +1537,9 @@
     <string name="drive_this_phone_header">此手机</string>
     <string name="drive_this_phone_subtitle">此手机备份所用的设备</string>
     <string name="drive_restore_confirm_title">要恢复为 %1$s 吗？</string>
-    <string name="drive_restore_confirm_body">此手机将成为 %1$s。该设备的收听记录和设置会替换此手机上的，此后此手机将以 %1$s 的身份同步。不包含登录信息。</string>
-    <string name="drive_disconnect_confirm_body">同步将停止。云端硬盘中的内容会保留，在重新连接之前，此手机的 Replay 将不再包含你其他设备的收听记录。</string>
-    <string name="drive_backup_row_subtitle">在你的所有设备间备份并同步 Replay</string>
+    <string name="drive_restore_confirm_body">此手机将切换为 %1$s。该设备的收听记录和设置将覆盖此手机上的对应内容；此后，这部手机会以 %1$s 的身份同步。登录信息不会转移。</string>
+    <string name="drive_disconnect_confirm_body">同步将停止。云端硬盘中已有的内容会保留；重新连接前，这部手机的听歌回顾不会包含你其他设备的收听记录。</string>
+    <string name="drive_backup_row_subtitle">在所有设备间备份并同步听歌回顾</string>
     <string name="drive_over_cellular">使用移动数据同步</string>
     <string name="drive_over_cellular_subtitle">关闭时，自动同步会等待 Wi-Fi</string>
     <string name="replay_year_open">打开你的 %1$s 年度回顾</string>
@@ -1596,4 +1596,43 @@
     <string name="replay_year_summary_minutes">听歌时长（分钟）</string>
     <string name="replay_year_mute">静音年度回顾</string>
     <string name="replay_year_unmute">取消静音</string>
+
+
+    <!-- Simplified Chinese coverage -->
+    <string name="search_source_youtube" translatable="false">YouTube</string>
+    <string name="tester_code_title" translatable="false">Tester code</string>
+    <string name="tester_code_message" translatable="false">For BitChord testers. Lets addon verification work on this phone with an unlocked bootloader.</string>
+    <string name="tester_code_message_saved" translatable="false">A tester code is saved on this phone. Enter a new one to replace it, or remove it.</string>
+    <string name="tester_code_placeholder" translatable="false">XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</string>
+    <string name="tester_code_saved" translatable="false">Tester code saved</string>
+    <string name="tester_code_removed" translatable="false">Tester code removed</string>
+    <string name="app_icon_monochrome" translatable="false">单色</string>
+    <string name="app_icon_liquid_glass" translatable="false">液态玻璃</string>
+    <string name="app_icon_liquid_glass_dark" translatable="false">深色液态玻璃</string>
+    <string name="app_icon_liquid_glass_clear" translatable="false">清透液态玻璃</string>
+    <string name="app_icon_liquid_glass_clear_dark" translatable="false">深色清透液态玻璃</string>
+    <string name="app_icon_samsung_glass" translatable="false">三星玻璃</string>
+    <string name="app_icon_samsung_glass_dark" translatable="false">深色三星玻璃</string>
+    <string name="app_icon_samsung_glass_clear" translatable="false">三星清透玻璃</string>
+    <string name="app_icon_samsung_glass_clear_dark" translatable="false">深色三星清透玻璃</string>
+    <string name="app_icon_pixel_glass" translatable="false">Pixel 玻璃</string>
+    <string name="app_icon_pixel_glass_dark" translatable="false">深色 Pixel 玻璃</string>
+    <string name="app_icon_pixel_glass_clear" translatable="false">清透 Pixel 玻璃</string>
+    <string name="app_icon_pixel_glass_clear_dark" translatable="false">深色清透 Pixel 玻璃</string>
+    <string name="app_icon_neon_silver" translatable="false">霓虹银</string>
+    <string name="app_icon_neon_cyan" translatable="false">霓虹青</string>
+    <string name="app_icon_neon_violet" translatable="false">霓虹紫</string>
+    <string name="app_icon_samsung_neon_silver" translatable="false">三星霓虹银</string>
+    <string name="app_icon_samsung_neon_cyan" translatable="false">三星霓虹青</string>
+    <string name="app_icon_samsung_neon_violet" translatable="false">三星霓虹紫</string>
+    <string name="app_icon_pixel_neon_silver" translatable="false">Pixel 霓虹银</string>
+    <string name="app_icon_pixel_neon_cyan" translatable="false">Pixel 霓虹青</string>
+    <string name="app_icon_pixel_neon_violet" translatable="false">Pixel 霓虹紫</string>
+    <string name="pipeline_pcm_data_rate" translatable="false">PCM 数据速率</string>
+    <string name="lyrics_share_apple_canvas" translatable="false">Apple</string>
+    <string name="lyrics_share_spotify_canvas" translatable="false">Spotify</string>
+    <string name="spotify_import_language_preference" translatable="false">语言偏好</string>
+    <string name="spotify_import_language_hint" translatable="false">例如：旁遮普语、马拉地语、韩语…</string>
+    <string name="replay_summary_separator"></string>
+    <string name="replay_summary_suffix">听歌回顾</string>
 </resources>

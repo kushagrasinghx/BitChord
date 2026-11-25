@@ -153,7 +153,6 @@ fun BrowseActionsMenu(
 ) {
     var renaming by remember { mutableStateOf(startRenaming) }
     var confirmingDelete by remember { mutableStateOf(false) }
-    var confirmingDeleteDownload by remember { mutableStateOf(false) }
 
     val playlist = target.playlist
     if (renaming && playlist != null && onRename != null) {
@@ -267,18 +266,12 @@ fun BrowseActionsMenu(
                 }
             }
             if (onDeleteDownload != null) {
-                if (confirmingDeleteDownload) {
-                    ActionRow(
-                        icon = SfIcons.Trash,
-                        label = stringResource(R.string.delete_download_confirmation, target.title),
-                        tint = MaterialTheme.colorScheme.error,
-                        onClick = onDeleteDownload,
-                    )
-                } else {
-                    ActionRow(SfIcons.Trash, stringResource(R.string.delete_download)) {
-                        confirmingDeleteDownload = true
-                    }
-                }
+                ActionRow(
+                    icon = SfIcons.Trash,
+                    label = stringResource(R.string.delete_download),
+                    tint = MaterialTheme.colorScheme.error,
+                    onClick = onDeleteDownload,
+                )
             }
         }
     }

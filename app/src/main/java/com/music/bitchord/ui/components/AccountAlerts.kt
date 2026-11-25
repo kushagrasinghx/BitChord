@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.activity.compose.BackHandler
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.launch
 import dev.chrisbanes.haze.HazeState
@@ -671,6 +672,12 @@ fun ConfirmationAlert(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Colours the confirm action as a warning rather than a default. The two
+     * actions are otherwise equal in weight; a delete has to be the one that
+     * reads as the dangerous choice.
+     */
+    destructive: Boolean = false,
 ) {
     AlertScaffold(hazeState = hazeState, onDismiss = onDismiss) {
         Column(
@@ -694,7 +701,12 @@ fun ConfirmationAlert(
             )
         }
         AlertRule()
-        AlertAction(label = confirmLabel, emphasised = true, onClick = onConfirm)
+        AlertAction(
+            label = confirmLabel,
+            emphasised = true,
+            onClick = onConfirm,
+            destructive = destructive,
+        )
         AlertRule()
         AlertAction(label = stringResource(R.string.cancel), emphasised = false, onClick = onDismiss)
     }
@@ -897,6 +909,10 @@ internal fun AlertScaffold(
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val shape = RoundedCornerShape(ALERT_CORNER)
+
+    // Back is a dismissal, never a confirmation. Without this the alert sat
+    // over the page while Back navigated the page underneath it.
+    BackHandler(onBack = onDismiss)
 
     Box(
         modifier = Modifier

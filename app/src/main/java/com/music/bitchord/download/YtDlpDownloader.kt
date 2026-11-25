@@ -5,14 +5,56 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.DebugLog as Log
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
-import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.yausername.youtubedl_android.YoutubeDLResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+/**
+ * What the downloader asks for, and from which clients, when a video refuses
+ * the first answer.
+ *
+ * Kept out of [YtDlpDownloader] itself so the policy is a value that can be
+ * read and tested without starting yt-dlp. This is the whole fix for the
+ * videos that used to fail with "Requested format is not available": ask for
+ * the best audio the extractor has, and if that client cannot provide it, ask
+ * another one rather than retrying the same request.
+ */
+internal object YtDlpFormatSelection {
+
+    /**
+     * Deliberately without a format id: `bestaudio` is the best audio-only
+     * stream the extractor has, and `best` is the best combined one for videos
+     * that publish no audio-only stream at all. The two cover every video that
+     * has any audio; a video with neither is a real format failure and is
+     * reported as one rather than retried forever.
+     */
+    const val SELECTOR = "bestaudio/best"
+
+    /**
+     * Clients to ask, in order, when the first one cannot serve a video.
+     *
+     * `visionos` is yt-dlp's no-JavaScript client and the only one on Android
+     * that returns the adaptive audio-only streams without a PO token. `android`
+     * is the fallback for the videos visionos refuses (made-for-kids uploads
+     * are the common case) and returns YouTube's combined 360p stream, which is
+     * still the song. The null attempt lets yt-dlp choose its own defaults for
+     * anything both of those miss.
+     */
+    val CLIENTS: List<String?> = listOf("visionos,android", "android", null)
+
+    /** Failures a different client or format expression can plausibly fix. */
+    fun retryable(kind: YtDlpFailureKind): Boolean =
+        kind == YtDlpFailureKind.FORMAT || kind == YtDlpFailureKind.EXTRACTOR
+
+    /** True when [kind] at 0-based [attempt] leaves another client to ask. */
+    fun shouldTryNext(kind: YtDlpFailureKind, attempt: Int): Boolean =
+        retryable(kind) && attempt < CLIENTS.lastIndex
+}
 
 /**
  * Downloads audio via yt-dlp and converts to high-quality MP3 directly within Android.
@@ -160,17 +202,22 @@ object YtDlpDownloader {
         context: Context,
         url: String,
         outputTemplate: String,
-        playerClient: String,
+        playerClient: String?,
     ): YoutubeDLRequest {
         return YoutubeDLRequest(url).apply {
-            addOption("-f", "ba/b") // Best audio only - avoid downloading video
+            addOption("-f", YtDlpFormatSelection.SELECTOR)
             addOption("-x")
             addOption("--audio-format", "mp3")
-            addOption("--audio-quality", "0") // 320kbps / best audio quality
+            // Best VBR MP3. The source is the ceiling, so this never claims a
+            // bitrate the stream did not have; it only avoids throwing away
+            // quality the stream did have.
+            addOption("--audio-quality", "0")
             addOption("--no-playlist")
             addOption("--no-check-certificates")
             addOption("--no-update")
-            addOption("--extractor-args", "youtube:player_client=$playerClient")
+            if (playerClient != null) {
+                addOption("--extractor-args", "youtube:player_client=$playerClient")
+            }
             val cookie = runCatching { AuthStore(context).cookie }.getOrNull()
             if (!cookie.isNullOrBlank()) {
                 addOption("--add-header", "Cookie: ${cookie.trim()}")
@@ -207,18 +254,23 @@ object YtDlpDownloader {
             init(context)
         } catch (e: Throwable) {
             val msg = e.message ?: e.javaClass.simpleName
-            error("yt-dlp initialization failed: $msg")
+            throw YtDlpFailure(YtDlpFailureKind.INIT, "The downloader could not start: $msg", e)
         }
 
         if (!initialized) {
             val msg = lastInitError?.message ?: lastInitError?.javaClass?.simpleName ?: "initialization not complete"
-            error("yt-dlp is not ready: $msg")
+            throw YtDlpFailure(YtDlpFailureKind.INIT, "The downloader could not start: $msg", lastInitError)
         }
 
         val tempDir = File(context.cacheDir, "ytdlp_downloads").apply { mkdirs() }
-        val outputTemplate = "${tempDir.absolutePath}/$videoId.%(ext)s"
-        val expectedMp3 = File(tempDir, "$videoId.mp3")
-        expectedMp3.delete()
+        // A URL is a legal input too; its slashes and colons are not legal in a
+        // file name, so the file is named after a stable digest of it instead.
+        val stem = if (videoId.startsWith("http://") || videoId.startsWith("https://")) {
+            "url-" + videoId.hashCode().toUInt().toString(16)
+        } else {
+            videoId
+        }
+        val outputTemplate = "${tempDir.absolutePath}/$stem.%(ext)s"
 
         val url = if (videoId.startsWith("http://") || videoId.startsWith("https://")) {
             videoId
@@ -226,46 +278,71 @@ object YtDlpDownloader {
             "https://www.youtube.com/watch?v=$videoId"
         }
 
-        try {
-            var response: YoutubeDLResponse? = null
+        var last: YtDlpFailure? = null
+        YtDlpFormatSelection.CLIENTS.forEachIndexed { index, client ->
+            // A cancellation stops the blocking yt-dlp process, but the
+            // coroutine has to stop before the next client is asked — a
+            // retry after the listener called the download off is not a retry.
+            if (!isActive) throw kotlinx.coroutines.CancellationException("download cancelled")
+            clearTemp(tempDir, stem)
+            onProgress(0f)
             try {
-                // Primary attempt with android,web client (bypasses SABR 403 on standard streams)
-                response = executeYtDlp(buildRequest(context, url, outputTemplate, "android,web"), videoId, onProgress)
-            } catch (e: YoutubeDLException) {
-                val msg = e.message.orEmpty()
-                if (msg.contains("403") || msg.contains("SABR") || msg.contains("Forbidden")) {
-                    android.util.Log.w(TAG, "yt-dlp primary client hit 403/SABR; retrying with ios,tv: $msg")
-                    Log.w(TAG, "yt-dlp primary client hit 403/SABR; retrying with ios,tv: $msg")
-                    response = executeYtDlp(buildRequest(context, url, outputTemplate, "ios,tv"), videoId, onProgress)
-                } else {
-                    throw e
-                }
+                executeYtDlp(buildRequest(context, url, outputTemplate, client), videoId, onProgress)
+                val mp3 = findMp3(tempDir, stem)
+                    ?: throw YtDlpFailure(
+                        YtDlpFailureKind.OUTPUT,
+                        YtDlpFailureKind.OUTPUT.userMessage(null),
+                    )
+                android.util.Log.i(TAG, "yt-dlp download completed for $videoId with client ${client ?: "default"}")
+                Log.d(TAG, "yt-dlp download completed for $videoId with client ${client ?: "default"}")
+                return@withContext mp3
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                val classified = if (failure is YtDlpFailure) failure else failureFrom(failure)
+                last = classified
+                val retry = YtDlpFormatSelection.shouldTryNext(classified.kind, index)
+                android.util.Log.e(
+                    TAG,
+                    "yt-dlp failed for $videoId (${classified.kind}, client ${client ?: "default"}): ${classified.message}",
+                    classified,
+                )
+                Log.w(TAG, "yt-dlp failed for $videoId (${classified.kind}): ${classified.message}")
+                if (!retry) throw classified
+                android.util.Log.w(TAG, "retrying $videoId with the next player client")
             }
-            android.util.Log.i(TAG, "yt-dlp download completed for $videoId: exit code ${response?.exitCode}")
-            Log.d(TAG, "yt-dlp download completed for $videoId: exit code ${response?.exitCode}")
-        } catch (e: YoutubeDLException) {
-            expectedMp3.delete()
-            android.util.Log.e(TAG, "yt-dlp failed for $videoId: ${e.message}", e)
-            Log.w(TAG, "yt-dlp failed for $videoId: ${e.message}")
-            throw e
-        } catch (e: Exception) {
-            expectedMp3.delete()
-            android.util.Log.e(TAG, "Download execution error for $videoId: ${e.message}", e)
-            Log.w(TAG, "Download execution error for $videoId: ${e.message}")
-            throw e
         }
+        // The loop either returns an MP3 or throws; this is here so the function
+        // cannot fall through with a null result if that ever changes.
+        throw last ?: YtDlpFailure(YtDlpFailureKind.INIT, YtDlpFailureKind.INIT.userMessage(null))
+    }
 
-        if (!expectedMp3.exists() || expectedMp3.length() == 0L) {
-            // Check if yt-dlp named it slightly differently or left part
-            val candidates = tempDir.listFiles { _, name -> name.startsWith(videoId) && name.endsWith(".mp3") }
-            val found = candidates?.firstOrNull { it.length() > 0 }
-            if (found != null) {
-                return@withContext found
-            }
-            error("yt-dlp finished but no MP3 output was found for $videoId")
-        }
+    /** The MP3 a completed run left behind, newest first, ignoring partial files. */
+    private fun findMp3(tempDir: File, stem: String): File? {
+        val exact = File(tempDir, "$stem.mp3")
+        if (exact.isFile && exact.length() > 0L) return exact
+        // The dot keeps a longer video id ("abcde") from answering for a
+        // shorter one ("abc") whose download is running beside it.
+        return tempDir.listFiles { _, name ->
+            name.startsWith("$stem.") && name.endsWith(".mp3")
+        }?.filter { it.isFile && it.length() > 0L }
+            ?.maxByOrNull { it.lastModified() }
+    }
 
-        expectedMp3
+    /** Removes a previous attempt's output so a stale file cannot be mistaken for this one. */
+    private fun clearTemp(tempDir: File, stem: String) {
+        // Only the dot-delimited names this download's template produces. A
+        // bare prefix would also match a longer id ("abc-def" for "abc") and
+        // delete a track downloading beside it.
+        tempDir.listFiles { _, name -> name.startsWith("$stem.") }
+            ?.forEach { runCatching { it.delete() } }
+    }
+
+    private fun failureFrom(failure: Throwable): YtDlpFailure {
+        val raw = failure.message.orEmpty()
+        val kind = classifyYtDlpFailure(raw)
+        val detail = ytDlpDetail(raw)
+        return YtDlpFailure(kind, kind.userMessage(detail), failure)
     }
 
     /**

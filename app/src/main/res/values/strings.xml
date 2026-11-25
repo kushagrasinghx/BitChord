@@ -924,6 +924,9 @@
     <string name="delete_download">Delete download</string>
     <string name="delete_playlist_confirmation">Delete “%1$s”? Tap again to confirm.</string>
     <string name="delete_download_confirmation">Remove “%1$s” from this device? Tap again to confirm.</string>
+    <string name="delete_download_warning">The downloaded file will be deleted from this device.</string>
+    <string name="delete_downloads_title">Delete %1$d downloads?</string>
+    <string name="delete_downloads_warning">The downloaded files will be deleted from this device.</string>
     <string name="running">Running</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">not fetched</string>

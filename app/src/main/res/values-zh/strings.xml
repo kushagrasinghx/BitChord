@@ -615,6 +615,9 @@
     <string name="delete_download">删除下载内容</string>
     <string name="delete_playlist_confirmation">删除“%1$s”？再次点按以确认。</string>
     <string name="delete_download_confirmation">从此设备中移除“%1$s”？再次点按以确认。</string>
+    <string name="delete_download_warning">已下载的文件将从此设备中删除。</string>
+    <string name="delete_downloads_title">删除 %1$d 个下载内容？</string>
+    <string name="delete_downloads_warning">已下载的文件将从此设备中删除。</string>
     <string name="running">运行中</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">未获取</string>

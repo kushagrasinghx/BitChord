@@ -585,6 +585,9 @@
     <string name="delete_download">Usuń pobrane pliki</string>
     <string name="delete_playlist_confirmation">Usunąć „%1$s”? Stuknij ponownie, by potwierdzić.</string>
     <string name="delete_download_confirmation">Usunąć „%1$s” z urządzenia? Stuknij ponownie, by potwierdzić.</string>
+    <string name="delete_download_warning">Pobrany plik zostanie usunięty z tego urządzenia.</string>
+    <string name="delete_downloads_title">Usunąć %1$d pobrane pliki?</string>
+    <string name="delete_downloads_warning">Pobrane pliki zostaną usunięte z tego urządzenia.</string>
     <string name="running">Uruchomiono</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">nie pobrano</string>

@@ -587,6 +587,9 @@
     <string name="delete_download">Excluir download</string>
     <string name="delete_playlist_confirmation">Excluir “%1$s”? Toque novamente para confirmar.</string>
     <string name="delete_download_confirmation">Remover “%1$s” deste dispositivo? Toque novamente para confirmar.</string>
+    <string name="delete_download_warning">O arquivo baixado será excluído deste dispositivo.</string>
+    <string name="delete_downloads_title">Excluir %1$d downloads?</string>
+    <string name="delete_downloads_warning">Os arquivos baixados serão excluídos deste dispositivo.</string>
     <string name="running">Executando</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">não buscado</string>

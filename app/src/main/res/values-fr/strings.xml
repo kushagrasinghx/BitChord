@@ -635,6 +635,9 @@
     <string name="delete_download">Supprimer le téléchargement</string>
     <string name="delete_playlist_confirmation">Supprimer « %1$s » ? Appuyez de nouveau pour confirmer.</string>
     <string name="delete_download_confirmation">Retirer « %1$s » de cet appareil ? Appuyez de nouveau pour confirmer.</string>
+    <string name="delete_download_warning">Le fichier téléchargé sera supprimé de cet appareil.</string>
+    <string name="delete_downloads_title">Supprimer %1$d téléchargements ?</string>
+    <string name="delete_downloads_warning">Les fichiers téléchargés seront supprimés de cet appareil.</string>
     <string name="running">En cours</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">non récupéré</string>

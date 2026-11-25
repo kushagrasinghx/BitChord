@@ -664,6 +664,9 @@
     <string name="delete_download">İndirmeyi sil</string>
     <string name="delete_playlist_confirmation">“%1$s” silinsin mi? Onaylamak için tekrar dokun.</string>
     <string name="delete_download_confirmation">“%1$s” bu cihazdan kaldırılsın mı? Onaylamak için tekrar dokun.</string>
+    <string name="delete_download_warning">İndirilen dosya bu cihazdan silinecek.</string>
+    <string name="delete_downloads_title">%1$d indirme silinsin mi?</string>
+    <string name="delete_downloads_warning">İndirilen dosyalar bu cihazdan silinecek.</string>
     <string name="running">Çalışıyor</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">getirilmedi</string>

@@ -586,6 +586,9 @@
     <string name="delete_download">מחק הורדה</string>
     <string name="delete_playlist_confirmation">למחוק את “%1$s”? הקש שוב לאישור.</string>
     <string name="delete_download_confirmation">להסיר את “%1$s” מהמכשיר? הקש שוב לאישור.</string>
+    <string name="delete_download_warning">הקובץ שהורד יימחק מהמכשיר הזה.</string>
+    <string name="delete_downloads_title">למחוק %1$d הורדות?</string>
+    <string name="delete_downloads_warning">הקבצים שהורדו יימחקו מהמכשיר הזה.</string>
     <string name="running">פועל</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">לא הובא</string>

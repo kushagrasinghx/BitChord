@@ -615,6 +615,9 @@
     <string name="delete_download">Hapus unduhan</string>
     <string name="delete_playlist_confirmation">Hapus “%1$s”? Ketuk lagi untuk konfirmasi.</string>
     <string name="delete_download_confirmation">Hapus “%1$s” dari perangkat ini? Ketuk lagi untuk konfirmasi.</string>
+    <string name="delete_download_warning">File yang diunduh akan dihapus dari perangkat ini.</string>
+    <string name="delete_downloads_title">Hapus %1$d unduhan?</string>
+    <string name="delete_downloads_warning">File yang diunduh akan dihapus dari perangkat ini.</string>
     <string name="running">Berjalan</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">belum diambil</string>

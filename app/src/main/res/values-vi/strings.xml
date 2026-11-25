@@ -663,6 +663,9 @@
     <string name="delete_download">Xóa bản tải xuống</string>
     <string name="delete_playlist_confirmation">Xóa “%1$s”? Nhấn lần nữa để xác nhận.</string>
     <string name="delete_download_confirmation">Xóa “%1$s” khỏi thiết bị này? Nhấn lần nữa để xác nhận.</string>
+    <string name="delete_download_warning">Tệp đã tải xuống sẽ bị xóa khỏi thiết bị này.</string>
+    <string name="delete_downloads_title">Xóa %1$d mục đã tải xuống?</string>
+    <string name="delete_downloads_warning">Các tệp đã tải xuống sẽ bị xóa khỏi thiết bị này.</string>
     <string name="running">Đang chạy</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">chưa tải</string>

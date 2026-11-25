@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -108,6 +107,12 @@ fun SongActionsMenu(
     onAddToQueue: () -> Unit,
     onStartRadio: () -> Unit,
     onDownload: () -> Unit,
+    /**
+     * Confirms, then removes, the file already saved for this track. The host
+     * owns the confirmation because it owns the dialog and the exact record;
+     * this menu only raises the request.
+     */
+    onDeleteDownload: () -> Unit,
     /**
      * Copies this track to the WebDAV server. Null hides the row — the caller
      * passes one only for a readable device file while a server is
@@ -333,7 +338,7 @@ fun SongActionsMenu(
             accent = palette.accent,
             onClick = onAddToQueue,
         )
-        DownloadRow(song, palette, isOffline, onDownload)
+        DownloadRow(song, palette, isOffline, onDownload, onDeleteDownload)
         onDownloadLyrics?.let {
             ActionRow(
                 icon = SfIcons.Notes,
@@ -487,9 +492,14 @@ private fun neutralMenuPalette(): ArtworkPalette {
  * arrangement the sleep timer row already uses.
  */
 @Composable
-private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean, onDownload: () -> Unit) {
+private fun DownloadRow(
+    song: Song,
+    palette: ArtworkPalette,
+    isOffline: Boolean,
+    onDownload: () -> Unit,
+    onDeleteDownload: () -> Unit,
+) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val active by Downloads.active.collectAsStateWithLifecycle()
     val saved by Downloads.saved.collectAsStateWithLifecycle()
 
@@ -549,7 +559,8 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
                 value = stringResource(R.string.delete),
                 tint = palette.accent,
                 accent = palette.accent,
-            ) { scope.launch { Downloads.delete(context, song.videoId) } }
+                onClick = onDeleteDownload,
+            )
         } else if (!isOffline) {
             ActionRow(
                 icon = SfIcons.Download,

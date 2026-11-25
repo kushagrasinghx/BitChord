@@ -615,6 +615,9 @@
     <string name="delete_download">ダウンロードを削除</string>
     <string name="delete_playlist_confirmation">「%1$s」を削除しますか？もう一度タップして確定します。</string>
     <string name="delete_download_confirmation">「%1$s」をこのデバイスから削除しますか？もう一度タップして確定します。</string>
+    <string name="delete_download_warning">ダウンロードしたファイルはこのデバイスから削除されます。</string>
+    <string name="delete_downloads_title">%1$d 件のダウンロードを削除しますか？</string>
+    <string name="delete_downloads_warning">ダウンロードしたファイルはこのデバイスから削除されます。</string>
     <string name="running">実行中</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">未取得</string>

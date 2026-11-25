@@ -233,6 +233,8 @@ import com.music.bitchord.download.LocalLyricsSync
 import com.music.bitchord.ui.components.BrowseActionsMenu
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
+import com.music.bitchord.ui.components.DownloadDeletion
+import com.music.bitchord.ui.components.DownloadDeletionAlert
 import com.music.bitchord.ui.components.InfoAlert
 import com.music.bitchord.ui.components.DownloadManagerPage
 import com.music.bitchord.ui.components.PlaylistPickerSheet
@@ -754,6 +756,13 @@ private fun BitChordApp(
     // three tabs, the search rows, the artist page's carousels, the release
     // page's own overflow — because only one of them can be held at a time.
     var browseActions by remember { mutableStateOf<BrowseTarget?>(null) }
+    /**
+     * A download deletion waiting on its confirmation, or null when no dialog
+     * is up. The records are captured when the request is made, so the dialog
+     * names and deletes exactly what the row it came from promised — not
+     * whatever the library happens to hold by the time Delete is tapped.
+     */
+    var pendingDownloadDeletion by remember { mutableStateOf<DownloadDeletion?>(null) }
     /** The card held to open [browseActions] — see [songMenuOrigin]. */
     var browseMenuOrigin by remember { mutableStateOf<HeldItem?>(null) }
     /** The ⋯ [browseActions] was opened from — see [songMenuAnchor]. */
@@ -3214,8 +3223,8 @@ private fun BitChordApp(
                                     },
                                     onDelete = if (isDownloads) {
                                         { selected ->
-                                            scope.launch {
-                                                selected.forEach { song -> Downloads.delete(context, song.videoId) }
+                                            if (selected.isNotEmpty()) {
+                                                pendingDownloadDeletion = DownloadDeletion(selected)
                                             }
                                         }
                                     } else {
@@ -4510,6 +4519,13 @@ private fun BitChordApp(
                         downloadSong(song)
                     }
                 },
+                // The host owns the confirmation and the exact record; the
+                // menu only asks. Closing it first keeps the alert the only
+                // thing on screen while the file's fate is being decided.
+                onDeleteDownload = {
+                    songActions = null
+                    pendingDownloadDeletion = DownloadDeletion(listOf(song))
+                },
                 // The other direction: a device file going up to the
                 // server. Closed first, unlike a download — progress and
                 // the summary notice live outside the sheet.
@@ -5340,7 +5356,12 @@ private fun BitChordApp(
                 onDeleteDownload = target.downloadId?.let { id ->
                     {
                         browseActions = null
-                        scope.launch { Downloads.deleteCollection(context, id) }
+                        pendingDownloadDeletion = DownloadDeletion(
+                            songs = target.songs,
+                            collectionId = id,
+                            collectionTitle = target.title,
+                            collectionSubtitle = target.subtitle,
+                        )
                     }
                 },
             )
@@ -6037,6 +6058,31 @@ private fun BitChordApp(
                     confirmFixedVolume = false
                 },
                 onDismiss = { confirmFixedVolume = false },
+            )
+        }
+
+        pendingDownloadDeletion?.let { deletion ->
+            DownloadDeletionAlert(
+                hazeState = hazeState,
+                deletion = deletion,
+                onConfirm = {
+                    // Dismiss first: the delete runs off the main thread and
+                    // the dialog has no progress to show. Only this row
+                    // reaches here — Cancel, Back and the scrim all take the
+                    // dismissal path, which touches nothing.
+                    pendingDownloadDeletion = null
+                    scope.launch {
+                        val collectionId = deletion.collectionId
+                        if (collectionId != null) {
+                            Downloads.deleteCollection(context, collectionId)
+                        } else {
+                            deletion.videoIds.forEach { videoId ->
+                                Downloads.delete(context, videoId)
+                            }
+                        }
+                    }
+                },
+                onDismiss = { pendingDownloadDeletion = null },
             )
         }
 

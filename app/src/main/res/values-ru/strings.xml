@@ -659,6 +659,9 @@
     <string name="delete_download">Удалить загрузку</string>
     <string name="delete_playlist_confirmation">Удалить «%1$s»? Нажмите ещё раз для подтверждения.</string>
     <string name="delete_download_confirmation">Удалить «%1$s» с этого устройства? Нажмите ещё раз для подтверждения.</string>
+    <string name="delete_download_warning">Загруженный файл будет удалён с этого устройства.</string>
+    <string name="delete_downloads_title">Удалить %1$d загрузок?</string>
+    <string name="delete_downloads_warning">Загруженные файлы будут удалены с этого устройства.</string>
     <string name="running">Выполняется</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">не загружено</string>

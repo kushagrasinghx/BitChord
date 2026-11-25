@@ -856,6 +856,9 @@
     <string name="delete_download">다운로드 삭제</string>
     <string name="delete_playlist_confirmation">“%1$s” 재생목록을 삭제하시겠습니까? 다시 눌러 삭제하세요.</string>
     <string name="delete_download_confirmation">이 기기에서 “%1$s” 다운로드를 삭제하시겠습니까? 다시 눌러 삭제하세요.</string>
+    <string name="delete_download_warning">다운로드한 파일이 이 기기에서 삭제됩니다.</string>
+    <string name="delete_downloads_title">다운로드 %1$d개를 삭제할까요?</string>
+    <string name="delete_downloads_warning">다운로드한 파일이 이 기기에서 삭제됩니다.</string>
     <string name="running">실행 중</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">가져오지 않음</string>

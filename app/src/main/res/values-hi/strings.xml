@@ -634,6 +634,9 @@
     <string name="delete_download">डाउनलोड मिटाएं</string>
     <string name="delete_playlist_confirmation">“%1$s” मिटाएं? पुष्टि के लिए फिर से टैप करें।</string>
     <string name="delete_download_confirmation">“%1$s” को इस डिवाइस से हटाएं? पुष्टि के लिए फिर से टैप करें।</string>
+    <string name="delete_download_warning">डाउनलोड की गई फ़ाइल इस डिवाइस से हटा दी जाएगी।</string>
+    <string name="delete_downloads_title">%1$d डाउनलोड हटाएं?</string>
+    <string name="delete_downloads_warning">डाउनलोड की गई फ़ाइलें इस डिवाइस से हटा दी जाएंगी।</string>
     <string name="running">चल रहा है</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">नहीं लाया गया</string>

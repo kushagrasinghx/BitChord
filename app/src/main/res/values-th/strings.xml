@@ -644,6 +644,9 @@
     <string name="delete_download">ลบไฟล์ที่ดาวน์โหลด</string>
     <string name="delete_playlist_confirmation">ลบ “%1$s” หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
     <string name="delete_download_confirmation">นำ “%1$s” ออกจากอุปกรณ์นี้หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
+    <string name="delete_download_warning">ไฟล์ที่ดาวน์โหลดจะถูกลบออกจากอุปกรณ์นี้</string>
+    <string name="delete_downloads_title">ลบ %1$d รายการที่ดาวน์โหลดหรือไม่</string>
+    <string name="delete_downloads_warning">ไฟล์ที่ดาวน์โหลดจะถูกลบออกจากอุปกรณ์นี้</string>
     <string name="running">กำลังทำงาน</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">ยังไม่ได้ดึง</string>

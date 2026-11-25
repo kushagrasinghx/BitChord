@@ -634,6 +634,9 @@
     <string name="delete_download">Download löschen</string>
     <string name="delete_playlist_confirmation">„%1$s“ löschen? Erneut tippen, um zu bestätigen.</string>
     <string name="delete_download_confirmation">„%1$s“ von diesem Gerät entfernen? Erneut tippen, um zu bestätigen.</string>
+    <string name="delete_download_warning">Die heruntergeladene Datei wird von diesem Gerät gelöscht.</string>
+    <string name="delete_downloads_title">%1$d Downloads löschen?</string>
+    <string name="delete_downloads_warning">Die heruntergeladenen Dateien werden von diesem Gerät gelöscht.</string>
     <string name="running">Läuft</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">nicht geladen</string>

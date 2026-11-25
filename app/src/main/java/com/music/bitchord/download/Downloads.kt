@@ -407,8 +407,13 @@ object Downloads {
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
         val uri = _saved.value[videoId]?.toUri() ?: return@withContext false
         val deleted = DownloadStore.delete(context, uri)
-        forget(videoId)
-        deleted
+        // A provider can refuse a delete and leave the file in place. Keeping
+        // the record then is what lets the row be tried again; dropping it
+        // would hide a file that is still on the device. A file that was
+        // already gone before the attempt is just as settled as a deleted one.
+        val gone = deleted || !DownloadStore.exists(context, uri)
+        if (gone) forget(videoId)
+        gone
     }
 
     private fun forget(videoId: String) {
@@ -517,9 +522,15 @@ object Downloads {
      */
     suspend fun deleteCollection(context: Context, id: String): Boolean {
         var any = false
+        var allGone = true
         tracksOnlyIn(id, _collections.value, _saved.value)
-            .forEach { videoId -> if (delete(context, videoId)) any = true }
-        forgetCollection(id)
+            .forEach { videoId ->
+                if (delete(context, videoId)) any = true else allGone = false
+            }
+        // Only drop the record once every file is actually gone. A storage
+        // refusal on one track leaves the release visible, with the file it
+        // could not remove still reachable for a retry.
+        if (allGone) forgetCollection(id)
         return any
     }
 
@@ -1263,11 +1274,13 @@ object Downloads {
             val name = SourceRegistry.config(row.first)?.displayName ?: "its source"
             error("Couldn't download this song from $name — check that it's still connected")
         }
-        // Use yt-dlp to download and convert YouTube/YouTube Music audio into high-quality MP3 (320kbps)
+        // Use yt-dlp to download and convert YouTube/YouTube Music audio into
+        // MP3. The bitrate is whatever the best available source stream holds;
+        // re-encoding to a nominal 320 would only pad the file.
         return Route(
             extension = "mp3",
             mimeType = "audio/mpeg",
-            describe = "yt-dlp MP3 320k",
+            describe = "yt-dlp MP3 (best available source)",
             downloadFormat = "MP3",
             write = { sink, onProgress ->
                 val mp3File = YtDlpDownloader.downloadMp3(
@@ -1547,6 +1560,7 @@ object Downloads {
      * right direction.
      */
     private fun Exception.friendly(): String = when {
+        this is YtDlpFailure && !message.isNullOrBlank() -> message!!
         (this is IllegalStateException || this is IllegalArgumentException) &&
             !message.isNullOrBlank() -> message!!
         this is com.yausername.youtubedl_android.YoutubeDLException -> {

@@ -20,6 +20,7 @@ import kotlin.math.sqrt
  * - EqualizerProcessor (FloatAudioProcessor)
  * - SpatialAudioProcessor (FloatAudioProcessor)
  * - TransitionFilterProcessor (FloatAudioProcessor)
+ * - StereoVocalReductionProcessor (VocalProcessor, Karaoke)
  * - DspChain composite pipeline
  */
 class FloatDspChainTest {
@@ -557,5 +558,183 @@ class FloatDspChainTest {
             chain.process(block)
             assertTrue("Array reference must be preserved across iterations", block.samples === arrayRef)
         }
+    }
+
+    // ── Karaoke (VocalProcessor) chain tests ────────────────────────────────
+
+    /** A stereo block of [freqHz] sine, centered, or anti-phase for pure side content. */
+    private fun stereoSine(freqHz: Double, frames: Int, amp: Float, antiPhase: Boolean = false): AudioBlock {
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        for (f in 0 until frames) {
+            val s = (amp * sin(2.0 * PI * freqHz * f / sampleRate)).toFloat()
+            block.samples[f * 2] = s
+            block.samples[f * 2 + 1] = if (antiPhase) -s else s
+        }
+        block.reset(frames)
+        return block
+    }
+
+    /**
+     * The vocal stage runs before spatial widening, so centered content is
+     * gone before the widener can smear it into side content that no
+     * cancellation can reach. With the order reversed, the crossfeed would
+     * leave a clearly audible residue of the centered sine.
+     */
+    @Test
+    fun `karaoke removes centered content before spatial widening`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.vocal.setTuning(enabled = true, vocalLevel = 0f)
+        chain.spatial.enabled = true
+        chain.transition.open()
+        chain.flush()
+
+        var peak = 0f
+        repeat(6) { iteration ->
+            val block = stereoSine(1000.0, 4096, 0.5f)
+            chain.process(block)
+            if (iteration == 5) {
+                for (i in 2048 * 2 until 4096 * 2) peak = maxOf(peak, abs(block.samples[i]))
+            }
+        }
+        assertTrue("centered content must be reduced before widening (peak $peak)", peak < 0.05f)
+    }
+
+    /**
+     * Karaoke does not touch the listener's curve: stereo side content
+     * passes the vocal stage untouched, and the equaliser downstream still
+     * answers with its own +6 dB bell.
+     */
+    @Test
+    fun `karaoke leaves the equalizer curve alone on stereo side content`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.vocal.setTuning(enabled = true, vocalLevel = 0f)
+        chain.spatial.enabled = false
+        val gains = FloatArray(EqLayout.SLOTS)
+        val qs = FloatArray(EqLayout.SLOTS) { 0.707f }
+        gains[3] = 6.0f
+        chain.equalizer.setTuning(enabled = true, EqCurve(gains, qs, 0f), balance = 0f)
+        chain.transition.open()
+        chain.flush()
+
+        val block = stereoSine(1000.0, 4096, 0.25f, antiPhase = true)
+        chain.process(block)
+
+        var peakOut = 0f
+        for (f in 2048 until 4096) {
+            peakOut = maxOf(peakOut, abs(block.samples[f * 2]))
+        }
+        val expectedPeak = 0.25f * Math.pow(10.0, 6.0 / 20.0).toFloat()
+        assertEquals("EQ must still boost side content by ~+6 dB", expectedPeak, peakOut, 0.08f)
+    }
+
+    /**
+     * The chain's idle guarantee with the vocal stage in it: nothing
+     * switched on means the block leaves byte-identical, sub-LSB floats and
+     * headroom past 1.0 included.
+     */
+    @Test
+    fun `disabled karaoke keeps the whole chain bit exact`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.spatial.enabled = false
+        chain.equalizer.setTuning(enabled = false, EqCurve.FLAT, balance = 0f)
+        chain.transition.open()
+        chain.flush()
+
+        val frames = 512
+        val source = FloatArray(frames * 2)
+        for (i in 0 until frames * 2) {
+            source[i] = when (i % 5) {
+                0 -> 1.0e-7f
+                1 -> -0.95f
+                2 -> 1.15f
+                3 -> i * 0.001f
+                else -> 0f
+            }
+        }
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        source.copyInto(block.samples)
+        block.reset(frames)
+
+        chain.process(block)
+
+        for (i in source.indices) {
+            assertEquals("sample $i altered by an idle chain", source[i], block.samples[i], 0f)
+        }
+    }
+
+    /** ...and the guarantee comes back after Karaoke has actually been on. */
+    @Test
+    fun `enabling then disabling karaoke returns the chain to bit exact`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.spatial.enabled = false
+        chain.equalizer.setTuning(enabled = false, EqCurve.FLAT, balance = 0f)
+        chain.transition.open()
+        chain.vocal.setTuning(enabled = true, vocalLevel = 0f)
+        chain.flush()
+
+        val frames = 1024
+        val source = FloatArray(frames * 2)
+        for (f in 0 until frames) {
+            val s = 0.99f * sin(2.0 * PI * 1000.0 * f / sampleRate).toFloat()
+            source[f * 2] = s
+            source[f * 2 + 1] = s
+        }
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        fun pass() {
+            source.copyInto(block.samples)
+            block.reset(frames)
+            chain.process(block)
+        }
+        repeat(4) { pass() }
+        chain.vocal.setTuning(enabled = false, vocalLevel = 0f)
+        // Far longer than the vocal glide and the limiter's release together.
+        repeat(16) { pass() }
+
+        pass()
+        for (i in source.indices) {
+            assertEquals("sample $i", source[i], block.samples[i], 0f)
+        }
+    }
+
+    /**
+     * The vocal stage holds the end-of-chain limiter on while it is shaping,
+     * so an over that rides in with an enabling glide is caught rather than
+     * sailing past a parked loudness stage.
+     */
+    @Test
+    fun `the end of chain limiter catches an over while karaoke is engaged`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.spatial.enabled = false
+        chain.equalizer.setTuning(enabled = false, EqCurve.FLAT, balance = 0f)
+        chain.transition.open()
+        // No flush after this: the suppression glides up from zero, so the
+        // block's opening carries (nearly) the full centered signal — which
+        // is past full scale — and only the limiter can hold it back.
+        chain.vocal.setTuning(enabled = true, vocalLevel = 0f)
+
+        val block = stereoSine(1000.0, 2048, 1.3f)
+        chain.process(block)
+
+        var peak = 0f
+        for (i in 0 until 2048 * 2) peak = maxOf(peak, abs(block.samples[i]))
+        assertTrue("chain must stay under the limiter ceiling (got $peak)", peak <= PeakLimiter.CEILING + 1e-5f)
+        assertTrue("the limiter should turn the over down, not mute it (got $peak)", peak > 0.9f)
+
+        // The same over through a fully idle chain is left exactly as it
+        // arrived — proving the catch above came from the vocal stage's
+        // limiter hold, not from a chain that never parks.
+        val idle = DspChain()
+        idle.configure(sampleRate, 2)
+        idle.transition.open()
+        val raw = stereoSine(1000.0, 2048, 1.3f)
+        idle.process(raw)
+        var idlePeak = 0f
+        for (i in 0 until 2048 * 2) idlePeak = maxOf(idlePeak, abs(raw.samples[i]))
+        assertTrue("the idle chain must not touch headroom (got $idlePeak)", idlePeak > 1.2f)
     }
 }

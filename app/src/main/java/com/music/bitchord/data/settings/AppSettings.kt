@@ -17,6 +17,7 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.AutoMixVisualFeed
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.KaraokeProcessingAvailability
 import com.music.bitchord.ui.player.AutoMixArtworkPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -68,9 +69,9 @@ enum class OutputPcmMode(val label: String) {
  * the order the settings picker lists them; persisted by name, so the order
  * can change freely.
  *
- * Bit-perfect output bypasses the equalizer, loudness normalization,
- * crossfade, Automix, playback speed and software volume: any of them would
- * change the samples. Volume belongs to the DAC.
+ * Bit-perfect output bypasses the equalizer, Karaoke vocal reduction, loudness
+ * normalization, crossfade, Automix, playback speed and software volume: any of
+ * them would change the samples. Volume belongs to the DAC.
  *
  * See [com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput].
  */
@@ -414,6 +415,25 @@ object AppSettings {
      * and lose nothing.
      */
     val equalizerEnabled = MutableStateFlow(false)
+
+    /**
+     * Karaoke vocal reduction, master switch.
+     *
+     * Stereo mid/side DSP in the playback chain — see
+     * [com.music.bitchord.playback.StereoVocalReductionProcessor]. Vocal
+     * *reduction*, not guaranteed removal: centered instruments ride with the
+     * vocal, and mono tracks have no middle to cancel.
+     */
+    val karaokeEnabled = MutableStateFlow(false)
+
+    /**
+     * 0 = maximum vocal reduction, 1 = the original mix.
+     *
+     * Default 0 so the first activation is immediately audible. Kept when
+     * [karaokeEnabled] is switched off, so disabling does not discard the
+     * level the listener chose for the next time.
+     */
+    val karaokeVocalLevel = MutableStateFlow(0f)
 
     /** Which tab is driving it. */
     val equalizerMode = MutableStateFlow(EqualizerMode.DYNAMIC)
@@ -866,6 +886,21 @@ object AppSettings {
     val audioSessionId = MutableStateFlow(0)
 
     /**
+     * Whether the Karaoke vocal reduction can run on the audio that is
+     * actually playing right now — local stereo PCM, or a route that bypasses
+     * it (mono, non-PCM, bit-perfect, Cast, the watch).
+     *
+     * Runtime, not persisted: published by PlaybackService like
+     * [audioSessionId], and recomputed on every format, route, Cast, watch
+     * and bit-perfect change. A preference left enabled on an incompatible
+     * route reads as the matching unavailable state rather than pretending
+     * to work, and returns to [AVAILABLE][KaraokeProcessingAvailability.AVAILABLE]
+     * on its own when a compatible route does.
+     */
+    val karaokeProcessingAvailability =
+        MutableStateFlow(KaraokeProcessingAvailability.AVAILABLE)
+
+    /**
      * True only while a Automix transition that is actually *mixing* is
      * audible — one that beat-matched, cued the incoming track into its
      * arrangement, or rode a filter.
@@ -1087,6 +1122,8 @@ object AppSettings {
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
         youtubePremiumAudio.value = prefs.getBoolean(KEY_YOUTUBE_PREMIUM_AUDIO, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        karaokeEnabled.value = prefs.getBoolean(KEY_KARAOKE_ENABLED, false)
+        karaokeVocalLevel.value = prefs.getFloat(KEY_KARAOKE_VOCAL_LEVEL, 0f).coerceIn(0f, 1f)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1459,6 +1496,22 @@ object AppSettings {
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
         prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
+    }
+
+    /**
+     * Karaoke's master switch. Kept separate from [setKaraokeVocalLevel] so
+     * switching off does not discard the listener's chosen level.
+     */
+    fun setKaraokeEnabled(value: Boolean) {
+        karaokeEnabled.value = value
+        prefs.edit().putBoolean(KEY_KARAOKE_ENABLED, value).apply()
+    }
+
+    /** Sets the vocal level, clamped to 0 (maximum reduction) .. 1 (original mix). */
+    fun setKaraokeVocalLevel(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        karaokeVocalLevel.value = clamped
+        prefs.edit().putFloat(KEY_KARAOKE_VOCAL_LEVEL, clamped).apply()
     }
 
     fun setEqualizerEnabled(value: Boolean) {
@@ -2441,6 +2494,8 @@ object AppSettings {
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
     private const val KEY_YOUTUBE_PREMIUM_AUDIO = "youtube_premium_audio"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
+    private const val KEY_KARAOKE_ENABLED = "karaoke_enabled"
+    private const val KEY_KARAOKE_VOCAL_LEVEL = "karaoke_vocal_level"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

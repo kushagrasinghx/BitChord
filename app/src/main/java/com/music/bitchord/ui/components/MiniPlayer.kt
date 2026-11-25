@@ -409,6 +409,7 @@ fun MiniPlayer(
     /** False while the expanded player covers this bar. */
     animationsActive: Boolean = true,
     modifier: Modifier = Modifier,
+    autoMixArtwork: (@Composable (String?, Modifier) -> Unit)? = null,
     queue: List<Song> = emptyList(),
     queueIndex: Int = 0,
     hasNext: Boolean = false,
@@ -525,11 +526,11 @@ fun MiniPlayer(
                         .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 ) {
-                    AsyncImage(
-                        model = rememberRemoteArtworkUrl(displayedSong)?.artworkAt(ROW_ART_PX),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
+                    MiniPlayerArtwork(
+                        displayedSong,
+                        autoMixArtwork.takeIf {
+                            displayedSong.videoId == song.videoId && displayedSong.queueEntryId == song.queueEntryId
+                        },
                     )
                     if (stationary && showsPicture) {
                         AndroidMusicVideo(
@@ -627,6 +628,17 @@ fun MiniPlayer(
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun MiniPlayerArtwork(song: Song, autoMixArtwork: (@Composable (String?, Modifier) -> Unit)?) {
+    val model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX)
+    val modifier = Modifier.fillMaxSize()
+    if (autoMixArtwork != null) {
+        autoMixArtwork(model, modifier)
+    } else {
+        AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
     }
 }
 

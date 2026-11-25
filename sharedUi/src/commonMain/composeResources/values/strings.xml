@@ -8,6 +8,8 @@
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
     <string name="automix_not_supported_video">Automix not supported on video songs</string>
+    <string name="best_part">Best Part</string>
+    <string name="best_part_description">Skip to the best part</string>
     <string name="automix_stopped_in_party">Automix: stopped in listen together</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">Similar music will keep playing</string>

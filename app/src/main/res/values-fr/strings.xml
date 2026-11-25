@@ -194,7 +194,7 @@
     <string name="playback">Lecture</string>
     <string name="appearance">Apparence</string>
     <string name="storage">Stockage</string>
-    <string name="your_data">Vos données</string>
+    <string name="your_data">Sauvegarde et restauration</string>
     <string name="miscellaneous">Divers</string>
     <string name="lossless_hq_audio">Audio sans perte / haute qualité</string>
     <string name="on_wifi">En Wi-Fi</string>
@@ -874,6 +874,8 @@
     <string name="export_compatible_downloads">Exporter les téléchargements compatibles</string>
     <string name="sync_downloaded_playlists">Garder les playlists à jour</string>
     <string name="sync_downloaded_playlists_subtitle">Vérifie deux fois par jour et télécharge les titres ajoutés à vos playlists téléchargées</string>
+    <string name="download_liked_songs">Télécharger les titres likés</string>
+    <string name="download_liked_songs_subtitle">Télécharge tes titres likés et chaque titre que tu likeras désormais</string>
     <string name="playlist_sync_ask_title">Nouveaux titres dans %1$s : %2$d</string>
     <string name="playlist_sync_ask_text">Appuyez pour télécharger</string>
     <string name="playlist_sync_done_title">Ajoutés à %1$s : %2$d</string>
@@ -1293,8 +1295,6 @@
 
 
     <string name="source_needs_lossless_output">Nécessite une sortie sans perte · utilisez un appareil compatible sans perte</string>
-    <string name="source_needs_update">Cet add-on n\'est plus à jour. Il fonctionne toujours, mais demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
-    <string name="source_outdated">Add-on obsolète</string>
     <string name="source_needs_lossless_bt_codec">Nécessite une sortie sans perte · le Bluetooth utilise %1$s ; utilisez un appareil compatible sans perte</string>
     <string name="source_needs_lossless_bt_unknown">Nécessite une sortie sans perte · impossible de savoir quel codec Bluetooth est utilisé</string>
     <string name="source_downloads_on">Téléchargements autorisés</string>
@@ -1497,4 +1497,68 @@
     <string name="queue_selected_count">Sélection : %1$d</string>
     <string name="queue_playlist_added">%1$d titres sur %2$d ajoutés</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatibles, %3$d déjà présents, %4$d en échec)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Sauvegarde Google Drive</string>
+    <string name="drive_backup_unavailable">La sauvegarde Google Drive nécessite les services Google Play, absents de cet appareil.</string>
+    <string name="drive_backup_never">Jamais</string>
+    <string name="drive_restore_failed">Échec de la restauration : %1$s</string>
+    <string name="drive_account_header">Compte Google</string>
+    <string name="drive_connect_failed">Connexion impossible : %1$s</string>
+    <string name="drive_connect">Connecter Google Drive</string>
+    <string name="drive_connect_subtitle">Choisissez un compte de ce téléphone pour la sauvegarde</string>
+    <string name="drive_sign_in_again_subtitle">L\'accès à Google Drive a été retiré. Reconnectez-vous pour continuer à sauvegarder.</string>
+    <string name="drive_sign_in_again">Se connecter</string>
+    <string name="drive_restore_header">Restaurer</string>
+    <string name="drive_backup_footer">Les sauvegardes sont conservées dans un dossier d\'application masqué de votre Google Drive et comptent dans votre stockage. Les mots de passe et connexions ne sont jamais inclus. Pour la supprimer, ouvrez Drive → Paramètres → Gérer les applications.</string>
+    <string name="drive_restore_connect_first">Connectez d\'abord un compte Google</string>
+    <string name="drive_restore_action">Restaurer</string>
+    <string name="drive_disconnect_confirm_title">Déconnecter Google Drive ?</string>
+    <string name="drive_backup_restoring">Restauration…</string>
+    <string name="drive_frequency_daily">Quotidienne</string>
+    <string name="drive_frequency_weekly">Hebdomadaire</string>
+    <string name="drive_frequency_monthly">Mensuelle</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">Synchronisation automatique</string>
+    <string name="drive_auto_sync_footer">Ce téléphone envoie son historique d\'écoute et récupère celui de vos autres appareils en arrière-plan quand la batterie n\'est pas faible. Une synchronisation manuelle compte dans le planning.</string>
+    <string name="drive_choose_device">Choisir l\'appareil de ce téléphone</string>
+    <string name="drive_choose_device_subtitle">Sauvegarder comme nouvel appareil, ou restaurer comme un appareil déjà dans Drive</string>
+    <string name="drive_device_not_set">Choisir l\'appareil</string>
+    <string name="drive_device_synced">Synchronisé le %1$s</string>
+    <string name="drive_devices_checking">Recherche d\'appareils…</string>
+    <string name="drive_devices_failed">Impossible de charger les appareils : %1$s</string>
+    <string name="drive_devices_footer">L\'écoute de tous vos appareils s\'additionne dans Replay. Touchez un appareil pour supprimer sa sauvegarde.</string>
+    <string name="drive_devices_header">Appareils</string>
+    <string name="drive_devices_none">Aucun appareil sur ce compte pour l\'instant</string>
+    <string name="drive_devices_none_other">Aucun autre appareil sur ce compte pour l\'instant</string>
+    <string name="drive_devices_title">Sauvegarder ou restaurer en tant que</string>
+    <string name="drive_forked_notice">Un autre téléphone a été restauré comme cet appareil, ce téléphone se synchronise donc désormais en tant que %1$s.</string>
+    <string name="drive_new_device">Sauvegarder comme nouvel appareil</string>
+    <string name="drive_new_device_footer">L\'écoute de ce téléphone reste un appareil à part. Celle de vos autres appareils s\'y ajoute dans Replay.</string>
+    <string name="drive_remove_confirm_title">Supprimer la sauvegarde de %1$s ?</string>
+    <string name="drive_remove_confirm_body">Sa sauvegarde est supprimée de Google Drive et son écoute disparaît de Replay sur tous vos appareils. Action irréversible.</string>
+    <string name="drive_delete_mine_body">La sauvegarde de ce téléphone est supprimée de Google Drive et la synchronisation automatique est désactivée. Replay sur ce téléphone conserve tout, et Synchroniser maintenant lance une nouvelle sauvegarde.</string>
+    <string name="drive_rename">Renommer</string>
+    <string name="drive_rename_title">Renommer ce téléphone</string>
+    <string name="drive_rename_message">Vos autres appareils afficheront ce téléphone sous ce nom.</string>
+    <string name="drive_restore_as_done">Synchronisé en tant que %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">Ce téléphone devient l\'appareil choisi : son historique d\'écoute et ses réglages remplacent ceux de ce téléphone.</string>
+    <string name="drive_restore_as_header">Restaurer en tant que</string>
+    <string name="drive_restore_as_subtitle">Choisissez un appareil de votre Drive à reprendre</string>
+    <string name="drive_restore_as_title">Restaurer comme un autre appareil</string>
+    <string name="drive_sync_done">Synchronisé à l\'instant</string>
+    <string name="drive_sync_downloading">Téléchargement depuis %1$s · %2$d sur %3$d</string>
+    <string name="drive_sync_failed">Échec de la synchronisation : %1$s</string>
+    <string name="drive_sync_last">Dernière synchronisation</string>
+    <string name="drive_sync_now">Synchroniser maintenant</string>
+    <string name="drive_sync_preparing">Préparation de la synchronisation…</string>
+    <string name="drive_sync_uploading">Envoi du mois %1$d sur %2$d</string>
+    <string name="drive_this_phone">Ce téléphone</string>
+    <string name="drive_this_phone_header">Ce téléphone</string>
+    <string name="drive_this_phone_subtitle">L\'appareil sous lequel ce téléphone sauvegarde</string>
+    <string name="drive_restore_confirm_title">Restaurer en tant que %1$s ?</string>
+    <string name="drive_restore_confirm_body">Ce téléphone devient %1$s. Son historique d\'écoute et ses réglages remplacent ceux de ce téléphone, qui se synchronisera désormais en tant que %1$s. Les connexions ne sont pas incluses.</string>
+    <string name="drive_disconnect_confirm_body">La synchronisation s\'arrête. Tout ce qui est dans votre Drive est conservé, et l\'écoute de vos autres appareils est retirée de Replay sur ce téléphone jusqu\'à la reconnexion.</string>
+    <string name="drive_backup_row_subtitle">Sauvegarder et synchroniser Replay entre vos appareils</string>
+    <string name="drive_over_cellular">Synchroniser via les données mobiles</string>
+    <string name="drive_over_cellular_subtitle">Désactivé, les synchronisations automatiques attendent le Wi-Fi</string>
 </resources>

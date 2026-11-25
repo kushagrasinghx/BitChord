@@ -453,6 +453,12 @@ dependencies {
     // See com.music.bitchord.wear.WearBridge. Rides on the Play services base
     // the Cast framework already brings, so it adds very little.
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
+
+    // ---- Google Drive backup: the device's own Google sign-in ----
+    // See com.music.bitchord.data.backup.DriveAuth. Only the authorization
+    // client: Drive itself is three REST calls over OkHttp, which is far
+    // lighter than the google-api-services-drive client and its HTTP stack.
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
     // Opens the watch app after an update, so its install prompt is on screen.
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
 

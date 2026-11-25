@@ -208,6 +208,8 @@
     <string name="sign_in_with_google">Google로 로그인</string>
     <string name="top_picks_for_you">회원님을 위한 추천</string>
     <string name="top_pick_made_for_you">회원님을 위한 맞춤</string>
+    <string name="mixes_yours">내 믹스</string>
+    <string name="mixes_none">아직 믹스가 없습니다. 계속 들으면 YouTube Music이 믹스를 만들어 드립니다.</string>
     <string name="top_pick_mood_for_you">회원님을 위한 분위기</string>
     <string name="top_pick_featuring">%1$s 피처링</string>
     <string name="top_pick_and_similar">%1$s 외 비슷한 아티스트</string>

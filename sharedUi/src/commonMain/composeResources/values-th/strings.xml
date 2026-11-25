@@ -207,4 +207,6 @@
     <string name="queue_download">ดาวน์โหลด</string>
     <string name="queue_selection_remove">นำออก</string>
     <string name="queue_add_all_to_playlist">เพิ่มทั้งหมดลงเพลย์ลิสต์</string>
+    <string name="mixes_yours">มิกซ์ของคุณ</string>
+    <string name="mixes_none">ยังไม่มีมิกซ์ ฟังต่อไปแล้ว YouTube Music จะสร้างมิกซ์ให้คุณ</string>
 </resources>

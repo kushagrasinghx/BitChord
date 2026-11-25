@@ -45,6 +45,12 @@ enum class Haptic {
 
     /** Something growing to fill the screen, e.g. the mini player opening. */
     Expand,
+
+    /**
+     * Something heavy landing on the screen: a full-strength beat with a low
+     * one under it, like a thud. For a story's big reveal, not for controls.
+     */
+    Slam,
 }
 
 /**

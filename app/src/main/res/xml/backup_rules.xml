@@ -19,4 +19,9 @@
     <exclude domain="sharedpref" path="bitchord_last_played.xml" />
     <exclude domain="sharedpref" path="bitchord_bounded_context.xml" />
     <exclude domain="sharedpref" path="bitchord_party_queue_stash.xml" />
+    <!-- Drive backup: the account grant belongs to this phone (see DriveBackup). -->
+    <exclude domain="sharedpref" path="bitchord_drive_backup.xml" />
+    <!-- Other devices' listening and what this one last uploaded: Drive sync's, and re-fetched from Drive. -->
+    <exclude domain="file" path="listening-peers/" />
+    <exclude domain="file" path="listening-synced/" />
 </full-backup-content>

@@ -125,9 +125,10 @@ object InnertubeParser {
      * `searchSuggestionRenderer`. The second — present signed in, and for
      * some terms signed out — is entity rows for songs and artists, as the
      * same `musicResponsiveListItemRenderer` a search result uses. Those are
-     * deliberately ignored: what the field is being filled in with is a
-     * query, and a row that navigates straight to a track instead is a
-     * different feature with a different tap target.
+     * ignored here: what the field is being filled in with is a query, and a
+     * row that navigates straight to a track instead is a different feature
+     * with a different tap target — [parseSearchSuggestionEntities] reads them
+     * for the dropdown's live cards.
      *
      * `searchEndpoint.query` is preferred over the display text because the
      * display text arrives split into runs purely so the typed prefix can be
@@ -141,6 +142,17 @@ object InnertubeParser {
                 query.takeIf { it.isNotBlank() }
             }
             .distinct()
+
+    /**
+     * The songs, artists and albums a `music/get_search_suggestions` response
+     * lists under its query strings — YouTube Music's own live cards for a
+     * half-typed query. Asked signed in, YouTube ranks them by what the
+     * account listens to, and the call is not filed in the account's search
+     * history the way a `search` is. Music videos are left out, as on the
+     * All tab.
+     */
+    fun parseSearchSuggestionEntities(response: JsonObject): List<SearchResult> =
+        parseSearchPage(response).rows
 
     /** Depth-first collection of a named renderer, preserving document order. */
     private fun collectRenderers(root: JsonElement, name: String): List<JsonObject> {
@@ -595,7 +607,8 @@ object InnertubeParser {
         val appendActions = if (playlistScope == null) root.a("onResponseReceivedActions")
             ?.mapNotNull { it.o("appendContinuationItemsAction") }.orEmpty() else emptyList()
         if (preserveDuplicates && appendActions.size > 1) error("ambiguous playlist continuation")
-        val appendedItems = appendActions.singleOrNull()?.a("continuationItems")
+        val appendedItems = (if (preserveDuplicates) appendActions.singleOrNull() else appendActions.firstOrNull())
+            ?.a("continuationItems")
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }
         if (preserveDuplicates && playlistScope == null && appendedItems == null) return null
@@ -630,7 +643,7 @@ object InnertubeParser {
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
         // continuation means more real tracks.
-        val token = (playlistScope ?: appendedItems)?.let { continuationToken(it) }
+        val token = (playlistScope ?: appendedItems)?.let { continuationToken(it, browseOnly = true) }
         return PlaylistShelfPage(songs, suggested, token)
     }
 
@@ -680,14 +693,14 @@ object InnertubeParser {
      * A page with several shelves can carry several renderers, and a token
      * found anywhere deeper may page a different shelf than the one asked for.
      */
-    fun continuationToken(root: JsonElement): String? {
+    fun continuationToken(root: JsonElement, browseOnly: Boolean = false): String? {
         val endpoint = collectRenderers(root, "continuationItemRenderer").firstOrNull()
             .o("continuationEndpoint")
         (endpoint.o("continuationCommand")
             ?: endpoint.o("commandExecutorCommand").a("commands")
                 ?.firstNotNullOfOrNull { command ->
                     command.o("continuationCommand")
-                        ?.takeIf { it.s("request") == "CONTINUATION_REQUEST_TYPE_BROWSE" }
+                        ?.takeIf { !browseOnly || it.s("request") == null || it.s("request") == "CONTINUATION_REQUEST_TYPE_BROWSE" }
                 })
             .s("token")
             ?.let { return it }

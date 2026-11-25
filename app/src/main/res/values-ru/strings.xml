@@ -24,6 +24,7 @@
     <string name="search">Поиск</string>
     <string name="clear_search">Очистить поиск</string>
     <string name="library">Библиотека</string>
+    <string name="radio">Радио</string>
     <string name="home">Главная</string>
     <string name="play">Играть</string>
     <string name="explore">Обзор</string>
@@ -99,6 +100,8 @@
     <string name="testing">Проверка…</string>
     <string name="connected">Подключено</string>
     <string name="account_integrations">Аккаунт и интеграции</string>
+    <string name="youtube_premium_audio">Звук YouTube Premium</string>
+    <string name="youtube_premium_audio_subtitle">У меня есть Premium: воспроизводить Opus повышенного качества ~256 кбит/с вместо стандартных 160 кбит/с</string>
     <string name="account_scrobbling">Аккаунт и скробблинг</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Скробблинг</string>
@@ -200,7 +203,7 @@
     <string name="playback">Воспроизведение</string>
     <string name="appearance">Внешний вид</string>
     <string name="storage">Хранилище</string>
-    <string name="your_data">Ваши данные</string>
+    <string name="your_data">Резервное копирование и восстановление</string>
     <string name="miscellaneous">Разное</string>
     <string name="lossless_hq_audio">Без потерь / HQ-аудио</string>
     <string name="on_wifi">По Wi-Fi</string>
@@ -210,6 +213,7 @@
     <string name="crossfade">Кроссфейд</string>
     <string name="crossfade_subtitle">Плавно переходит от одного трека к другому</string>
     <string name="automix">Автомикс [БЕТА]</string>
+    <string name="automix_overview">Обзор автомикса</string>
     <string name="skip_silence">Пропускать тишину</string>
     <string name="skip_silence_subtitle">Обрезает паузы длиннее секунды</string>
     <string name="skip_silence_float_subtitle">Недоступно при 32-битном выводе с плавающей точкой</string>
@@ -534,8 +538,14 @@
     <string name="listen_most_around">Чаще всего вы слушаете музыку около %1$s.</string>
     <string name="lyrics_share_title">Поделиться текстом</string>
     <string name="lyrics_share_description">Выбранные строки на карточке вместе с обложкой.</string>
-    <string name="lyrics_share_story">Сделать для сторис</string>
-    <string name="lyrics_share_story_revert">Вернуть карточку</string>
+    <string name="lyrics_share_story">Преобразовать в сторис</string>
+    <string name="lyrics_share_story_revert">Преобразовать в карточку</string>
+    <string name="lyrics_share_canvas">Canvas</string>
+    <string name="lyrics_share_video">Видео</string>
+    <string name="lyrics_share_image">Изображение</string>
+    <string name="lyrics_share_saving">Сохранение…</string>
+    <string name="lyrics_share_gradient">Градиент</string>
+    <string name="lyrics_share_show_logo">Показывать логотип BitChord</string>
     <string name="listening_shape">Ваша модель прослушивания</string>
     <string name="member_since">Участник с</string>
     <string name="member_since_value">Участник с %1$s</string>
@@ -667,6 +677,14 @@
     <string name="version_cut_aligned">выровнено</string>
     <string name="automix_enabled_subtitle">Рассчитывает время и смешивает каждый переход на основе самих треков. Отключите, если телефон нагревается или воспроизведение прерывается.</string>
     <string name="automix_disabled_subtitle">Автоматически рассчитывает время и смешивает переходы без ползунка. Производительность может отличаться на медленных устройствах.</string>
+    <string name="automix_models_downloading">Загрузка Automix (%1$d МБ)… %2$d%%. До завершения треки сменяются обычным кроссфейдом.</string>
+    <string name="automix_model">Модель Automix</string>
+    <string name="automix_model_missing">Не загружена. Automix скачает её при включении, или загрузите сейчас.</string>
+    <string name="automix_model_download">Скачать (%1$d МБ)</string>
+    <string name="automix_model_ready">Загружена, занимает %1$d МБ на этом устройстве.</string>
+    <string name="automix_models_failed">Не удалось скачать модель. Проверьте подключение и повторите попытку.</string>
+    <string name="automix_model_delete_title">Удалить модель Automix?</string>
+    <string name="automix_model_delete_warning">Будет освобождено %1$d МБ, а Automix выключится. При повторном включении модель скачается снова.</string>
     <string name="advanced_automix">Расширенный автомикс</string>
     <string name="advanced_automix_subtitle">Сводит как диджей: держит биты синхронно, делает каждый переход в долю и режет между треками, которые не сочетаются. Без дополнительной обработки.</string>
     <string name="no_lyrics_sources_enabled">Ничего. Текст песен не будет загружаться.</string>
@@ -883,6 +901,8 @@
     <string name="export_compatible_downloads">Экспорт совместимых загрузок</string>
     <string name="sync_downloaded_playlists">Обновлять плейлисты</string>
     <string name="sync_downloaded_playlists_subtitle">Проверяет дважды в день и загружает новые песни в загруженных плейлистах</string>
+    <string name="download_liked_songs">Скачивать понравившиеся треки</string>
+    <string name="download_liked_songs_subtitle">Скачивает понравившиеся треки и каждый трек, который вам понравится в дальнейшем</string>
     <string name="playlist_sync_ask_title">Новые песни в «%1$s»: %2$d</string>
     <string name="playlist_sync_ask_text">Нажмите, чтобы загрузить</string>
     <string name="playlist_sync_done_title">Добавлено в «%1$s»: %2$d</string>
@@ -1028,6 +1048,7 @@
     <string name="sort_date_added_toggle">Дата добавления</string>
 
     <string name="sort_default">По умолчанию</string>
+    <string name="sort_track_number">Номер трека</string>
 
     <string name="sort_library">Сортировка</string>
 
@@ -1305,8 +1326,6 @@
 
 
     <string name="source_needs_lossless_output">Нужен выход без потерь · используйте устройство с поддержкой звука без потерь</string>
-    <string name="source_needs_update">Это дополнение устарело. Оно продолжает работать, но попросите разработчика обновить его по актуальной документации для дополнений BitChord.</string>
-    <string name="source_outdated">Устаревшее дополнение</string>
     <string name="source_needs_lossless_bt_codec">Нужен выход без потерь · Bluetooth работает на %1$s; используйте устройство с поддержкой звука без потерь</string>
     <string name="source_needs_lossless_bt_unknown">Нужен выход без потерь · не удаётся определить используемый Bluetooth-кодек</string>
     <string name="source_downloads_on">Загрузки разрешены</string>
@@ -1489,4 +1508,90 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="find_a_playlist">Найти плейлист</string>
+    <string name="no_playlists_match">Нет плейлистов по запросу «%1$s»</string>
+    <string name="hide_lyrics_preview">Скрыть текст</string>
+    <string name="hide_lyrics_preview_subtitle">Скрывает строку текста в плеере</string>
+    <string name="show_total_duration">Показывать общую длительность</string>
+    <string name="show_total_duration_subtitle">Показывает полную длительность трека вместо оставшегося времени</string>
+    <string name="sleep_timer_fade_out">Затухание перед паузой</string>
+    <string name="sleep_timer_fade_out_subtitle">Плавно уменьшает громкость в последние 30 секунд</string>
+    <string name="disable_spotify_canvas">Отключить Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">Никогда не использовать Spotify Canvas. Анимированные обложки берутся из других источников</string>
+    <plurals name="queue_removed_count">
+        <item quantity="one">Удалён %1$d трек</item>
+        <item quantity="few">Удалено %1$d трека</item>
+        <item quantity="many">Удалено %1$d треков</item>
+        <item quantity="other">Удалено %1$d трека</item>
+    </plurals>
+    <string name="queue_removed_song">Удалено: %1$s</string>
+    <string name="queue_undo_action">Отменить</string>
+    <string name="queue_cleared">Очередь очищена</string>
+    <string name="queue_selected_count">Выбрано: %1$d</string>
+    <string name="queue_playlist_added">Добавлено %1$d из %2$d треков</string>
+    <string name="queue_playlist_partial">%1$s (несовместимых: %2$d, уже есть: %3$d, ошибок: %4$d)</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Резервная копия в Google Диске</string>
+    <string name="drive_backup_unavailable">Для резервного копирования в Google Диск нужны сервисы Google Play, которых нет на этом устройстве.</string>
+    <string name="drive_backup_never">Никогда</string>
+    <string name="drive_restore_failed">Не удалось восстановить: %1$s</string>
+    <string name="drive_account_header">Аккаунт Google</string>
+    <string name="drive_connect_failed">Не удалось подключиться: %1$s</string>
+    <string name="drive_connect">Подключить Google Диск</string>
+    <string name="drive_connect_subtitle">Выберите аккаунт на этом телефоне для резервного копирования</string>
+    <string name="drive_sign_in_again_subtitle">Доступ к Google Диску отозван. Войдите снова, чтобы продолжить резервное копирование.</string>
+    <string name="drive_sign_in_again">Войти</string>
+    <string name="drive_restore_header">Восстановление</string>
+    <string name="drive_backup_footer">Копии хранятся в скрытой папке приложения в вашем Google Диске и занимают место в хранилище. Пароли и данные входа никогда не включаются. Чтобы удалить копию, откройте Диск → Настройки → Управление приложениями.</string>
+    <string name="drive_restore_connect_first">Сначала подключите аккаунт Google</string>
+    <string name="drive_restore_action">Восстановить</string>
+    <string name="drive_disconnect_confirm_title">Отключить Google Диск?</string>
+    <string name="drive_backup_restoring">Восстановление…</string>
+    <string name="drive_frequency_daily">Ежедневно</string>
+    <string name="drive_frequency_weekly">Еженедельно</string>
+    <string name="drive_frequency_monthly">Ежемесячно</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">Автосинхронизация</string>
+    <string name="drive_auto_sync_footer">Этот телефон в фоне загружает свою историю прослушивания и скачивает историю других ваших устройств, когда заряд батареи не низкий. Ручная синхронизация учитывается в расписании.</string>
+    <string name="drive_choose_device">Выберите устройство для этого телефона</string>
+    <string name="drive_choose_device_subtitle">Создайте копию как новое устройство или восстановите как устройство из Диска</string>
+    <string name="drive_device_not_set">Выбрать устройство</string>
+    <string name="drive_device_synced">Синхронизировано %1$s</string>
+    <string name="drive_devices_checking">Поиск устройств…</string>
+    <string name="drive_devices_failed">Не удалось загрузить устройства: %1$s</string>
+    <string name="drive_devices_footer">Прослушивания со всех устройств суммируются в Replay. Нажмите на устройство, чтобы удалить его резервную копию.</string>
+    <string name="drive_devices_header">Устройства</string>
+    <string name="drive_devices_none">В этом аккаунте пока нет устройств</string>
+    <string name="drive_devices_none_other">В этом аккаунте пока нет других устройств</string>
+    <string name="drive_devices_title">Копировать или восстановить как</string>
+    <string name="drive_forked_notice">Другой телефон был восстановлен как это устройство, поэтому этот телефон теперь синхронизируется как %1$s.</string>
+    <string name="drive_new_device">Копировать как новое устройство</string>
+    <string name="drive_new_device_footer">Прослушивания на этом телефоне остаются отдельным устройством. Прослушивания других ваших устройств добавляются к ним в Replay.</string>
+    <string name="drive_remove_confirm_title">Удалить резервную копию %1$s?</string>
+    <string name="drive_remove_confirm_body">Его копия будет удалена из Google Диска, а его прослушивания исчезнут из Replay на всех ваших устройствах. Это нельзя отменить.</string>
+    <string name="drive_delete_mine_body">Резервная копия этого телефона будет удалена из Google Диска, а автосинхронизация отключена. Replay на этом телефоне сохранит всё, а «Синхронизировать» создаст новую копию.</string>
+    <string name="drive_rename">Переименовать</string>
+    <string name="drive_rename_title">Переименовать этот телефон</string>
+    <string name="drive_rename_message">Другие ваши устройства будут показывать этот телефон под этим именем.</string>
+    <string name="drive_restore_as_done">Теперь синхронизируется как %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">Этот телефон станет выбранным устройством: его история прослушивания и настройки заменят данные этого телефона.</string>
+    <string name="drive_restore_as_header">Восстановить как</string>
+    <string name="drive_restore_as_subtitle">Выберите устройство на Диске, чтобы продолжить как оно</string>
+    <string name="drive_restore_as_title">Восстановить как другое устройство</string>
+    <string name="drive_sync_done">Только что синхронизировано</string>
+    <string name="drive_sync_downloading">Загрузка с %1$s · %2$d из %3$d</string>
+    <string name="drive_sync_failed">Ошибка синхронизации: %1$s</string>
+    <string name="drive_sync_last">Последняя синхронизация</string>
+    <string name="drive_sync_now">Синхронизировать</string>
+    <string name="drive_sync_preparing">Подготовка синхронизации…</string>
+    <string name="drive_sync_uploading">Загрузка месяца %1$d из %2$d</string>
+    <string name="drive_this_phone">Этот телефон</string>
+    <string name="drive_this_phone_header">Этот телефон</string>
+    <string name="drive_this_phone_subtitle">Устройство, как которое этот телефон создаёт копию</string>
+    <string name="drive_restore_confirm_title">Восстановить как %1$s?</string>
+    <string name="drive_restore_confirm_body">Этот телефон станет %1$s. Его история прослушивания и настройки заменят данные этого телефона, и теперь он будет синхронизироваться как %1$s. Данные входа не включены.</string>
+    <string name="drive_disconnect_confirm_body">Синхронизация остановится. Всё на Диске сохранится, а прослушивания других устройств исчезнут из Replay на этом телефоне до повторного подключения.</string>
+    <string name="drive_backup_row_subtitle">Копирование и синхронизация Replay между устройствами</string>
+    <string name="drive_over_cellular">Синхронизировать по мобильной сети</string>
+    <string name="drive_over_cellular_subtitle">Если выключено, автосинхронизация ждёт Wi-Fi</string>
 </resources>

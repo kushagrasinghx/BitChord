@@ -198,4 +198,15 @@
     <string name="search_library_empty">Tìm các bài hát trong thư mục Nhạc cục bộ của bạn.</string>
     <string name="search_library_hint">Bài hát, nghệ sĩ và album</string>
     <string name="search_library_no_results">Không có gì trong Nhạc cục bộ khớp với “%1$s”.</string>
+    <string name="add_to_queue">Thêm vào hàng đợi</string>
+    <string name="queue_selected_count">Đã chọn %1$d</string>
+    <string name="queue_select_all">Chọn tất cả</string>
+    <string name="queue_select">Chọn</string>
+    <string name="queue_close_selection">Đóng chế độ chọn</string>
+    <string name="queue_add_to_playlist">Danh sách phát</string>
+    <string name="queue_download">Tải xuống</string>
+    <string name="queue_selection_remove">Xóa</string>
+    <string name="queue_add_all_to_playlist">Thêm tất cả vào danh sách phát</string>
+    <string name="mixes_yours">Mix của bạn</string>
+    <string name="mixes_none">Chưa có mix nào. Hãy tiếp tục nghe và YouTube Music sẽ tạo mix cho bạn.</string>
 </resources>

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import com.music.bitchord.ui.icons.SfIcons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
@@ -55,6 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -78,6 +81,11 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+sealed interface PlaylistPickerMode {
+    class Membership(val onSave: (List<UserPlaylist>, List<UserPlaylist>, List<UserPlaylist>) -> Unit) : PlaylistPickerMode
+    class Batch(val onAdd: (List<UserPlaylist>) -> Unit) : PlaylistPickerMode
+}
+
 /**
  * Where a track goes: one of the account's playlists, or a new one.
  *
@@ -91,10 +99,13 @@ import kotlinx.coroutines.launch
  * [song] is null when the flow started from the Library tab rather than from a
  * track, which is the one case where the header has no track to draw and
  * "New playlist" is the whole point of the sheet.
+ * [headerTitle] overrides the track title when the same preview represents an
+ * album; the song's artwork and artist remain the preview data.
  *
  * Playlists are ticked rather than picked: one track often belongs in more
  * than one list, and a sheet that closed on the first tap meant opening it
- * again for each. [onSave] receives only changed playlists.
+ * again for each. Membership saves contain only changed playlists; batch
+ * selection passes the selected destinations to its own callback.
  *
  * [offline] is the same sheet over the device's own playlists, for a track
  * that is a file on it: nothing is saved to the account, so the new-playlist
@@ -105,7 +116,7 @@ import kotlinx.coroutines.launch
 fun PlaylistPickerSheet(
     playlists: List<UserPlaylist>,
     loading: Boolean,
-    onSave: (List<UserPlaylist>, List<UserPlaylist>, Int) -> Unit,
+    mode: PlaylistPickerMode,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     onDismiss: () -> Unit,
     loadMembership: suspend (UserPlaylist, Song) -> Result<Boolean> = { _, _ -> Result.failure(IllegalStateException("No membership source")) },
@@ -115,6 +126,8 @@ fun PlaylistPickerSheet(
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
+    headerTitle: String? = null,
+    songs: List<Song> = emptyList(),
 ) {
     var creating by remember { mutableStateOf(startCreating) }
     // Draft edits are separate from confirmed answers; an unknown is never false.
@@ -126,6 +139,14 @@ fun PlaylistPickerSheet(
     LaunchedEffect(initialMembership) {
         if (offline) initial = initialMembership
     }
+    // Batch selection and membership drafts both survive filtering and refreshes.
+    var selected by remember { mutableStateOf(emptySet<String>()) }
+    // A progressive refresh may temporarily omit a touched row. Keep the
+    // actual destination so confirmation cannot silently discard its edit.
+    var touched by remember { mutableStateOf(emptyMap<String, UserPlaylist>()) }
+    var query by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    LaunchedEffect(query) { listState.scrollToItem(0) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -141,7 +162,7 @@ fun PlaylistPickerSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!closing) onDismiss() },
         sheetState = sheetState,
         // It reaches the top of the screen, where corners would only cut two
         // notches out of the status bar's background.
@@ -154,7 +175,9 @@ fun PlaylistPickerSheet(
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
     ) {
         BackHandler {
-            if (creating && !startCreating) creating = false else closeAfter {}
+            if (!closing) {
+                if (creating && !startCreating) creating = false else closeAfter {}
+            }
         }
 
         Column(
@@ -176,31 +199,51 @@ fun PlaylistPickerSheet(
                     leadingIcon = SfIcons.Close,
                     leadingDescription = stringResource(R.string.close),
                     onLeading = { closeAfter {} },
-                    confirmDescription = stringResource(R.string.save),
-                    confirmEnabled = true,
+                    confirmDescription = if (mode is PlaylistPickerMode.Membership) {
+                        stringResource(R.string.save)
+                    } else if (selected.isEmpty()) {
+                        stringResource(R.string.add_to_playlist)
+                    } else {
+                        pluralStringResource(R.plurals.add_to_playlists_count, selected.size, selected.size)
+                    },
+                    confirmEnabled = !closing && (mode is PlaylistPickerMode.Membership || selected.isNotEmpty()),
                     onConfirm = {
-                        closeAfter {
-                            onSave(
-                                playlists.filter { initial[it.playlistId] == false && draft[it.playlistId] == true },
-                                playlists.filter { initial[it.playlistId] == true && draft[it.playlistId] == false },
-                                pendingTap.size,
-                            )
+                        if (!closing) {
+                            val targets = (playlists + touched.values).distinctBy { it.playlistId }
+                            closeAfter {
+                                when (mode) {
+                                    is PlaylistPickerMode.Batch -> mode.onAdd(targets.filter { it.playlistId in selected })
+                                    is PlaylistPickerMode.Membership -> mode.onSave(
+                                        targets.filter { initial[it.playlistId] == false && draft[it.playlistId] == true },
+                                        targets.filter { initial[it.playlistId] == true && draft[it.playlistId] == false },
+                                        targets.filter { it.playlistId in pendingTap },
+                                    )
+                                }
+                            }
                         }
                     },
                 )
-                if (song != null) {
-                    SheetTrackHeader(song)
+                if (songs.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.queue_selected_count, songs.size),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
+                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                } else if (song != null) {
+                    SheetTrackHeader(song, title = headerTitle)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
                 SheetHeading(
-                    stringResource(if (song != null) R.string.add_to_playlist else R.string.your_playlists)
+                    stringResource(if (song != null || songs.isNotEmpty()) R.string.add_to_playlist else R.string.your_playlists)
                         .uppercase(Locale.getDefault()),
                 )
 
                 ActionRow(
                     icon = BitChordIcons.Plus,
                     label = stringResource(R.string.new_playlist),
-                    onClick = { creating = true },
+                    onClick = { if (!closing) creating = true },
                 )
 
                 if (discoveryError) {
@@ -236,20 +279,26 @@ fun PlaylistPickerSheet(
                     )
 
                     else -> {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 6.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
+                        PlaylistSearchField(query = query, onQueryChange = { query = it })
+                        val shown = remember(playlists, query) { filterPlaylists(playlists, query) { it.title } }
+                        if (shown.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.no_playlists_match, query.trim()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                            )
+                        }
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.weight(1f),
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
-                            items(playlists, key = { it.playlistId }) { playlist ->
+                            items(shown, key = { it.playlistId }) { playlist ->
                                 val id = playlist.playlistId
                                 val retry = retries[id] ?: 0
                                 LaunchedEffect(id, song?.videoId, retry) {
-                                    if (!offline && song != null && id !in initial && id !in failed) {
+                                    if (mode is PlaylistPickerMode.Membership && !offline && song != null && id !in initial && id !in failed) {
                                         loadMembership(playlist, song).fold(
                                             onSuccess = { present ->
                                                 initial = initial + (id to present)
@@ -262,22 +311,27 @@ fun PlaylistPickerSheet(
                                         )
                                     }
                                 }
-                                val ticked = draft[id] ?: initial[id]
+                                val ticked = if (mode is PlaylistPickerMode.Batch) id in selected else draft[id] ?: initial[id]
                                 PlaylistRow(
                                     playlist = playlist,
                                     selected = ticked,
-                                    failed = id in failed,
+                                    failed = mode is PlaylistPickerMode.Membership && id in failed,
                                     onClick = {
-                                        if (ticked == null) {
-                                            if (id in failed) {
-                                                pendingTap = pendingTap + id
-                                                failed = failed - id
-                                                retries = retries + (id to retry + 1)
+                                        if (!closing) {
+                                            touched = touched + (id to playlist)
+                                            if (mode is PlaylistPickerMode.Batch) {
+                                                selected = if (id in selected) selected - id else selected + id
+                                            } else if (ticked == null) {
+                                                if (id in failed) {
+                                                    pendingTap = pendingTap + id
+                                                    failed = failed - id
+                                                    retries = retries + (id to retry + 1)
+                                                } else {
+                                                    pendingTap = if (id in pendingTap) pendingTap - id else pendingTap + id
+                                                }
                                             } else {
-                                                pendingTap = if (id in pendingTap) pendingTap - id else pendingTap + id
+                                                draft = draft + (id to !ticked)
                                             }
-                                        } else {
-                                            draft = draft + (id to !ticked)
                                         }
                                     },
                                 )
@@ -285,6 +339,55 @@ fun PlaylistPickerSheet(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Find a playlist: the search box over the picker's list. */
+@Composable
+private fun PlaylistSearchField(query: String, onQueryChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.find_a_playlist),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (query.isNotEmpty()) {
+            IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.clear),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }

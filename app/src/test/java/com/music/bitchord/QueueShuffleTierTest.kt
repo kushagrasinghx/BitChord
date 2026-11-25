@@ -481,6 +481,17 @@ class QueueShuffleTierTest {
     }
 
     @Test
+    fun `header play button builds the next queue in order with shuffle left on`() {
+        QueueShuffle.enableForNextQueue() // shuffle left on from the last queue
+
+        QueueShuffle.disableForNextQueue()
+
+        // playSongs reads this flag for the queue it is about to build (PlayerConnection).
+        assertFalse(QueueShuffle.enabled.value)
+        assertTrue(QueueShuffle.canonicalContext.isEmpty())
+    }
+
+    @Test
     fun `header shuffle button flow establishes canonical context and restores strictly forward on shuffle OFF`() {
         val songs = (1..6).map { testSong("track-$it", QueueTier.CONTEXT, "entry-$it") }
         // Simulate tapping header Shuffle button:

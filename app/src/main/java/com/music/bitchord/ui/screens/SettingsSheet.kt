@@ -129,6 +129,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import com.music.bitchord.ui.haptics.HapticsSettings
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.viewinterop.AndroidView
 import com.music.bitchord.AppIcon
@@ -236,6 +237,7 @@ fun SettingsScreen(
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+    val hapticFeedback by AppSettings.hapticFeedbackEnabled.collectAsStateWithLifecycle()
     val automixModels by AutomixModels.state.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
@@ -963,6 +965,21 @@ fun SettingsScreen(
                         onClick = { AppSettings.setSkipSilence(!skipSilence) },
                     )
                 }
+            }
+            val hapticFeedbackTitle = stringResource(R.string.haptic_feedback)
+            row(hapticFeedbackTitle, "haptic", "vibration", "feedback", "touch", "watch") {
+                SettingsRow(
+                    icon = SfIcons.SmartButton,
+                    title = hapticFeedbackTitle,
+                    subtitle = stringResource(R.string.haptic_feedback_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hapticFeedback,
+                            onCheckedChange = AppSettings::setHapticFeedbackEnabled,
+                        )
+                    },
+                    onClick = { AppSettings.setHapticFeedbackEnabled(!hapticFeedback) },
+                )
             }
             val sleepTimerFadeOutTitle = stringResource(R.string.sleep_timer_fade_out)
             row(sleepTimerFadeOutTitle, "sleep", "timer", "fade") {
@@ -3261,7 +3278,9 @@ internal fun <T> ChoiceGroup(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = available) {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (HapticsSettings.enabled) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                         onSelect(option)
                     }
                     .alpha(if (available) 1f else 0.45f)

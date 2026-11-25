@@ -53,6 +53,9 @@ fun WearApp(link: PhoneLink) {
     val ambient = LocalAmbient.current
     val np by link.nowPlaying.collectAsStateWithLifecycle()
     val showAmbient = ambient.active && np != null
+    // At the root so a pause or track change buzzes on the queue and More
+    // screens too, not only while the player is the visible page.
+    np?.let { PlaybackHapticsEffect(np = it) }
     // No pill behind the clock: the mesh runs right up to the bezel.
     AppScaffold(timeText = { TimeText(backgroundColor = Color.Transparent) }) {
         // Kept composed under the ambient player so waking up lands exactly

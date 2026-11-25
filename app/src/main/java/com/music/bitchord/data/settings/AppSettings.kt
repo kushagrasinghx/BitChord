@@ -2,6 +2,7 @@ package com.music.bitchord.data.settings
 
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.ui.components.VideoThumbnails
+import com.music.bitchord.ui.haptics.HapticsSettings
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
@@ -292,6 +293,13 @@ object AppSettings {
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
     val smartFadeEnabled = MutableStateFlow(false)
+
+    /**
+     * BitChord's own haptic switch. On by default, like the controls that were
+     * already buzzing; the system touch-feedback switch still has to be on too.
+     */
+    val hapticFeedbackEnabled = MutableStateFlow(true)
+
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
@@ -1058,6 +1066,8 @@ object AppSettings {
         downloadLikedSongs.value = prefs.getBoolean(KEY_DOWNLOAD_LIKED_SONGS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        hapticFeedbackEnabled.value = prefs.getBoolean(KEY_HAPTIC_FEEDBACK, true)
+        HapticsSettings.enabled = hapticFeedbackEnabled.value
         _autoMixArtwork.value = AutoMixArtworkPreferences(
             artTransition = prefs.getBoolean(KEY_AUTOMIX_ART_TRANSITION, false),
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
@@ -1397,6 +1407,12 @@ object AppSettings {
         }
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
+    }
+
+    fun setHapticFeedbackEnabled(value: Boolean) {
+        hapticFeedbackEnabled.value = value
+        HapticsSettings.enabled = value
+        prefs.edit().putBoolean(KEY_HAPTIC_FEEDBACK, value).apply()
     }
 
     fun setAutoMixArtTransition(value: Boolean) {
@@ -2425,6 +2441,7 @@ object AppSettings {
     private const val KEY_DOWNLOAD_LIKED_SONGS = "download_liked_songs"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
+    private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback_enabled"
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"

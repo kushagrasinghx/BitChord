@@ -504,6 +504,7 @@ object WearBridge {
                 map.putIntegerArrayList(P.KEY_COLORS, cover.colors)
             }
         }
+        map.putBoolean(P.KEY_HAPTIC_FEEDBACK, AppSettings.hapticFeedbackEnabled.value)
         map.putBoolean(P.KEY_WATCH_SPEAKER, speaker?.active == true)
         val watchVolume = speaker?.watchVolume
         if (watchVolume != null) {

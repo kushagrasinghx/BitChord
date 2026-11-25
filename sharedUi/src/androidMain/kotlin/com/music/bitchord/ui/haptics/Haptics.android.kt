@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.ContentObserver
 import android.media.AudioAttributes
 import android.os.Build
+import android.os.SystemClock
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -25,9 +26,38 @@ actual class Haptics internal constructor(context: Context) {
     private val app = context.applicationContext
 
     actual fun play(haptic: Haptic) {
-        HapticDevice.of(app)?.play(haptic)
+        if (!HapticsSettings.enabled) return
+        if (HapticDevice.of(app)?.play(haptic) == true) PlaybackHapticGate.mark()
+    }
+
+    actual fun playPlayback(haptic: Haptic) {
+        if (!HapticsSettings.enabled) return
+        // The player reports a state change after the control that caused it
+        // has already buzzed. One haptic per action is the point; a second
+        // arriving on top of the first feels like a defect.
+        if (PlaybackHapticGate.recent()) return
+        if (HapticDevice.of(app)?.play(haptic) == true) PlaybackHapticGate.mark()
     }
 }
+
+/** When the last haptic was played, so playback events can skip a duplicate. */
+private object PlaybackHapticGate {
+    private const val WINDOW_MS = 600L
+
+    @Volatile private var lastAt = 0L
+
+    fun mark() {
+        lastAt = SystemClock.uptimeMillis()
+    }
+
+    fun recent(): Boolean = SystemClock.uptimeMillis() - lastAt < WINDOW_MS
+}
+
+/**
+ * A handle for code outside a composition, such as the playback service.
+ * Cheap to hold; the motor is resolved once per process.
+ */
+fun hapticsFor(context: Context): Haptics = Haptics(context)
 
 /** `val haptics = rememberHaptics()`, then `haptics.play(Haptic.Select)`. */
 @Composable
@@ -103,6 +133,12 @@ private fun rhythmOf(haptic: Haptic): List<Beat> = when (haptic) {
         Beat(Beat.Kind.Click, 1f, 0),
         Beat(Beat.Kind.LowTick, 0.6f, 24),
     )
+    // Softer than SkipNext and with a wider gap: the queue changing by itself
+    // is information, not a control the listener just pressed.
+    Haptic.TrackChange -> listOf(
+        Beat(Beat.Kind.LowTick, 0.45f, 0),
+        Beat(Beat.Kind.Click, 0.6f, 45),
+    )
 }
 
 // ── The motor ─────────────────────────────────────────────────────────────────
@@ -133,11 +169,11 @@ private class HapticDevice private constructor(
 ) {
     private val compiled = HashMap<Haptic, VibrationEffect>()
 
-    fun play(haptic: Haptic) {
+    fun play(haptic: Haptic): Boolean {
         // The system-wide touch-feedback switch is the user's answer to this
         // whole feature, and going through Vibrator rather than the View means
         // nothing else is checking it for us.
-        if (!systemHapticsEnabled()) return
+        if (!systemHapticsEnabled()) return false
 
         val effect = synchronized(compiled) {
             compiled.getOrPut(haptic) { compile(rhythmOf(haptic)) }
@@ -148,6 +184,7 @@ private class HapticDevice private constructor(
             @Suppress("DEPRECATION")
             vibrator.vibrate(effect, LEGACY_ATTRIBUTES)
         }
+        return true
     }
 
     private fun compile(beats: List<Beat>): VibrationEffect = when {

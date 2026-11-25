@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.ui.haptics.HapticsSettings
 import com.music.bitchord.ui.player.PlayerSettings
 import com.music.bitchord.ui.player.rememberArtworkColors
 import kotlinx.coroutines.delay
@@ -128,7 +129,9 @@ fun ReplayYearButton(badge: ReplayYearBadge, height: Dp, modifier: Modifier = Mo
             .clip(RoundedCornerShape(height / 2))
             .background(fill)
             .clickable(interactionSource = interaction, indication = null, role = Role.Button) {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                if (HapticsSettings.enabled) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
                 badge.onOpen()
             }
             .semantics { contentDescription = badge.contentDescription }

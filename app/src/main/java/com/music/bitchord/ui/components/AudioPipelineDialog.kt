@@ -65,6 +65,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.KaraokeProcessingAvailability
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.dsd.DsdFilter
 import com.music.bitchord.playback.dsd.DsdFormat
@@ -84,7 +85,8 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  * Worth stating outright rather than leaving to be inferred from the rows
  * above it, because it is the one claim in this dialog a listener might act
  * on, and because the app otherwise breaks bit-exactness whenever the
- * equaliser or spatial audio is switched on without saying so anywhere.
+ * equaliser, Karaoke or spatial audio is switched on without saying so
+ * anywhere.
  *
  * There are two independent ways to lose it, and the ordering names the
  * *first* one in the signal chain, which is also the first thing someone
@@ -100,7 +102,9 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  * Exactness here stops at the app: Android's mixer may still resample what
  * leaves it. The exclusive output ([bitPerfect], set under Settings → Bit-perfect
  * output) is the one path where it reaches the DAC unchanged, and every DSP
- * stage is bypassed there, so only the source itself can make it inexact.
+ * stage is bypassed there — Karaoke included, which is why it reports itself
+ * paused while that route is active — so only the source itself can make it
+ * inexact.
  */
 private fun bitExactVerdict(
     dsd: Boolean,
@@ -110,6 +114,7 @@ private fun bitExactVerdict(
     loudnessActive: Boolean,
     eqActive: Boolean,
     spatialActive: Boolean,
+    karaokeActive: Boolean,
 ): String = when {
     // Not a fault to fix: there is no DSD output path (native DSD or DoP)
     // here, so the PCM conversion is a deviation every DSD track carries,
@@ -122,6 +127,7 @@ private fun bitExactVerdict(
     // question left is whether the source itself was integer PCM.
     bitPerfect.active && bitPerfect.exact -> "Yes — bit-perfect to ${bitPerfect.deviceName}"
     bitPerfect.active -> "No — source isn't lossless PCM"
+    karaokeActive -> "No — karaoke vocal reduction"
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
@@ -157,6 +163,15 @@ fun AudioPipelineDialog(
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
+    val karaokeEnabled by AppSettings.karaokeEnabled.collectAsStateWithLifecycle()
+    val karaokeAvailability by AppSettings.karaokeProcessingAvailability.collectAsStateWithLifecycle()
+
+    /**
+     * What the vocal stage is actually doing, not what the preference says:
+     * Karaoke switched on but on a route it cannot run on is paused, and the
+     * bit-exact verdict below counts only the state that reaches the samples.
+     */
+    val karaokeActive = karaokeEnabled && karaokeAvailability == KaraokeProcessingAvailability.AVAILABLE
 
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -409,6 +424,18 @@ fun AudioPipelineDialog(
             val loudnessMeasuredText = outputStatus.loudnessLufs?.let {
                 stringResource(R.string.loudness_lufs, "%+.1f".format(Locale.ROOT, it))
             } ?: "—"
+            val karaokeText = when {
+                !karaokeEnabled -> stringResource(R.string.off)
+                // The switch is on; the route decides what is really
+                // happening — actual processing state, not the preference.
+                else -> when (karaokeAvailability) {
+                    KaraokeProcessingAvailability.AVAILABLE -> "Vocal reduction"
+                    KaraokeProcessingAvailability.NEEDS_STEREO -> "Paused — needs stereo"
+                    KaraokeProcessingAvailability.NEEDS_LINEAR_PCM -> "Paused — needs decoded PCM"
+                    KaraokeProcessingAvailability.BIT_PERFECT_ACTIVE -> "Paused — bit-perfect output"
+                    KaraokeProcessingAvailability.REMOTE_OUTPUT_ACTIVE -> "Paused — remote speaker"
+                }
+            }
 
             PipelineRule()
             PipelineSection(
@@ -423,6 +450,7 @@ fun AudioPipelineDialog(
                 PipelineRow(stringResource(R.string.pipeline_sample_rate), dspRateText)
                 PipelineRow(stringResource(R.string.pipeline_loudness_gain), loudnessGainText)
                 PipelineRow(stringResource(R.string.pipeline_loudness_measured), loudnessMeasuredText)
+                PipelineRow(stringResource(R.string.pipeline_karaoke), karaokeText)
                 PipelineRow(stringResource(R.string.pipeline_eq_preset), eqPresetText)
                 PipelineRow(stringResource(R.string.pipeline_stereo_expand), stereoExpandText)
                 PipelineRow(stringResource(R.string.pipeline_buffers), buffersText)
@@ -442,6 +470,7 @@ fun AudioPipelineDialog(
                         loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                         eqActive = eqEnabled,
                         spatialActive = spatialAudio,
+                        karaokeActive = karaokeActive,
                     ),
                 )
             }

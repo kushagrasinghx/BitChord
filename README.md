@@ -51,6 +51,7 @@
 - **Local music library** integration.
 - **Background playback** via a proper foreground media session.
 - **Apple-like lyrics animation** — credit to [binimum](https://github.com/binimum/am-lyrics).
+- **Karaoke** — real-time vocal reduction from the stereo mix, with an adjustable vocal level and the synced lyrics alongside it for sing-along. Results vary by track.
 
 #### Connectivity & Accounts
 - **Sign in with your Google account** for personalized content.

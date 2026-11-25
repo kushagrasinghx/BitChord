@@ -160,6 +160,13 @@ interface PlayerHost {
     /** Make the watch the speaker. */
     fun selectWatchOutput() = Unit
 
+    /**
+     * Turns bit-perfect output off — the recovery action Karaoke's drawer
+     * offers while bit-perfect bypasses the DSP chain entirely. Only ever
+     * called on an explicit tap; the setting is never rewritten silently.
+     */
+    fun useNormalOutput() = Unit
+
     /** The device picker the output drawer's Cast row opens, in the pipeline dialog's card. */
     @Composable
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
@@ -319,11 +326,66 @@ interface PlayerSettingsSource {
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
+    /** Karaoke vocal reduction, master switch — persisted, default off. */
+    val karaokeEnabled: StateFlow<Boolean>
+    /**
+     * 0 = maximum vocal reduction, 1 = the original mix — persisted, default
+     * 0 so the first activation is immediately audible. Kept while
+     * [karaokeEnabled] is off, so disabling does not discard the level the
+     * listener chose for the next time.
+     */
+    val karaokeVocalLevel: StateFlow<Float>
+    /**
+     * Whether the reduction can run on the audio that is actually playing —
+     * runtime fact published by the platform, never a preference. Enabled
+     * Karaoke on a route that bypasses processing reads as that route's
+     * [KaraokeAvailability] state rather than silently doing nothing, and
+     * resumes by itself when a compatible route comes back.
+     */
+    val karaokeAvailability: StateFlow<KaraokeAvailability>
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
     /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
     fun setMixViewOpen(open: Boolean)
+    /**
+     * Turns synced lyrics on or off. The preference governs third-party
+     * network lookups, so it is only ever written from the listener's own
+     * tap: Karaoke's drawer offers that tap (see [offersSyncedLyricsEnable])
+     * rather than any activation flipping it silently.
+     */
+    fun setSyncedLyrics(value: Boolean)
+    fun setKaraokeEnabled(value: Boolean)
+    /** Sets the vocal level, clamped to 0 (maximum reduction) .. 1 (original mix). */
+    fun setKaraokeVocalLevel(value: Float)
+}
+
+/**
+ * Whether Karaoke's vocal reduction can run on the audio that is actually
+ * playing — the shared player's name for the playback pipeline's verdict,
+ * mapped one-for-one by the platform host (on the phone, from its
+ * `KaraokeProcessingAvailability`).
+ *
+ * Kept separate from the persisted [PlayerSettingsSource.karaokeEnabled]
+ * preference: a preference left enabled on an incompatible route reads as
+ * that route's state here and processing resumes by itself once the route
+ * allows it again.
+ */
+enum class KaraokeAvailability {
+    /** Local stereo decoded PCM through the normal processed sink: the vocal stage runs. */
+    AVAILABLE,
+
+    /** The track is mono or multichannel: channel cancellation needs stereo, and mono is not upmixed. */
+    NEEDS_STEREO,
+
+    /** The stream was never decoded to linear PCM (passthrough/offload): there is nothing to filter. */
+    NEEDS_LINEAR_PCM,
+
+    /** Bit-perfect output is active and bypasses the DSP chain entirely. */
+    BIT_PERFECT_ACTIVE,
+
+    /** Cast or the watch is the speaker, and it plays the original stream rather than this phone's PCM. */
+    REMOTE_OUTPUT_ACTIVE,
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

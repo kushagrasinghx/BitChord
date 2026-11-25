@@ -553,6 +553,7 @@
     <string name="pipeline_quality">Quality</string>
     <string name="pipeline_pcm_format">PCM Format</string>
     <string name="pipeline_eq_preset">EQ Preset</string>
+    <string name="pipeline_karaoke" translatable="false">Karaoke</string>
     <string name="pipeline_stereo_expand">Stereo Expand</string>
     <string name="pipeline_buffers">Buffers</string>
     <string name="pipeline_output_api">Output API</string>
@@ -1117,7 +1118,7 @@
 
     <string name="bit_perfect_output">Bit-perfect output</string>
     <string name="bit_perfect_bypassed_footer">Bit-perfect output is ready, so the faded settings are bypassed and Dolby Atmos versions aren\'t requested. They work again when the DAC is disconnected or the mode is off.</string>
-    <string name="bit_perfect_sheet_warning">Sends the track to the DAC unchanged. The equalizer, loudness normalization, crossfade, Automix, playback speed and BitChord\'s volume are bypassed.</string>
+    <string name="bit_perfect_sheet_warning">Sends the track to the DAC unchanged. The equalizer, Karaoke vocal reduction, loudness normalization, crossfade, Automix, playback speed and BitChord\'s volume are bypassed.</string>
     <string name="bit_perfect_mode_off_subtitle">Audio goes through Android\'s mixer and BitChord\'s effects.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 opens the DAC at each track\'s own rate and bit depth, without mixing or resampling.</string>

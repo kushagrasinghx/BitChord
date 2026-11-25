@@ -12,6 +12,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
+import com.music.bitchord.playback.StereoVocalReductionProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,6 +23,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.sin
 
 @androidx.annotation.OptIn(UnstableApi::class)
 class PrecisionAudioSinkTest {
@@ -1312,5 +1316,88 @@ class PrecisionAudioSinkTest {
         assertEquals(PcmEncoding.PCM_FLOAT, sink.inputPcmEncoding)
         assertEquals(PcmEncoding.PCM_16BIT, sink.targetOutputEncoding)
         assertEquals(C.ENCODING_PCM_16BIT, fakeDelegate.configuredConfig?.format?.pcmEncoding)
+    }
+
+    // ---- The Karaoke stage in the sink --------------------------------------
+    //
+    // Both output paths still route through the updated chain, and a stage
+    // that is switched on still reaches the samples on either of them. The
+    // exactness tests above prove the other half: with the stage idle, both
+    // paths round-trip exactly as before.
+
+    /** PCM16 output: the vocal stage is reached and reduces centered content. */
+    @Test
+    fun `karaoke reduction reaches the pcm16 path`() {
+        val vocal = StereoVocalReductionProcessor().apply {
+            setTuning(enabled = true, vocalLevel = 0f)
+        }
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(
+            fakeDelegate,
+            enableFloatOutput = false,
+            dspChain = DspChain(vocal = vocal),
+        )
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_16BIT)).build())
+
+        val frames = 4096
+        val input = ByteBuffer.allocate(frames * 2 * 2).order(ByteOrder.nativeOrder())
+        for (f in 0 until frames) {
+            val s = (20000.0 * sin(2.0 * PI * 1000.0 * f / 48000)).toInt()
+            input.putShort(s.toShort())
+            input.putShort(s.toShort())
+        }
+        input.flip()
+
+        sink.handleBuffer(input, 0L, 1)
+
+        val handed = fakeDelegate.lastHandledBuffer!!.order(ByteOrder.nativeOrder())
+        handed.rewind()
+        var tailPeak = 0
+        for (f in 0 until frames) {
+            val left = handed.short
+            val right = handed.short
+            // The stage snaps to full suppression on configure; only the
+            // crossover filters' own settling eats into the head of the block.
+            if (f >= 3072) tailPeak = maxOf(tailPeak, abs(left.toInt()), abs(right.toInt()))
+        }
+        assertTrue("centered content must be reduced on the PCM16 path (peak $tailPeak)", tailPeak < 2000)
+    }
+
+    /** Float32 output: the same stage is reached on the float branch. */
+    @Test
+    fun `karaoke reduction reaches the float32 path`() {
+        val vocal = StereoVocalReductionProcessor().apply {
+            setTuning(enabled = true, vocalLevel = 0f)
+        }
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(
+            fakeDelegate,
+            enableFloatOutput = true,
+            dspChain = DspChain(vocal = vocal),
+        )
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+
+        assertEquals(PcmEncoding.PCM_FLOAT, sink.targetOutputEncoding)
+
+        val frames = 4096
+        val input = ByteBuffer.allocate(frames * 2 * 4).order(ByteOrder.nativeOrder())
+        for (f in 0 until frames) {
+            val s = (0.6 * sin(2.0 * PI * 1000.0 * f / 48000)).toFloat()
+            input.putFloat(s)
+            input.putFloat(s)
+        }
+        input.flip()
+
+        sink.handleBuffer(input, 0L, 1)
+
+        val handed = fakeDelegate.lastHandledBuffer!!.order(ByteOrder.nativeOrder())
+        handed.rewind()
+        var tailPeak = 0f
+        for (f in 0 until frames) {
+            val left = handed.float
+            val right = handed.float
+            if (f >= 3072) tailPeak = maxOf(tailPeak, abs(left), abs(right))
+        }
+        assertTrue("centered content must be reduced on the float path (peak $tailPeak)", tailPeak < 0.06f)
     }
 }

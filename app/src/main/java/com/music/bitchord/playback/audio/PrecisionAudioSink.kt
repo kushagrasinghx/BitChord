@@ -21,7 +21,7 @@ import java.nio.ByteOrder
  *
  * Architecture:
  * - In Precision Mode (for all supported linear PCM sources):
- *   decoder PCM -> PcmBoundary.decode -> AudioBlock (Float32) -> DspChain (Spatial -> EQ -> Transition)
+ *   decoder PCM -> PcmBoundary.decode -> AudioBlock (Float32) -> DspChain (Vocal -> Spatial -> EQ -> Transition)
  *   -> PcmBoundary.encode -> delegate [DefaultAudioSink].
  *   Internal DSP precision and AudioTrack output precision are independent:
  *   - Float-capable route ([enableFloatOutput] is true and the delegate opens float natively):

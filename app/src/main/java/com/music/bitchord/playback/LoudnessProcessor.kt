@@ -36,8 +36,9 @@ import kotlin.math.exp
  * ## The limiter
  *
  * Only engages when a positive normalization gain could push a track past
- * full scale, or while [holdLimiter] says an earlier stage — the equaliser,
- * whose make-up only takes back half of a boost — could have. Instant attack,
+ * full scale, or while [holdLimiter] says an earlier stage — the vocal
+ * reduction, the equaliser whose make-up only takes back half of a boost, the
+ * spatial widener — could have. Instant attack,
  * a smooth release, no lookahead — a peak catcher for the odd over, not a
  * mastering limiter, and never asked to do more than that.
  *

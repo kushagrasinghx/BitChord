@@ -1011,6 +1011,7 @@ fun NowPlayingScreen(
     var showAudioOutput by remember { mutableStateOf(false) }
     var showVideoQuality by remember { mutableStateOf(false) }
     var showLyricsProviders by remember { mutableStateOf(false) }
+    var showKaraoke by remember { mutableStateOf(false) }
     // Gated on the Bluetooth permission the first time — see [rememberOutputPicker].
     val openAudioOutput = rememberOutputPicker { showAudioOutput = true }
     // Listening in a party whose host has taken the controls: the transport
@@ -1270,6 +1271,35 @@ fun NowPlayingScreen(
         queueOpen = opening
         if (opening) closeLyrics()
     }
+    // The Karaoke glyph's press turns the feature on at the level the
+    // listener last chose — 0% the first time, so the effect is immediate —
+    // and opens the drawer that holds both the level and the off switch. The
+    // setting itself is the service's to apply, to both decks alike; nothing
+    // about it ever touches the equalizer.
+    //
+    // The same press starts the sing-along when it can (see
+    // [opensLyricsOnKaraokeActivation]): on the enabling edge, with the vocal
+    // reduction actually running and synced lyrics already allowed, the
+    // existing lyrics panel comes up behind the drawer through this same
+    // [openLyrics] the Lyrics glyph uses — never a second lyric surface, and
+    // the queue goes with it exactly as the Lyrics button takes it. A route
+    // that cannot process, or synced lyrics the listener has turned off,
+    // leaves the drawer to explain instead: its availability rows, or the one
+    // "Enable synced lyrics" tap that alone flips that preference. A press
+    // while already on never touches the panel either way — closing lyrics
+    // did not stop Karaoke, and adjusting its level must not drag the words
+    // back up.
+    val openKaraoke: () -> Unit = {
+        val alreadyEnabled = PlayerSettings.karaokeEnabled.value
+        if (!alreadyEnabled) PlayerSettings.setKaraokeEnabled(true)
+        showKaraoke = true
+        if (opensLyricsOnKaraokeActivation(
+                alreadyEnabled,
+                PlayerSettings.karaokeAvailability.value,
+                PlayerSettings.syncedLyrics.value,
+            )
+        ) openLyrics()
+    }
     val lyricsLoadingLines = stringArrayResource(Res.array.lyrics_loading_lines)
     val lyricsLoadingText = remember(song.videoId) { lyricsLoadingLines.random() }
     val lyricsTranslation = rememberLyricsTranslation(
@@ -1301,7 +1331,8 @@ fun NowPlayingScreen(
     val overlayOpen = remember {
         derivedStateOf {
             currentMenuOpen() || showAudioPipeline || showCast || showAudioOutput || showVideoQuality ||
-                showLyricsProviders || showListenTogetherMembers || lyricsShare != null || currentLyricsOffsetOpen
+                showLyricsProviders || showListenTogetherMembers || lyricsShare != null || currentLyricsOffsetOpen ||
+                showKaraoke
         }
     }
     val lyricsShareEnabled = lyricsShareAvailable
@@ -1394,6 +1425,10 @@ fun NowPlayingScreen(
     PlayerBackHandler(enabled = showAudioPipeline) { showAudioPipeline = false }
 
     PlayerBackHandler(enabled = showCast) { showCast = false }
+
+    // Closing this drawer never switches Karaoke off — only its own master
+    // control does. See [KaraokeSheet].
+    PlayerBackHandler(enabled = showKaraoke) { showKaraoke = false }
 
     PlayerBackHandler(enabled = lyricsOffsetOpen, onBack = onDismissLyricsOffset)
 
@@ -1899,6 +1934,7 @@ fun NowPlayingScreen(
             autoplayEnabled = autoplayEnabled,
             onToggleLyrics = toggleLyrics,
             onToggleQueue = toggleQueue,
+            onOpenKaraoke = openKaraoke,
             onToggleShuffle = onToggleShuffle,
             onCycleRepeat = onCycleRepeat,
             onToggleAutoplay = onToggleAutoplay,
@@ -1980,6 +2016,25 @@ fun NowPlayingScreen(
             LyricsOffsetSheet(
                 hazeState = playerHaze,
                 onDismiss = onDismissLyricsOffset,
+            )
+        }
+        if (showKaraoke) {
+            KaraokeSheet(
+                hazeState = playerHaze,
+                onDismiss = { showKaraoke = false },
+                // The remote-speaker recovery: hand the music back to this
+                // phone's outputs, which starts by putting this drawer away.
+                onOpenOutputs = {
+                    showKaraoke = false
+                    openAudioOutput()
+                },
+                // The sing-along continuation: the drawer's Enable synced
+                // lyrics tap hands the words back to the player's own
+                // [openLyrics], so the panel that comes up behind this
+                // drawer is the same one the Lyrics glyph opens — queue
+                // closed, screen remembered, kept awake — never a second
+                // lyric surface.
+                onOpenLyrics = openLyrics,
             )
         }
         lyricsShare?.let { request ->
@@ -2994,7 +3049,7 @@ fun NowPlayingScreen(
                 // only a modest floor rather than an opaque status-bar surface.
                 val playerSubviewOpen = lyricsOpen || queueOpen || lyricsOffsetOpen ||
                     showAudioPipeline || showCast || showAudioOutput || showVideoQuality || showLyricsProviders ||
-                    lyricsShare != null
+                    showKaraoke || lyricsShare != null
                 val topGradientAlpha = if (playerSubviewOpen) {
                     maxOf(artworkStatusScrimAlpha, SUBVIEW_STATUS_SCRIM_MIN_ALPHA)
                 } else {

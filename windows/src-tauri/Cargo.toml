@@ -25,6 +25,8 @@ windows = { version = "0.62", features = [
     "Web_Http_Headers",
     "Win32_System_WinRT",
 ] }
+# webview2-com: WebView2 itself, to lower its memory target while the window is minimised (memory.rs).
+webview2-com = "0.39"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

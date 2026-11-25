@@ -9,6 +9,7 @@
 //! Chrome zip holds; this file only hosts the two together.
 
 mod media_session;
+mod memory;
 mod sign_in;
 mod title_bar;
 mod update;
@@ -41,6 +42,7 @@ fn main() {
         .on_window_event(|window, event| {
             if let WindowEvent::Resized(_) = event {
                 sign_in::relayout(window.app_handle());
+                memory::follow_window(window);
             }
         })
         .setup(|app| {

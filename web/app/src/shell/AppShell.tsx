@@ -163,7 +163,8 @@ export function AppShell() {
             event.preventDefault();
             content.current?.focus();
           }}
-          className="sr-only rounded-full bg-key-bg px-4 py-2 text-on-key focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-(--z-modal)"
+          // Padding under focus-visible too: not-sr-only resets it to 0.
+          className="sr-only rounded-full bg-key-bg text-on-key focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-(--z-modal) focus-visible:px-4 focus-visible:py-2 focus-visible:type-body-emphasized"
         >
           Skip to content
         </a>

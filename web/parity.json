@@ -51,14 +51,16 @@
     {
       "id": "queue-timeline",
       "name": "Queue timeline (jumps, sections)",
-      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/playback/QueueTimeline.kt", "shared/src/jvmSharedMain/kotlin/com/music/bitchord/playback/QueueSections.kt"],
-      "web": ["web/app/src/playback/queue/timeline.ts"]
+      "android": ["app/src/main/java/com/music/bitchord/playback/QueueCoordinator.kt"],
+      "web": ["web/app/src/playback/queue/timeline.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueTimeline.kt", "shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueSections.kt"]
     },
     {
       "id": "queue-builder",
       "name": "Queue building",
-      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/playback/QueueBuilder.kt"],
-      "web": ["web/app/src/playback/queue/builder.ts"]
+      "android": ["app/src/main/java/com/music/bitchord/playback/Autoplay.kt"],
+      "web": ["web/app/src/playback/queue/builder.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueBuilder.kt"]
     },
     {
       "id": "radio",
@@ -110,14 +112,16 @@
     {
       "id": "track-matching",
       "name": "Song matching (accents, CJK romanization)",
-      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/sources/TrackMatcher.kt"],
-      "web": ["web/app/src/data/match/trackMatcher.ts"]
+      "android": ["app/src/main/java/com/music/bitchord/data/sources/SourceResolver.kt"],
+      "web": ["web/app/src/data/match/trackMatcher.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/sources/TrackMatcher.kt"]
     },
     {
       "id": "artist-credits",
       "name": "Artist bylines",
-      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/model/ArtistCredits.kt"],
-      "web": ["web/app/src/lib/artistCredits.ts"]
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ArtistCredits.kt"],
+      "web": ["web/app/src/lib/artistCredits.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/ArtistCredits.kt"]
     },
     {
       "id": "lyric-clock",
@@ -143,7 +147,8 @@
       "id": "lyrics-sources",
       "name": "Lyrics providers and parsing",
       "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/lyrics/"],
-      "web": ["web/app/src/lyrics/parse.ts", "web/app/src/lyrics/providers.ts", "web/app/src/lyrics/youtube.ts", "web/app/src/lyrics/ttml.ts"]
+      "web": ["web/app/src/lyrics/parse.ts", "web/app/src/lyrics/model.ts", "web/app/src/lyrics/sources.ts", "web/app/src/lyrics/providers.ts", "web/app/src/lyrics/youtube.ts", "web/app/src/lyrics/ttml.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/EnhancedLrc.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/SyllableRuns.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricGaps.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/BackgroundVocals.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricAlignments.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricSections.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricsQuery.kt"]
     },
     {
       "id": "replay",

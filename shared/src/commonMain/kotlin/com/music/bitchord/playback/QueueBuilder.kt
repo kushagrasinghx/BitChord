@@ -1,7 +1,6 @@
 package com.music.bitchord.playback
 
 import com.music.bitchord.data.model.Song
-import java.util.Locale
 
 /**
  * Builds the station that plays on after a one-off song.
@@ -102,7 +101,7 @@ object QueueBuilder {
      * recording as far as a queue is concerned. Remix and cover markers are
      * deliberately left in — those really are different tracks.
      */
-    fun normalisedTitle(raw: String): String = raw.lowercase(Locale.ROOT)
+    fun normalisedTitle(raw: String): String = raw.lowercase()
         .substringBefore(" | ")
         .replace(NOISE, " ")
         .replace(PUNCTUATION, " ")
@@ -110,17 +109,18 @@ object QueueBuilder {
         .trim()
 
     /** The cast behind a credit, split out so billing order stops mattering. */
-    fun artistSet(raw: String): Set<String> = raw.lowercase(Locale.ROOT)
+    fun artistSet(raw: String): Set<String> = raw.lowercase()
         .replace(TOPIC, " ")
         .split(",", "&", "·", "•", ";", " feat", " ft.", " ft ", " x ", " with ")
         .map { it.replace(PUNCTUATION, " ").replace(SPACES, " ").trim() }
         .filter { it.isNotEmpty() }
         .toSet()
 
+    // Brackets escaped in full: the web runs this as a JavaScript unicode-mode regex.
     private val NOISE = Regex(
         """\((?:official|lyric|lyrics|lyrical|audio|video|visuali[sz]er|full song|hd|4k)[^)]*\)""" +
             """|\(from[^)]*\)""" +
-            """|\[[^]]*]""" +
+            """|\[[^\]]*\]""" +
             """|\b(?:official (?:video|audio|music video)|lyrical video|full video|4k video)\b""",
         RegexOption.IGNORE_CASE,
     )

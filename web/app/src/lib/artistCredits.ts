@@ -1,11 +1,15 @@
+import { creditJoinerPattern, creditStretches } from '@bitchord/shared-kotlin';
 import type { ArtistRef } from '@/data/music/types';
 
 /**
- * The phone's credit line (shared/…/data/model/ArtistCredits.kt and
- * sharedUi/…/ui/player/ArtistCredits.kt), ported as is: which artists a byline
- * credits, and how the line is cut into stretches so each name can be opened
- * on its own while the line still reads exactly as it was written.
+ * The phone's credit line: which artists a byline credits, and how the line is
+ * cut into stretches so each name can be opened on its own while the line
+ * still reads exactly as it was written. The folding and the cutting are
+ * shared/…/data/model/ArtistCredits.kt itself; the choice of credits to draw
+ * ports sharedUi/…/ui/player/ArtistCredits.kt, which isn't shared.
  */
+
+export { isExactArtistMatch, normalizedArtistName } from '@bitchord/shared-kotlin';
 
 /** One stretch of a credit line: a credited name, or the plain text between names. */
 export interface CreditSegment {
@@ -13,26 +17,8 @@ export interface CreditSegment {
   credit: ArtistRef | null;
 }
 
-/**
- * The marks a byline joins credits with, in every script: the comma and its
- * full-width form, both ampersands, the bullet, the middle dot, and `・`, `、`.
- * Marks rather than words, because none of them can be a name (`and` can).
- */
-const CREDIT_JOINER = /\s*,\s*|\s*，\s*|\s+&\s+|\s+＆\s+|\s*•\s*|\s*·\s*|\s*・\s*|\s*、\s*/g;
-
-/**
- * Folds a name to the form two spellings of one artist share: case, accents
- * and spacing only, so names in every script survive it (normalizedArtistName).
- */
-export function normalizedArtistName(raw: string): string {
-  return raw.normalize('NFD').replace(/[̀-ͯ]+/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-/** Whether a search answer is exactly the artist asked for; a blank name matches nothing. */
-export function isExactArtistMatch(answer: string, wanted: string): boolean {
-  const name = normalizedArtistName(wanted);
-  return name !== '' && normalizedArtistName(answer) === name;
-}
+/** The marks a byline joins credits with, in every script (ArtistCredits.kt `CreditJoiner`). */
+const CREDIT_JOINER = new RegExp(creditJoinerPattern(), 'g');
 
 /**
  * A byline split on its joiners, for a track that states no per-artist
@@ -62,44 +48,10 @@ export function artistCredits(artist: string, artists: readonly ArtistRef[]): Ar
   return stated.length && !wholeLine ? stated : splitCreditLine(stated[0]?.name ?? artist);
 }
 
-/**
- * Cuts [text] into the stretches it's drawn from, marking where each credited
- * name begins. The names are found in the line rather than the line cut into
- * names, so everything that isn't a name (", ", " & ", " and ") is kept as
- * written. The longest name wins at any position, so `2115, Bedoes 2115` marks
- * both. Matching ignores case; what's drawn is the line's own spelling.
- */
+/** ArtistCredits.kt `creditSegments`: [text] cut where each credited name begins, the longest name winning. */
 export function creditSegments(text: string, credits: readonly ArtistRef[]): CreditSegment[] {
-  if (!text) return [];
-  const seen = new Set<string>();
-  const names = credits
-    .filter((c) => c.name.trim())
-    .filter((c) => {
-      const key = normalizedArtistName(c.name);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((a, b) => b.name.length - a.name.length);
-  if (!names.length) return [{ text, credit: null }];
-
-  const out: CreditSegment[] = [];
-  let plain = '';
-  let index = 0;
-  while (index < text.length) {
-    const hit = names.find((c) => text.slice(index, index + c.name.length).toLowerCase() === c.name.toLowerCase());
-    if (!hit) {
-      plain += text[index];
-      index++;
-      continue;
-    }
-    if (plain) {
-      out.push({ text: plain, credit: null });
-      plain = '';
-    }
-    out.push({ text: text.slice(index, index + hit.name.length), credit: hit });
-    index += hit.name.length;
-  }
-  if (plain) out.push({ text: plain, credit: null });
-  return out;
+  return creditStretches(
+    text,
+    credits.map((c) => c.name),
+  ).map((s) => ({ text: s.text, credit: credits[s.credit] ?? null }));
 }

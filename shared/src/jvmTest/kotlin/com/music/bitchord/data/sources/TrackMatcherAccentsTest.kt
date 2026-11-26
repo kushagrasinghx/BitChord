@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.model.Song
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -38,5 +39,11 @@ class TrackMatcherAccentsTest {
         val latin = TrackMatcher.parseTitle("Tōkyō")
         assertTrue(TrackMatcher.isTranslationMatch(cjk, latin))
         assertTrue(TrackMatcher.isTranslationMatch(latin, cjk))
+    }
+
+    @Test
+    fun cjkPunctuationLeavesTheCore() {
+        // 、 and 。 survive NFKC; the core strips them as Android's ICU \p{Punct} did.
+        assertEquals(TrackMatcher.parseTitle("夜に駆ける").core, TrackMatcher.parseTitle("夜に、駆ける。").core)
     }
 }

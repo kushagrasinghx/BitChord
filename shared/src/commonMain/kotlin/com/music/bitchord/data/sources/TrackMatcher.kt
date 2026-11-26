@@ -1,9 +1,9 @@
 package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.nfd
+import com.music.bitchord.nfkc
 import kotlin.math.abs
-import java.text.Normalizer
-import java.util.Locale
 
 /**
  * Decides whether one catalogue's track is the same recording as another's,
@@ -377,7 +377,7 @@ object TrackMatcher {
     )
 
     internal fun parseTitle(raw: String, artist: String = ""): TitleParts {
-        val versions = sortedSetOf<String>()
+        val versions = mutableSetOf<String>()
         val context = mutableSetOf<String>()
         var text = normalize(raw)
 
@@ -441,7 +441,7 @@ object TrackMatcher {
         // words. Standard word splitting and non-alphanumeric filtering fragment
         // these titles into empty or broken strings, so CJK titles keep their
         // raw character sequence intact (stripping only punctuation and whitespace).
-        val containsCJK = text.any { Character.UnicodeBlock.of(it) in CJK_BLOCKS }
+        val containsCJK = containsCJKChar(text)
 
         var words = text.split(WORD_SPLIT)
             .map { it.replace(NON_ALNUM, "") }
@@ -465,7 +465,7 @@ object TrackMatcher {
         }
 
         val coreString = if (containsCJK) {
-            text.replace(Regex("""[\s\p{Punct}・～〜ー-]+"""), "")
+            text.replace(CJK_CORE_STRIP, "")
         } else {
             foldLatin(words.joinToString(""))
         }
@@ -473,7 +473,8 @@ object TrackMatcher {
         return TitleParts(
             words = words,
             core = coreString,
-            versions = versions,
+            // Sorted, so the query built from them reads the same whichever bracket came first.
+            versions = versions.sorted().toSet(),
             context = context,
         )
     }
@@ -534,9 +535,7 @@ object TrackMatcher {
         return false
     }
 
-    private fun containsCJKChar(text: String): Boolean = text.any {
-        Character.UnicodeBlock.of(it) in CJK_BLOCKS
-    }
+    private fun containsCJKChar(text: String): Boolean = text.any { c -> CJK_BLOCKS.any { c in it } }
 
     /** Whether [text] is nothing but (part of) [artist] — the "Artist - Title" upload shape. */
     private fun isArtistName(text: String, artist: String): Boolean {
@@ -559,8 +558,8 @@ object TrackMatcher {
      * every non-Latin catalogue out of matching entirely.
      */
     internal fun normalize(text: String): String =
-        Normalizer.normalize(text, Normalizer.Form.NFKC)
-            .lowercase(Locale.ROOT)
+        text.nfkc()
+            .lowercase()
             .replace("&", " and ")
             .replace(CJK_OPEN, "(")
             .replace(CJK_CLOSE, ")")
@@ -579,9 +578,9 @@ object TrackMatcher {
         text.forEach { c ->
             when {
                 c == 'ı' -> append('i')
-                c.code < 0x80 || Character.UnicodeScript.of(c.code) != Character.UnicodeScript.LATIN -> append(c)
-                else -> Normalizer.normalize(c.toString(), Normalizer.Form.NFD).forEach {
-                    if (Character.getType(it) != Character.NON_SPACING_MARK.toInt()) append(it)
+                c.code < 0x80 || !LATIN_SCRIPT.matches(c.toString()) -> append(c)
+                else -> c.toString().nfd().forEach {
+                    if (it.category != CharCategory.NON_SPACING_MARK) append(it)
                 }
             }
         }
@@ -873,12 +872,14 @@ object TrackMatcher {
     private const val BRACKET_PASSES = 3
     private const val DASH_PASSES = 3
 
-    private val CJK_BLOCKS = setOf(
-        Character.UnicodeBlock.HIRAGANA,
-        Character.UnicodeBlock.KATAKANA,
-        Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
-        Character.UnicodeBlock.HANGUL_SYLLABLES,
-    )
+    /** The Unicode blocks HIRAGANA, KATAKANA, CJK_UNIFIED_IDEOGRAPHS and HANGUL_SYLLABLES. */
+    private val CJK_BLOCKS = listOf('\u3040'..'\u309F', '\u30A0'..'\u30FF', '\u4E00'..'\u9FFF', '\uAC00'..'\uD7AF')
+
+    /** Whitespace and punctuation off a CJK core: Java's ASCII `\p{Punct}` spelled out, plus `\p{P}` for the CJK marks Android's ICU `\p{Punct}` also took. */
+    private val CJK_CORE_STRIP = Regex("""[\s!-/:-@\[-`{-~\p{P}・～〜ー-]+""")
+
+    /** `sc=`, not `IsLatin`: the one script syntax both Java and JavaScript read. */
+    private val LATIN_SCRIPT = Regex("""\p{sc=Latin}""")
 
     private val BRACKETED = Regex("""[(\[]([^()\[\]]*)[)\]]""")
     private val DASH = Regex("""\s+[-–—|]+\s+""")

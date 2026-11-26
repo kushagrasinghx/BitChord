@@ -1,3 +1,4 @@
+import { decodeEntities as sharedDecodeEntities, parseEnhancedLrc as sharedParseEnhancedLrc } from '@bitchord/shared-kotlin';
 import {
   line,
   lineAlignments,
@@ -12,29 +13,14 @@ import {
 } from './model';
 
 /**
- * Every wire format the providers use, read into the lyric model: ports of
- * TtmlLyrics.kt, EnhancedLrc.kt, LrcLib.parseLrc, KaraokeLrc and
- * ProviderLyrics.kt.
+ * Every wire format the providers use, read into the lyric model. Enhanced LRC
+ * and entity decoding are EnhancedLrc.kt itself (shared/commonMain); the rest
+ * port TtmlLyrics.kt, LrcLib.parseLrc, KaraokeLrc and ProviderLyrics.kt, which
+ * stay JVM-only (an XML parser, network clients).
  */
 
-// ---- EnhancedLrc.decodeEntities -------------------------------------------------------------
-
-/** SimpMusic and friends serve HTML-escaped text; "&#x27;" would otherwise be sung literally. */
-/** fromCodePoint throws past U+10FFFF, which would take the whole lookup down: keep such an entity as written. */
-const codePoint = (entity: string, value: number) => (value <= 0x10ffff ? String.fromCodePoint(value) : entity);
-
-export function decodeEntities(text: string): string {
-  if (!text.includes('&')) return text;
-  return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (entity, hex: string) => codePoint(entity, Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (entity, dec: string) => codePoint(entity, Number(dec)))
-    .replace(/&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-}
+/** EnhancedLrc.decodeEntities: SimpMusic and friends serve HTML-escaped text; "&#x27;" would otherwise be sung literally. */
+export const decodeEntities: (text: string) => string = sharedDecodeEntities;
 
 // ---- TTML (TtmlLyrics.kt) ---------------------------------------------------------------------
 
@@ -177,51 +163,15 @@ export function parseTtml(ttml: string): LyricLine[] {
   }
 }
 
-// ---- Enhanced (A2) LRC (EnhancedLrc.kt) -----------------------------------------------------
+/** EnhancedLrc.parse: empty when the LRC carries no word stamps, so the caller can fall back to plain LRC. */
+export const parseEnhancedLrc: (lrc: string) => LyricLine[] = sharedParseEnhancedLrc;
 
-const A2_LINE = /^\[(\d{1,3}):(\d{2})[.:](\d{2,3})\](.*)$/;
-const A2_WORD = /<(\d{1,3}):(\d{2})[.:](\d{2,3})>([^<]*)/g;
-const TAIL_MS = 800;
+// ---- Plain LRC (LrcLib.parseLrc) --------------------------------------------------------------
 
 function stamp(minutes: string, seconds: string, fraction: string): number {
   const fractionMs = fraction.length === 3 ? Number(fraction) : Number(fraction) * 10;
   return Number(minutes) * 60_000 + Number(seconds) * 1000 + fractionMs;
 }
-
-/** Empty when the LRC carries no word stamps, so the caller can fall back to plain LRC. */
-export function parseEnhancedLrc(lrc: string): LyricLine[] {
-  const rows = lrc
-    .split(/\r?\n/)
-    .map((l) => A2_LINE.exec(l.trim()))
-    .filter((m): m is RegExpExecArray => !!m)
-    .map((m) => ({ timeMs: stamp(m[1]!, m[2]!, m[3]!), words: [...m[4]!.matchAll(A2_WORD)], plain: m[4]!.trim() }))
-    .sort((a, b) => a.timeMs - b.timeMs);
-  if (!rows.some((r) => r.words.length)) return [];
-  const lines: LyricLine[] = [];
-  rows.forEach((row, index) => {
-    if (!row.words.length) {
-      const text = decodeEntities(row.plain);
-      if (text) lines.push(line(row.timeMs, text));
-      return;
-    }
-    const last = row.words.at(-1)!;
-    const lineEnd = rows[index + 1]?.timeMs ?? stamp(last[1]!, last[2]!, last[3]!) + TAIL_MS;
-    const runs: TimedRun[] = row.words.map((m, i) => {
-      const next = row.words[i + 1];
-      return {
-        startMs: stamp(m[1]!, m[2]!, m[3]!),
-        endMs: next ? stamp(next[1]!, next[2]!, next[3]!) : lineEnd,
-        raw: decodeEntities(m[4]!),
-      };
-    });
-    const words = wordsFromRuns(runs);
-    if (!words.length) return;
-    lines.push(line(Math.min(row.timeMs, words[0]!.startMs), words.map((w) => w.text).join(' '), { words }));
-  });
-  return withInstrumentalGaps(lines);
-}
-
-// ---- Plain LRC (LrcLib.parseLrc) --------------------------------------------------------------
 
 const LRC_STAMP = /\[(\d{1,2}):(\d{2})[.:](\d{2,3})\]/;
 const WORD_STAMP = /<(\d{1,3}):(\d{2})[.:](\d{2,3})>/g;

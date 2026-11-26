@@ -1,8 +1,7 @@
 package com.music.bitchord.data.model
 
-import java.text.Normalizer
-import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
+import com.music.bitchord.Synchronized
+import com.music.bitchord.nfd
 
 /**
  * Folds a name to the form two spellings of one artist have in common.
@@ -22,14 +21,18 @@ import java.util.concurrent.ConcurrentHashMap
  * and the case it writes them in, are let go.
  */
 fun normalizedArtistName(raw: String): String =
-    Normalizer.normalize(raw, Normalizer.Form.NFD)
+    raw.nfd()
         .replace(COMBINING_MARKS, "")
-        .lowercase(Locale.ROOT)
+        .lowercase()
         .replace(REPEATED_SPACE, " ")
         .trim()
 
-/** The marks a locale puts on its letters, which do not change who wrote them. */
-private val COMBINING_MARKS = Regex("\\p{InCombiningDiacriticalMarks}+")
+/**
+ * The marks a locale puts on its letters, which do not change who wrote them: the
+ * Combining Diacritical Marks block, spelled as a range because JavaScript has no
+ * `\p{InCombiningDiacriticalMarks}`.
+ */
+private val COMBINING_MARKS = Regex("[\\u0300-\\u036F]+")
 
 private val REPEATED_SPACE = Regex("\\s+")
 
@@ -160,18 +163,20 @@ private fun String.startsWithIgnoringCase(prefix: String, at: Int): Boolean =
  * decides instead, which can ask them.
  */
 object ArtistNameIndex {
-    private val channels = ConcurrentHashMap<String, MutableSet<String>>()
-    private val joiners = ConcurrentHashMap.newKeySet<String>()
-    private val joinerTexts = ConcurrentHashMap.newKeySet<String>()
-    private val joinerSightings = ConcurrentHashMap<String, Int>()
+    // Parsers fill this from several threads on the JVM; @Synchronized guards every access.
+    private val channels = HashMap<String, MutableSet<String>>()
+    private val joiners = HashSet<String>()
+    private val joinerTexts = HashSet<String>()
+    private val joinerSightings = HashMap<String, Int>()
 
     /** Notes an artist YouTube linked, under the name it wrote. */
+    @Synchronized
     fun record(refs: List<ArtistRef>) {
         refs.forEach { ref ->
             val name = normalizedArtistName(ref.name)
             val id = ref.browseId
             if (name.isEmpty() || id.isNullOrBlank()) return@forEach
-            channels.computeIfAbsent(name) { ConcurrentHashMap.newKeySet() }.add(id)
+            channels.getOrPut(name) { HashSet() }.add(id)
         }
     }
 
@@ -184,6 +189,7 @@ object ArtistNameIndex {
      * any script, so a word has to turn up in the same place twice before it is
      * taken for one — and anything with a space or a digit in it never is.
      */
+    @Synchronized
     fun recordJoiners(segments: List<CreditSegment>) {
         val creditAt = segments.withIndex().filter { it.value.credit != null }.map { it.index }
         if (creditAt.size < 2) return
@@ -208,7 +214,8 @@ object ArtistNameIndex {
                 // More than one word is a phrase, not a joiner: `and Mata`
                 // has a name in it and must never be learned as punctuation.
                 if (key.any { it.isWhitespace() } || key.any { it.isDigit() }) continue
-                val seen = joinerSightings.merge(key, 1, Int::plus) ?: 1
+                val seen = (joinerSightings[key] ?: 0) + 1
+                joinerSightings[key] = seen
                 if (seen < JOINER_WORD_SIGHTINGS) continue
             }
             joiners.add(key)
@@ -220,12 +227,14 @@ object ArtistNameIndex {
      * The channel YouTube stated for [name], or null when it has never stated
      * one or has stated more than one.
      */
+    @Synchronized
     fun lookup(name: String): String? {
         val ids = channels[normalizedArtistName(name)] ?: return null
         return ids.singleOrNull()
     }
 
     /** Whether [text] has been seen joining two credited names. */
+    @Synchronized
     fun isJoiner(text: String): Boolean = normalizedArtistName(text) in joiners
 
     /**
@@ -234,7 +243,8 @@ object ArtistNameIndex {
      * [joiners] is keyed by the folded form, which has lost the punctuation, so
      * it cannot be used to split a line - the word has to be cut on as written.
      */
-    fun joinerTexts(): Set<String> = joinerTexts
+    @Synchronized
+    fun joinerTexts(): Set<String> = joinerTexts.toSet()
 
     /**
      * Forgets everything learned.
@@ -243,6 +253,7 @@ object ArtistNameIndex {
      * parse first. Nothing in the app needs it: what is learnt is who an artist
      * is, which does not change with the account signed in.
      */
+    @Synchronized
     fun forget() {
         channels.clear()
         joiners.clear()

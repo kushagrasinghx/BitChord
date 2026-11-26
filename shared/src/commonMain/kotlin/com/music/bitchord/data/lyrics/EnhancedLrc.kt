@@ -13,7 +13,8 @@ package com.music.bitchord.data.lyrics
  */
 object EnhancedLrc {
 
-    private val LINE = Regex("""^\[(\d{1,3}):(\d{2})[.:](\d{2,3})](.*)$""")
+    // `\]` escaped: the web runs this as a JavaScript unicode-mode regex, where a bare `]` is an error.
+    private val LINE = Regex("""^\[(\d{1,3}):(\d{2})[.:](\d{2,3})\](.*)$""")
     private val WORD = Regex("""<(\d{1,3}):(\d{2})[.:](\d{2,3})>([^<]*)""")
 
     /** Empty when [lrc] carries no word stamps — the caller can then fall back. */
@@ -97,7 +98,12 @@ object EnhancedLrc {
      */
     private fun codePoint(match: MatchResult, radix: Int): String {
         val value = match.groupValues[1].toIntOrNull(radix)
-        return if (value != null && Character.isValidCodePoint(value)) String(Character.toChars(value)) else match.value
+        if (value == null || value !in 0..0x10FFFF) return match.value
+        if (value < 0x10000) return value.toChar().toString()
+        // Past the BMP a code point is two chars, a surrogate pair.
+        val high = (0xD800 + ((value - 0x10000) shr 10)).toChar()
+        val low = (0xDC00 + ((value - 0x10000) and 0x3FF)).toChar()
+        return charArrayOf(high, low).concatToString()
     }
 
     private const val TAIL_MS = 800L

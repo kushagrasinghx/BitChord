@@ -1,5 +1,20 @@
 type Nullable<T> = T | null | undefined
 declare function KtSingleton<T>(): T & (abstract new() => any);
+export declare function normalizedArtistName(raw: string): string;
+export declare function isExactArtistMatch(answer: string, wanted: string): boolean;
+export declare class CreditStretch {
+    constructor(text: string, credit: number);
+    get text(): string;
+    get credit(): number;
+}
+export declare namespace CreditStretch {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => CreditStretch;
+    }
+}
+export declare function creditStretches(text: string, names: Array<string>): Array<CreditStretch>;
+export declare function creditJoinerPattern(): string;
 export declare class BestPartLine {
     constructor(timeMs: number, text: string);
     get timeMs(): number;
@@ -162,6 +177,16 @@ export declare function isEligibleLocalMusic(durationMs: number, displayName: st
 export declare function localTrackNumber(raw: Nullable<string>): Nullable<number>;
 export declare function localCleanTag(raw: Nullable<string>): Nullable<string>;
 export declare function localTitle(tag: Nullable<string>, fileName: string): string;
+export declare function normalizedSyllables(parts: Array<any>, length: number): Array<any>;
+export declare function wordsFromRuns(runs: Array<any>, spacingIsExplicit: boolean): Array<any>;
+export declare function withInstrumentalGaps(lines: Array<any>): Array<any>;
+export declare function withBackgroundVocals(lines: Array<any>): Array<any>;
+export declare function lineAlignments(singers: Array<Nullable<string>>, types: any): Array<string>;
+export declare function isSectionHeader(text: string): boolean;
+export declare function parseEnhancedLrc(lrc: string): Array<any>;
+export declare function decodeEntities(text: string): string;
+export declare function forLyricsSearch(title: string): string;
+export declare function artistForLyricsSearch(artist: string): string;
 export declare class LyricClock {
     constructor(startMs: number);
     get displayedMs(): number;
@@ -227,6 +252,41 @@ export declare namespace ShareVideoTimeline {
     }
 }
 export declare function shareTimeline(lines: Array<ShareLine>): Nullable<ShareVideoTimeline>;
+export declare class MatchRow {
+    constructor(title: string, artist: string, durationSec: Nullable<number>, album: Nullable<string>, explicit: Nullable<boolean>);
+    get title(): string;
+    get artist(): string;
+    get durationSec(): Nullable<number>;
+    get album(): Nullable<string>;
+    get explicit(): Nullable<boolean>;
+}
+export declare namespace MatchRow {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => MatchRow;
+    }
+}
+export declare class MatchWanted {
+    constructor(title: string, artist: string, durationSec: Nullable<number>, album: Nullable<string>, isExplicit: Nullable<boolean>, isVideo: boolean);
+    get title(): string;
+    get artist(): string;
+    get durationSec(): Nullable<number>;
+    get album(): Nullable<string>;
+    get isExplicit(): Nullable<boolean>;
+    get isVideo(): boolean;
+}
+export declare namespace MatchWanted {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => MatchWanted;
+    }
+}
+export declare function matchRanked(rows: Array<MatchRow>, wanted: MatchWanted): Array<number>;
+export declare function matchQueries(wanted: MatchWanted): Array<string>;
+export declare function matchHasConflictingAlbums(rows: Array<MatchRow>, wanted: MatchWanted): boolean;
+export declare function matchMostCredited(rows: Array<MatchRow>, wanted: MatchWanted): number;
+export declare function foldLatin(text: string): string;
+export declare function romajiOf(text: string): string;
 export declare class BestPartHeat {
     constructor(segmentMs: number, intensity: Float64Array);
     get segmentMs(): number;
@@ -289,6 +349,41 @@ export declare namespace SleepTimerOptions {
 }
 export declare function sleepTimerOptions(): SleepTimerOptions;
 export declare function sleepFadeVolume(remainingMs: number, fadeDurationMs: number, fadeOutEnabled: boolean): number;
+export declare class QueueJump {
+    constructor(isPureSeek: boolean, order: Array<number>, newIndex: number, promoteTarget: boolean);
+    get isPureSeek(): boolean;
+    get order(): Array<number>;
+    get newIndex(): number;
+    get promoteTarget(): boolean;
+}
+export declare namespace QueueJump {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => QueueJump;
+    }
+}
+export declare function queueJumpOrder(tiers: Array<string>, currentIndex: number, targetIndex: number): Nullable<QueueJump>;
+export declare function queueUpcomingUserIndices(tiers: Array<string>, currentIndex: number): Array<number>;
+export declare function queuePlayedUserIndices(tiers: Array<string>, currentIndex: number): Array<number>;
+export declare function queueSectionedOrder(restored: Array<number>, upcoming: Array<string>): Array<number>;
+export declare function queueAutoplaySectionStart(tiers: Array<string>, currentIndex: number): number;
+export declare class StationTrack {
+    constructor(videoId: string, title: string, artist: string, isVideo: boolean);
+    get videoId(): string;
+    get title(): string;
+    get artist(): string;
+    get isVideo(): boolean;
+}
+export declare namespace StationTrack {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => StationTrack;
+    }
+}
+export declare function stationExtend(existing: Array<StationTrack>, candidates: Array<StationTrack>, limit: number, preferVideos: boolean): Array<number>;
+export declare function stationSameRecording(a: StationTrack, b: StationTrack): boolean;
+export declare function stationTitle(raw: string): string;
+export declare function stationArtists(raw: string): Array<string>;
 export declare class ReplayStep {
     constructor(playedMs: number, countsAsPlay: boolean, flush: boolean);
     get playedMs(): number;

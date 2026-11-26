@@ -213,6 +213,7 @@ import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
 import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.QueueSource
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.connect.DesktopConnectController
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.playback.autoplayEnabledFor
 import com.music.bitchord.playback.autoplaySectionStart
@@ -1623,7 +1624,7 @@ private fun BitChordApp(
                 // page it came from: a whole library in the player is a whole
                 // library re-sent to every media controller on each queue edit.
                 val bounded = boundedContext || songs.size > BoundedQueuePlanner.MAX_PHYSICAL_CONTEXT
-                if (bounded && !CastController.state.value.casting) {
+                if (bounded && !CastController.state.value.casting && !DesktopConnectController.state.value.connected) {
                     c.playBoundedContext(songs, index, source, continuationToken)
                 } else {
                     val result = QueueCoordinator.buildContextQueue(
@@ -3230,6 +3231,8 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
+                        } else if (pageRoute == AppRoute.DesktopConnect) {
+                            com.music.bitchord.ui.screens.DesktopConnectScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.DriveBackup) {
                             DriveBackupScreen(
                                 contentPadding = listPadding,
@@ -3303,6 +3306,7 @@ private fun BitChordApp(
                                 onTranslationLanguage = { showTranslationLanguage = true },
                                 onSources = { navigator.push(AppRoute.Sources) },
                                 onListenTogether = { navigator.push(AppRoute.ListenTogether) },
+                                onDesktopConnect = { navigator.push(AppRoute.DesktopConnect) },
                                 onWearOs = { navigator.push(AppRoute.WearOs) },
                                 onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                                 onAppLanguage = { showAppLanguage = true },
@@ -3417,7 +3421,8 @@ private fun BitChordApp(
                                         selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
                                         // A sorted list plays as sorted, not in the page's order.
                                         inPageOrder(songs.map { it.contextEntryKey() }, pageKeys) &&
-                                        !CastController.state.value.casting
+                                        !CastController.state.value.casting &&
+                                        !DesktopConnectController.state.value.connected
                                 val latestPage = if (useBounded) {
                                     viewModel.takePlaybackContext(page.browseId)
                                 } else {
@@ -4000,6 +4005,7 @@ private fun BitChordApp(
                         AppRoute.AccountScrobbling -> stringResource(R.string.account_scrobbling)
                         AppRoute.Sources -> stringResource(R.string.sources)
                         AppRoute.ListenTogether -> stringResource(R.string.listen_together)
+                        AppRoute.DesktopConnect -> "Connect (LAN Remote)"
                         AppRoute.WearOs -> stringResource(R.string.wear_os_page_title)
                         AppRoute.DriveBackup -> stringResource(R.string.drive_backup_title)
                         AppRoute.DriveDevices -> stringResource(R.string.drive_devices_title)

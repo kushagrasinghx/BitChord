@@ -74,6 +74,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.CastConnected
+import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Person
@@ -1433,9 +1434,11 @@ private fun OutputPartyPill(
 @Composable
 private fun rememberOutputGlyph(): OutputGlyph {
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
+    val desktopConnect by PlayerPlatform.host.desktopConnectState.collectAsStateWithLifecycle()
     val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
     val active = rememberAudioOutputs().firstOrNull { it.isActive }
     return when {
+        desktopConnect.connectedName != null -> OutputGlyph(Icons.Rounded.Computer, PILL_OUTPUT_WIDE_SIZE)
         cast.connectedName != null -> OutputGlyph(Icons.Rounded.CastConnected, PILL_OUTPUT_WIDE_SIZE)
         watch.active -> OutputGlyph(Icons.Rounded.Watch, PILL_OUTPUT_TALL_SIZE)
         else -> when (active?.kind) {

@@ -190,6 +190,9 @@ object CastController {
     fun connect(deviceId: String) {
         val router = router ?: return
         val route = router.routes.firstOrNull { it.id == deviceId } ?: return
+        if (com.music.bitchord.playback.connect.DesktopConnectController.state.value.connected) {
+            com.music.bitchord.playback.connect.DesktopConnectController.disconnect(resumeHere = false)
+        }
         update { it.copy(connecting = true) }
         router.selectRoute(route)
     }

@@ -106,7 +106,10 @@ object VolumeHud {
 fun handleDacVolumeKey(event: KeyEvent): Boolean {
     val code = event.keyCode
     if (code != KeyEvent.KEYCODE_VOLUME_UP && code != KeyEvent.KEYCODE_VOLUME_DOWN) return false
-    if (DacVolume.level.value == null || CastController.state.value.casting || WearBridge.watchOutput.value.active) {
+    if (DacVolume.level.value == null || CastController.state.value.casting ||
+        com.music.bitchord.playback.connect.DesktopConnectController.state.value.connected ||
+        WearBridge.watchOutput.value.active
+    ) {
         return false
     }
     if (event.action == KeyEvent.ACTION_DOWN) {

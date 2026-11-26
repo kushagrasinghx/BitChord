@@ -205,6 +205,7 @@ fun SettingsScreen(
     onTranslationLanguage: () -> Unit,
     onSources: () -> Unit,
     onListenTogether: () -> Unit,
+    onDesktopConnect: () -> Unit = {},
     onWearOs: () -> Unit,
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
@@ -508,6 +509,9 @@ fun SettingsScreen(
                         badge = party.members.size.takeIf { party.inParty && it > 1 }?.toString(),
                         onClick = onListenTogether,
                     )
+                }
+                row("Connect (LAN Remote)", "pc", "desktop", "remote", "lan", "wifi", "tailscale", "pair", "pin", "spotify connect") {
+                    DesktopConnectSettingsRow(onClick = onDesktopConnect)
                 }
             }
 

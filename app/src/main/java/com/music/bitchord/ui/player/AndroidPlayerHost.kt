@@ -30,6 +30,7 @@ import com.music.bitchord.playback.AutoMixVisualFeed
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.connect.DesktopConnectController
 import com.music.bitchord.ui.components.backdrop.backdrops.SnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberSnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.snapshotBackdropSource
@@ -163,10 +164,15 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     override fun rememberAudioOutputs(): List<AudioOutputDevice> {
         val outputs = rememberAndroidAudioOutputs()
         val cast by CastController.state.collectAsStateWithLifecycle()
+        val desktopConnect by DesktopConnectController.state.collectAsStateWithLifecycle()
         val watch by WearBridge.watchOutput.collectAsStateWithLifecycle()
         // While a receiver is the speaker no output of this phone is the one
-        // playing, so none of them is lit; the Cast or watch row is.
-        return if (cast.casting || watch.active) outputs.map { it.copy(isActive = false) } else outputs
+        // playing, so none of them is lit; the Cast, PC, or watch row is.
+        return if (cast.casting || desktopConnect.connected || watch.active) {
+            outputs.map { it.copy(isActive = false) }
+        } else {
+            outputs
+        }
     }
 
     @Composable
@@ -176,6 +182,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         // Picking an output of this phone is picking this phone: the receiver
         // is let go of, and the music carries on here if it was playing.
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = true)
+        if (DesktopConnectController.state.value.connected) DesktopConnectController.disconnect(resumeHere = true)
         AudioRouting.select(id)
         WearBridge.leaveWatchOutput()
     }
@@ -192,6 +199,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         // One speaker at a time: a receiver lets go first, quietly, and the
         // watch picks the queue up from where the phone's player is.
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = false)
+        if (DesktopConnectController.state.value.connected) DesktopConnectController.disconnect(resumeHere = false)
         WearBridge.selectWatchOutput()
     }
 
@@ -247,6 +255,23 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     @Composable
     override fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) =
         com.music.bitchord.ui.components.CastDialog(hazeState = hazeState, onDismiss = onDismiss)
+
+    override val desktopConnectState: StateFlow<DesktopConnectUi> by lazy {
+        DesktopConnectController.ensureStarted(app)
+        DesktopConnectController.state
+            .map {
+                DesktopConnectUi(
+                    supported = true,
+                    connectedName = it.connectedName,
+                    connecting = it.connecting || it.pairing,
+                )
+            }
+            .stateIn(scope, SharingStarted.Eagerly, DesktopConnectUi(supported = true))
+    }
+
+    @Composable
+    override fun DesktopConnectDialog(hazeState: HazeState, onDismiss: () -> Unit) =
+        com.music.bitchord.ui.components.DesktopConnectDialog(hazeState = hazeState, onDismiss = onDismiss)
 
     @Composable
     override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit) =
@@ -317,15 +342,27 @@ private class CastAwareVolume(
     private val system: SystemVolume,
     scope: CoroutineScope,
 ) : SystemVolume {
-    override val level: StateFlow<Float> = combine(
-        system.level,
+    private val remoteVolume = combine(
         CastController.volume,
         CastController.state.map { it.casting },
+        DesktopConnectController.volume,
+        DesktopConnectController.state.map { it.connected },
+    ) { castVol, casting, desktopVol, desktopConnected ->
+        when {
+            desktopConnected -> desktopVol
+            casting -> castVol
+            else -> null
+        }
+    }
+
+    override val level: StateFlow<Float> = combine(
+        system.level,
+        remoteVolume,
         WearBridge.watchOutput,
         DacVolume.level,
-    ) { phone, receiver, casting, watch, dac ->
+    ) { phone, remote, watch, dac ->
         when {
-            casting -> receiver
+            remote != null -> remote
             watch.active -> watch.volume
             // Direct USB: the music stream no longer reaches the DAC, so its
             // own hardware volume is the only one that means anything.
@@ -337,6 +374,7 @@ private class CastAwareVolume(
 
     override fun set(level: Float) {
         when {
+            DesktopConnectController.state.value.connected -> DesktopConnectController.setVolume(level)
             CastController.state.value.casting -> CastController.setVolume(level)
             WearBridge.watchOutput.value.active -> WearBridge.setWatchVolume(level)
             DacVolume.level.value != null -> DacVolume.set(level)

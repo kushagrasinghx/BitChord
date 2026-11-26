@@ -359,7 +359,12 @@ export function mapSearch(search: { contents?: readonly unknown[] | null }): Sea
         results.top.push(item);
         add(item);
       }
-      for (const inner of card.contents ?? []) add(mapItem(inner));
+      // An artist card's own songs come as "Song • 3:11", naming nobody: they are the card's artist's.
+      const cardArtist = id && /^Artist/i.test(text(card.subtitle)) ? { name: text(card.title), id } : null;
+      for (const inner of card.contents ?? []) {
+        const item = mapItem(inner);
+        add(item && cardArtist && item.kind === 'song' && !item.artists.length ? { ...item, artists: [cardArtist], subtitle: item.subtitle || cardArtist.name } : item);
+      }
       continue;
     }
     for (const node of ((section.contents as unknown[] | undefined) ?? [])) add(mapItem(node));

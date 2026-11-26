@@ -127,6 +127,12 @@ describe('search', () => {
     const ids = [...results.songs, ...results.albums, ...results.artists, ...results.playlists, ...results.videos].map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("names the artist on an artist card's own songs, which YouTube words as just \"Song • 3:11\"", () => {
+    const results = mapSearch(new YTMusic.Search(response('search-all'), actions, { is_filtered: false } as never));
+    expect(results.top[0]!.title).toBe('Radiohead');
+    for (const song of results.songs) expect(song.artists.length, song.title).toBeGreaterThan(0);
+  });
 });
 
 describe('suggestions', () => {

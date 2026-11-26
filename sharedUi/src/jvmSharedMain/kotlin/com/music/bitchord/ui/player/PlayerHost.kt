@@ -164,6 +164,13 @@ interface PlayerHost {
     @Composable
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
 
+    /** BitChord PC LAN Connect receiver state. Absent where unsupported. */
+    val desktopConnectState: StateFlow<DesktopConnectUi> get() = NoDesktopConnect
+
+    /** The LAN Connect picker opened from the output drawer's BitChord PC row. */
+    @Composable
+    fun DesktopConnectDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
+
     /**
      * The ⋯ menu's frost for the player's drawers and popups — see
      * [PlayerFrost]. Null where the platform can't draw it, and the drawers
@@ -187,6 +194,7 @@ interface PlayerHost {
 }
 
 private val NoCast = MutableStateFlow(CastUi())
+private val NoDesktopConnect = MutableStateFlow(DesktopConnectUi())
 
 private val DefaultVideoAspect = MutableStateFlow(16f / 9f)
 
@@ -236,6 +244,13 @@ data class WatchOutputUi(
     val name: String? = null,
     /** The watch is the speaker. */
     val active: Boolean = false,
+)
+
+/** What the output drawer needs to know about BitChord PC LAN Connect to draw its row. */
+data class DesktopConnectUi(
+    val supported: Boolean = false,
+    val connectedName: String? = null,
+    val connecting: Boolean = false,
 )
 
 /** What the output drawer needs to know about casting to draw its row. */

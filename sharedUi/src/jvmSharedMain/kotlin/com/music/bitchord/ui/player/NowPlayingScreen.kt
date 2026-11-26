@@ -1008,6 +1008,7 @@ fun NowPlayingScreen(
     val queueHaze = remember { HazeState() }
     var showAudioPipeline by remember { mutableStateOf(false) }
     var showCast by remember { mutableStateOf(false) }
+    var showDesktopConnect by remember { mutableStateOf(false) }
     var showAudioOutput by remember { mutableStateOf(false) }
     var showVideoQuality by remember { mutableStateOf(false) }
     var showLyricsProviders by remember { mutableStateOf(false) }
@@ -1942,6 +1943,7 @@ fun NowPlayingScreen(
                 onDismiss = { showAudioOutput = false },
                 onOpenPipeline = { showAudioPipeline = true },
                 onOpenCast = { showCast = true },
+                onOpenDesktopConnect = { showDesktopConnect = true },
             )
         }
         if (showLyricsProviders) {
@@ -1964,6 +1966,12 @@ fun NowPlayingScreen(
             PlayerPlatform.host.CastDialog(
                 hazeState = playerHaze,
                 onDismiss = { showCast = false },
+            )
+        }
+        if (showDesktopConnect) {
+            PlayerPlatform.host.DesktopConnectDialog(
+                hazeState = playerHaze,
+                onDismiss = { showDesktopConnect = false },
             )
         }
         if (showListenTogetherMembers) {

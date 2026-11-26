@@ -82,6 +82,8 @@ import com.music.bitchord.playback.cast.CastPlayback
 import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
+import com.music.bitchord.playback.connect.DesktopConnectController
+import com.music.bitchord.playback.connect.DesktopConnectPlayback
 import com.music.bitchord.playback.cast.CastStream
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
@@ -837,8 +839,22 @@ class PlaybackService : MediaLibraryService() {
         WearBridge.createSpeaker(this, scope, localPlayer = { player }, onChanged = { publishWidgetState() })
     }
 
+    /** BitChord PC on the local network as a remote speaker (Spotify Connect-style). */
+    private val desktopConnectPlayback by lazy {
+        DesktopConnectPlayback(
+            scope = scope,
+            localPlayer = { player },
+            onChanged = { publishWidgetState() },
+            say = { message ->
+                Handler(android.os.Looper.getMainLooper()).post {
+                    Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
+    }
+
     /** Every remote speaker, as the one the session player reports. */
-    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker)) }
+    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker, desktopConnectPlayback)) }
 
     /**
      * Binds playback to a Listen Together party, when there is one.
@@ -1476,9 +1492,12 @@ class PlaybackService : MediaLibraryService() {
         // which Android may freeze the process mid-stream. Held up for the
         // length of the session instead.
         scope.launch {
-            WearBridge.watchSession.collect { onWatch ->
+            kotlinx.coroutines.flow.combine(
+                WearBridge.watchSession,
+                DesktopConnectController.state.map { it.connected },
+            ) { onWatch, onDesktop -> onWatch || onDesktop }.collect { keepForeground ->
                 setForegroundServiceTimeoutMs(
-                    if (onWatch) WATCH_SESSION_FOREGROUND_MS else DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS,
+                    if (keepForeground) WATCH_SESSION_FOREGROUND_MS else DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS,
                 )
             }
         }
@@ -2019,6 +2038,8 @@ class PlaybackService : MediaLibraryService() {
         // whose queue is already restored.
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+        DesktopConnectController.ensureStarted(this)
+        DesktopConnectController.attach(desktopConnectPlayback)
     }
 
     /**
@@ -3498,7 +3519,9 @@ class PlaybackService : MediaLibraryService() {
         request: BoundedContextRequests.Request,
     ): MediaSession.MediaItemsWithStartPosition? {
         val exoPlayer = player ?: return null
-        if (CastController.state.value.casting || castPlayback.active) {
+        if (CastController.state.value.casting || castPlayback.active ||
+            DesktopConnectController.state.value.connected || desktopConnectPlayback.active
+        ) {
             request.handoffToken?.let(BoundedContextRequests::discard)
             return null
         }
@@ -8612,6 +8635,8 @@ class PlaybackService : MediaLibraryService() {
         // stop, and the next one picks the session up where it was.
         CastController.detach(castPlayback)
         castPlayback.release()
+        DesktopConnectController.detach(desktopConnectPlayback)
+        desktopConnectPlayback.release()
         closeAudioEffectSession()
         bluetoothTracker.stop()
         audioManager?.unregisterAudioDeviceCallback(outputDeviceCallback)
@@ -10022,7 +10047,9 @@ class PlaybackService : MediaLibraryService() {
                             "Account changed; reopen the folder"
                         }
                     }
-                    if (CastController.state.value.casting || castPlayback.active) return@withContext null
+                    if (CastController.state.value.casting || castPlayback.active ||
+                        DesktopConnectController.state.value.connected || desktopConnectPlayback.active
+                    ) return@withContext null
                     val token = BoundedContextRequests.put(
                         BoundedContextRequests.Request(
                             songs = context.page.songs,

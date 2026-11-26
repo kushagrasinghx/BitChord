@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      BitChord LAN Connect speaks HTTP/WebSocket directly to the user's PC on
+      the local Wi-Fi or personal mesh VPN (e.g. Tailscale). Android's
+      network-security-config does not support CIDR ranges for RFC1918/Tailscale
+      addresses, so cleartext is permitted for local peer connections while
+      HTTPS continues to use standard system trust anchors.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

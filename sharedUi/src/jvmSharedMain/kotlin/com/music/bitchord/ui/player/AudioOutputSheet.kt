@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Earbuds
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -87,10 +88,12 @@ internal fun AudioOutputSheet(
     onDismiss: () -> Unit,
     onOpenPipeline: () -> Unit,
     onOpenCast: () -> Unit,
+    onOpenDesktopConnect: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
+    val desktopConnect by PlayerPlatform.host.desktopConnectState.collectAsStateWithLifecycle()
     val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
     // A watch comes and goes; ask again each time the drawer opens.
     LaunchedEffect(Unit) { PlayerPlatform.host.refreshWatchOutput() }
@@ -123,6 +126,9 @@ internal fun AudioOutputSheet(
             // directly, since there is only ever the one.
             if (watch.available || watch.active) {
                 WatchRow(watch = watch, onClick = { PlayerPlatform.host.selectWatchOutput() })
+            }
+            if (desktopConnect.supported) {
+                DesktopConnectRow(connect = desktopConnect, onClick = onOpenDesktopConnect)
             }
             if (cast.supported) CastRow(cast = cast, onClick = onOpenCast)
         }
@@ -208,6 +214,72 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
  * a receiver, with that receiver's name in place of the generic title — at that
  * point it *is* the output, and the rows above it are the way back.
  */
+@Composable
+private fun DesktopConnectRow(connect: DesktopConnectUi, onClick: () -> Unit) {
+    val haptics = rememberHaptics()
+    val connected = connect.connectedName != null
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ROW_SHAPE)
+            .background(Color.White.copy(alpha = if (connected) 0.10f else 0.05f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(Haptic.Select)
+                onClick()
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = if (connected) 0.16f else 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Computer,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = if (connected) 1f else 0.7f),
+                modifier = Modifier.size(21.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = connect.connectedName ?: "BitChord PC",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (connected) FontWeight.SemiBold else FontWeight.Normal,
+                ),
+                color = Color.White.copy(alpha = if (connected) 1f else 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = when {
+                    connect.connecting -> "Connecting…"
+                    connected -> "Playing on PC"
+                    else -> "Control PC playback on Wi-Fi"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
 @Composable
 private fun CastRow(cast: CastUi, onClick: () -> Unit) {
     val haptics = rememberHaptics()

@@ -92,6 +92,9 @@ export function useScrubber() {
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const draw = () => {
+      // A seek redraws at once; it replaces the pending redraw rather than starting a second chain.
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
       const duration = audio.duration;
       // during a loop mix the element is paused under the decks: the mix's own playhead
       const head = getPlayhead();

@@ -3939,38 +3939,10 @@ private fun BitChordApp(
                         // be mistaken for a per-page action — Home, at rest.
                         if (route == null && detail == null && selectedTab == TAB_HOME) {
                             updateNotice?.let { update ->
-                                val updateDownload by AppUpdateChecker.download.collectAsStateWithLifecycle()
-                                val downloading = updateDownload as? AppUpdateChecker.DownloadState.Downloading
-                                IconButton(onClick = { showUpdateDialog = true }) {
-                                    if (downloading != null) {
-                                        // While the APK downloads, the icon becomes a
-                                        // ring that fills with the percent done.
-                                        val percent = (downloading.fraction * 100).toInt()
-                                        Box(contentAlignment = Alignment.Center) {
-                                            CircularProgressIndicator(
-                                                progress = { downloading.fraction },
-                                                modifier = Modifier.size(26.dp),
-                                                strokeWidth = 2.5.dp,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                            )
-                                            Text(
-                                                text = "$percent",
-                                                fontSize = 9.sp,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        }
-                                    } else Icon(
-                                        // An arrow rising out of a bar, not the
-                                        // little phone-with-an-arrow: at 24dp the
-                                        // handset outline is mush, and the glyph
-                                        // has to read as "newer version" rather
-                                        // than as "something about your device".
-                                        Icons.Rounded.Upgrade,
-                                        contentDescription = stringResource(R.string.update_available, update.version),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
+                                UpdateAvailableAction(
+                                    version = update.version,
+                                    onClick = { showUpdateDialog = true },
+                                )
                             }
                         }
                         // None on Settings or the pages opened from it: those are
@@ -6297,3 +6269,48 @@ private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
+
+
+/**
+ * The top bar's update button. It is its own composable so that the download's
+ * progress ticks only recompose this icon and not the whole screen: the state
+ * is read here rather than in [BitChordApp].
+ *
+ * While the APK downloads, the arrow becomes a ring that fills with the percent
+ * done.
+ */
+@Composable
+private fun UpdateAvailableAction(version: String, onClick: () -> Unit) {
+    val download by AppUpdateChecker.download.collectAsStateWithLifecycle()
+    val downloading = download as? AppUpdateChecker.DownloadState.Downloading
+    IconButton(onClick = onClick) {
+        if (downloading != null) {
+            val percent = (downloading.fraction * 100).toInt()
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { downloading.fraction },
+                    modifier = Modifier.size(26.dp),
+                    strokeWidth = 2.5.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                )
+                Text(
+                    text = "$percent",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        } else {
+            Icon(
+                // An arrow rising out of a bar, not the
+                // little phone-with-an-arrow: at 24dp the
+                // handset outline is mush, and the glyph
+                // has to read as "newer version" rather
+                // than as "something about your device".
+                Icons.Rounded.Upgrade,
+                contentDescription = stringResource(R.string.update_available, version),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}

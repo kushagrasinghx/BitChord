@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.music.bitchord.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,6 +22,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.Call
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
@@ -57,6 +59,10 @@ object AppUpdateChecker {
      */
     private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var downloadJob: Job? = null
+
+    /** The request currently in flight, so a cancel can interrupt it mid-read. */
+    @Volatile
+    private var activeCall: Call? = null
 
     private const val LATEST_RELEASE_URL =
         "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
@@ -161,10 +167,10 @@ object AppUpdateChecker {
      * Streams the current update's APK into the app cache, reporting progress
      * through [download]. The bytes land in a `.part` file that is kept if the
      * transfer breaks (dropped connection, app killed): the next attempt asks
-     * the server for the rest with an HTTP Range request. Network errors are
-     * retried a few times with a growing delay. A finished file survives a
-     * cancelled dialog: until the state is reset, "Install Now" comes straight
-     * back without a second download.
+     * the server for the rest with an HTTP Range request. Network errors and
+     * transient server answers are retried a few times with a growing delay.
+     * A finished file survives a cancelled dialog: until the state is reset,
+     * "Install Now" comes straight back without a second download.
      */
     suspend fun downloadApk(context: Context): Unit = withContext(Dispatchers.IO) {
         val info = _available.value ?: return@withContext
@@ -185,9 +191,15 @@ object AppUpdateChecker {
                     _download.value = DownloadState.Idle
                     return@withContext
                 }
-                check(partial.renameTo(target)) { "Couldn't save the downloaded update" }
+                // Not worth failing the whole download over: if the move
+                // doesn't take, the next pass finds the partial already
+                // complete (416) and tries the move again.
+                if (!partial.renameTo(target)) throw IOException("Couldn't save the downloaded update")
                 _download.value = DownloadState.Ready(target)
                 return@withContext
+            } catch (e: CancellationException) {
+                _download.value = DownloadState.Idle
+                throw e
             } catch (e: IOException) {
                 if (downloadCancelled) {
                     _download.value = DownloadState.Idle
@@ -197,6 +209,8 @@ object AppUpdateChecker {
                     _download.value = DownloadState.Failed(e.message ?: "Download failed")
                     return@withContext
                 }
+                // delay() throws CancellationException if the job is cancelled
+                // while waiting, which is deliberately left to propagate.
                 delay(RETRY_BASE_DELAY_MS shl (attempt - 1))
             } catch (e: Exception) {
                 _download.value = if (downloadCancelled) {
@@ -209,6 +223,10 @@ object AppUpdateChecker {
         }
     }
 
+    /** Answers that usually go away on their own, so are worth another attempt. */
+    private fun isTransient(code: Int) =
+        code == 408 || code == 425 || code == 429 || code >= 500
+
     /**
      * One pass at fetching [url] into [partial], continuing from whatever is
      * already there. Returns false if the user cancelled (the partial file is
@@ -218,53 +236,78 @@ object AppUpdateChecker {
     internal fun transfer(url: String, partial: File): Boolean {
         val have = partial.length()
         val request = Request.Builder().url(url)
+            // Plain bytes only: a compressed range could not be appended to
+            // the file on disk.
+            .header("Accept-Encoding", "identity")
             .apply { if (have > 0) header("Range", "bytes=$have-") }
             .build()
-        Http.client.newCall(request).execute().use { response ->
-            if (response.code == 416) {
-                // The server has nothing past what we hold: either the partial
-                // is already the whole file, or it doesn't belong to this file.
-                val size = response.header("Content-Range")?.substringAfter("/")?.toLongOrNull()
-                if (size == have) return true
-                partial.delete()
-                throw IOException("Download restarted")
-            }
-            if (response.code >= 500) throw IOException("Download failed: HTTP ${response.code}")
-            check(response.isSuccessful) { "Download failed: HTTP ${response.code}" }
-            val body = response.body ?: throw IOException("Empty download body")
+        val call = Http.client.newCall(request)
+        activeCall = call
+        try {
+            if (downloadCancelled) return false
+            call.execute().use { response ->
+                if (response.code == 416) {
+                    // The server has nothing past what we hold: either the partial
+                    // is already the whole file, or it doesn't belong to this file.
+                    val size = response.header("Content-Range")?.substringAfter("/")?.toLongOrNull()
+                    if (size == have) return true
+                    partial.delete()
+                    throw IOException("Download restarted")
+                }
+                if (isTransient(response.code)) throw IOException("Download failed: HTTP ${response.code}")
+                check(response.isSuccessful) { "Download failed: HTTP ${response.code}" }
+                val body = response.body ?: throw IOException("Empty download body")
 
-            // 206 continues the partial file; a plain 200 means the server
-            // ignored the Range header and is sending everything again.
-            val resumed = response.code == 206 && have > 0
-            val offset = if (resumed) have else 0L
-            val remaining = body.contentLength().takeIf { it > 0 }
-            val total = remaining?.let { it + offset }
+                // 206 continues the partial file, but only if it starts where
+                // we left off; a plain 200 means the server ignored the Range
+                // header and is sending everything again.
+                val resumed = response.code == 206 && have > 0
+                if (resumed) {
+                    val start = response.header("Content-Range")
+                        ?.removePrefix("bytes ")?.substringBefore("-")?.toLongOrNull()
+                    if (start != have) {
+                        partial.delete()
+                        throw IOException("Server resumed from the wrong place")
+                    }
+                }
+                val offset = if (resumed) have else 0L
+                val remaining = body.contentLength().takeIf { it > 0 }
+                val total = remaining?.let { it + offset }
 
-            var written = offset
-            body.byteStream().use { input ->
-                java.io.FileOutputStream(partial, resumed).use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        if (downloadCancelled) return false
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        output.write(buffer, 0, read)
-                        written += read
-                        total?.let {
-                            _download.value =
-                                DownloadState.Downloading((written.toFloat() / it).coerceIn(0f, 1f))
+                var written = offset
+                body.byteStream().use { input ->
+                    java.io.FileOutputStream(partial, resumed).use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        while (true) {
+                            if (downloadCancelled) return false
+                            val read = input.read(buffer)
+                            if (read == -1) break
+                            output.write(buffer, 0, read)
+                            written += read
+                            total?.let {
+                                _download.value =
+                                    DownloadState.Downloading((written.toFloat() / it).coerceIn(0f, 1f))
+                            }
                         }
                     }
                 }
+                if (total != null && written != total) throw IOException("Connection closed early")
             }
-            if (total != null && written != total) throw IOException("Connection closed early")
+        } finally {
+            activeCall = null
         }
         return true
     }
 
-    /** Stops an in-flight download; the next read loop sees this and bails. */
+    /**
+     * Stops an in-flight download. The request is cancelled too, so a stalled
+     * connection stops now instead of when its read times out; the partial
+     * file stays for a later resume.
+     */
     fun cancelDownload() {
         downloadCancelled = true
+        activeCall?.cancel()
+        downloadJob?.cancel()
     }
 
     /** Back to square one after a failure, so the dialog offers Download again. */

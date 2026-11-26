@@ -95,6 +95,8 @@ export function stopVideo(): void {
   void refresh();
 }
 
+document.addEventListener('visibilitychange', () => void refresh());
+
 useVideo.subscribe((state, previous) => {
   if (state.surfaces > 0 !== previous.surfaces > 0 || state.quality !== previous.quality) void refresh();
   // A surface resized or a bigger one came to the front: Shaka applies a new ceiling without reloading.
@@ -106,7 +108,8 @@ useVideo.subscribe((state, previous) => {
 async function refresh(): Promise<void> {
   const run = ++generation;
   const quality = useVideo.getState().quality;
-  const wanted = source && useVideo.getState().surfaces > 0 ? source : null;
+  // No one sees a minimised window's picture: the audio plays on, the video stops decoding.
+  const wanted = source && useVideo.getState().surfaces > 0 && !document.hidden ? source : null;
   const stream = wanted ? await wanted.engine.videoStream(quality === 'auto' ? null : quality).catch(() => null) : null;
   if (run !== generation) return;
   if (!stream) {

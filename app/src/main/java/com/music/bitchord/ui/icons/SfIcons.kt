@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.vector.VectorGroup
 import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.unit.dp
 import com.composables.sfsymbols.SfSymbols
-import com.composables.sfsymbols.monochrome.SFApplewatch
 import com.composables.sfsymbols.monochrome.SFArchivebox
 import com.composables.sfsymbols.monochrome.SFArrowDownCircle
 import com.composables.sfsymbols.monochrome.SFArrowDownDocument
@@ -198,7 +197,6 @@ object SfIcons {
     val VolumeOff: ImageVector by lazy { bold(SfSymbols.Monochrome.SFSpeakerSlash) }
     val VolumeUp: ImageVector by lazy { bold(SfSymbols.Monochrome.SFSpeakerWave2) }
     val Warning: ImageVector by lazy { bold(SfSymbols.Monochrome.SFExclamationmarkTriangle) }
-    val Watch: ImageVector by lazy { bold(SfSymbols.Monochrome.SFApplewatch) }
     val Waves: ImageVector by lazy { bold(SfSymbols.Monochrome.SFWaterWaves) }
     val WebAssetOff: ImageVector by lazy { bold(SfSymbols.Monochrome.SFRectangleSlash) }
     val Wifi: ImageVector by lazy { bold(SfSymbols.Monochrome.SFWifi) }

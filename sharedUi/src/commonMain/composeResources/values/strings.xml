@@ -20,8 +20,6 @@
     <string name="cast_casting">Casting</string>
     <string name="cast_connecting">Connecting…</string>
     <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
-    <string name="watch_output">Watch</string>
-    <string name="watch_output_subtitle">Play on your watch’s speaker or headphones</string>
     <string name="channel_count">%1$d ch</string>
     <string name="choose_lyrics_provider">Choose lyrics provider</string>
     <string name="clear">Clear</string>
@@ -200,7 +198,7 @@
     <string name="subscriptions">Subscriptions</string>
     <string name="your_replay">Your Replay</string>
     <string name="your_listening_experience">Your listening experience</string>
-    <string name="default_replay_holder">BitChord listener</string>
+    <string name="default_replay_holder">BitVinyl listener</string>
     <string name="member_since">Member since</string>
     <string name="import_spotify">Import Spotify</string>
     <string name="import_spotify_subtitle">From a playlist link</string>

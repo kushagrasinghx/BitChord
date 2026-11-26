@@ -20,7 +20,7 @@ import okhttp3.Request
 import java.io.File
 
 /**
- * BitChord ships as a sideloaded APK off GitHub Releases rather than through
+ * BitVinyl ships as a sideloaded APK off GitHub Releases rather than through
  * a store, so there's nothing to push an update notice on its own — this
  * polls the repo's "latest release" once per launch and compares its tag
  * against the running build.
@@ -43,7 +43,7 @@ object AppUpdateChecker {
     private const val CACHE_SUBDIR = "updates"
 
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
+        "https://api.github.com/repos/jackedhawk-117/BitVinyl/releases/latest"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -94,37 +94,74 @@ object AppUpdateChecker {
     }
 
     /**
-     * One release carries the phone app and the TV app, each as a universal
-     * APK plus per-ABI splits:
+     * Release workflows produce phone APKs under `app/build/outputs/apk/prod/release/`:
      *
-     *     BitChord-v1.8.apk     BitChord-v1.8_arm64-v8a.apk     ...
-     *     BitChordTV-v1.8.apk   BitChordTV-v1.8_arm64-v8a.apk   ...
+     *     BitVinyl-prod-universal-release.apk
+     *     BitVinyl-prod-arm64-v8a-release.apk
+     *     BitVinyl-prod-armeabi-v7a-release.apk
+     *     BitVinyl-prod-x86_64-release.apk
      *
-     * so this app's APKs are the ones named with its own
-     * [BuildConfig.UPDATE_APK_PREFIX] — "BitChord-" never matches a TV file,
-     * since the prefix ends at the hyphen. The universal build (no `_ABI`
-     * suffix) is taken first, as it installs anywhere; failing that, the split
-     * for this device's ABI. A release with neither leaves
-     * [UpdateInfo.apkUrl] null and the UI falls back to opening the releases
-     * page.
+     * Matched against [BuildConfig.UPDATE_APK_PREFIX] (`BitVinyl-`).
+     * The split APK matching the device's highest-priority ABI in
+     * [Build.SUPPORTED_ABIS] is selected first (saving ~190 MB over universal),
+     * falling back to the universal release APK (`BitVinyl-prod-universal-release.apk`
+     * or `BitVinyl-<version>.apk`) when no matching split exists. Unsigned and
+     * debug builds are ignored.
      */
     private fun apkAssetUrl(release: JsonObject): String? = runCatching {
-        val apks = release["assets"]?.jsonArray
+        val uploadedAssets = release["assets"]?.jsonArray
             ?.mapNotNull { it as? JsonObject }
             ?.mapNotNull { asset ->
+                if (asset["state"]?.jsonPrimitive?.contentOrNull != "uploaded") return@mapNotNull null
                 val name = asset["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
                 val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val ours = name.startsWith(BuildConfig.UPDATE_APK_PREFIX, ignoreCase = true) &&
-                    name.endsWith(".apk", ignoreCase = true) &&
-                    asset["state"]?.jsonPrimitive?.contentOrNull == "uploaded"
-                if (ours) name.removeSuffix(".apk").removeSuffix(".APK") to url else null
+                name to url
             }
             .orEmpty()
-        apks.firstOrNull { (name, _) -> '_' !in name }?.second
-            ?: Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
-                apks.firstOrNull { (name, _) -> name.endsWith("_$abi") }?.second
-            }
+        selectApkAssetUrl(uploadedAssets, Build.SUPPORTED_ABIS, BuildConfig.UPDATE_APK_PREFIX)
     }.getOrNull()
+
+    private val KNOWN_ABIS = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+
+    internal fun selectApkAssetUrl(
+        assets: List<Pair<String, String>>,
+        supportedAbis: Array<String>,
+        prefix: String = BuildConfig.UPDATE_APK_PREFIX,
+    ): String? {
+        val candidates = assets.mapNotNull { (name, url) ->
+            val valid = name.startsWith(prefix, ignoreCase = true) &&
+                name.endsWith(".apk", ignoreCase = true) &&
+                !name.endsWith("-unsigned.apk", ignoreCase = true) &&
+                !name.endsWith("-debug.apk", ignoreCase = true) &&
+                !name.startsWith("BitVinylTV-", ignoreCase = true) &&
+                !name.startsWith("BitVinylWear-", ignoreCase = true)
+            if (valid) name.dropLast(4) to url else null
+        }
+        return supportedAbis.firstNotNullOfOrNull { abi ->
+            candidates.firstOrNull { (stem, _) -> matchesAbi(stem, abi) }?.second
+        } ?: candidates.firstOrNull { (stem, _) -> isUniversal(stem) }?.second
+    }
+
+    private fun matchesAbi(stem: String, abi: String): Boolean {
+        val lowerStem = stem.lowercase()
+        val lowerAbi = abi.lowercase()
+        return lowerStem.contains("-$lowerAbi-") ||
+            lowerStem.contains("_${lowerAbi}_") ||
+            lowerStem.contains("_$lowerAbi-") ||
+            lowerStem.endsWith("-$lowerAbi") ||
+            lowerStem.endsWith("_$lowerAbi")
+    }
+
+    private fun isUniversal(stem: String): Boolean {
+        val lowerStem = stem.lowercase()
+        if (lowerStem.contains("-universal-") ||
+            lowerStem.endsWith("-universal") ||
+            lowerStem.endsWith("_universal")
+        ) {
+            return true
+        }
+        return KNOWN_ABIS.none { matchesAbi(lowerStem, it) }
+    }
 
     /**
      * Streams the current update's APK into the app cache, reporting progress
@@ -142,7 +179,11 @@ object AppUpdateChecker {
             val dir = File(context.cacheDir, CACHE_SUBDIR).apply { mkdirs() }
             // Drop anything left over from an earlier attempt.
             dir.listFiles()?.forEach { it.delete() }
-            val target = File(dir, "bitchord-${info.version}.apk")
+            val assetFileName = url.substringAfterLast('/')
+                .substringBefore('?')
+                .takeIf { it.endsWith(".apk", ignoreCase = true) && '/' !in it && '\\' !in it }
+                ?: "BitVinyl-${info.version}.apk"
+            val target = File(dir, assetFileName)
 
             val request = Request.Builder().url(url).build()
             Http.client.newCall(request).execute().use { response ->
@@ -197,8 +238,6 @@ object AppUpdateChecker {
      * Sideloaded apps need the user's blessing per app ("install unknown apps");
      * without it the installer intent silently does nothing on most ROMs, so
      * the user is sent to that one switch first and taps Install again after.
-     * Some TV builds have no such settings screen; there the installer is
-     * launched anyway and shows its own "not allowed" prompt with a way in.
      */
     fun installApk(context: Context, file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -243,7 +282,7 @@ object AppUpdateChecker {
      * the tag it was testing toward. Without this, a beta and the release it
      * matches compare equal and testers never get nudged onto the real build.
      */
-    private fun isNewer(latest: String, current: String): Boolean {
+    internal fun isNewer(latest: String, current: String): Boolean {
         val l = parseVersion(latest)
         val c = parseVersion(current)
         for (i in 0 until maxOf(l.parts.size, c.parts.size)) {

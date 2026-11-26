@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">BitVinyl</string>
     <string name="playback_channel_name">Şu an çalıyor</string>
     <string name="download_channel_name">İndirmeler</string>
     <string name="download_channel_description">Müzik klasörüne kaydedilen şarkılar</string>
@@ -109,10 +109,10 @@
     <string name="dolby_atmos_open_failed">Dolby Atmos ayarları açılamadı</string>
     <string name="update_available">Güncelleme mevcut: v%1$s</string>
     <string name="software_update">Yazılım Güncellemesi</string>
-    <string name="update_available_body">bitchord %1$s indirilmeye hazır.</string>
-    <string name="update_downloading_body">bitchord %1$s indiriliyor…</string>
-    <string name="update_ready_body">bitchord %1$s yüklenmeye hazır.</string>
-    <string name="update_failed_body">bitchord %1$s indirilemedi.</string>
+    <string name="update_available_body">BitVinyl %1$s indirilmeye hazır.</string>
+    <string name="update_downloading_body">BitVinyl %1$s indiriliyor…</string>
+    <string name="update_ready_body">BitVinyl %1$s yüklenmeye hazır.</string>
+    <string name="update_failed_body">BitVinyl %1$s indirilemedi.</string>
     <string name="download_now">Şimdi İndir</string>
     <string name="install_now">Şimdi Yükle</string>
     <string name="later">Daha sonra</string>
@@ -144,7 +144,7 @@
     <string name="widget_previous">Önceki</string>
     <string name="widget_artwork">Albüm kapağı</string>
     <string name="widget_nothing_played">Henüz bir şey çalınmadı</string>
-    <string name="widget_open_bitchord">BitChord\'u Aç</string>
+    <string name="widget_open_bitchord">BitVinyl\'u Aç</string>
     <string name="widget_preview_title">Şarkı adı</string>
     <string name="widget_preview_artist">Sanatçı</string>
     <string name="widget_pill_label">Şu an çalıyor 4×1</string>
@@ -175,7 +175,7 @@
     <string name="cancel_all">Tümünü iptal et</string>
     <string name="language">Dil</string>
     <string name="app_language">Uygulama dili</string>
-    <string name="app_language_description">BitChord tarafından kullanılan dili seçin.</string>
+    <string name="app_language_description">BitVinyl tarafından kullanılan dili seçin.</string>
     <string name="english">İngilizce</string>
     <string name="spanish">İspanyolca</string>
     <string name="french">Fransızca</string>
@@ -283,10 +283,10 @@
     <string name="beta">Beta</string>
     <string name="refresh_rate">Yenileme hızı</string>
     <string name="high_performance_before_enabling">Etkinleştirmeden önce</string>
-    <string name="high_performance_battery_warning">Önce BitChord\'un pil kullanımını Sınırsız olarak ayarlayın. Daha yüksek yenileme hızları daha fazla pil, CPU ve GPU kullanır ve cihazınızı ısıtabilir.</string>
+    <string name="high_performance_battery_warning">Önce BitVinyl\'un pil kullanımını Sınırsız olarak ayarlayın. Daha yüksek yenileme hızları daha fazla pil, CPU ve GPU kullanır ve cihazınızı ısıtabilir.</string>
     <string name="open_battery_settings">Pil ayarlarını aç</string>
     <string name="enable_high_performance_title">Yüksek performans modu etkinleştirilsin mi?</string>
-    <string name="enable_high_performance_confirmation">Yalnızca BitChord\'un pil kullanımı Sınırsız olarak ayarlıysa etkinleştirin. Cihaz ısındığında veya pil azaldığında Android yine de yenileme hızını sınırlayabilir.</string>
+    <string name="enable_high_performance_confirmation">Yalnızca BitVinyl\'un pil kullanımı Sınırsız olarak ayarlıysa etkinleştirin. Cihaz ısındığında veya pil azaldığında Android yine de yenileme hızını sınırlayabilir.</string>
     <string name="enable">Etkinleştir</string>
     <string name="not_yet">Henüz değil</string>
     <string name="activity">Etkinlik</string>
@@ -321,7 +321,7 @@
     <string name="discord_presence_footer">Parça, konum veya çalma durumu değiştiğinde kart güncellenir. Çalma durduğunda temizlenir.</string>
     <string name="discord_show_audio_quality">Ses kalitesini göster</string>
     <string name="discord_show_audio_quality_subtitle">Durum kartında Hi-Res, kayıpsız ve Dolby bilgileri</string>
-    <string name="discord_sign_in_footer">Giriş yapmak Discord\'un giriş sayfasını açar. BitChord\'a hiçbir şey yazılmaz.</string>
+    <string name="discord_sign_in_footer">Giriş yapmak Discord\'un giriş sayfasını açar. BitVinyl\'a hiçbir şey yazılmaz.</string>
     <string name="discord_token">Discord belirteci</string>
     <string name="discord_token_description">Discord hesap belirtecinizi yapıştırın. Bu cihazda şifreli kalır ve yalnızca Discord\'a gönderilir.</string>
     <string name="discord_token_rejected">Discord bu belirteci reddetti.</string>
@@ -358,7 +358,7 @@
     <string name="starting">Başlatılıyor</string>
     <string name="start_radio">Radyoyu başlat</string>
     <string name="radio_started">%1$s radyosu başlatıldı</string>
-    <string name="saved_to_bitchord_folder">Müzik/BitChord klasörüne kaydedildi</string>
+    <string name="saved_to_bitchord_folder">Müzik/BitVinyl klasörüne kaydedildi</string>
     <string name="nothing_downloading">İndirilen bir şey yok</string>
     <string name="nothing_to_explore">Şu anda keşfedilecek bir şey yok</string>
     <string name="no_youtube_music_results">YouTube Music\'ten sonuç yok</string>
@@ -488,7 +488,7 @@
     <string name="sleep_timer_custom">Özel</string>
     <string name="start_sleep_timer">Zamanlayıcıyı başlat</string>
     <string name="sources_no_lossless">Etkin hiçbir kaynak kayıpsız ses sağlayamıyor. Yeniden kodlama yapmadan mevcut kayıpsız dosyaları çalmak için özel bir modül ekleyin.</string>
-    <string name="sources_order_footer">Bir kaynakta parça yoksa veya ulaşılamıyorsa BitChord bir sonrakini dener. YouTube üzerindeki kaynaklar daha iyi bir sürüm döndürdüklerinde onun kaydının yerini alabilir.</string>
+    <string name="sources_order_footer">Bir kaynakta parça yoksa veya ulaşılamıyorsa BitVinyl bir sonrakini dener. YouTube üzerindeki kaynaklar daha iyi bir sürüm döndürdüklerinde onun kaydının yerini alabilir.</string>
     <string name="sources_order_header">Kaynaklar, bu sırayla denenir</string>
     <string name="sources_quality_capped">Bu bağlantı Yüksek kalitenin altına ayarlandığından, akışlar bu sınıra uyacak şekilde yeniden kodlanır. İndirmeler etkilenmez.</string>
     <string name="jiosaavn_mismatch_warning">Bir şarkının yanlış sürümünü eşleştirebilir. Riski sana ait olmak üzere etkinleştir.</string>
@@ -534,7 +534,7 @@
     <string name="biggest_day_note">En yoğun günün %2$s dinlemeyle %1$s oldu.</string>
     <string name="close_replay">Replay\'i Kapat</string>
     <string name="couldnt_draw_picture">Resim oluşturulamadı</string>
-    <string name="default_replay_holder">BitChord dinleyicisi</string>
+    <string name="default_replay_holder">BitVinyl dinleyicisi</string>
     <string name="different_albums">Farklı albümler</string>
     <string name="genres_pending">Dinleme geçmişin büyüdükçe türler görünecek</string>
     <string name="hour_am">%1$d, sabah</string>
@@ -564,7 +564,7 @@
     <string name="replay_artist_end"> tekrar tekrar dinlendi.</string>
     <string name="replay_artist_focus">Bir sanatçı</string>
     <string name="replay_artist_start">Ay boyunca, </string>
-    <string name="replay_empty_description">Biraz daha dinle, BitChord geçmişini bir Replay\'e dönüştürsün.</string>
+    <string name="replay_empty_description">Biraz daha dinle, BitVinyl geçmişini bir Replay\'e dönüştürsün.</string>
     <string name="replay_genre_end"> tarzını şekillendirdi.</string>
     <string name="replay_genre_focus">Türlerin</string>
     <string name="replay_genre_start">Birlikte, </string>
@@ -629,7 +629,7 @@
     <string name="webdav_subtitle">Sunucundaki müzikler</string>
     <string name="webdav_not_configured">Kaynaklar bölümünden bir sunucu bağla</string>
     <string name="webdav_empty">WebDAV sunucusunda ses dosyası bulunamadı. Ayarlar\'daki URL\'yi kontrol et.</string>
-    <string name="webdav_description">BitChord\'u bir WebDAV müzik klasörüne yönlendir — Nextcloud müzik dizinin ya da WebDAV destekleyen herhangi bir sunucu.</string>
+    <string name="webdav_description">BitVinyl\'u bir WebDAV müzik klasörüne yönlendir — Nextcloud müzik dizinin ya da WebDAV destekleyen herhangi bir sunucu.</string>
     <string name="webdav_server_url">Sunucu URL\'si</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Bağlantıyı kes</string>
@@ -646,7 +646,7 @@
     <string name="smb_subtitle">Paylaşılan klasördeki müzikler</string>
     <string name="smb_not_configured">Kaynaklar bölümünden bir paylaşım bağla</string>
     <string name="smb_empty">SMB paylaşımında ses dosyası bulunamadı. Kaynaklar\'daki sunucuyu kontrol et.</string>
-    <string name="smb_description">BitChord\'u paylaşılan bir müzik klasörüne yönlendir — SMB kullanan bir NAS ya da Windows paylaşımı.</string>
+    <string name="smb_description">BitVinyl\'u paylaşılan bir müzik klasörüne yönlendir — SMB kullanan bir NAS ya da Windows paylaşımı.</string>
     <string name="smb_server_hint">nas.local veya 192.168.1.10:4445</string>
     <string name="smb_share_hint">Paylaşım adı, ör. Music</string>
     <string name="smb_folder_hint">Klasör (isteğe bağlı)</string>
@@ -699,7 +699,7 @@
     </plurals>
     <string name="no_local_albums">Burada henüz bir albüme veya çalma listesine ait bir şey yok. Tam bir albüm veya çalma listesi indir, burada görünecek.</string>
     <string name="play_your_replay">Replay\'ini çal</string>
-    <string name="counted_on_device_with_bitchord">Bu cihazda BitChord ile sayıldı</string>
+    <string name="counted_on_device_with_bitchord">Bu cihazda BitVinyl ile sayıldı</string>
     <string name="this_month">Bu ay</string>
     <string name="this_year">Bu yıl</string>
     <string name="all_time">Tüm zamanlar</string>
@@ -767,7 +767,7 @@
     <string name="listen_together_code">Parti kodu</string>
     <string name="listen_together_code_footer">Yüksek sesle oku ya da gönder. O ve I harfleri kullanılmaz, yani bir “o” her zaman sıfırdır.</string>
     <string name="copy_code">Kodu kopyala</string>
-    <string name="listen_together_share_text">BitChord’da benimle dinle — parti kodu %1$s</string>
+    <string name="listen_together_share_text">BitVinyl’da benimle dinle — parti kodu %1$s</string>
     <string name="listen_together_now_playing">Şu an çalıyor</string>
     <string name="listen_together_nothing_playing">Henüz bir şey çalmıyor</string>
     <string name="listen_together_listening">Dinliyor · %1$d / %2$d</string>
@@ -804,7 +804,7 @@
     <string name="listen_together_custom_server_dialog_message">Bu parti harici bir sunucuda barındırılıyor:\n\n%1$s\n\nParti sunucunu değiştirip %2$s partisine katılmak istiyor musun?</string>
     <string name="listen_together_custom_server_switch_and_join">Değiştir ve katıl</string>
     <string name="listen_together_official_server_dialog_title">Resmi sunucuya geçilsin mi?</string>
-    <string name="listen_together_official_server_dialog_message">Bu parti resmi BitChord sunucusunda barındırılıyor.\n\nResmi sunucuya geri dönüp %1$s partisine katılmak istiyor musun?</string>
+    <string name="listen_together_official_server_dialog_message">Bu parti resmi BitVinyl sunucusunda barındırılıyor.\n\nResmi sunucuya geri dönüp %1$s partisine katılmak istiyor musun?</string>
     <string name="listen_together_switch_failed_stayed_in_party">Partiye katılınamadı: %1$s. %2$s partisinde kalmaya devam ediyorsun.</string>
     <string name="listen_together_switch_failed">Partiye katılınamadı: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
@@ -830,9 +830,9 @@
 
     <string name="add_addon">Eklenti ekle</string>
 
-    <string name="add_addon_detail">BitChord\'u barındırdığınız veya bağlantısını aldığınız bir eklenti sunucusuna yönlendirin</string>
+    <string name="add_addon_detail">BitVinyl\'u barındırdığınız veya bağlantısını aldığınız bir eklenti sunucusuna yönlendirin</string>
 
-    <string name="addon_url_description">Eklentinin URL\'sini yapıştırın — kök dizin veya manifest.json. BitChord arama ve oynatma yeteneklerini okur.</string>
+    <string name="addon_url_description">Eklentinin URL\'sini yapıştırın — kök dizin veya manifest.json. BitVinyl arama ve oynatma yeteneklerini okur.</string>
 
 
     <string name="blur_unfocused_lyrics">Odaklanmamış şarkı sözlerini bulanıklaştır</string>
@@ -969,7 +969,7 @@
 
     <string name="sort_library">Sırala</string>
 
-    <string name="source_unrecognised">BitChord bu bağlantıyı tanıyamadı</string>
+    <string name="source_unrecognised">BitVinyl bu bağlantıyı tanıyamadı</string>
 
     <string name="source_skipped_by_quality">%1$s üzerinde kullanılmıyor · kalite %2$s olarak ayarlandı</string>
 
@@ -1002,7 +1002,7 @@
 
     <string name="auto_login_title">Telefonunuzda YouTube\'a giriş yapın</string>
 
-    <string name="auto_login_subtitle">Giriş yapmak için telefonunuzda BitChord\'u açın</string>
+    <string name="auto_login_subtitle">Giriş yapmak için telefonunuzda BitVinyl\'u açın</string>
 
     <string name="auto_empty_recents_title">Son çalınan şarkı yok</string>
 
@@ -1046,7 +1046,7 @@
     <string name="smart_version_alignment">Akıllı ses hizalama</string>
     <string name="smart_version_alignment_subtitle">Tam karşılık gelen çalma anını bulmak için ses dalga biçimlerini analiz eder</string>
 
-    <string name="equalizer_footer">BitChord içindeki sesi, sisteme ulaşmadan önce şekillendirir.</string>
+    <string name="equalizer_footer">BitVinyl içindeki sesi, sisteme ulaşmadan önce şekillendirir.</string>
 
     <string name="equalizer_dynamic">Dinamik</string>
 
@@ -1089,7 +1089,7 @@
 
     <string name="system_equalizer_subtitle">Cihazınızın kendi paneli</string>
 
-    <string name="system_equalizer_footer">BitChord\'unkinden sonra, tüm ses oturumunda çalışır. İkisini birden kullanmak ikisini de uygular.</string>
+    <string name="system_equalizer_footer">BitVinyl\'unkinden sonra, tüm ses oturumunda çalışır. İkisini birden kullanmak ikisini de uygular.</string>
 
     <string name="eq_preset_flat">Düz</string>
 
@@ -1233,7 +1233,7 @@
 
 
     <string name="source_needs_lossless_output">Kayıpsız çıkış gerekir · kayıpsız sesi destekleyen bir cihaz kullanın</string>
-    <string name="source_needs_update">Bu eklenti güncel değil. Hâlâ çalışıyor, ancak geliştiricisinden en son BitChord eklenti belgelerine göre güncellemesini isteyin.</string>
+    <string name="source_needs_update">Bu eklenti güncel değil. Hâlâ çalışıyor, ancak geliştiricisinden en son BitVinyl eklenti belgelerine göre güncellemesini isteyin.</string>
     <string name="source_outdated">Güncel olmayan eklenti</string>
     <string name="source_needs_lossless_bt_codec">Kayıpsız çıkış gerekir · Bluetooth %1$s kullanıyor; kayıpsız sesi destekleyen bir cihaz kullanın</string>
     <string name="source_needs_lossless_bt_unknown">Kayıpsız çıkış gerekir · hangi Bluetooth kodeğinin kullanıldığı anlaşılamıyor</string>
@@ -1315,7 +1315,7 @@
     <string name="replay_period_monthly">Aylık</string>
     <string name="replay_period_yearly">Yıllık</string>
     <string name="replay_period_lifetime">Tüm zamanlar</string>
-    <string name="onboarding_title">Milyonlarca şarkı, BitChord’da akışta</string>
+    <string name="onboarding_title">Milyonlarca şarkı, BitVinyl’da akışta</string>
     <string name="onboarding_name_prompt">Size nasıl hitap edelim?</string>
     <string name="onboarding_name_hint">Adınız</string>
     <string name="onboarding_name_footer">Birlikte Dinle’yi kullandığınızda arkadaşlarınız bunu görür. Daha sonra Ayarlar’dan değiştirebilirsiniz.</string>
@@ -1325,39 +1325,6 @@
     <string name="onboarding_sign_in_google">Google ile giriş yap</string>
     <string name="onboarding_skip_sign_in">Girişi atla</string>
     <string name="onboarding_back">Geri</string>
-    <string name="wear_os_section">Wear OS için BitChord</string>
-    <string name="wear_os_page_title">Wear OS</string>
-    <string name="wear_os_your_watches">Saatleriniz</string>
-    <string name="wear_os_value_none">Saat yok</string>
-    <string name="wear_os_value_not_installed">Yüklü değil</string>
-    <string name="wear_os_value_up_to_date">Güncel</string>
-    <string name="wear_os_looking">Saatler aranıyor…</string>
-    <string name="wear_os_no_watch">Bağlı saat yok</string>
-    <string name="wear_os_no_watch_subtitle">Önce bir Wear OS saati, eşlik eden uygulamasından bu telefonla eşleştirin.</string>
-    <string name="wear_os_checking">Denetleniyor…</string>
-    <string name="wear_os_not_installed">BitChord bu saatte yüklü değil</string>
-    <string name="wear_os_up_to_date">Güncel · %1$s</string>
-    <string name="wear_os_update_available">Güncelleme var</string>
-    <string name="wear_os_unknown">Yüklü · sürüm denetlenemedi</string>
-    <string name="wear_os_sending">Saatinize gönderiliyor…</string>
-    <string name="wear_os_sent">Gönderildi — istenirse saatinizde tamamlayın</string>
-    <string name="wear_os_send_failed">Güncelleme gönderilemedi (%1$s)</string>
-    <string name="wear_os_install">Yükle</string>
-    <string name="wear_os_update">Güncelle</string>
-    <string name="wear_os_install_title">Saatinize yükleyin</string>
-    <string name="wear_os_step_wifi">Saatinizi bu telefonla aynı Wi-Fi ağına bağlayın.</string>
-    <string name="wear_os_step_developer">Saatte Geliştirici seçeneklerini açın. Galaxy Watch: Ayarlar → Saat hakkında → Yazılım bilgileri → Yazılım sürümüne beş kez dokunun. Pixel Watch: Ayarlar → Sistem → Hakkında → Derleme numarasına yedi kez dokunun.</string>
-    <string name="wear_os_step_debugging">Geliştirici seçeneklerinde ADB hata ayıklamayı ve Kablosuz hata ayıklamayı açın.</string>
-    <string name="wear_os_step_pair">Yeni cihaz eşle’ye dokunun, ardından saatin gösterdiği altı haneli kodu girin.</string>
-    <string name="wear_os_searching">Saatiniz Wi-Fi üzerinde aranıyor…</string>
-    <string name="wear_os_found">Saatiniz bulundu</string>
-    <string name="wear_os_pairing">Eşleniyor…</string>
-    <string name="wear_os_installing">BitChord saatinize yükleniyor…</string>
-    <string name="wear_os_installed">Yüklendi. Kablosuz hata ayıklamayı tekrar kapatabilirsiniz.</string>
-    <string name="wear_os_failed">Olmadı (%1$s). Kodu denetleyip tekrar deneyin.</string>
-    <string name="wear_os_unsupported">Bir saate yüklemek için bu telefonda Android 11 veya üzeri gerekir.</string>
-    <string name="wear_os_code_hint">Eşleme kodu</string>
-    <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
@@ -1378,7 +1345,6 @@
     <string name="remove_from_history_failed">Geçmişten kaldırılamadı</string>
     <string name="addon_blocked_title">Bu şarkı çalınamıyor</string>
     <string name="addon_blocked_quality">%1$s üzerindeki ses kalitesi %2$s olarak ayarlı. %3$s şarkıları yalnızca Kayıpsız çalar; bunu çalmak için Ayarlar → Ses kalitesi bölümünden değiştirin.</string>
-    <string name="addon_blocked_watch">Müzik saatiniz üzerinden çalıyor ve saat sesi Kayıpsız kalitenin altında sınırlıyor. Telefonunuz müziği geri aldığında %1$s şarkıları yeniden çalar.</string>
     <string name="download_addon_left_out_title">%1$s olmadan indiriliyor</string>
     <string name="download_addon_not_allowed">%1$s indirmeye izin vermiyor, bu yüzden şarkılarınız diğer kaynaklarınızdan kaydediliyor.</string>
     <string name="download_addon_needs_lossless_output">%1$s yalnızca kablolu, USB veya LDAC sınıfı kulaklık bağlıyken müzik sunar. Biri bağlanana kadar indirmeler onu atlar, bu yüzden şarkılarınız diğer kaynaklarınızdan kaydediliyor.</string>
@@ -1392,8 +1358,8 @@
     <string name="font_footer">Eski, uygulamanın Apple Music\'e uyarlanmadan önce kullandığı daha kalın ve sıkı yazı tipini geri getirir.</string>
     <string name="bit_perfect_output">Bit-perfect çıkış</string>
     <string name="bit_perfect_bypassed_footer">Bit-perfect çıkış hazır, bu nedenle soluk ayarlar atlanır ve Dolby Atmos sürümleri istenmez. DAC çıkarıldığında veya mod kapatıldığında yeniden çalışırlar.</string>
-    <string name="bit_perfect_sheet_warning">Parçayı DAC\'a değiştirmeden gönderir. Ekolayzır, ses yüksekliği normalleştirme, çapraz geçiş, Automix, çalma hızı ve BitChord\'un ses düzeyi atlanır.</string>
-    <string name="bit_perfect_mode_off_subtitle">Ses, Android\'in mikseri ve BitChord\'un efektlerinden geçer.</string>
+    <string name="bit_perfect_sheet_warning">Parçayı DAC\'a değiştirmeden gönderir. Ekolayzır, ses yüksekliği normalleştirme, çapraz geçiş, Automix, çalma hızı ve BitVinyl\'un ses düzeyi atlanır.</string>
+    <string name="bit_perfect_mode_off_subtitle">Ses, Android\'in mikseri ve BitVinyl\'un efektlerinden geçer.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14, DAC\'ı her parçanın kendi hızında ve bit derinliğinde, miksleme veya yeniden örnekleme olmadan açar.</string>
     <string name="bit_perfect_requires_android_14">Android 14 veya üstü gerekir</string>
@@ -1401,13 +1367,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Kendi DAC\'ı olan müzik çalarlar için. Kulaklık veya hat çıkışını her parçanın kendi hızında özel olarak açar. Her cihaz özel moda izin vermez.</string>
     <string name="bit_perfect_requires_android_8_1">Android 8.1 veya üstü gerekir</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (doğrudan sürücü)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord, DAC\'ı her Android sürümünde kendisi yönetir ve ses düzeyini DAC üzerinde ayarlar. USB izni ister. Normal çıkıştan çok daha yüksek ses verebilir.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitVinyl, DAC\'ı her Android sürümünde kendisi yönetir ve ses düzeyini DAC üzerinde ayarlar. USB izni ister. Normal çıkıştan çok daha yüksek ses verebilir.</string>
     <string name="dac_volume">DAC ses düzeyi</string>
     <string name="dac_volume_subtitle">DAC\'ın kendisinde ayarlanır; müzik ölçeklenmez</string>
     <string name="usb_allow_fixed_volume">Ses kontrolü olmayan DAC\'lara izin ver</string>
     <string name="usb_allow_fixed_volume_subtitle">Aksi takdirde böyle bir DAC normal çıkıştan çalar</string>
     <string name="usb_allow_fixed_volume_confirm_title">Tam ölçekte çalınsın mı?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord bu tür bir DAC\'ın ses düzeyini ayarlayamaz, bu yüzden tam ölçekte çalar ve yalnızca varsa DAC\'ın kendi düğmesi ses düzeyini denetler. Hassas kulaklıklarla tehlikeli derecede yüksek olabilir.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitVinyl bu tür bir DAC\'ın ses düzeyini ayarlayamaz, bu yüzden tam ölçekte çalar ve yalnızca varsa DAC\'ın kendi düğmesi ses düzeyini denetler. Hassas kulaklıklarla tehlikeli derecede yüksek olabilir.</string>
     <string name="convert_for_limited_dac">Düşük özellikli DAC\'lar için dönüştür</string>
     <string name="convert_for_limited_dac_subtitle">DAC\'ınızın sınırını aşan parçaları en yüksek biçimine dönüştürür. Parçaların başlaması daha uzun sürebilir ve özgün kayda göre bit-perfect olmaz.</string>
     <string name="bit_perfect_confirm_title">Bit-perfect çıkış açılsın mı?</string>

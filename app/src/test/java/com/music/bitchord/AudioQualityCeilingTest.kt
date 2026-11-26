@@ -50,21 +50,21 @@ class AudioQualityCeilingTest {
     }
 
     @Test
-    fun `the watch override caps a lossless ceiling`() {
+    fun `metered connections follow cellular ceiling over wifi`() {
         val wifi = AppSettings.audioQualityWifi.value
+        val cellular = AppSettings.audioQualityCellular.value
         val metered = AppSettings.meteredConnection.value
-        val override = AppSettings.streamCeilingOverride.value
         try {
-            AppSettings.meteredConnection.value = false
             AppSettings.audioQualityWifi.value = AudioQuality.LOSSLESS
-            AppSettings.streamCeilingOverride.value = AudioQuality.MEDIUM
+            AppSettings.audioQualityCellular.value = AudioQuality.MEDIUM
+            AppSettings.meteredConnection.value = false
+            assertEquals(AudioQuality.LOSSLESS, AppSettings.effectiveAudioQuality)
+            AppSettings.meteredConnection.value = true
             assertEquals(AudioQuality.MEDIUM, AppSettings.effectiveAudioQuality)
-            AppSettings.audioQualityWifi.value = AudioQuality.LOW
-            assertEquals(AudioQuality.LOW, AppSettings.effectiveAudioQuality)
         } finally {
             AppSettings.audioQualityWifi.value = wifi
+            AppSettings.audioQualityCellular.value = cellular
             AppSettings.meteredConnection.value = metered
-            AppSettings.streamCeilingOverride.value = override
         }
     }
 }

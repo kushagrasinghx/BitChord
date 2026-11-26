@@ -24,7 +24,7 @@ import java.util.Locale
 
 object LocalMediaRepository {
 
-    private const val TAG = "BitChord"
+    private const val TAG = "BitVinyl"
     private const val MIN_LOCAL_MUSIC_DURATION_MS = 30_000L
 
     // `mp4` only ever reaches this list as an audio row — MediaStore files a
@@ -96,12 +96,12 @@ object LocalMediaRepository {
                 )
                 val customFolder = AppSettings.downloadFolderUri.value
                 val customRelative = if (customFolder.isNotBlank()) selectedFolder(customFolder)?.label else null
-                val (selection, selectionArgs) = if (!customRelative.isNullOrBlank() && customRelative != DownloadStore.FOLDER) {
-                    "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to
-                        arrayOf("%${DownloadStore.FOLDER}%", "%$customRelative%")
-                } else {
-                    "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to arrayOf("%${DownloadStore.FOLDER}%")
+                val relativeFolders = mutableListOf(DownloadStore.FOLDER, DownloadStore.LEGACY_FOLDER)
+                if (!customRelative.isNullOrBlank() && customRelative !in relativeFolders) {
+                    relativeFolders.add(customRelative)
                 }
+                val selection = relativeFolders.joinToString(" OR ") { "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" }
+                val selectionArgs = relativeFolders.map { "%$it%" }.toTypedArray()
 
                 context.contentResolver.query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -140,32 +140,31 @@ object LocalMediaRepository {
                     }
                 }
             } else {
-                val folder = File(
-                    android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_MUSIC,
-                    ),
-                    DownloadStore.FOLDER,
+                val musicDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_MUSIC,
                 )
-                if (folder.exists() && folder.isDirectory) {
-                    folder.listFiles()?.forEach { file ->
-                        if (file.isFile && isAudioFileName(file.name)) {
-                            val uriStr = Uri.fromFile(file).toString()
-                            if (uriStr !in knownUris) {
-                                val modified = file.lastModified().takeIf { it > 0 }?.div(1_000)
-                                extraSongs.add(
-                                    buildSongFromUri(
-                                        context,
-                                        uriStr,
-                                        file.name,
-                                        ScannedTags(null, null, modified, modified),
-                                    ),
-                                )
+                listOf(File(musicDir, DownloadStore.FOLDER), File(musicDir, DownloadStore.LEGACY_FOLDER)).forEach { folder ->
+                    if (folder.exists() && folder.isDirectory) {
+                        folder.listFiles()?.forEach { file ->
+                            if (file.isFile && isAudioFileName(file.name)) {
+                                val uriStr = Uri.fromFile(file).toString()
+                                if (uriStr !in knownUris) {
+                                    val modified = file.lastModified().takeIf { it > 0 }?.div(1_000)
+                                    extraSongs.add(
+                                        buildSongFromUri(
+                                            context,
+                                            uriStr,
+                                            file.name,
+                                            ScannedTags(null, null, modified, modified),
+                                        ),
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }.onFailure { Log.w(TAG, "Failed scanning Music/BitChord directory: ${it.message}") }
+        }.onFailure { Log.w(TAG, "Failed scanning Music/${DownloadStore.FOLDER} directory: ${it.message}") }
 
         val filled = appDownloads.map { song ->
             val uri = song.localUri ?: return@map song

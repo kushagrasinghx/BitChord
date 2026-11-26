@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
-import com.music.bitchord.BitChordApplication
+import com.music.bitchord.BitVinylApplication
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
@@ -660,7 +660,26 @@ object ListenTogether {
     private var socketJob: Job? = null
 
     fun init(context: Context) {
-        prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (p.all.isEmpty()) {
+            val legacy = context.applicationContext.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = p.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        prefs = p
         val rawSaved = prefs.getString(KEY_SERVER, null)?.trim().orEmpty()
         val normalizedSaved = when (val res = parseAndNormalizeServerUrl(rawSaved)) {
             is ServerUrlValidationResult.Valid -> res.normalizedUrl
@@ -1466,7 +1485,7 @@ object ListenTogether {
      * real account identifiers would be holding something it has no use for.
      */
     private fun identity(nickname: String = nickname()): Identity? {
-        val store = BitChordApplication.authStore
+        val store = BitVinylApplication.authStore
         if (!store.isSignedIn) return null
         val account = store.activeSession ?: return null
         val profile = account.profiles.firstOrNull { it.profileId == account.activeProfileId }
@@ -1693,7 +1712,8 @@ object ListenTogether {
     const val CODE_LENGTH = 6
 
     private const val TAG = "ListenTogether"
-    private const val PREFS = "bitchord_listen_together"
+    private const val PREFS = "bitvinyl_listen_together"
+    private const val LEGACY_PREFS = "bitchord_listen_together"
     private const val KEY_SERVER = "server_url"
 
     /** What a redacted address reads as. Not a hostname, so it cannot be resolved back. */

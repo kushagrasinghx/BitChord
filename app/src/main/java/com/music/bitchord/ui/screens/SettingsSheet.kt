@@ -1,7 +1,6 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.icons.SfIcons
-import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
 import androidx.annotation.StringRes
 import android.content.Intent
@@ -203,7 +202,6 @@ fun SettingsScreen(
     onTranslationLanguage: () -> Unit,
     onSources: () -> Unit,
     onListenTogether: () -> Unit,
-    onWearOs: () -> Unit,
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
     onEditSignatureApi: () -> Unit,
@@ -377,7 +375,7 @@ fun SettingsScreen(
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             context.contentResolver.takePersistableUriPermission(folder, flags)
         }.onFailure {
-            android.util.Log.w("BitChord", "Failed to take persistable URI permission for $folder: ${it.message}")
+            android.util.Log.w("BitVinyl", "Failed to take persistable URI permission for $folder: ${it.message}")
         }
         AppSettings.setDownloadFolderUri(folder.toString())
         val label = DownloadStore.folderLabel(context, folder.toString())
@@ -441,7 +439,6 @@ fun SettingsScreen(
     val search = SettingsSearch(if (section == null) searchQuery else "", inPage = section != null)
     val searching = section == null && searchQuery.isNotBlank()
     fun shows(category: SettingsCategory) = section == category || searching
-    val watchAvailable = remember { WatchInstaller.available(context) }
 
     // What is left after a keystroke is a different list, and the offset the
     // last one was scrolled to means nothing in it.
@@ -611,11 +608,6 @@ fun SettingsScreen(
             // when their rows answer here instead (below).
             if (!searching) {
                 SettingsCategoryList(onOpen = onOpenSection)
-                if (watchAvailable) {
-                    SettingsGroup {
-                        WearOsSettingsRow(onClick = onWearOs)
-                    }
-                }
             }
         }
 
@@ -653,7 +645,7 @@ fun SettingsScreen(
                     title = exportDownloadsTitle,
                     checked = exportDownloads,
                     onCheckedChange = AppSettings::setExportDownloads,
-                    subtitle = "Music/BitChord".takeIf { exportDownloads },
+                    subtitle = "Music/${DownloadStore.FOLDER}".takeIf { exportDownloads },
                 )
             }
             val downloadLocationTitle = stringResource(R.string.download_location)
@@ -1558,17 +1550,6 @@ fun SettingsScreen(
             }
         }
 
-        // Only in a build that carries the watch app — see app/build.gradle.kts.
-        // On the main page it is listed with the categories; here it answers
-        // a search.
-        if (searching && watchAvailable) {
-            SearchableSettingsGroup(search) {
-                row(stringResource(R.string.wear_os_section), "watch", "wear os", "galaxy watch", "pixel watch", "install") {
-                    WearOsSettingsRow(onClick = onWearOs)
-                }
-            }
-        }
-
         if (shows(SettingsCategory.YOUR_DATA)) SearchableSettingsGroup(search, header = stringResource(R.string.your_data)) {
             val replayTitle = stringResource(R.string.replay)
             row(replayTitle, "stats", "history", "wrapped") {
@@ -1863,29 +1844,26 @@ fun SettingsScreen(
         if (section == null && searchQuery.isBlank()) {
         Text(
             text = buildAnnotatedString {
-                append("bitchord $version  ")
+                append("BitVinyl $version\n")
+                append("Your music. Your collection. Your way.\n\n")
                 val linkStyles = TextLinkStyles(
                     style = SpanStyle(
                         color = MaterialTheme.colorScheme.primary,
                         textDecoration = TextDecoration.Underline,
                     ),
                 )
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
+                withLink(LinkAnnotation.Url("https://github.com/jackedhawk-117/BitVinyl", linkStyles)) {
                     append("GitHub")
                 }
                 append("  ")
-                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
-                    append("Developer")
+                withLink(LinkAnnotation.Url("https://github.com/jackedhawk-117", linkStyles)) {
+                    append("Maintainer")
                 }
                 append("  ")
-                withLink(LinkAnnotation.Url("https://discord.gg/pDdKfrdHY6", linkStyles)) {
-                    append("Discord")
+                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
+                    append("Upstream (BitChord)")
                 }
-                append("  ")
-                withLink(LinkAnnotation.Url("https://bitchord.kushagrasingh.in/", linkStyles)) {
-                    append("Website")
-                }
-                append("\n~YouTube Music & Listen Together Backend")
+                append("\nLicensed under GNU GPL v3.0\nBased on BitChord by Kushagra Singh")
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

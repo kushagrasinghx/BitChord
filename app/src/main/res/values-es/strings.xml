@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">BitVinyl</string>
     <string name="playback_channel_name">Reproduciendo</string>
     <string name="download_channel_name">Descargas</string>
     <string name="download_channel_description">Canciones guardadas en tu carpeta Música</string>
@@ -105,10 +105,10 @@
     <string name="dolby_atmos_open_failed">No se pudieron abrir los ajustes de Dolby Atmos</string>
     <string name="update_available">Actualización disponible: v%1$s</string>
     <string name="software_update">Actualización de software</string>
-    <string name="update_available_body">bitchord %1$s está disponible para descargar.</string>
-    <string name="update_downloading_body">Descargando bitchord %1$s…</string>
-    <string name="update_ready_body">bitchord %1$s está listo para instalar.</string>
-    <string name="update_failed_body">No se pudo descargar bitchord %1$s.</string>
+    <string name="update_available_body">BitVinyl %1$s está disponible para descargar.</string>
+    <string name="update_downloading_body">Descargando BitVinyl %1$s…</string>
+    <string name="update_ready_body">BitVinyl %1$s está listo para instalar.</string>
+    <string name="update_failed_body">No se pudo descargar BitVinyl %1$s.</string>
     <string name="download_now">Descargar ahora</string>
     <string name="install_now">Instalar ahora</string>
     <string name="later">Más tarde</string>
@@ -136,7 +136,7 @@
     <string name="widget_previous">Anterior</string>
     <string name="widget_artwork">Portada del álbum</string>
     <string name="widget_nothing_played">Aún no se ha reproducido nada</string>
-    <string name="widget_open_bitchord">Abrir BitChord</string>
+    <string name="widget_open_bitchord">Abrir BitVinyl</string>
     <string name="widget_preview_title">Título de la canción</string>
     <string name="widget_preview_artist">Artista</string>
     <string name="widget_pill_label">Reproduciendo 4×1</string>
@@ -163,7 +163,7 @@
     <string name="cancel_all">Cancelar todo</string>
     <string name="language">Idioma</string>
     <string name="app_language">Idioma de la aplicación</string>
-    <string name="app_language_description">Elige el idioma que usa BitChord.</string>
+    <string name="app_language_description">Elige el idioma que usa BitVinyl.</string>
     <string name="english">Inglés</string>
     <string name="spanish">Español</string>
     <string name="french">Francés</string>
@@ -271,10 +271,10 @@
     <string name="beta">Beta</string>
     <string name="refresh_rate">Frecuencia de actualización</string>
     <string name="high_performance_before_enabling">Antes de activarlo</string>
-    <string name="high_performance_battery_warning">Primero configura el uso de batería de BitChord como Sin restricciones. Las frecuencias altas usan más batería, CPU y GPU, y pueden calentar el dispositivo.</string>
+    <string name="high_performance_battery_warning">Primero configura el uso de batería de BitVinyl como Sin restricciones. Las frecuencias altas usan más batería, CPU y GPU, y pueden calentar el dispositivo.</string>
     <string name="open_battery_settings">Abrir ajustes de batería</string>
     <string name="enable_high_performance_title">¿Activar el modo de alto rendimiento?</string>
-    <string name="enable_high_performance_confirmation">Actívalo solo si el uso de batería de BitChord está configurado como Sin restricciones. Android aún puede limitar la frecuencia si el dispositivo está caliente o tiene poca batería.</string>
+    <string name="enable_high_performance_confirmation">Actívalo solo si el uso de batería de BitVinyl está configurado como Sin restricciones. Android aún puede limitar la frecuencia si el dispositivo está caliente o tiene poca batería.</string>
     <string name="enable">Activar</string>
     <string name="not_yet">Ahora no</string>
     <string name="activity">Actividad</string>
@@ -309,7 +309,7 @@
     <string name="discord_presence_footer">La tarjeta se actualiza al cambiar la canción, la posición o el estado de reproducción. Se borra cuando la reproducción se detiene.</string>
     <string name="discord_show_audio_quality">Mostrar calidad de audio</string>
     <string name="discord_show_audio_quality_subtitle">Especificaciones Hi-Res, sin pérdida y Dolby en la tarjeta de estado</string>
-    <string name="discord_sign_in_footer">El inicio de sesión abre la página de Discord. No se escribe nada dentro de BitChord.</string>
+    <string name="discord_sign_in_footer">El inicio de sesión abre la página de Discord. No se escribe nada dentro de BitVinyl.</string>
     <string name="discord_token">Token de Discord</string>
     <string name="discord_token_description">Pega el token de tu cuenta de Discord. Se guarda cifrado en este dispositivo y solo se envía a Discord.</string>
     <string name="discord_token_rejected">Discord rechazó ese token.</string>
@@ -344,7 +344,7 @@
     <string name="downloads_finished">Descargas · finalizadas</string>
     <string name="downloading_progress">Descargando · %1$d%%</string>
     <string name="starting">Iniciando</string>
-    <string name="saved_to_bitchord_folder">Guardada en Music/BitChord</string>
+    <string name="saved_to_bitchord_folder">Guardada en Music/BitVinyl</string>
     <string name="nothing_downloading">No hay descargas activas</string>
     <string name="nothing_to_explore">No hay nada para explorar ahora</string>
     <string name="no_youtube_music_results">No hay resultados de YouTube Music</string>
@@ -472,7 +472,7 @@
     <string name="sleep_timer_custom">Personalizado</string>
     <string name="start_sleep_timer">Iniciar temporizador</string>
     <string name="sources_no_lossless">Ninguna fuente activa ofrece audio sin pérdida. Agrega un módulo personalizado para reproducir archivos sin pérdida disponibles sin transcodificarlos.</string>
-    <string name="sources_order_footer">Si una fuente no tiene una canción o no responde, BitChord prueba la siguiente. Las fuentes situadas antes de YouTube pueden reemplazar su grabación si devuelven una versión mejor.</string>
+    <string name="sources_order_footer">Si una fuente no tiene una canción o no responde, BitVinyl prueba la siguiente. Las fuentes situadas antes de YouTube pueden reemplazar su grabación si devuelven una versión mejor.</string>
     <string name="sources_order_header">Fuentes, en orden de prioridad</string>
     <string name="sources_quality_capped">Esta conexión está configurada por debajo de calidad Alta, así que el audio se transcodifica para respetar ese límite. Las descargas no cambian.</string>
     <string name="jiosaavn_mismatch_warning">Puede elegir la versión equivocada de una canción. Actívalo bajo tu propio riesgo.</string>
@@ -518,7 +518,7 @@
     <string name="biggest_day_note">Tu día con más actividad fue el %1$s, con %2$s de reproducción.</string>
     <string name="close_replay">Cerrar Replay</string>
     <string name="couldnt_draw_picture">No se pudo crear la imagen</string>
-    <string name="default_replay_holder">Oyente de BitChord</string>
+    <string name="default_replay_holder">Oyente de BitVinyl</string>
     <string name="different_albums">Álbumes diferentes</string>
     <string name="genres_pending">Los géneros aparecerán cuando aumente tu historial de reproducción</string>
     <string name="hour_am">%1$d a. m.</string>
@@ -548,7 +548,7 @@
     <string name="replay_artist_end"> no dejó de aparecer.</string>
     <string name="replay_artist_focus">Un artista</string>
     <string name="replay_artist_start">Durante todo el mes, </string>
-    <string name="replay_empty_description">Escucha un poco más y BitChord convertirá tu historial en un Replay.</string>
+    <string name="replay_empty_description">Escucha un poco más y BitVinyl convertirá tu historial en un Replay.</string>
     <string name="replay_genre_end"> definieron tu sonido.</string>
     <string name="replay_genre_focus">Tus géneros</string>
     <string name="replay_genre_start">En conjunto, </string>
@@ -613,7 +613,7 @@
     <string name="webdav_subtitle">Música en tu servidor</string>
     <string name="webdav_not_configured">Conecta un servidor en Fuentes</string>
     <string name="webdav_empty">No se encontraron archivos de audio en el servidor WebDAV. Revisa la URL en Ajustes.</string>
-    <string name="webdav_description">Conecta BitChord a una carpeta de música WebDAV: tu directorio de música de Nextcloud o cualquier servidor compatible con WebDAV.</string>
+    <string name="webdav_description">Conecta BitVinyl a una carpeta de música WebDAV: tu directorio de música de Nextcloud o cualquier servidor compatible con WebDAV.</string>
     <string name="webdav_server_url">URL del servidor</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Desconectar</string>
@@ -630,7 +630,7 @@
     <string name="smb_subtitle">Música en una carpeta compartida</string>
     <string name="smb_not_configured">Conecta una carpeta compartida en Fuentes</string>
     <string name="smb_empty">No se encontraron archivos de audio en la carpeta SMB. Revisa el servidor en Fuentes.</string>
-    <string name="smb_description">Conecta BitChord a una carpeta de música compartida: un NAS o una carpeta compartida de Windows por SMB.</string>
+    <string name="smb_description">Conecta BitVinyl a una carpeta de música compartida: un NAS o una carpeta compartida de Windows por SMB.</string>
     <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
     <string name="smb_share_hint">Nombre del recurso, p. ej. Music</string>
     <string name="smb_folder_hint">Carpeta (opcional)</string>
@@ -682,7 +682,7 @@
     </plurals>
     <string name="no_local_albums">Todavía no hay archivos asociados a un álbum o playlist. Descarga un álbum o una playlist completa para que aparezca aquí.</string>
     <string name="play_your_replay">Reproducir tu Replay</string>
-    <string name="counted_on_device_with_bitchord">Calculado en este dispositivo con BitChord</string>
+    <string name="counted_on_device_with_bitchord">Calculado en este dispositivo con BitVinyl</string>
     <string name="this_month">Este mes</string>
     <string name="this_year">Este año</string>
     <string name="all_time">Todo el tiempo</string>
@@ -750,7 +750,7 @@
     <string name="listen_together_code">Código de la fiesta</string>
     <string name="listen_together_code_footer">Dilo en voz alta o envíalo. La O y la I no se usan, así que una «o» siempre es un cero.</string>
     <string name="copy_code">Copiar código</string>
-    <string name="listen_together_share_text">Escucha conmigo en BitChord — código de fiesta %1$s</string>
+    <string name="listen_together_share_text">Escucha conmigo en BitVinyl — código de fiesta %1$s</string>
     <string name="listen_together_now_playing">Reproduciendo</string>
     <string name="listen_together_nothing_playing">Todavía no suena nada</string>
     <string name="listen_together_listening">Escuchando · %1$d de %2$d</string>
@@ -787,7 +787,7 @@
     <string name="listen_together_custom_server_dialog_message">Esta fiesta está alojada en un servidor externo:\n\n%1$s\n\n¿Quieres cambiar tu servidor de fiestas y unirte a la fiesta %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Cambiar y unirse</string>
     <string name="listen_together_official_server_dialog_title">¿Cambiar al servidor oficial?</string>
-    <string name="listen_together_official_server_dialog_message">Esta fiesta está alojada en el servidor oficial de BitChord.\n\n¿Quieres volver al servidor oficial y unirte a la fiesta %1$s?</string>
+    <string name="listen_together_official_server_dialog_message">Esta fiesta está alojada en el servidor oficial de BitVinyl.\n\n¿Quieres volver al servidor oficial y unirte a la fiesta %1$s?</string>
     <string name="listen_together_switch_failed_stayed_in_party">No se pudo unir a la fiesta: %1$s. Sigues en la fiesta %2$s.</string>
     <string name="listen_together_switch_failed">No se pudo unir a la fiesta: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
@@ -818,9 +818,9 @@
 
     <string name="add_addon">Añadir un complemento</string>
 
-    <string name="add_addon_detail">Apunta BitChord a un servidor de complementos que alojes o te hayan compartido</string>
+    <string name="add_addon_detail">Apunta BitVinyl a un servidor de complementos que alojes o te hayan compartido</string>
 
-    <string name="addon_url_description">Pega la URL del complemento, ya sea la raíz o manifest.json. BitChord leerá qué puede buscar y reproducir.</string>
+    <string name="addon_url_description">Pega la URL del complemento, ya sea la raíz o manifest.json. BitVinyl leerá qué puede buscar y reproducir.</string>
 
 
     <string name="blur_unfocused_lyrics">Desenfocar letras no activas</string>
@@ -966,7 +966,7 @@
 
     <string name="source_skipped_by_quality">No usado en %1$s · la calidad está establecida en %2$s</string>
 
-    <string name="source_unrecognised">BitChord no pudo reconocer ese enlace</string>
+    <string name="source_unrecognised">BitVinyl no pudo reconocer ese enlace</string>
 
     <string name="revert_to_original">Revertir al original</string>
 
@@ -1019,7 +1019,7 @@
 
     <string name="auto_login_title">Sign in to YouTube on your phone</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open BitVinyl on your phone to sign in</string>
 
     <string name="auto_empty_recents_title">No recent songs</string>
 
@@ -1063,7 +1063,7 @@
     <string name="smart_version_alignment">Alineación de audio inteligente</string>
     <string name="smart_version_alignment_subtitle">Analiza las formas de onda para encontrar el momento exacto de reproducción correspondiente</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside BitVinyl, before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -1106,7 +1106,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after BitVinyl\'s, on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 
@@ -1248,7 +1248,7 @@
 
 
     <string name="source_needs_lossless_output">Necesita una salida sin pérdida · usa un dispositivo compatible con audio sin pérdida</string>
-    <string name="source_needs_update">Este complemento está desactualizado. Sigue funcionando, pero pide a su desarrollador que lo actualice siguiendo la documentación más reciente de complementos de BitChord.</string>
+    <string name="source_needs_update">Este complemento está desactualizado. Sigue funcionando, pero pide a su desarrollador que lo actualice siguiendo la documentación más reciente de complementos de BitVinyl.</string>
     <string name="source_outdated">Complemento desactualizado</string>
     <string name="source_needs_lossless_bt_codec">Necesita una salida sin pérdida · el Bluetooth usa %1$s; usa un dispositivo compatible con audio sin pérdida</string>
     <string name="source_needs_lossless_bt_unknown">Necesita una salida sin pérdida · no se puede saber qué códec Bluetooth se usa</string>
@@ -1321,7 +1321,7 @@
     <string name="replay_period_monthly">Mensual</string>
     <string name="replay_period_yearly">Anual</string>
     <string name="replay_period_lifetime">De siempre</string>
-    <string name="onboarding_title">Millones de canciones, en streaming en BitChord</string>
+    <string name="onboarding_title">Millones de canciones, en streaming en BitVinyl</string>
     <string name="onboarding_name_prompt">¿Cómo quieres que te llamemos?</string>
     <string name="onboarding_name_hint">Tu nombre</string>
     <string name="onboarding_name_footer">Tus amigos lo ven cuando usas Escuchar juntos. Puedes cambiarlo más tarde en Ajustes.</string>
@@ -1331,39 +1331,6 @@
     <string name="onboarding_sign_in_google">Iniciar sesión con Google</string>
     <string name="onboarding_skip_sign_in">Omitir inicio de sesión</string>
     <string name="onboarding_back">Atrás</string>
-    <string name="wear_os_section">BitChord para Wear OS</string>
-    <string name="wear_os_page_title">Wear OS</string>
-    <string name="wear_os_your_watches">Tus relojes</string>
-    <string name="wear_os_value_none">Sin reloj</string>
-    <string name="wear_os_value_not_installed">No instalado</string>
-    <string name="wear_os_value_up_to_date">Actualizado</string>
-    <string name="wear_os_looking">Buscando relojes…</string>
-    <string name="wear_os_no_watch">Ningún reloj conectado</string>
-    <string name="wear_os_no_watch_subtitle">Primero vincula un reloj Wear OS con este teléfono desde su app complementaria.</string>
-    <string name="wear_os_checking">Comprobando…</string>
-    <string name="wear_os_not_installed">BitChord no está en este reloj</string>
-    <string name="wear_os_up_to_date">Actualizado · %1$s</string>
-    <string name="wear_os_update_available">Actualización disponible</string>
-    <string name="wear_os_unknown">Instalado · no se pudo comprobar la versión</string>
-    <string name="wear_os_sending">Enviando a tu reloj…</string>
-    <string name="wear_os_sent">Enviado: termina en tu reloj si te lo pide</string>
-    <string name="wear_os_send_failed">No se pudo enviar la actualización (%1$s)</string>
-    <string name="wear_os_install">Instalar</string>
-    <string name="wear_os_update">Actualizar</string>
-    <string name="wear_os_install_title">Instalar en tu reloj</string>
-    <string name="wear_os_step_wifi">Conecta tu reloj a la misma red Wi-Fi que este teléfono.</string>
-    <string name="wear_os_step_developer">Activa las opciones de desarrollador en el reloj. Galaxy Watch: Ajustes → Acerca del reloj → Información del software → toca cinco veces Versión del software. Pixel Watch: Ajustes → Sistema → Acerca de → toca siete veces Número de compilación.</string>
-    <string name="wear_os_step_debugging">En las opciones de desarrollador, activa la depuración ADB y la depuración inalámbrica.</string>
-    <string name="wear_os_step_pair">Toca Vincular dispositivo nuevo e introduce el código de seis dígitos que muestra el reloj.</string>
-    <string name="wear_os_searching">Buscando tu reloj en la red Wi-Fi…</string>
-    <string name="wear_os_found">Reloj encontrado</string>
-    <string name="wear_os_pairing">Vinculando…</string>
-    <string name="wear_os_installing">Instalando BitChord en tu reloj…</string>
-    <string name="wear_os_installed">Instalado. Ya puedes desactivar de nuevo la depuración inalámbrica.</string>
-    <string name="wear_os_failed">No ha funcionado (%1$s). Comprueba el código e inténtalo de nuevo.</string>
-    <string name="wear_os_unsupported">Instalar en un reloj requiere Android 11 o posterior en este teléfono.</string>
-    <string name="wear_os_code_hint">Código de vinculación</string>
-    <string name="wear_os_done">Hecho</string>
     <string name="signed_by">Firmado por %1$s</string>
     <string name="song_info">Información de la canción</string>
     <string name="song_info_album">Álbum</string>
@@ -1393,7 +1360,6 @@
     <string name="remove_from_history_failed">No se pudo quitar del historial</string>
     <string name="addon_blocked_title">No se puede reproducir esta canción</string>
     <string name="addon_blocked_quality">La calidad de audio con %1$s está en %2$s. Las canciones de %3$s solo se reproducen en Sin pérdida: cámbiala en Ajustes → Calidad de audio para reproducir esta.</string>
-    <string name="addon_blocked_watch">La música se reproduce a través de tu reloj, que limita el audio por debajo de Sin pérdida. Las canciones de %1$s volverán a sonar cuando tu teléfono recupere la música.</string>
     <string name="download_addon_left_out_title">Descargando sin %1$s</string>
     <string name="download_addon_not_allowed">%1$s no permite descargas, así que tus canciones se guardan desde tus otras fuentes.</string>
     <string name="download_addon_needs_lossless_output">%1$s solo sirve música con auriculares con cable, USB o de clase LDAC conectados. Las descargas lo omiten hasta que conectes unos, así que tus canciones se guardan desde tus otras fuentes.</string>
@@ -1407,8 +1373,8 @@
     <string name="font_footer">Clásica recupera la tipografía más gruesa y compacta que usaba la app antes de adaptarla a Apple Music.</string>
     <string name="bit_perfect_output">Salida bit-perfect</string>
     <string name="bit_perfect_bypassed_footer">La salida bit-perfect está lista, por lo que se omiten los ajustes atenuados y no se solicitan versiones Dolby Atmos. Vuelven a funcionar al desconectar el DAC o desactivar el modo.</string>
-    <string name="bit_perfect_sheet_warning">Envía la pista al DAC sin cambios. Se omiten el ecualizador, la normalización de volumen, el fundido cruzado, la mezcla automática, la velocidad de reproducción y el volumen de BitChord.</string>
-    <string name="bit_perfect_mode_off_subtitle">El audio pasa por el mezclador de Android y los efectos de BitChord.</string>
+    <string name="bit_perfect_sheet_warning">Envía la pista al DAC sin cambios. Se omiten el ecualizador, la normalización de volumen, el fundido cruzado, la mezcla automática, la velocidad de reproducción y el volumen de BitVinyl.</string>
+    <string name="bit_perfect_mode_off_subtitle">El audio pasa por el mezclador de Android y los efectos de BitVinyl.</string>
     <string name="bit_perfect_mode_usb_android">DAC USB</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 abre el DAC con la frecuencia y la profundidad de bits de cada pista, sin mezclar ni remuestrear.</string>
     <string name="bit_perfect_requires_android_14">Requiere Android 14 o posterior</string>
@@ -1416,13 +1382,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">Para reproductores de música con DAC propio. Abre la salida de auriculares o de línea en exclusiva con la frecuencia de cada pista. No todos los dispositivos conceden el modo exclusivo.</string>
     <string name="bit_perfect_requires_android_8_1">Requiere Android 8.1 o posterior</string>
     <string name="bit_perfect_mode_usb_direct">DAC USB (controlador directo)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord controla el DAC directamente, en cualquier versión de Android, y ajusta el volumen en el DAC. Pide permiso USB. Puede sonar mucho más alto que la salida normal.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitVinyl controla el DAC directamente, en cualquier versión de Android, y ajusta el volumen en el DAC. Pide permiso USB. Puede sonar mucho más alto que la salida normal.</string>
     <string name="dac_volume">Volumen del DAC</string>
     <string name="dac_volume_subtitle">Se ajusta en el propio DAC; la música no se escala</string>
     <string name="usb_allow_fixed_volume">Permitir DAC sin control de volumen</string>
     <string name="usb_allow_fixed_volume_subtitle">Si no, ese DAC reproduce por la salida normal</string>
     <string name="usb_allow_fixed_volume_confirm_title">¿Reproducir a escala completa?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord no puede ajustar el volumen de este tipo de DAC, así que reproduce a escala completa y solo su propio mando, si lo tiene, controla el nivel. Puede sonar peligrosamente alto con auriculares sensibles.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitVinyl no puede ajustar el volumen de este tipo de DAC, así que reproduce a escala completa y solo su propio mando, si lo tiene, controla el nivel. Puede sonar peligrosamente alto con auriculares sensibles.</string>
     <string name="convert_for_limited_dac">Convertir para DAC más limitados</string>
     <string name="convert_for_limited_dac_subtitle">Convierte las pistas que superan el límite de tu DAC a su formato más alto. Pueden tardar más en empezar y no serán bit-perfect respecto al original.</string>
     <string name="bit_perfect_confirm_title">¿Activar la salida bit-perfect?</string>

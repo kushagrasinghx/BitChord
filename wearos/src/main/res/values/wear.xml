@@ -2,6 +2,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@array/android_wear_capabilities">
     <!-- How the phone app knows a watch is there. Must match WearProtocol.CAPABILITY_WATCH. -->
     <string-array name="android_wear_capabilities" translatable="false">
-        <item>bitchord_watch</item>
+        <item>bitvinyl_watch</item>
     </string-array>
 </resources>

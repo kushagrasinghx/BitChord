@@ -1,6 +1,7 @@
 package com.music.bitchord.widget
 
 import android.content.Context
+import android.content.SharedPreferences
 
 /**
  * Everything a home-screen widget needs to know about playback.
@@ -96,8 +97,31 @@ internal data class MediaWidgetSnapshot(
             return EMPTY
         }
 
-        private fun prefs(context: Context) =
-            context.getSharedPreferences("bitchord_widget", Context.MODE_PRIVATE)
+        private const val PREFS_NAME = "bitvinyl_widget"
+        private const val LEGACY_PREFS_NAME = "bitchord_widget"
+
+        private fun prefs(context: Context): SharedPreferences {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.all.isEmpty()) {
+                val legacy = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+                val legacyAll = legacy.all
+                if (legacyAll.isNotEmpty()) {
+                    val editor = prefs.edit()
+                    for ((k, v) in legacyAll) {
+                        when (v) {
+                            is Boolean -> editor.putBoolean(k, v)
+                            is String -> editor.putString(k, v)
+                            is Int -> editor.putInt(k, v)
+                            is Long -> editor.putLong(k, v)
+                            is Float -> editor.putFloat(k, v)
+                            is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                        }
+                    }
+                    editor.apply()
+                }
+            }
+            return prefs
+        }
 
         private const val KEY_MEDIA_ID = "media_id"
         private const val KEY_TITLE = "title"

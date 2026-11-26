@@ -48,7 +48,7 @@ object Backup {
 
     /** A suggested filename, dated so successive exports don't collide. */
     fun suggestedName(): String =
-        "bitchord-backup-${DateTimeFormatter.ofPattern("yyyy-MM-dd").format(
+        "bitvinyl-backup-${DateTimeFormatter.ofPattern("yyyy-MM-dd").format(
             Instant.now().atZone(ZoneId.systemDefault()),
         )}.json"
 
@@ -93,10 +93,10 @@ object Backup {
                 ?.use { it.readBytes().decodeToString() }
                 ?: error("Couldn't open that file")
             val file = runCatching { json.decodeFromString(BackupFile.serializer(), text) }
-                .getOrElse { error("That doesn't look like a BitChord backup") }
-            require(file.app == APP_TAG) { "That backup is from another app" }
+                .getOrElse { error("That doesn't look like a BitVinyl backup") }
+            require(file.app == APP_TAG || file.app == LEGACY_APP_TAG) { "That backup is from another app" }
             require(file.version <= SCHEMA_VERSION) {
-                "That backup was written by a newer version of BitChord"
+                "That backup was written by a newer version of BitVinyl"
             }
 
             ListeningStats.importAll(file.listening)
@@ -121,7 +121,8 @@ object Backup {
         val at: String,
     )
 
-    private const val APP_TAG = "bitchord"
+    private const val APP_TAG = "bitvinyl"
+    private const val LEGACY_APP_TAG = "bitchord"
 
     /**
      * Bump when the shape below stops being readable by an older build. A file

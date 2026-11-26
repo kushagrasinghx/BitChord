@@ -2,10 +2,10 @@
 <resources>
     <string name="connecting">Connecting…</string>
     <string name="no_phone_title">Phone not connected</string>
-    <string name="no_phone_body">Open BitChord on your phone, and keep it near your watch.</string>
+    <string name="no_phone_body">Open BitVinyl on your phone, and keep it near your watch.</string>
     <string name="retry">Try again</string>
     <string name="nothing_playing">Not Playing</string>
-    <string name="nothing_playing_body">Play something in BitChord on your phone.</string>
+    <string name="nothing_playing_body">Play something in BitVinyl on your phone.</string>
     <string name="resume">Resume</string>
     <string name="up_next">Up Next</string>
     <string name="queue_empty">Nothing up next</string>
@@ -38,6 +38,6 @@
     <string name="other_output">Other output</string>
     <string name="moving_to_watch">Moving to watch…</string>
     <string name="update_channel">Updates</string>
-    <string name="update_ready">BitChord update ready</string>
+    <string name="update_ready">BitVinyl update ready</string>
     <string name="update_tap">Tap to install the update from your phone.</string>
 </resources>

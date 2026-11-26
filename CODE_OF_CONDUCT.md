@@ -1,7 +1,7 @@
 # Code of Conduct
 
 ## Expected Behavior
-Contributors and maintainers participating in BitChord discussions, issues, and pull requests are expected to:
+Contributors and maintainers participating in BitVinyl discussions, issues, and pull requests are expected to:
 - Communicate constructively and professionally.
 - Treat fellow contributors, maintainers, and users with respect.
 - Focus on technical merits and what is best for the project.
@@ -15,8 +15,7 @@ The following behaviors are unacceptable within the project:
 - Unwelcome sexual attention, advances, or inappropriate language.
 
 ## Reporting
-If you experience or witness unacceptable behavior, report it privately to the project maintainer:
-- Email: `kushagrasinghx@gmail.com`
+If you experience or witness unacceptable behavior, report it privately to the project maintainers via GitHub at https://github.com/jackedhawk-117/BitVinyl or upstream via `kushagrasinghx@gmail.com`.
 
 Reports will be handled privately and with appropriate discretion.
 

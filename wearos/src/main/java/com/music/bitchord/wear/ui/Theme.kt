@@ -44,7 +44,7 @@ object WearType {
 }
 
 @Composable
-fun BitChordWearTheme(content: @Composable () -> Unit) {
+fun BitVinylWearTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = ColorScheme(
             primary = Color.White,
@@ -59,3 +59,7 @@ fun BitChordWearTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+@Deprecated("Use BitVinylWearTheme", ReplaceWith("BitVinylWearTheme(content)"))
+@Composable
+fun BitChordWearTheme(content: @Composable () -> Unit) = BitVinylWearTheme(content)

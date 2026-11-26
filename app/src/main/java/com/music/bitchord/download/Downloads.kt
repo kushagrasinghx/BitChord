@@ -149,7 +149,12 @@ object Downloads {
     private val running = LinkedHashMap<String, Job?>()
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        val current = context.getSharedPreferences("bitvinyl_settings", Context.MODE_PRIVATE)
+        prefs = if (current.contains(KEY_SAVED) || !context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE).contains(KEY_SAVED)) {
+            current
+        } else {
+            context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        }
         _saved.value = runCatching {
             json.decodeFromString(serializer, prefs.getString(KEY_SAVED, null) ?: "{}")
         }.getOrDefault(emptyMap())

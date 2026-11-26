@@ -1,10 +1,11 @@
 # Maintainers
 
-This document lists the maintainers responsible for BitChord.
+This document lists the maintainers responsible for BitVinyl.
 
 | Maintainer | GitHub | Responsibilities |
 |---|---|---|
-| Kushagra Singh | [@kushagrasinghx](https://github.com/kushagrasinghx) | Project creator, core architecture, release management, and PR reviews |
+| jackedhawk-117 | [@jackedhawk-117](https://github.com/jackedhawk-117) | Project maintainer, custom downloader & yt-dlp integration, release management |
+| Kushagra Singh | [@kushagrasinghx](https://github.com/kushagrasinghx) | Upstream BitChord creator and original architecture |
 
 ## Responsibilities
 

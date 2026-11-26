@@ -21,7 +21,26 @@ object LastPlayed {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val p = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (p.all.isEmpty()) {
+            val legacy = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = p.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        prefs = p
     }
 
     internal fun window(size: Int, index: Int): IntRange {
@@ -202,7 +221,8 @@ object LastPlayed {
     }
 
     private const val KEEP_AHEAD = 50
-    private const val PREFS_NAME = "bitchord_last_played"
+    private const val PREFS_NAME = "bitvinyl_last_played"
+    private const val LEGACY_PREFS_NAME = "bitchord_last_played"
     private const val KEY_QUEUE = "queue"
     private const val KEY_INDEX = "index"
     private const val KEY_POSITION = "position"

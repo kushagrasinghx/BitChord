@@ -888,38 +888,23 @@ object AppSettings {
      */
     val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
 
-    /**
-     * A temporary cap on [effectiveAudioQuality], for as long as something other
-     * than this phone's own speaker is playing — the BitChord watch app, whose
-     * audio goes over a Bluetooth link that cannot keep up with lossless. Never
-     * persisted, never shown: the listener's own settings are untouched, and
-     * apply again the moment the phone takes the music back.
-     */
-    val streamCeilingOverride = MutableStateFlow<AudioQuality?>(null)
-
     /** The ceiling that applies to a stream started right now. */
     val effectiveAudioQuality: AudioQuality
         get() = ceilingFor(
             wifi = audioQualityWifi.value,
             cellular = audioQualityCellular.value,
             metered = meteredConnection.value,
-            override = streamCeilingOverride.value,
         )
 
     /**
      * [effectiveAudioQuality] from values a caller already holds — a screen
-     * that collected the four flows so it recomposes when any of them moves.
+     * that collected the three flows so it recomposes when any of them moves.
      */
     fun ceilingFor(
         wifi: AudioQuality,
         cellular: AudioQuality,
         metered: Boolean?,
-        override: AudioQuality?,
-    ): AudioQuality {
-        val chosen = if (metered == true) cellular else wifi
-        val cap = override ?: return chosen
-        return if (chosen.ordinal > cap.ordinal) cap else chosen
-    }
+    ): AudioQuality = if (metered == true) cellular else wifi
 
     /**
      * Whether a download may start on the connection in hand.
@@ -938,7 +923,23 @@ object AppSettings {
      * one here was a measurable slice of cold start.
      */
     fun init(context: Context, authStore: AuthStore) {
-        prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        val currentPrefs = context.getSharedPreferences("bitvinyl_settings", Context.MODE_PRIVATE)
+        val legacyPrefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        if (currentPrefs.all.isEmpty() && legacyPrefs.all.isNotEmpty()) {
+            val editor = currentPrefs.edit()
+            legacyPrefs.all.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is String -> editor.putString(key, value)
+                    is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(key, value as Set<String>)
+                }
+            }
+            editor.apply()
+        }
+        prefs = currentPrefs
         this.authStore = authStore
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         com.music.bitchord.data.OfflinePlaylists.init(

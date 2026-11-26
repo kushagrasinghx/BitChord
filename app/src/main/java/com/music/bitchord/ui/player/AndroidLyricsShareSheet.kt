@@ -226,4 +226,4 @@ internal fun AndroidLyricsShareSheet(
  * prefix so a saved card in the pictures folder says which feature produced it.
  */
 private const val LYRICS_FILE_NAME = "lyrics.png"
-private const val LYRICS_FILE_PREFIX = "bitchord-lyrics"
+private const val LYRICS_FILE_PREFIX = "bitvinyl-lyrics"

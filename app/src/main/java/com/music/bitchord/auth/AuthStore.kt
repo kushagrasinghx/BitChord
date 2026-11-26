@@ -20,8 +20,28 @@ import android.content.SharedPreferences
  */
 class AuthStore(context: Context) {
 
-    private val prefs: SharedPreferences =
-        EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
+    private val prefs: SharedPreferences = run {
+        val current = EncryptedPrefs.open(context, "bitvinyl_auth", "bitvinyl_auth_plain")
+        if (current.all.isEmpty()) {
+            val legacy = EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = current.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        current
+    }
 
     var cookie: String?
         get() = prefs.getString(KEY_COOKIE, null)

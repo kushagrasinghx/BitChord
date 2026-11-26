@@ -79,15 +79,6 @@
 -dontwarn jdk.dynalink.**
 -dontwarn org.ietf.jgss.**
 
-# ---- "BitChord for Wear OS": the ADB client that installs the watch app ----
-# libadb-android drives the pairing and transport through Conscrypt and SPAKE2,
-# both of which reach their native halves by name.
--keep class io.github.muntashirakon.adb.** { *; }
--keep class org.conscrypt.** { *; }
--keep class com.android.org.conscrypt.** { *; }
--dontwarn org.conscrypt.**
--dontwarn io.github.muntashirakon.adb.**
-
 # ---- youtubedl-android / yt-dlp & FFmpeg ----
 -keep class com.yausername.** { *; }
 -keep class io.github.junkfood02.youtubedl_android.** { *; }
@@ -99,6 +90,7 @@
 -keepclassmembers class * implements com.yausername.youtubedl_android.interfaces.* { *; }
 
 # ---- Application & WorkManager ----
+-keep class com.music.bitchord.BitVinylApplication { *; }
 -keep class com.music.bitchord.BitChordApplication { *; }
 -keep class * implements androidx.work.Configuration$Provider { *; }
 -keep class * extends androidx.work.ListenableWorker {

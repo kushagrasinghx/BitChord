@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">BitVinyl</string>
     <string name="playback_channel_name">지금 재생 중</string>
     <string name="download_channel_name">다운로드</string>
     <string name="download_channel_description">음악 폴더에 저장하는 중인 곡</string>
@@ -49,7 +49,7 @@
     <string name="auto_recents">최근</string>
     <string name="auto_liked">좋아요 표시한 음악</string>
     <string name="auto_login_title">폰에서 YouTube에 로그인하세요</string>
-    <string name="auto_login_subtitle">로그인하려면 폰에서 BitChord를 여세요</string>
+    <string name="auto_login_subtitle">로그인하려면 폰에서 BitVinyl를 여세요</string>
     <string name="auto_empty_recents_title">최근 곡 없음</string>
     <string name="auto_empty_recents_subtitle">재생한 곡이 여기에 나타납니다</string>
     <string name="auto_empty_quick_picks_title">추천 없음</string>
@@ -142,10 +142,10 @@
     <string name="dolby_atmos_open_failed">Dolby Atmos 설정을 열 수 없습니다</string>
     <string name="update_available">업데이트 가능: v%1$s</string>
     <string name="software_update">소프트웨어 업데이트</string>
-    <string name="update_available_body">bitchord %1$s 버전을 다운로드할 수 있습니다.</string>
-    <string name="update_downloading_body">bitchord %1$s 다운로드 중…</string>
-    <string name="update_ready_body">bitchord %1$s 버전을 설치할 준비가 되었습니다.</string>
-    <string name="update_failed_body">bitchord %1$s 버전을 다운로드할 수 없습니다.</string>
+    <string name="update_available_body">BitVinyl %1$s 버전을 다운로드할 수 있습니다.</string>
+    <string name="update_downloading_body">BitVinyl %1$s 다운로드 중…</string>
+    <string name="update_ready_body">BitVinyl %1$s 버전을 설치할 준비가 되었습니다.</string>
+    <string name="update_failed_body">BitVinyl %1$s 버전을 다운로드할 수 없습니다.</string>
     <string name="download_now">지금 다운로드</string>
     <string name="install_now">지금 설치</string>
     <string name="later">나중에</string>
@@ -163,7 +163,7 @@
     <string name="personalized_recommendations">개인화된 추천 제공</string>
     <string name="play_next">다음에 재생</string>
     <string name="queue">대기열</string>
-    <string name="source_unrecognised">BitChord가 이 링크를 확인할 수 없습니다</string>
+    <string name="source_unrecognised">BitVinyl가 이 링크를 확인할 수 없습니다</string>
     <string name="source_already_added">%1$s 소스로 이미 추가되었습니다</string>
     <string name="source_setup_required">눌러서 설정을 마치세요</string>
     <string name="source_skipped_by_quality">%1$s 이용 안 함 · %2$s 품질 설정됨</string>
@@ -180,7 +180,7 @@
     <string name="widget_previous">이전</string>
     <string name="widget_artwork">앨범 아트</string>
     <string name="widget_nothing_played">아직 재생 안 함</string>
-    <string name="widget_open_bitchord">BitChord 열기</string>
+    <string name="widget_open_bitchord">BitVinyl 열기</string>
     <string name="widget_preview_title">곡 제목</string>
     <string name="widget_preview_artist">아티스트</string>
     <string name="widget_pill_label">지금 재생 4×1</string>
@@ -215,7 +215,7 @@
     <string name="cancel_all">모두 취소</string>
     <string name="language">언어</string>
     <string name="app_language">앱 언어</string>
-    <string name="app_language_description">BitChord에서 사용할 언어를 선택하세요.</string>
+    <string name="app_language_description">BitVinyl에서 사용할 언어를 선택하세요.</string>
     <string name="english">영어</string>
     <string name="spanish">스페인어</string>
     <string name="french">프랑스어</string>
@@ -279,7 +279,7 @@
     <string name="smart_version_alignment_subtitle">오디오 파형을 분석해 정확히 일치하는 재생 시점을 맞춥니다</string>
     <string name="equalizer">이퀄라이저</string>
     <string name="equalizer_subtitle">음색, 음역대 7개, 좌우 균형</string>
-    <string name="equalizer_footer">음원이 시스템에 도달하기 전에 BitChord에서 다듬습니다.</string>
+    <string name="equalizer_footer">음원이 시스템에 도달하기 전에 BitVinyl에서 다듬습니다.</string>
     <string name="equalizer_dynamic">동적</string>
     <string name="equalizer_manual">수동</string>
     <string name="equalizer_tone">음색</string>
@@ -302,7 +302,7 @@
     <string name="equalizer_bitstream_footer">이퀄라이저는 디코딩된 음원에만 적용됩니다. 이 곡은 비트스트림 형태로 기기에 곧바로 전달된 뒤에 디코딩되므로, 필터링할 수 있는 샘플이 없습니다.</string>
     <string name="system_equalizer">시스템 이퀄라이저</string>
     <string name="system_equalizer_subtitle">기기 자체 설정</string>
-    <string name="system_equalizer_footer">BitChord 설정 이후, 전체 오디오 세션에 적용됩니다. 두 설정 모두 쓰면 동시에 적용됩니다.</string>
+    <string name="system_equalizer_footer">BitVinyl 설정 이후, 전체 오디오 세션에 적용됩니다. 두 설정 모두 쓰면 동시에 적용됩니다.</string>
     <string name="eq_preset_flat">플랫</string>
     <string name="eq_preset_acoustic">어쿠스틱</string>
     <string name="eq_preset_bass_boost">베이스 강화</string>
@@ -405,10 +405,10 @@
     <string name="beta">베타</string>
     <string name="refresh_rate">주사율</string>
     <string name="high_performance_before_enabling">켜기 전에</string>
-    <string name="high_performance_battery_warning">먼저 BitChord의 배터리 사용을 제한 없음으로 설정하세요. 주사율이 높을수록 배터리, CPU, GPU를 더 사용하며, 기기가 뜨거워질 수 있습니다.</string>
+    <string name="high_performance_battery_warning">먼저 BitVinyl의 배터리 사용을 제한 없음으로 설정하세요. 주사율이 높을수록 배터리, CPU, GPU를 더 사용하며, 기기가 뜨거워질 수 있습니다.</string>
     <string name="open_battery_settings">배터리 설정 열기</string>
     <string name="enable_high_performance_title">고성능 모드를 켜시겠습니까?</string>
-    <string name="enable_high_performance_confirmation">BitChord의 배터리 사용을 제한 없음으로 설정한 경우에만 켜세요. 기기가 뜨겁거나 배터리 잔량이 적다면 Android에서 여전히 주사율을 제한할 수 있습니다.</string>
+    <string name="enable_high_performance_confirmation">BitVinyl의 배터리 사용을 제한 없음으로 설정한 경우에만 켜세요. 기기가 뜨겁거나 배터리 잔량이 적다면 Android에서 여전히 주사율을 제한할 수 있습니다.</string>
     <string name="enable">켜기</string>
     <string name="not_yet">나중에</string>
     <string name="activity">활동</string>
@@ -419,7 +419,7 @@
     <string name="activity_playing">재생 중</string>
     <string name="activity_watching">감상 중</string>
     <string name="add_addon">애드온 추가</string>
-    <string name="add_addon_detail">직접 호스팅하는 애드온 서버나 링크를 받은 서버를 BitChord에 지정하세요</string>
+    <string name="add_addon_detail">직접 호스팅하는 애드온 서버나 링크를 받은 서버를 BitVinyl에 지정하세요</string>
     <string name="add_to_queue">대기열에 추가</string>
     <string name="after_this_song">이 곡 다음에</string>
     <string name="always_on">항상 켬</string>
@@ -451,7 +451,7 @@
     <string name="discord_presence_footer">카드는 음악, 위치, 재생 상태가 바뀔 때 업데이트됩니다. 재생이 중지되면 카드를 지웁니다.</string>
     <string name="discord_show_audio_quality">오디오 품질 표시</string>
     <string name="discord_show_audio_quality_subtitle">활동 카드에 고품질, 무손실, Dolby 사양 표시</string>
-    <string name="discord_sign_in_footer">로그인 시 Discord의 로그인 페이지를 엽니다. 입력 정보가 BitChord로 넘어가지 않습니다.</string>
+    <string name="discord_sign_in_footer">로그인 시 Discord의 로그인 페이지를 엽니다. 입력 정보가 BitVinyl로 넘어가지 않습니다.</string>
     <string name="discord_token">Discord 토큰</string>
     <string name="discord_token_description">Discord 계정의 토큰을 붙여넣으세요. 기기 내에서 암호화된 채로 유지되며 Discord로만 전송됩니다.</string>
     <string name="discord_token_rejected">Discord에서 이 토큰을 거부했습니다.</string>
@@ -523,7 +523,7 @@
     <string name="start_radio">라디오 시작</string>
     <string name="shared_link">공유 링크</string>
     <string name="radio_started">%1$s 라디오 시작함</string>
-    <string name="saved_to_bitchord_folder">Music/BitChord에 저장 완료</string>
+    <string name="saved_to_bitchord_folder">Music/BitVinyl에 저장 완료</string>
     <string name="nothing_downloading">다운로드 중인 항목 없음</string>
     <string name="nothing_to_explore">지금은 탐색할 항목 없음</string>
     <string name="no_youtube_music_results">YouTube Music 내 결과 없음</string>
@@ -619,7 +619,7 @@
     <string name="max_delay_subtitle">초 단위로 최대 스크로블 지연을 설정합니다</string>
     <string name="min_song_duration">최소 곡 길이</string>
     <string name="min_song_duration_subtitle">이보다 짧은 곡은 스크로블하지 않습니다</string>
-    <string name="addon_url_description">애드온의 루트 경로나 manifest.json으로 가는 URL을 붙여넣으세요. BitChord에서 애드온이 검색하고 스트리밍할 수 있는 항목을 읽은 뒤, 평문으로 음악을 요청합니다.</string>
+    <string name="addon_url_description">애드온의 루트 경로나 manifest.json으로 가는 URL을 붙여넣으세요. BitVinyl에서 애드온이 검색하고 스트리밍할 수 있는 항목을 읽은 뒤, 평문으로 음악을 요청합니다.</string>
     <string name="monthly_listeners">월간 청취자 %1$s</string>
     <string name="name">이름</string>
     <string name="no_playlists_yet">아직 재생목록이 없습니다. 상단의 행을 이용해 새로 만드세요.</string>
@@ -671,7 +671,7 @@
     <string name="signing_in">로그인하는 중…</string>
     <string name="sleep_timer">수면 타이머</string>
     <string name="sources_no_lossless">켜진 소스 중 무손실 오디오를 지원하는 소스가 없습니다. 트랜스코딩 없이 무손실 파일을 재생하려면 애드온을 추가하세요.</string>
-    <string name="sources_order_footer">해당 소스에 음악이 없거나 연결할 수 없으면, BitChord에서 다음 소스 연결을 시도합니다. YouTube보다 상위에 있는 소스에서 더 나은 버전을 제공하는 경우 기존 음원을 교체할 수 있습니다.</string>
+    <string name="sources_order_footer">해당 소스에 음악이 없거나 연결할 수 없으면, BitVinyl에서 다음 소스 연결을 시도합니다. YouTube보다 상위에 있는 소스에서 더 나은 버전을 제공하는 경우 기존 음원을 교체할 수 있습니다.</string>
     <string name="sources_order_header">소스, 이 순서로 연결 시도</string>
     <string name="sources_quality_capped">이 연결 환경에서는 고품질 이하로 설정되었기 때문에, 스트림을 제한에 맞추어 트랜스코딩합니다. 다운로드에는 영향을 주지 않습니다.</string>
     <string name="jiosaavn_mismatch_warning">틀린 버전의 음악을 찾을 수도 있습니다. 위험을 감수할 수 있는 경우에만 켜세요.</string>
@@ -717,7 +717,7 @@
     <string name="biggest_day_note">%1$s에 %2$s 동안 가장 오래 들었습니다.</string>
     <string name="close_replay">리플레이 닫기</string>
     <string name="couldnt_draw_picture">사진을 생성할 수 없음</string>
-    <string name="default_replay_holder">BitChord 감상자</string>
+    <string name="default_replay_holder">BitVinyl 감상자</string>
     <string name="different_albums">다른 앨범</string>
     <string name="genres_pending">재생 기록이 쌓이면 장르가 나타납니다</string>
     <string name="hour_am">오전 %1$d시</string>
@@ -749,7 +749,7 @@
     <string name="replay_artist_focus">아티스트 1명</string>
     <string name="replay_artist_start">한 달 동안, </string>
     <string name="replay_artist_start_week">이번 주에, </string>
-    <string name="replay_empty_description">조금 더 감상하시면 BitChord에서 기록을 리플레이로 만들어 드립니다.</string>
+    <string name="replay_empty_description">조금 더 감상하시면 BitVinyl에서 기록을 리플레이로 만들어 드립니다.</string>
     <string name="replay_genre_end">가 한데 모여, 취향을 다듬었어요.</string>
     <string name="replay_genre_focus">장르</string>
     <string name="replay_genre_start">내 </string>
@@ -821,7 +821,7 @@
     <string name="webdav_subtitle">내 서버의 음악</string>
     <string name="webdav_not_configured">소스에서 서버에 연결하세요</string>
     <string name="webdav_empty">WebDAV 서버에서 오디오 파일을 찾을 수 없습니다. 설정에서 URL을 확인하세요.</string>
-    <string name="webdav_description">WebDAV 음악 폴더를 BitChord에 지정하세요 — Nextcloud 음악 경로나 WebDAV를 응답하는 아무 서버나 연결할 수 있습니다.</string>
+    <string name="webdav_description">WebDAV 음악 폴더를 BitVinyl에 지정하세요 — Nextcloud 음악 경로나 WebDAV를 응답하는 아무 서버나 연결할 수 있습니다.</string>
     <string name="webdav_server_url">서버 URL</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">연결 해제</string>
@@ -838,7 +838,7 @@
     <string name="smb_subtitle">파일 공유로 음악 듣기</string>
     <string name="smb_not_configured">소스에서 공유 서버를 연결하세요</string>
     <string name="smb_empty">SMB 공유 서버에서 오디오 파일을 찾을 수 없습니다. 소스에서 서버를 확인하세요.</string>
-    <string name="smb_description">공유 음악 폴더를 BitChord에 지정하세요 — NAS 또는 SMB를 응답하는 Windows 공유 폴더나 연결할 수 있습니다.</string>
+    <string name="smb_description">공유 음악 폴더를 BitVinyl에 지정하세요 — NAS 또는 SMB를 응답하는 Windows 공유 폴더나 연결할 수 있습니다.</string>
     <string name="smb_server_hint">nas.local 또는 192.168.1.10:4445</string>
     <string name="smb_share_hint">공유 서버 이름, 예: Music</string>
     <string name="smb_folder_hint">공유 서버 내 폴더, 예: media/music (선택)</string>
@@ -891,7 +891,7 @@
     </plurals>
     <string name="no_local_albums">여기에 앨범이나 재생목록으로 표시할 항목이 없습니다. 앨범이나 재생목록 전체를 다운로드하면 여기에 나타납니다.</string>
     <string name="play_your_replay">내 리플레이 재생</string>
-    <string name="counted_on_device_with_bitchord">BitChord가 이 기기에서 집계</string>
+    <string name="counted_on_device_with_bitchord">BitVinyl가 이 기기에서 집계</string>
     <string name="this_month">이번 달</string>
     <string name="replay_this_week">이번 주</string>
     <string name="this_year">올해</string>
@@ -960,7 +960,7 @@
     <string name="listen_together_code">파티 코드</string>
     <string name="listen_together_code_footer">읽거나 보내세요. O와 I는 쓰이지 않았으므로, 영문 "오"로 보이는 건 항상 숫자 영입니다.</string>
     <string name="copy_code">코드 복사</string>
-    <string name="listen_together_share_text">BitChord에서 함께 들어요 — 파티 코드 %1$s</string>
+    <string name="listen_together_share_text">BitVinyl에서 함께 들어요 — 파티 코드 %1$s</string>
     <string name="listen_together_now_playing">지금 재생 중</string>
     <string name="listen_together_nothing_playing">아직 재생하지 않음</string>
     <string name="listen_together_listening">감상 중 · %1$d / %2$d</string>
@@ -997,7 +997,7 @@
     <string name="listen_together_custom_server_dialog_message">이 파티는 외부 서버에서 호스팅합니다.\n\n%1$s\n\n파티 서버를 전환하고 %2$s 파티에 참여하시겠습니까?</string>
     <string name="listen_together_custom_server_switch_and_join">전환 및 참여</string>
     <string name="listen_together_official_server_dialog_title">공식 서버로 전환하시겠습니까?</string>
-    <string name="listen_together_official_server_dialog_message">이 파티는 공식 BitChord 서버에서 호스팅합니다.\n\n공식 서버로 되돌아가고 %1$s 파티에 참여하시겠습니까?</string>
+    <string name="listen_together_official_server_dialog_message">이 파티는 공식 BitVinyl 서버에서 호스팅합니다.\n\n공식 서버로 되돌아가고 %1$s 파티에 참여하시겠습니까?</string>
     <string name="listen_together_switch_failed_stayed_in_party">파티 참여 불가: %1$s. 파티 %2$s에 남습니다.</string>
     <string name="listen_together_switch_failed">파티 참여 불가: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
@@ -1151,7 +1151,7 @@
     <string name="card_songs_format">음악 %1$s곡</string>
 
     <string name="source_needs_lossless_output">무손실 출력 필요 · 무손실 지원 기기를 사용하세요</string>
-    <string name="source_needs_update">이 애드온은 오래된 버전입니다. 계속 사용할 수 있지만, 최신 BitChord 애드온 문서에 따라 업데이트하도록 개발자에게 요청하세요.</string>
+    <string name="source_needs_update">이 애드온은 오래된 버전입니다. 계속 사용할 수 있지만, 최신 BitVinyl 애드온 문서에 따라 업데이트하도록 개발자에게 요청하세요.</string>
     <string name="source_outdated">오래된 애드온</string>
     <string name="source_needs_lossless_bt_codec">무손실 출력 필요 · %1$s 코덱 블루투스가 켜졌습니다. 무손실 지원 기기를 사용하세요</string>
     <string name="source_needs_lossless_bt_unknown">무손실 출력 필요 · 어떤 블루투스 코덱을 사용 중인지 알 수 없습니다</string>
@@ -1188,7 +1188,7 @@
     <string name="local_playlist_subtitle">%1$d곡 · 이 기기</string>
     <string name="spotify_import_empty_playlist">이 플레이리스트에는 곡이 없습니다</string>
     <string name="spotify_library_subtitle">내 Spotify 플레이리스트</string>
-    <string name="onboarding_title">수많은 곡들을, BitChord에서 스트리밍</string>
+    <string name="onboarding_title">수많은 곡들을, BitVinyl에서 스트리밍</string>
     <string name="onboarding_name_prompt">어떻게 불러드릴까요?</string>
     <string name="onboarding_name_hint">내 이름</string>
     <string name="onboarding_name_footer">함께 듣기 시 친구들이 보게 될 이름입니다. 나중에 설정에서 바꿀 수 있습니다.</string>
@@ -1198,40 +1198,6 @@
     <string name="onboarding_sign_in_google">Google로 로그인</string>
     <string name="onboarding_skip_sign_in">로그인 건너뛰기</string>
     <string name="onboarding_back">뒤로</string>
-    <!-- Settings: BitChord for Wear OS -->
-    <string name="wear_os_section">Wear OS용 BitChord</string>
-    <string name="wear_os_page_title">Wear OS</string>
-    <string name="wear_os_your_watches">내 워치</string>
-    <string name="wear_os_value_none">워치 없음</string>
-    <string name="wear_os_value_not_installed">설치되지 않음</string>
-    <string name="wear_os_value_up_to_date">최신 버전</string>
-    <string name="wear_os_looking">워치 찾는 중…</string>
-    <string name="wear_os_no_watch">연결된 워치 없음</string>
-    <string name="wear_os_no_watch_subtitle">먼저 컴패니언 앱에서 이 폰과 Wear OS 워치를 페어링하세요.</string>
-    <string name="wear_os_checking">확인 중…</string>
-    <string name="wear_os_not_installed">BitChord가 이 시계에 없습니다</string>
-    <string name="wear_os_up_to_date">최신 버전 · %1$s</string>
-    <string name="wear_os_update_available">업데이트 가능</string>
-    <string name="wear_os_unknown">설치됨 · 버전 확인 불가</string>
-    <string name="wear_os_sending">워치로 전송 중…</string>
-    <string name="wear_os_sent">전송됨 — 필요한 경우 워치에서 마무리하세요</string>
-    <string name="wear_os_send_failed">업데이트 전송 불가 (%1$s)</string>
-    <string name="wear_os_install">설치</string>
-    <string name="wear_os_update">업데이트</string>
-    <string name="wear_os_install_title">내 워치에 설치</string>
-    <string name="wear_os_step_wifi">워치를 폰과 동일한 Wi-Fi에 연결하세요.</string>
-    <string name="wear_os_step_developer">워치에서 개발자 옵션을 켜세요. Galaxy Watch: 설정 → 워치 정보 → 소프트웨어 정보 → 소프트웨어 버전 5회 연타하기. Pixel Watch: 설정 → 시스템 → 정보 → 빌드 번호 7번 연타하기.</string>
-    <string name="wear_os_step_debugging">개발자 설정에서 ADB 디버깅과 무선 디버깅을 켜세요.</string>
-    <string name="wear_os_step_pair">새 기기 페어링을 누르고, 워치에서 표시하는 6자리 숫자를 누르세요.</string>
-    <string name="wear_os_searching">Wi-Fi에서 워치 찾는 중…</string>
-    <string name="wear_os_found">워치 찾음</string>
-    <string name="wear_os_pairing">페어링…</string>
-    <string name="wear_os_installing">워치에서 BitChord 설치 중…</string>
-    <string name="wear_os_installed">설치됨. 무선 디버깅을 다시 끄셔도 됩니다.</string>
-    <string name="wear_os_failed">실패 (%1$s). 코드를 확인하고 다시 시도하세요.</string>
-    <string name="wear_os_unsupported">워치에 설치하려면 폰의 Android 버전이 11 이상이어야 합니다.</string>
-    <string name="wear_os_code_hint">페어링 코드</string>
-    <string name="wear_os_done">완료</string>
     <string name="signed_by">%1$s 서명</string>
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
@@ -1271,7 +1237,6 @@
     <string name="version_switch_in_party">함께 듣기에서는 모두가 같은 버전을 듣습니다</string>
     <string name="addon_blocked_title">이 노래를 재생할 수 없음</string>
     <string name="addon_blocked_quality">%1$s의 오디오 품질이 %2$s(으)로 설정되어 있습니다. %3$s의 노래는 무손실로만 재생됩니다. 이 노래를 재생하려면 설정 → 오디오 품질에서 변경하세요.</string>
-    <string name="addon_blocked_watch">음악이 워치를 통해 재생 중이며, 워치는 오디오를 무손실 미만으로 제한합니다. 휴대전화가 음악 재생을 다시 맡으면 %1$s의 노래가 다시 재생됩니다.</string>
     <string name="download_addon_left_out_title">%1$s 없이 다운로드 중</string>
     <string name="download_addon_not_allowed">%1$s에서 다운로드를 허용하지 않아 다른 소스에서 노래를 저장합니다.</string>
     <string name="download_addon_needs_lossless_output">%1$s은(는) 유선, USB 또는 LDAC급 헤드폰이 연결된 경우에만 음악을 제공합니다. 연결될 때까지 다운로드에서 제외되므로 다른 소스에서 노래를 저장합니다.</string>
@@ -1285,8 +1250,8 @@
     <string name="font_footer">이전 글꼴은 앱이 Apple Music에 맞춰지기 전에 쓰던 더 굵고 촘촘한 글꼴을 되돌립니다.</string>
     <string name="bit_perfect_output">비트 퍼펙트 출력</string>
     <string name="bit_perfect_bypassed_footer">비트 퍼펙트 출력이 준비되어 흐리게 표시된 설정은 우회되고 Dolby Atmos 버전은 요청되지 않습니다. DAC를 분리하거나 모드를 끄면 다시 작동합니다.</string>
-    <string name="bit_perfect_sheet_warning">트랙을 변경 없이 DAC로 보냅니다. 이퀄라이저, 체감 음량 평준화, 크로스페이드, 자동 믹스, 재생 속도, BitChord 음량은 우회됩니다.</string>
-    <string name="bit_perfect_mode_off_subtitle">오디오가 Android 믹서와 BitChord 효과를 거칩니다.</string>
+    <string name="bit_perfect_sheet_warning">트랙을 변경 없이 DAC로 보냅니다. 이퀄라이저, 체감 음량 평준화, 크로스페이드, 자동 믹스, 재생 속도, BitVinyl 음량은 우회됩니다.</string>
+    <string name="bit_perfect_mode_off_subtitle">오디오가 Android 믹서와 BitVinyl 효과를 거칩니다.</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14가 믹싱이나 리샘플링 없이 각 트랙의 샘플레이트와 비트 심도로 DAC를 엽니다.</string>
     <string name="bit_perfect_requires_android_14">Android 14 이상 필요</string>
@@ -1294,13 +1259,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">자체 DAC가 있는 음악 플레이어용입니다. 헤드폰 또는 라인 출력을 각 트랙의 샘플레이트로 독점해서 엽니다. 모든 기기가 독점 모드를 허용하는 것은 아닙니다.</string>
     <string name="bit_perfect_requires_android_8_1">Android 8.1 이상 필요</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC(직접 드라이버)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">어떤 Android 버전에서든 BitChord가 DAC를 직접 구동하고 음량을 DAC에서 설정합니다. USB 권한을 요청합니다. 일반 출력보다 훨씬 크게 들릴 수 있습니다.</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">어떤 Android 버전에서든 BitVinyl가 DAC를 직접 구동하고 음량을 DAC에서 설정합니다. USB 권한을 요청합니다. 일반 출력보다 훨씬 크게 들릴 수 있습니다.</string>
     <string name="dac_volume">DAC 음량</string>
     <string name="dac_volume_subtitle">DAC 자체에서 설정되며 음악 데이터는 조정되지 않습니다</string>
     <string name="usb_allow_fixed_volume">음량 조절이 없는 DAC 허용</string>
     <string name="usb_allow_fixed_volume_subtitle">허용하지 않으면 이런 DAC는 일반 출력으로 재생됩니다</string>
     <string name="usb_allow_fixed_volume_confirm_title">최대 레벨로 재생할까요?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord에서 이 유형의 DAC 음량을 설정할 수 없어 최대 레벨로 재생되며, DAC 자체의 노브가 있는 경우에만 음량을 조절할 수 있습니다. 민감한 헤드폰에서는 위험할 정도로 크게 들릴 수 있습니다.</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitVinyl에서 이 유형의 DAC 음량을 설정할 수 없어 최대 레벨로 재생되며, DAC 자체의 노브가 있는 경우에만 음량을 조절할 수 있습니다. 민감한 헤드폰에서는 위험할 정도로 크게 들릴 수 있습니다.</string>
     <string name="convert_for_limited_dac">저사양 DAC에 맞게 변환</string>
     <string name="convert_for_limited_dac_subtitle">DAC 한도를 넘는 트랙을 DAC의 최고 포맷으로 변환합니다. 트랙 시작이 더 오래 걸릴 수 있으며 원본 대비 비트 퍼펙트가 아닙니다.</string>
     <string name="bit_perfect_confirm_title">비트 퍼펙트 출력을 켤까요?</string>

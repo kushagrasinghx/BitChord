@@ -109,8 +109,15 @@ object AddonAuth {
 
     /** Restores the last token, so a process restart doesn't cost a fresh attestation. */
     fun init(context: Context) {
-        testerPrefs = context.getSharedPreferences("bitchord_tester", Context.MODE_PRIVATE)
-        val p = context.getSharedPreferences("bitchord_addon_auth", Context.MODE_PRIVATE)
+        val currentTester = context.getSharedPreferences("bitvinyl_tester", Context.MODE_PRIVATE)
+        testerPrefs = if (currentTester.all.isNotEmpty() || !context.getSharedPreferences("bitchord_tester", Context.MODE_PRIVATE).contains(TESTER_KEY)) {
+            currentTester
+        } else {
+            context.getSharedPreferences("bitchord_tester", Context.MODE_PRIVATE)
+        }
+        val currentP = context.getSharedPreferences("bitvinyl_addon_auth", Context.MODE_PRIVATE)
+        val legacyP = context.getSharedPreferences("bitchord_addon_auth", Context.MODE_PRIVATE)
+        val p = if (currentP.contains("token") || !legacyP.contains("token")) currentP else legacyP
         prefs = p
         val token = p.getString("token", null)
         val alias = p.getString("alias", null)

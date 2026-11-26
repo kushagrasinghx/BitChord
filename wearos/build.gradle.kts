@@ -28,20 +28,20 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
+val betaSuffix = (rootProject.extra["bitvinylBetaSuffix"] ?: rootProject.extra["bitchordBetaSuffix"]) as String
 
 android {
     namespace = "com.music.bitchord.wear"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        applicationId = "com.jackedhawk117.bitvinyl"
         // Wear OS 3, the oldest a Galaxy Watch 4 ever shipped with.
         minSdk = 30
         targetSdk = 36
         // The phone's version — see the root build.gradle.kts.
-        versionCode = rootProject.extra["bitchordVersionCode"] as Int
-        versionName = rootProject.extra["bitchordVersionName"] as String
+        versionCode = (rootProject.extra["bitvinylVersionCode"] ?: rootProject.extra["bitchordVersionCode"]) as Int
+        versionName = (rootProject.extra["bitvinylVersionName"] ?: rootProject.extra["bitchordVersionName"]) as String
     }
 
     sourceSets {
@@ -53,12 +53,13 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "BitChord Dev")
+            applicationId = "com.jackedhawk117.bitvinyl.dev"
+            resValue("string", "app_name", "BitVinyl Dev")
         }
         create("prod") {
             dimension = "env"
-            resValue("string", "app_name", "BitChord")
+            applicationId = "com.jackedhawk117.bitvinyl"
+            resValue("string", "app_name", "BitVinyl")
         }
     }
 
@@ -81,11 +82,12 @@ android {
          * signs with the debug key — that is the part pairing depends on — but a
          * debuggable, un-R8'd Compose app is the slow kind, and on a watch CPU
          * that is the difference between a smooth crown and a stuttering one.
-         * Pass -Pbitchord.wearDebuggable=true to get a debugger back.
+         * Pass -Pbitvinyl.wearDebuggable=true to get a debugger back.
          */
         debug {
             if (betaSuffix.isNotEmpty()) versionNameSuffix = "-$betaSuffix"
-            val debuggable = providers.gradleProperty("bitchord.wearDebuggable").orNull == "true"
+            val debuggable = (providers.gradleProperty("bitvinyl.wearDebuggable").orNull
+                ?: providers.gradleProperty("bitchord.wearDebuggable").orNull) == "true"
             isDebuggable = debuggable
             isMinifyEnabled = !debuggable
             isShrinkResources = !debuggable
@@ -136,10 +138,10 @@ kotlin {
     }
 }
 
-// Named after the phone APKs (BitChord-v1.8.apk) but with their own prefix, so
-// the phone's updater — which only takes assets starting "BitChord-" — can never
+// Named after the phone APKs (BitVinyl-v1.8.apk) but with their own prefix, so
+// the phone's updater — which only takes assets starting "BitVinyl-" — can never
 // pick a watch APK by mistake.
-base.archivesName.set("BitChordWear")
+base.archivesName.set("BitVinylWear")
 
 dependencies {
     implementation("androidx.wear.compose:compose-material3:1.6.2")

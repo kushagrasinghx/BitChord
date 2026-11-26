@@ -1,6 +1,6 @@
-# Contributing to BitChord
+# Contributing to BitVinyl
 
-Thank you for contributing to BitChord. Follow these guidelines to ensure an efficient development and review process.
+Thank you for contributing to BitVinyl. Follow these guidelines to ensure an efficient development and review process.
 
 ## Proposing Contributions
 - Substantial features, refactors, or UI redesigns should normally be discussed before implementation. Open an issue on GitHub to outline your proposal.
@@ -70,6 +70,6 @@ Distinguish clearly between source metadata, decoder format, internal DSP format
 All pull requests require review and approval by repository maintainers before merging. Maintainers review changes for correctness, architecture fit, and maintainability.
 
 ## Dependencies and Licensing
-BitChord is licensed under the **GNU General Public License v3.0 (GPLv3)**.
+BitVinyl is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
 All contributed code and dependencies must be strictly compatible with GPLv3. Avoid introducing external dependencies unless strictly necessary; any new dependency must be evaluated for necessity, binary size, and license compliance.

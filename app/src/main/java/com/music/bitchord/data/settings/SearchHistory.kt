@@ -62,7 +62,12 @@ object SearchHistory {
     }
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        val current = context.getSharedPreferences("bitvinyl_settings", Context.MODE_PRIVATE)
+        prefs = if (current.all.isNotEmpty() || !context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE).contains("search_history_addon")) {
+            current
+        } else {
+            context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        }
         reload()
     }
 

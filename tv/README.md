@@ -1,6 +1,9 @@
-# BitChord TV
+# BitVinyl TV (Legacy / Unmaintained)
 
-Android TV / Google TV build of BitChord: a remote-first Compose-for-TV interface
+> [!NOTE]
+> BitVinyl prioritizes Android phones exclusively (`:app`). The Android TV module is **not actively supported or distributed** and is excluded from normal builds, CI, and GitHub releases. Its source directory is retained temporarily while shared dependencies are audited for cleanup.
+
+Android TV / Google TV build of BitVinyl: a remote-first Compose-for-TV interface
 (home, library, search, settings, a full-screen now-playing view with synced
 lyrics, display refresh-rate switching, spatial audio, and QR-code sign-in).
 
@@ -15,10 +18,10 @@ data and playback layers, resources, native code — is built straight from
 | `src/main/res` | TV-only resources: banner, fonts, TV theme |
 | `src/main/AndroidManifest.xml` | TV's own manifest (`LEANBACK_LAUNCHER`, `TvActivity`) |
 
-## Build
+## Build (Opt-In Legacy Target)
 
 ```bash
-./gradlew :tv:assembleProdDebug
+./gradlew -Pbitvinyl.includeTvWear=true :tv:assembleDevDebug
 ```
 
-The module is only included when an Android SDK is available, like `:app`.
+The `:tv` module is omitted by default unless `-Pbitvinyl.includeTvWear=true` is passed.

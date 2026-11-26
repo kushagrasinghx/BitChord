@@ -69,7 +69,23 @@ object TvSettings {
     }
 
     fun init(context: Context) {
-        init(context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE))
+        val current = context.getSharedPreferences("bitvinyl_settings", Context.MODE_PRIVATE)
+        val legacy = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        if (current.all.isEmpty() && legacy.all.isNotEmpty()) {
+            val editor = current.edit()
+            legacy.all.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is String -> editor.putString(key, value)
+                    is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(key, value as Set<String>)
+                }
+            }
+            editor.apply()
+        }
+        init(current)
     }
 
     private fun save(edit: SharedPreferences.Editor.() -> Unit) {

@@ -41,7 +41,15 @@ object OriginalVersion {
     val pinned: StateFlow<Set<String>> = _pinned.asStateFlow()
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val p = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!p.contains(KEY_PINNED)) {
+            val legacy = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+            val legacyPinned = legacy.getString(KEY_PINNED, null)
+            if (legacyPinned != null) {
+                p.edit().putString(KEY_PINNED, legacyPinned).apply()
+            }
+        }
+        prefs = p
         // Stored as one newline-joined string rather than as a string set,
         // because the order is what the cap below evicts by and a set of
         // strings comes back from SharedPreferences in no particular order.
@@ -81,6 +89,7 @@ object OriginalVersion {
     }
 
     private const val MAX_PINNED = 500
-    private const val PREFS_NAME = "bitchord_original_versions"
+    private const val PREFS_NAME = "bitvinyl_original_versions"
+    private const val LEGACY_PREFS_NAME = "bitchord_original_versions"
     private const val KEY_PINNED = "pinned"
 }

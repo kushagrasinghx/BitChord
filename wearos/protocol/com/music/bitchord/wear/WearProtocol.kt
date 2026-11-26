@@ -23,15 +23,15 @@ package com.music.bitchord.wear
 object WearProtocol {
 
     /** Advertised by the phone app (res/values/wear.xml) so the watch can find it. */
-    const val CAPABILITY_PHONE = "bitchord_phone"
+    const val CAPABILITY_PHONE = "bitvinyl_phone"
 
     /** Advertised by the watch app, so the phone only does the work with one around. */
-    const val CAPABILITY_WATCH = "bitchord_watch"
+    const val CAPABILITY_WATCH = "bitvinyl_watch"
 
-    const val PATH_NOW_PLAYING = "/bitchord/now_playing"
-    const val PATH_QUEUE = "/bitchord/queue"
-    const val PATH_COMMAND = "/bitchord/command"
-    const val PATH_OUTPUTS = "/bitchord/outputs"
+    const val PATH_NOW_PLAYING = "/bitvinyl/now_playing"
+    const val PATH_QUEUE = "/bitvinyl/queue"
+    const val PATH_COMMAND = "/bitvinyl/command"
+    const val PATH_OUTPUTS = "/bitvinyl/outputs"
 
     /**
      * Phone → watch messages driving the watch as the speaker, the command as
@@ -39,7 +39,7 @@ object WearProtocol {
      * [SPEAKER_PLAY], [SPEAKER_PAUSE], [SPEAKER_SEEK], [SPEAKER_REPEAT],
      * [SPEAKER_VOLUME], [SPEAKER_STOP].
      */
-    const val PATH_SPEAKER = "/bitchord/speaker"
+    const val PATH_SPEAKER = "/bitvinyl/speaker"
 
     /** DataMap: [KEY_TRACKS] (the playing one first), [KEY_POSITION_MS], [KEY_PLAYING], [KEY_REPEAT]. */
     const val SPEAKER_LOAD = "load"
@@ -70,14 +70,14 @@ object WearProtocol {
      * and then the bytes, through the same resolver and cache its own player
      * reads from.
      */
-    const val PATH_STREAM = "/bitchord/stream"
+    const val PATH_STREAM = "/bitvinyl/stream"
     /**
      * Phone → watch message: say what is installed. Answered with a
      * [PATH_WATCH_INFO] DataItem ([KEY_VERSION_CODE], [KEY_VERSION_NAME],
      * [KEY_APK_SHA256]) — one per watch, told apart by the item's node.
      */
-    const val PATH_WATCH_INFO_REQUEST = "/bitchord/watch/info_request"
-    const val PATH_WATCH_INFO = "/bitchord/watch/info"
+    const val PATH_WATCH_INFO_REQUEST = "/bitvinyl/watch/info_request"
+    const val PATH_WATCH_INFO = "/bitvinyl/watch/info"
     const val KEY_VERSION_CODE = "version_code"
     const val KEY_VERSION_NAME = "version_name"
 
@@ -88,7 +88,7 @@ object WearProtocol {
      * Phone → watch channel carrying a newer watch APK, which the watch app
      * hands to its package installer. Payload: the raw APK.
      */
-    const val PATH_APK = "/bitchord/watch/apk"
+    const val PATH_APK = "/bitvinyl/watch/apk"
 
     const val STREAM_OK: Int = 0
     const val STREAM_FAILED: Int = 1

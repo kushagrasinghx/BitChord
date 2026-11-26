@@ -3,7 +3,11 @@ name: Android Release APK
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-prod-release:
@@ -26,31 +30,98 @@ jobs:
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
         echo "LISTEN_TOGETHER_SERVER=${{ secrets.LISTEN_TOGETHER_SERVER }}" >> local.properties
 
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
-        {
-          echo "storeFile=bitchord-release.jks"
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}"
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
-        } > keystore.properties
+        if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitvinyl-release.jks
+          {
+            echo "storeFile=bitvinyl-release.jks"
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+          } > keystore.properties
+        fi
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Signed Prod Release APK
-      run: ./gradlew assembleProdRelease
+    - name: Build Phone Prod Release APKs
+      run: ./gradlew :app:assembleProdRelease
 
-    - name: Upload APK Artifact
+    - name: Verify Signed Release APKs
+      id: verify
+      run: |
+        if [ ! -f keystore.properties ]; then
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "Error: Signing keystore is required for tagged releases." >&2
+            exit 1
+          fi
+          echo "No signing keystore configured; build produced unsigned APKs."
+          echo "signed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+        apksigner_bin=""
+        if [ -n "$sdk_root" ] && [ -d "$sdk_root/build-tools" ]; then
+          apksigner_bin=$(find "$sdk_root/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -n 1 || true)
+        fi
+        if [ -z "$apksigner_bin" ]; then
+          apksigner_bin=$(command -v apksigner || true)
+        fi
+        if [ -z "$apksigner_bin" ] || [ ! -x "$apksigner_bin" ]; then
+          echo "Error: apksigner executable not found in Android SDK build-tools." >&2
+          exit 1
+        fi
+
+        expected_apks=(
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-arm64-v8a-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-armeabi-v7a-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-x86_64-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-universal-release.apk"
+        )
+
+        for apk in "${expected_apks[@]}"; do
+          if [ ! -s "$apk" ]; then
+            echo "Error: Expected signed APK missing or empty: $apk" >&2
+            exit 1
+          fi
+          "$apksigner_bin" verify --print-certs "$apk"
+        done
+
+        echo "signed=true" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Signed APK Artifact
+      if: steps.verify.outputs.signed == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: bitchord-prod-release-signed
-        path: app/build/outputs/apk/prod/release/*.apk
+        name: bitvinyl-prod-release-signed
+        path: |
+          app/build/outputs/apk/prod/release/BitVinyl-prod-arm64-v8a-release.apk
+          app/build/outputs/apk/prod/release/BitVinyl-prod-armeabi-v7a-release.apk
+          app/build/outputs/apk/prod/release/BitVinyl-prod-x86_64-release.apk
+          app/build/outputs/apk/prod/release/BitVinyl-prod-universal-release.apk
 
-    # Built by the same assembleProdRelease, with the same key. The watch app
-    # only pairs with a phone app signed by the same key, so a prod watch APK
-    # for these phone builds can only come from here, never a local build.
-    - name: Upload Wear OS APK Artifact
+    - name: Upload Unsigned APK Artifact
+      if: steps.verify.outputs.signed != 'true' && !startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-artifact@v4
       with:
-        name: bitchord-wear-prod-release-signed
-        path: wearos/build/outputs/apk/prod/release/*.apk
+        name: bitvinyl-prod-release-unsigned
+        path: app/build/outputs/apk/prod/release/BitVinyl-prod-*-release-unsigned.apk
+
+    - name: Publish Phone GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v') && steps.verify.outputs.signed == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        apks=(
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-arm64-v8a-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-armeabi-v7a-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-x86_64-release.apk"
+          "app/build/outputs/apk/prod/release/BitVinyl-prod-universal-release.apk"
+        )
+        if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+          gh release upload "${{ github.ref_name }}" "${apks[@]}" --clobber
+        else
+          gh release create "${{ github.ref_name }}" "${apks[@]}" \
+            --title "BitVinyl ${{ github.ref_name }}" \
+            --generate-notes
+        fi

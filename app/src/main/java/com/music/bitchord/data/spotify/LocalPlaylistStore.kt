@@ -17,7 +17,8 @@ data class LocalPlaylist(
 }
 
 object LocalPlaylistStore {
-    private const val PREF_NAME = "bitchord_local_playlists"
+    private const val PREF_NAME = "bitvinyl_local_playlists"
+    private const val LEGACY_PREF_NAME = "bitchord_local_playlists"
     private const val KEY_PLAYLISTS = "playlists_json"
 
     private lateinit var prefs: SharedPreferences
@@ -26,7 +27,15 @@ object LocalPlaylistStore {
     val playlists = _playlists.asStateFlow()
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val p = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        if (!p.contains(KEY_PLAYLISTS)) {
+            val legacy = context.getSharedPreferences(LEGACY_PREF_NAME, Context.MODE_PRIVATE)
+            val legacyData = legacy.getString(KEY_PLAYLISTS, null)
+            if (legacyData != null) {
+                p.edit().putString(KEY_PLAYLISTS, legacyData).apply()
+            }
+        }
+        prefs = p
         load()
     }
 

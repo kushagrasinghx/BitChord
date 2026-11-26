@@ -9,6 +9,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -54,10 +55,11 @@ import java.util.concurrent.TimeUnit
  */
 object PlaylistSync {
 
-    private const val TAG = "BitChord"
+    private const val TAG = "BitVinyl"
     private const val PERIODIC_WORK = "playlist_sync"
     private const val ONE_OFF_WORK = "playlist_sync_now"
-    private const val PREFS = "bitchord_playlist_sync"
+    private const val PREFS = "bitvinyl_playlist_sync"
+    private const val LEGACY_PREFS = "bitchord_playlist_sync"
     private const val KEY_LAST_CHECK = "last_complete_check"
     private const val CHANNEL_ID = "playlist_updates"
     internal const val KEY_APPROVED = "approved"
@@ -152,7 +154,28 @@ object PlaylistSync {
     private fun catchUpDue(context: Context): Boolean =
         System.currentTimeMillis() - prefs(context).getLong(KEY_LAST_CHECK, 0L) >= CATCH_UP_MILLIS
 
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context): SharedPreferences {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (p.all.isEmpty()) {
+            val legacy = context.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = p.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        return p
+    }
 
     // ---- A check ------------------------------------------------------------
 

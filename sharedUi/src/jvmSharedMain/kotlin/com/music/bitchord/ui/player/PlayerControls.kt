@@ -65,7 +65,6 @@ import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -336,17 +335,12 @@ internal fun PlaybackQualityLabel(
     val wifiQuality by PlayerSettings.audioQualityWifi.collectAsStateWithLifecycle()
     val cellularQuality by PlayerSettings.audioQualityCellular.collectAsStateWithLifecycle()
     val metered by PlayerSettings.meteredConnection.collectAsStateWithLifecycle()
-    val ceilingOverride by PlayerSettings.streamCeilingOverride.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     // Whether this playback session is even asking for a lossless stream — the
     // same computation SourceResolver.requestForNow() makes, mirrored here so
     // "Loading lossless" only appears when a lossless fetch is actually in
-    // flight, not on every buffering YouTube track. Override included: while
-    // the watch caps the stream nothing lossless is being looked for.
-    val chosenQuality = if (metered == true) cellularQuality else wifiQuality
-    val effectiveQuality = ceilingOverride
-        ?.takeIf { it.ordinal < chosenQuality.ordinal }
-        ?: chosenQuality
+    // flight, not on every buffering YouTube track.
+    val effectiveQuality = if (metered == true) cellularQuality else wifiQuality
     // Whether a module is still racing YouTube for this exact track — see
     // [NerdStats.racingLossless]. YouTube can win that race and already be
     // playing while the module lookup is still running detached, and the badge
@@ -883,9 +877,6 @@ private val PILL_PARTY_SIZE = 22.dp
 /** Cast and Tv run 92% of their box wide; at 23dp they read bigger than the rest. */
 private val PILL_OUTPUT_WIDE_SIZE = 21.dp
 
-/** Watch is drawn the full height of its box. */
-private val PILL_OUTPUT_TALL_SIZE = 17.dp
-
 /**
  * The earphones are half again as wide as they are tall, so at 23dp the width
  * limit leaves them little over half their box tall, well short of the glyphs
@@ -1013,17 +1004,15 @@ private fun OutputPartyPill(
  * Apple Music's AirPlay button does — the phone, buds, a speaker — rather than
  * headphones whatever is actually playing it.
  *
- * Off-device first: while casting or on the watch, the phone's own route is
- * not where anybody is listening.
+ * Off-device first: while casting, the phone's own route is not where anybody
+ * is listening.
  */
 @Composable
 private fun rememberOutputGlyph(): OutputGlyph {
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
-    val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
     val active = rememberAudioOutputs().firstOrNull { it.isActive }
     return when {
         cast.connectedName != null -> OutputGlyph(Icons.Rounded.CastConnected, PILL_OUTPUT_WIDE_SIZE)
-        watch.active -> OutputGlyph(Icons.Rounded.Watch, PILL_OUTPUT_TALL_SIZE)
         else -> when (active?.kind) {
             // No active row is the phone too — the caption under the pill
             // says "This phone" in the same case. Cast rather than a phone:

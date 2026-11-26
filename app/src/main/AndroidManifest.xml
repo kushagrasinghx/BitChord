@@ -64,7 +64,7 @@
         tools:ignore="ScopedStorage" />
 
     <application
-        android:name=".BitChordApplication"
+        android:name=".BitVinylApplication"
         android:allowBackup="true"
         android:extractNativeLibs="true"
         android:appCategory="audio"
@@ -76,7 +76,7 @@
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BitChord"
+        android:theme="@style/Theme.BitVinyl"
         tools:targetApi="34">
 
         <!--
@@ -135,7 +135,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:theme="@style/Theme.BitChord">
+            android:theme="@style/Theme.BitVinyl">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <!--
@@ -234,6 +234,14 @@
             </intent-filter>
 
             <!-- Custom scheme for Listen Together invites on custom server deployments. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="bitvinyl"
+                    android:host="party" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -609,31 +617,6 @@
                 <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
-            </intent-filter>
-        </service>
-
-        <!--
-          Commands from the BitChord watch app (wearos/). Exported because Play
-          services binds it; only messages from the same package and signing key
-          on a paired watch are ever delivered, and only under this path.
-        -->
-        <service
-            android:name=".wear.WearCommandService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data
-                    android:host="*"
-                    android:pathPrefix="/bitchord/command"
-                    android:scheme="wear" />
-            </intent-filter>
-            <!-- The watch's player reading a track through the phone. -->
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
-                <data
-                    android:host="*"
-                    android:pathPrefix="/bitchord/stream"
-                    android:scheme="wear" />
             </intent-filter>
         </service>
 

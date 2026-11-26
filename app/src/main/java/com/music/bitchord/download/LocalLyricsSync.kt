@@ -62,8 +62,9 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object LocalLyricsSync {
 
-    private const val TAG = "BitChord"
-    private const val PREFS = "bitchord_local_lyrics_sync"
+    private const val TAG = "BitVinyl"
+    private const val PREFS = "bitvinyl_local_lyrics_sync"
+    private const val LEGACY_PREFS = "bitchord_local_lyrics_sync"
     private const val KEY_STATUSES = "statuses"
     private const val WORK = "local_lyrics_sync"
     private const val KEY_MODE = "mode"
@@ -125,7 +126,26 @@ object LocalLyricsSync {
 
     fun init(context: Context) {
         if (this::prefs.isInitialized) return
-        prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (p.all.isEmpty()) {
+            val legacy = context.applicationContext.getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE)
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = p.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        prefs = p
         _statuses.value = load()
         // One writer for the whole map: a batch updates it once per track, and
         // a JSON document per update would be a disk write per song.

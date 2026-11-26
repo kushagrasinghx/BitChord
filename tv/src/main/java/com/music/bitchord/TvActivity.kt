@@ -13,10 +13,10 @@ import com.music.bitchord.playback.PlayerDeepLink
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.ui.MainViewModel
-import com.music.bitchord.ui.theme.BitChordTheme
+import com.music.bitchord.ui.theme.BitVinylTheme
 import com.music.bitchord.ui.tv.TvApp
 import com.music.bitchord.ui.tv.display.TvRefreshRateController
-import com.music.bitchord.ui.tv.theme.BitChordTvTheme
+import com.music.bitchord.ui.tv.theme.BitVinylTvTheme
 
 /**
  * Dedicated TV Activity for Android TV, Google TV, and Fire TV devices.
@@ -37,10 +37,10 @@ class TvActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
 
         setContent {
-            BitChordTvTheme {
+            BitVinylTvTheme {
                 // The phone's Material theme too, so the components shared with
                 // it (lyrics, mood sleeves) are set in SF Pro on its type scale.
-                BitChordTheme(darkTheme = true) {
+                BitVinylTheme(darkTheme = true) {
                     val mediaController = rememberMediaController()
                     val playerState = rememberPlayerState(mediaController)
 

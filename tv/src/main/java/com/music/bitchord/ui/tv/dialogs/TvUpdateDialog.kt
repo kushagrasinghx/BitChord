@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
 /**
- * A new BitChord TV release is out: download its APK and hand it to the system
+ * A new BitVinyl TV release is out: download its APK and hand it to the system
  * installer without leaving the app, as the phone's update sheet does.
  *
  * Closing the alert mid-download only hides it — the download keeps going, and
@@ -55,7 +55,7 @@ fun TvUpdateDialog(update: AppUpdateChecker.UpdateInfo, onDismiss: () -> Unit) {
     val notes = remember(update.notes) { update.notes?.let(::plainNotes) }
 
     TvDialog(
-        title = "BitChord ${update.version} Is Available",
+        title = "BitVinyl ${update.version} Is Available",
         message = when {
             update.apkUrl == null -> "Scan the code with your phone to get this update from GitHub."
             state is DownloadState.Ready -> "Downloaded. Select Install Now to update."

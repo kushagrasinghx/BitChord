@@ -63,7 +63,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import com.music.bitchord.playback.cast.CastController
-import com.music.bitchord.wear.WearBridge
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -106,7 +105,7 @@ object VolumeHud {
 fun handleDacVolumeKey(event: KeyEvent): Boolean {
     val code = event.keyCode
     if (code != KeyEvent.KEYCODE_VOLUME_UP && code != KeyEvent.KEYCODE_VOLUME_DOWN) return false
-    if (DacVolume.level.value == null || CastController.state.value.casting || WearBridge.watchOutput.value.active) {
+    if (DacVolume.level.value == null || CastController.state.value.casting) {
         return false
     }
     if (event.action == KeyEvent.ACTION_DOWN) {

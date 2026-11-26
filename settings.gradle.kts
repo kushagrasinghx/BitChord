@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BitChord"
+rootProject.name = "BitVinyl"
 include(":shared")
 include(":sharedUi")
 
@@ -33,10 +33,14 @@ val androidSdk: String? = file("local.properties")
     ?: System.getenv("ANDROID_HOME")
     ?: System.getenv("ANDROID_SDK_ROOT")
 
+val includeTvWear = providers.gradleProperty("bitvinyl.includeTvWear").orNull == "true"
+
 if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
-    include(":tv")
-    include(":wearos")
+    if (includeTvWear) {
+        include(":tv")
+        include(":wearos")
+    }
 } else {
     logger.lifecycle("No Android SDK found — building the desktop targets only.")
 }

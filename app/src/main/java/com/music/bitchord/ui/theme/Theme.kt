@@ -139,7 +139,7 @@ private fun Typography.withFamily(family: FontFamily) = Typography(
 )
 
 @Composable
-fun BitChordTheme(
+fun BitVinylTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     font: AppFont = AppFont.DEFAULT,
     content: @Composable () -> Unit,
@@ -153,6 +153,14 @@ fun BitChordTheme(
         content = content,
     )
 }
+
+@Deprecated("Use BitVinylTheme instead", ReplaceWith("BitVinylTheme(darkTheme, font, content)"))
+@Composable
+fun BitChordTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    font: AppFont = AppFont.DEFAULT,
+    content: @Composable () -> Unit,
+) = BitVinylTheme(darkTheme, font, content)
 
 /**
  * Draws the status and navigation bar glyphs dark or light.

@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
-import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,9 +90,6 @@ internal fun AudioOutputSheet(
 ) {
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
-    val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
-    // A watch comes and goes; ask again each time the drawer opens.
-    LaunchedEffect(Unit) { PlayerPlatform.host.refreshWatchOutput() }
 
     PlayerDrawer(
         hazeState = hazeState,
@@ -115,14 +111,6 @@ internal fun AudioOutputSheet(
                     accountName = accountName,
                     onSelect = { PlayerPlatform.host.selectAudioOutput(device.id) },
                 )
-            }
-            // One more place to send the music, listed with the others. The
-            // receivers behind it are chosen in a popup of their own — there
-            // can be any number of them, and they come and go while it is open.
-            // The watch, when one with BitChord on it is in reach: picked
-            // directly, since there is only ever the one.
-            if (watch.available || watch.active) {
-                WatchRow(watch = watch, onClick = { PlayerPlatform.host.selectWatchOutput() })
             }
             if (cast.supported) CastRow(cast = cast, onClick = onOpenCast)
         }
@@ -273,76 +261,6 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
             tint = Color.White.copy(alpha = 0.35f),
             modifier = Modifier.size(20.dp),
         )
-    }
-}
-
-/**
- * The BitChord watch app as the speaker. Drawn like an output of this phone —
- * lit, with a check, while it is the one playing — because to the listener that
- * is what it is.
- */
-@Composable
-private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
-    val haptics = rememberHaptics()
-    val active = watch.active
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = !active,
-            ) {
-                haptics.play(Haptic.Select)
-                onClick()
-            }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Watch,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = if (active) 1f else 0.7f),
-                modifier = Modifier.size(21.dp),
-            )
-        }
-        Spacer(Modifier.width(13.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = watch.name?.takeIf(String::isNotBlank) ?: stringResource(Res.string.watch_output),
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                ),
-                color = Color.White.copy(alpha = if (active) 1f else 0.85f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = stringResource(if (active) Res.string.audio_output_playing else Res.string.watch_output_subtitle),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.55f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (active) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
     }
 }
 

@@ -1,6 +1,9 @@
-# BitChord for Wear OS
+# BitVinyl for Wear OS (Legacy / Unmaintained)
 
-A watch remote for the BitChord phone app: now playing over the player's mesh
+> [!NOTE]
+> BitVinyl prioritizes Android phones exclusively (`:app`). The Wear OS companion app is **not actively supported or distributed**, is no longer bundled into phone APKs by default, and has been removed from CI/release workflows. Its source directory (including `wearos/protocol/`) is retained temporarily until `WearBridge` and `WatchInstaller` are decoupled from `:app`.
+
+A watch remote for the BitVinyl phone app: now playing over the player's mesh
 backdrop, play/pause on the cover with a progress ring (hold it to seek), skip,
 Love where the phone offers it, Up Next, shuffle, repeat, the phone's volume on
 the crown or bezel, an always-on player, and an Output picker covering the
@@ -19,7 +22,7 @@ build type, and the app listens only while it is on screen or playing.
 
 | Path | What it is |
 | --- | --- |
-| `protocol/.../WearProtocol.kt` | Paths, keys and commands. Compiled into both `:app` and `:wearos` |
+| `protocol/.../WearProtocol.kt` | Paths, keys and commands. Compiled into `:app` (and `:wearos` when enabled) |
 | `src/main/java/.../data/PhoneLink.kt` | The watch's view of the phone: Data Layer state in, messages out |
 | `src/main/java/.../ui/**` | Now Playing, Up Next, More, connection screens |
 | `src/main/java/.../playback/**` | The watch as the speaker: `Speaker`, its player service, the phone-backed data source |
@@ -34,34 +37,21 @@ the same signing key. So the watch app takes the phone app's ids:
 
 | Watch build | Package | Pairs with |
 | --- | --- | --- |
-| `devDebug` | `com.dev.bitchord` | the phone's `devDebug` (debug key) |
-| `prodRelease` | `com.music.bitchord` | the phone's `prodRelease` (release key) |
+| `devDebug` | `com.jackedhawk117.bitvinyl.dev` | the phone's `devDebug` (debug key) |
+| `prodRelease` | `com.jackedhawk117.bitvinyl` | the phone's `prodRelease` (release key) |
 
-A watch build only finds a phone build of the same flavor **and** signed with
-the same key. Published phone APKs are signed in CI with the key from
-`secrets.KEYSTORE_BASE64`, which is not the keystore in a local checkout, so
-the prod watch APK for those phones has to come from CI too. `android.yml`
-uploads it as `bitchord-wear-prod-release-signed`.
+Wear OS release artifacts are no longer built or published by CI.
 
-## Build and install
+## Build and install (Opt-In Legacy Target)
 
 ```bash
-./gradlew :wearos:assembleDevDebug :wearos:assembleProdRelease
+./gradlew -Pbitvinyl.includeTvWear=true :wearos:assembleDevDebug
 ```
 
-APKs land in `wearos/build/outputs/apk/<flavor>/<type>/BitChordWear-*.apk`.
-To install on a Galaxy Watch, turn on Developer options → ADB debugging and
-Wireless debugging on the watch, then:
-
-```bash
-adb pair <watch-ip>:<pairing-port>
-adb connect <watch-ip>:<port>
-adb -s <watch-ip>:<port> install -r wearos/build/outputs/apk/dev/debug/BitChordWear-dev-debug.apk
-```
-
-The phone needs a BitChord build that includes `WearBridge` (anything from this
-change on), from the same flavor and signed with the same key.
+APKs land in `wearos/build/outputs/apk/<flavor>/<type>/BitVinylWear-*.apk`.
+To bundle the watch APK inside a phone build for local testing, pass
+`-Pbitvinyl.includeTvWear=true -Pbitvinyl.bundleWear=true`.
 
 Debug builds are shrunk and non-debuggable, because an un-R8'd, debuggable
 Compose app is noticeably slower on a watch CPU. To get a debugger back, pass
-`-Pbitchord.wearDebuggable=true`.
+`-Pbitvinyl.wearDebuggable=true`.

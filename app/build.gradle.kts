@@ -1,6 +1,4 @@
 import java.util.Properties
-import java.security.MessageDigest
-import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -65,8 +63,8 @@ val addonAuthServer: String = (
         ?: "https://bitchord-auth.kushagrasingh.in"
     ).trim().trimEnd('/')
 
-// See the root build.gradle.kts: one version for the phone and its watch app.
-val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
+// See the root build.gradle.kts: pre-release suffix for the phone app.
+val betaSuffix = (rootProject.extra["bitvinylBetaSuffix"] ?: rootProject.extra["bitchordBetaSuffix"]) as String
 
 android {
     namespace = "com.music.bitchord"
@@ -74,13 +72,13 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        applicationId = "com.jackedhawk117.bitvinyl"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = rootProject.extra["bitchordVersionCode"] as Int
-        versionName = rootProject.extra["bitchordVersionName"] as String
+        versionCode = (rootProject.extra["bitvinylVersionCode"] ?: rootProject.extra["bitchordVersionCode"]) as Int
+        versionName = (rootProject.extra["bitvinylVersionName"] ?: rootProject.extra["bitchordVersionName"]) as String
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -97,10 +95,9 @@ android {
             "ADDON_AUTH_URL",
             "\"${addonAuthServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
-        // Which release assets are this app's: the phone and TV APKs ship in
-        // the same GitHub release, told apart by file name. See
-        // AppUpdateChecker.apkAssetUrl.
-        buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChord-\"")
+        // Release asset prefix matched by AppUpdateChecker against GitHub Releases
+        // (`BitVinyl-prod-universal-release.apk` and `BitVinyl-prod-<abi>-release.apk`).
+        buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitVinyl-\"")
     }
 
     splits {
@@ -110,12 +107,6 @@ android {
             include("armeabi-v7a", "arm64-v8a", "x86_64")
             isUniversalApk = true
         }
-    }
-
-    // The phone <-> watch protocol, one file shared with the watch app so the
-    // two cannot drift. See wearos/protocol/.../WearProtocol.kt.
-    sourceSets {
-        getByName("main") { java.srcDir("../wearos/protocol") }
     }
 
     externalNativeBuild {
@@ -132,8 +123,8 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "BitChord Dev")
+            applicationId = "com.jackedhawk117.bitvinyl.dev"
+            resValue("string", "app_name", "BitVinyl Dev")
         }
         create("prod") {
             dimension = "env"
@@ -237,6 +228,8 @@ android {
         }
     }
 }
+
+base.archivesName.set("BitVinyl")
 
 kotlin {
     compilerOptions {
@@ -430,25 +423,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-cast-framework:22.2.0")
     implementation("androidx.mediarouter:mediarouter:1.8.1")
 
-    // ---- The watch app (wearos/): Data Layer state out, commands in ----
-    // See com.music.bitchord.wear.WearBridge. Rides on the Play services base
-    // the Cast framework already brings, so it adds very little.
-    implementation("com.google.android.gms:play-services-wearable:20.0.1")
-    // Opens the watch app after an update, so its install prompt is on screen.
-    implementation("androidx.wear:wear-remote-interactions:1.1.0")
-
-    // ---- "BitChord for Wear OS": the first install onto a watch ----
-    // Without the Play Store only ADB can install on a watch, so this phone is
-    // the ADB client, over the watch's Wireless debugging — see WatchInstaller.
-    // GPL-3.0/Apache-2.0 dual-licensed. Its own BouncyCastle (jdk15to18) is the
-    // same classes as the jdk18on one SMBJ already brings, so it is excluded;
-    // bcpkix supplies the certificate the ADB client identifies itself with.
-    implementation("com.github.MuntashirAkon:libadb-android:3.1.1") {
-        exclude(group = "org.bouncycastle")
-    }
-    implementation("org.conscrypt:conscrypt-android:2.5.3")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
-
     // ---- yt-dlp & FFmpeg integration for MP3 downloads ----
     val youtubedlAndroidVersion = "0.18.1"
     implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroidVersion")
@@ -489,69 +463,12 @@ val verifyDevInstall = tasks.register("verifyDevInstall") {
             .drop(1)
             .mapNotNull { line -> line.split('\t').takeIf { it.size == 2 && it[1] == "device" }?.get(0) }
         serials.forEach { serial ->
-            logger.lifecycle("verifyDevInstall: compiling com.dev.bitchord on $serial")
+            logger.lifecycle("verifyDevInstall: compiling com.jackedhawk117.bitvinyl.dev on $serial")
             ProcessBuilder(
                 adbPath, "-s", serial, "shell", "cmd", "package", "compile",
-                "-m", "verify", "-f", "com.dev.bitchord",
+                "-m", "verify", "-f", "com.jackedhawk117.bitvinyl.dev",
             ).inheritIO().start().waitFor()
         }
     }
 }
 tasks.matching { it.name == "installDevDebug" }.configureEach { finalizedBy(verifyDevInstall) }
-
-/*
- * The watch app rides inside the phone app, so "BitChord for Wear OS" in
- * Settings can put it on a watch — or update it — with no computer involved.
- *
- * Each phone variant carries the watch build of the same flavor *and* build
- * type: the same package (dev with dev, prod with prod) and the same signing
- * key, which is what the Wearable Data Layer needs before the two will talk at
- * all. A SHA-256 travels with it, so the phone can tell the watch's build from
- * the one it carries even when the version numbers match.
- *
- * Costs a watch build per phone build; -Pbitchord.bundleWear=false skips it
- * for a quick local iteration (Settings then offers no install).
- */
-abstract class BundleWearApk : DefaultTask() {
-    @get:InputFiles
-    abstract val apks: ConfigurableFileCollection
-
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
-
-    @TaskAction
-    fun bundle() {
-        val out = outputDir.get().asFile.resolve("wear")
-        out.deleteRecursively()
-        out.mkdirs()
-        val apk = apks.asFileTree.matching { include("*.apk") }.files.singleOrNull()
-            ?: throw GradleException("Expected exactly one watch APK in ${apks.files}")
-        val target = out.resolve("BitChordWear.apk")
-        apk.copyTo(target, overwrite = true)
-        val digest = MessageDigest.getInstance("SHA-256")
-        target.inputStream().use { input ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        out.resolve("BitChordWear.sha256").writeText(digest.digest().joinToString("") { "%02x".format(it) })
-    }
-}
-
-if (providers.gradleProperty("bitchord.bundleWear").orNull != "false" && findProject(":wearos") != null) {
-    androidComponents.onVariants { variant ->
-        val flavor = variant.productFlavors.firstOrNull { it.first == "env" }?.second ?: return@onVariants
-        val type = variant.buildType ?: return@onVariants
-        // The benchmark build has no watch counterpart.
-        if (type != "debug" && type != "release") return@onVariants
-        val cap = variant.name.replaceFirstChar { it.uppercase() }
-        val bundle = tasks.register<BundleWearApk>("bundleWearApk$cap") {
-            dependsOn(":wearos:assemble$cap")
-            apks.from(rootProject.layout.projectDirectory.dir("wearos/build/outputs/apk/$flavor/$type"))
-        }
-        variant.sources.assets?.addGeneratedSourceDirectory(bundle, BundleWearApk::outputDir)
-    }
-}

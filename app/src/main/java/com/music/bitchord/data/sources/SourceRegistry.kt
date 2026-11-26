@@ -142,7 +142,26 @@ object SourceRegistry {
 
     fun init(context: Context) {
         // Same repair and degradation as AuthStore; see EncryptedPrefs.
-        prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
+        val current = EncryptedPrefs.open(context, "bitvinyl_sources", "bitvinyl_sources_plain")
+        if (current.all.isEmpty()) {
+            val legacy = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
+            val legacyAll = legacy.all
+            if (legacyAll.isNotEmpty()) {
+                val editor = current.edit()
+                for ((k, v) in legacyAll) {
+                    when (v) {
+                        is Boolean -> editor.putBoolean(k, v)
+                        is String -> editor.putString(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                        is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(k, v as Set<String>)
+                    }
+                }
+                editor.apply()
+            }
+        }
+        prefs = current
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
         val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)

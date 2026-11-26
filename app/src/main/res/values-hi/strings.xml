@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">BitVinyl</string>
     <string name="playback_channel_name">अभी चल रहा है</string>
     <string name="download_channel_name">डाउनलोड</string>
     <string name="download_channel_description">आपके संगीत फ़ोल्डर में सेव हो रहे गाने</string>
@@ -104,10 +104,10 @@
     <string name="dolby_atmos_open_failed">Dolby Atmos सेटिंग्स नहीं खोली जा सकीं</string>
     <string name="update_available">अपडेट उपलब्ध है: v%1$s</string>
     <string name="software_update">सॉफ़्टवेयर अपडेट</string>
-    <string name="update_available_body">bitchord %1$s डाउनलोड के लिए उपलब्ध है।</string>
-    <string name="update_downloading_body">bitchord %1$s डाउनलोड हो रहा है…</string>
-    <string name="update_ready_body">bitchord %1$s इंस्टॉल के लिए तैयार है।</string>
-    <string name="update_failed_body">bitchord %1$s डाउनलोड नहीं हो सका।</string>
+    <string name="update_available_body">BitVinyl %1$s डाउनलोड के लिए उपलब्ध है।</string>
+    <string name="update_downloading_body">BitVinyl %1$s डाउनलोड हो रहा है…</string>
+    <string name="update_ready_body">BitVinyl %1$s इंस्टॉल के लिए तैयार है।</string>
+    <string name="update_failed_body">BitVinyl %1$s डाउनलोड नहीं हो सका।</string>
     <string name="download_now">अभी डाउनलोड करें</string>
     <string name="install_now">अभी इंस्टॉल करें</string>
     <string name="later">बाद में</string>
@@ -135,7 +135,7 @@
     <string name="widget_previous">पिछला</string>
     <string name="widget_artwork">एल्बम आर्ट</string>
     <string name="widget_nothing_played">अभी तक कुछ नहीं चलाया गया</string>
-    <string name="widget_open_bitchord">BitChord खोलें</string>
+    <string name="widget_open_bitchord">BitVinyl खोलें</string>
     <string name="widget_preview_title">गाने का शीर्षक</string>
     <string name="widget_preview_artist">कलाकार</string>
     <string name="widget_pill_label">अभी चल रहा है 4×1</string>
@@ -162,7 +162,7 @@
     <string name="cancel_all">सभी रद्द करें</string>
     <string name="language">भाषा</string>
     <string name="app_language">ऐप की भाषा</string>
-    <string name="app_language_description">BitChord द्वारा उपयोग की जाने वाली भाषा चुनें।</string>
+    <string name="app_language_description">BitVinyl द्वारा उपयोग की जाने वाली भाषा चुनें।</string>
     <string name="english">अंग्रेज़ी</string>
     <string name="spanish">स्पैनिश</string>
     <string name="french">फ़्रेंच</string>
@@ -258,10 +258,10 @@
     <string name="beta">बीटा</string>
     <string name="refresh_rate">रिफ़्रेश रेट</string>
     <string name="high_performance_before_enabling">चालू करने से पहले</string>
-    <string name="high_performance_battery_warning">पहले BitChord की बैटरी उपयोग सेटिंग को “अप्रतिबंधित” पर सेट करें। ज़्यादा रिफ़्रेश रेट ज़्यादा बैटरी, CPU और GPU इस्तेमाल करते हैं, और इससे आपका डिवाइस गर्म हो सकता है।</string>
+    <string name="high_performance_battery_warning">पहले BitVinyl की बैटरी उपयोग सेटिंग को “अप्रतिबंधित” पर सेट करें। ज़्यादा रिफ़्रेश रेट ज़्यादा बैटरी, CPU और GPU इस्तेमाल करते हैं, और इससे आपका डिवाइस गर्म हो सकता है।</string>
     <string name="open_battery_settings">बैटरी सेटिंग्स खोलें</string>
     <string name="enable_high_performance_title">हाई परफ़ॉर्मेंस मोड चालू करें?</string>
-    <string name="enable_high_performance_confirmation">इसे तभी चालू करें जब BitChord की बैटरी उपयोग सेटिंग “अप्रतिबंधित” पर हो। डिवाइस गर्म होने या पावर कम होने पर Android फिर भी रिफ़्रेश रेट सीमित कर सकता है।</string>
+    <string name="enable_high_performance_confirmation">इसे तभी चालू करें जब BitVinyl की बैटरी उपयोग सेटिंग “अप्रतिबंधित” पर हो। डिवाइस गर्म होने या पावर कम होने पर Android फिर भी रिफ़्रेश रेट सीमित कर सकता है।</string>
     <string name="enable">चालू करें</string>
     <string name="not_yet">अभी नहीं</string>
     <string name="activity">एक्टिविटी</string>
@@ -296,7 +296,7 @@
     <string name="discord_presence_footer">ट्रैक, पोज़िशन या प्लेबैक स्थिति बदलने पर कार्ड अपडेट होता है। प्लेबैक रुकने पर यह साफ़ हो जाता है।</string>
     <string name="discord_show_audio_quality">ऑडियो क्वालिटी दिखाएँ</string>
     <string name="discord_show_audio_quality_subtitle">स्टेटस कार्ड पर Hi-Res, लॉसलेस और Dolby जानकारी</string>
-    <string name="discord_sign_in_footer">साइन इन करने पर Discord का लॉगिन पेज खुलता है। BitChord में कुछ भी टाइप नहीं किया जाता।</string>
+    <string name="discord_sign_in_footer">साइन इन करने पर Discord का लॉगिन पेज खुलता है। BitVinyl में कुछ भी टाइप नहीं किया जाता।</string>
     <string name="discord_token">Discord टोकन</string>
     <string name="discord_token_description">अपना Discord खाता टोकन पेस्ट करें। यह इस डिवाइस पर एन्क्रिप्टेड रहता है और केवल Discord को भेजा जाता है।</string>
     <string name="discord_token_rejected">Discord ने वह टोकन अस्वीकार कर दिया।</string>
@@ -331,7 +331,7 @@
     <string name="downloads_finished">डाउनलोड · पूरे हुए</string>
     <string name="downloading_progress">डाउनलोड हो रहा है · %1$d%%</string>
     <string name="starting">शुरू हो रहा है</string>
-    <string name="saved_to_bitchord_folder">Music/BitChord में सेव किया गया</string>
+    <string name="saved_to_bitchord_folder">Music/BitVinyl में सेव किया गया</string>
     <string name="nothing_downloading">कुछ भी डाउनलोड नहीं हो रहा</string>
     <string name="nothing_to_explore">अभी एक्सप्लोर करने के लिए कुछ नहीं है</string>
     <string name="no_youtube_music_results">YouTube Music से कोई नतीजे नहीं मिले</string>
@@ -459,7 +459,7 @@
     <string name="sleep_timer_custom">कस्टम</string>
     <string name="start_sleep_timer">टाइमर शुरू करें</string>
     <string name="sources_no_lossless">कोई भी चालू स्रोत लॉसलेस ऑडियो नहीं दे सकता। बिना ट्रांसकोडिंग के उपलब्ध लॉसलेस फ़ाइलें चलाने के लिए कस्टम मॉड्यूल जोड़ें।</string>
-    <string name="sources_order_footer">अगर किसी स्रोत के पास कोई ट्रैक नहीं है या उस तक पहुंचा नहीं जा सकता, तो BitChord अगला स्रोत आज़माता है। YouTube से ऊपर के स्रोत बेहतर वर्शन मिलने पर उसकी रिकॉर्डिंग बदल सकते हैं।</string>
+    <string name="sources_order_footer">अगर किसी स्रोत के पास कोई ट्रैक नहीं है या उस तक पहुंचा नहीं जा सकता, तो BitVinyl अगला स्रोत आज़माता है। YouTube से ऊपर के स्रोत बेहतर वर्शन मिलने पर उसकी रिकॉर्डिंग बदल सकते हैं।</string>
     <string name="sources_order_header">स्रोत, इसी क्रम में आज़माए जाते हैं</string>
     <string name="sources_quality_capped">यह कनेक्शन हाई क्वालिटी से नीचे सेट है, इसलिए स्ट्रीम को उस सीमा में फिट करने के लिए ट्रांसकोड किया जाता है। डाउनलोड पर कोई असर नहीं पड़ता।</string>
     <string name="jiosaavn_mismatch_warning">गाने का गलत वर्शन मिल सकता है। अपने जोखिम पर चालू करें।</string>
@@ -505,7 +505,7 @@
     <string name="biggest_day_note">आपका सबसे बड़ा दिन %1$s था, जिसमें %2$s सुना गया।</string>
     <string name="close_replay">Replay बंद करें</string>
     <string name="couldnt_draw_picture">तस्वीर नहीं बन सकी</string>
-    <string name="default_replay_holder">BitChord श्रोता</string>
+    <string name="default_replay_holder">BitVinyl श्रोता</string>
     <string name="different_albums">अलग-अलग एल्बम</string>
     <string name="genres_pending">आपके सुनने का इतिहास बढ़ने पर शैलियां दिखेंगी</string>
     <string name="hour_am">%1$d AM</string>
@@ -535,7 +535,7 @@
     <string name="replay_artist_end"> बार-बार सुना गया।</string>
     <string name="replay_artist_focus">एक कलाकार</string>
     <string name="replay_artist_start">पूरे महीने, </string>
-    <string name="replay_empty_description">थोड़ा और सुनें और BitChord आपके इतिहास को एक Replay में बदल देगा।</string>
+    <string name="replay_empty_description">थोड़ा और सुनें और BitVinyl आपके इतिहास को एक Replay में बदल देगा।</string>
     <string name="replay_genre_end"> ने आपकी पसंद को आकार दिया।</string>
     <string name="replay_genre_focus">आपकी शैलियां</string>
     <string name="replay_genre_start">मिलकर, </string>
@@ -600,7 +600,7 @@
     <string name="webdav_subtitle">आपके सर्वर पर संगीत</string>
     <string name="webdav_not_configured">स्रोत में जाकर सर्वर कनेक्ट करें</string>
     <string name="webdav_empty">WebDAV सर्वर पर कोई ऑडियो फ़ाइल नहीं मिली। सेटिंग्स में URL जाँचें।</string>
-    <string name="webdav_description">BitChord को किसी WebDAV संगीत फ़ोल्डर से जोड़ें — आपकी Nextcloud Music डायरेक्टरी या WebDAV सपोर्ट करने वाला कोई भी सर्वर।</string>
+    <string name="webdav_description">BitVinyl को किसी WebDAV संगीत फ़ोल्डर से जोड़ें — आपकी Nextcloud Music डायरेक्टरी या WebDAV सपोर्ट करने वाला कोई भी सर्वर।</string>
     <string name="webdav_server_url">सर्वर URL</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">डिस्कनेक्ट करें</string>
@@ -617,7 +617,7 @@
     <string name="smb_subtitle">शेयर किए गए फ़ोल्डर में संगीत</string>
     <string name="smb_not_configured">स्रोत में जाकर शेयर कनेक्ट करें</string>
     <string name="smb_empty">SMB शेयर पर कोई ऑडियो फ़ाइल नहीं मिली। स्रोत में सर्वर जाँचें।</string>
-    <string name="smb_description">BitChord को किसी शेयर किए गए संगीत फ़ोल्डर से जोड़ें — SMB वाला कोई NAS या Windows शेयर।</string>
+    <string name="smb_description">BitVinyl को किसी शेयर किए गए संगीत फ़ोल्डर से जोड़ें — SMB वाला कोई NAS या Windows शेयर।</string>
     <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
     <string name="smb_share_hint">शेयर का नाम, जैसे Music</string>
     <string name="smb_folder_hint">फ़ोल्डर (वैकल्पिक)</string>
@@ -669,7 +669,7 @@
     </plurals>
     <string name="no_local_albums">यहां अभी तक कुछ भी किसी एल्बम या प्लेलिस्ट का हिस्सा नहीं है। पूरा एल्बम या प्लेलिस्ट डाउनलोड करें और यह यहां दिखेगा।</string>
     <string name="play_your_replay">अपना Replay चलाएं</string>
-    <string name="counted_on_device_with_bitchord">इस डिवाइस पर BitChord के साथ गिना गया</string>
+    <string name="counted_on_device_with_bitchord">इस डिवाइस पर BitVinyl के साथ गिना गया</string>
     <string name="this_month">इस महीने</string>
     <string name="this_year">इस साल</string>
     <string name="all_time">अब तक</string>
@@ -720,7 +720,7 @@
     <string name="listen_together_code">पार्टी कोड</string>
     <string name="listen_together_code_footer">इसे बोलकर बताएँ या भेज दें। O और I इस्तेमाल नहीं होते, इसलिए “ओ” हमेशा शून्य है।</string>
     <string name="copy_code">कोड कॉपी करें</string>
-    <string name="listen_together_share_text">BitChord पर मेरे साथ सुनो — पार्टी कोड %1$s</string>
+    <string name="listen_together_share_text">BitVinyl पर मेरे साथ सुनो — पार्टी कोड %1$s</string>
     <string name="listen_together_now_playing">अभी चल रहा है</string>
     <string name="listen_together_nothing_playing">अभी कुछ नहीं चल रहा</string>
     <string name="listen_together_listening">सुन रहे हैं · %2$d में से %1$d</string>
@@ -757,7 +757,7 @@
     <string name="listen_together_custom_server_dialog_message">यह पार्टी एक बाहरी सर्वर पर चल रही है:\n\n%1$s\n\nक्या आप अपना पार्टी सर्वर बदलकर पार्टी %2$s में शामिल होना चाहते हैं?</string>
     <string name="listen_together_custom_server_switch_and_join">बदलें और शामिल हों</string>
     <string name="listen_together_official_server_dialog_title">आधिकारिक सर्वर पर जाएँ?</string>
-    <string name="listen_together_official_server_dialog_message">यह पार्टी BitChord के आधिकारिक सर्वर पर चल रही है।\n\nक्या आप आधिकारिक सर्वर पर लौटकर पार्टी %1$s में शामिल होना चाहते हैं?</string>
+    <string name="listen_together_official_server_dialog_message">यह पार्टी BitVinyl के आधिकारिक सर्वर पर चल रही है।\n\nक्या आप आधिकारिक सर्वर पर लौटकर पार्टी %1$s में शामिल होना चाहते हैं?</string>
     <string name="listen_together_switch_failed_stayed_in_party">पार्टी में शामिल नहीं हो सके: %1$s। आप पार्टी %2$s में बने रहेंगे।</string>
     <string name="listen_together_switch_failed">पार्टी में शामिल नहीं हो सके: %1$s।</string>
     <string name="listen_together_ping">%1$d ms</string>
@@ -794,7 +794,7 @@
 
     <string name="add_addon">एडऑन जोड़ें</string>
 
-    <string name="add_addon_detail">BitChord को किसी एडऑन सर्वर से कनेक्ट करें</string>
+    <string name="add_addon_detail">BitVinyl को किसी एडऑन सर्वर से कनेक्ट करें</string>
 
     <string name="addon_url_description">एडऑन का URL पेस्ट करें — रूट या manifest.json।</string>
 
@@ -1012,7 +1012,7 @@
 
     <string name="source_skipped_by_quality">%1$s पर उपयोग नहीं किया गया · गुणवत्ता %2$s पर सेट है</string>
 
-    <string name="source_unrecognised">BitChord इस लिंक को पहचान नहीं सका</string>
+    <string name="source_unrecognised">BitVinyl इस लिंक को पहचान नहीं सका</string>
 
     <string name="start_radio">रेडियो शुरू करें</string>
 
@@ -1047,7 +1047,7 @@
 
     <string name="auto_login_title">Sign in to YouTube on your phone</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open BitVinyl on your phone to sign in</string>
 
     <string name="auto_empty_recents_title">No recent songs</string>
 
@@ -1091,7 +1091,7 @@
     <string name="smart_version_alignment">स्मार्ट ऑडियो अलाइनमेंट</string>
     <string name="smart_version_alignment_subtitle">ठीक मेल खाने वाला प्लेबैक पल ढूँढने के लिए ऑडियो वेवफ़ॉर्म का विश्लेषण करता है</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside BitVinyl, before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -1134,7 +1134,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after BitVinyl\'s, on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 
@@ -1276,7 +1276,7 @@
 
 
     <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
-    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitChord के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
+    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitVinyl के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
     <string name="source_outdated">पुराना ऐडऑन</string>
     <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
     <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
@@ -1349,7 +1349,7 @@
     <string name="replay_period_monthly">मासिक</string>
     <string name="replay_period_yearly">वार्षिक</string>
     <string name="replay_period_lifetime">सर्वकालिक</string>
-    <string name="onboarding_title">लाखों गाने, BitChord पर स्ट्रीम करें</string>
+    <string name="onboarding_title">लाखों गाने, BitVinyl पर स्ट्रीम करें</string>
     <string name="onboarding_name_prompt">हम आपको क्या कहकर बुलाएँ?</string>
     <string name="onboarding_name_hint">आपका नाम</string>
     <string name="onboarding_name_footer">साथ सुनें इस्तेमाल करने पर दोस्तों को यह दिखता है। इसे बाद में सेटिंग में बदला जा सकता है।</string>
@@ -1359,39 +1359,6 @@
     <string name="onboarding_sign_in_google">Google से साइन इन करें</string>
     <string name="onboarding_skip_sign_in">साइन इन छोड़ें</string>
     <string name="onboarding_back">वापस</string>
-    <string name="wear_os_section">Wear OS के लिए BitChord</string>
-    <string name="wear_os_page_title">Wear OS</string>
-    <string name="wear_os_your_watches">आपकी घड़ियाँ</string>
-    <string name="wear_os_value_none">कोई घड़ी नहीं</string>
-    <string name="wear_os_value_not_installed">इंस्टॉल नहीं है</string>
-    <string name="wear_os_value_up_to_date">अप-टू-डेट</string>
-    <string name="wear_os_looking">घड़ियाँ खोजी जा रही हैं…</string>
-    <string name="wear_os_no_watch">कोई घड़ी कनेक्ट नहीं है</string>
-    <string name="wear_os_no_watch_subtitle">पहले Wear OS घड़ी को उसके कंपेनियन ऐप में इस फ़ोन से पेयर करें।</string>
-    <string name="wear_os_checking">जाँच हो रही है…</string>
-    <string name="wear_os_not_installed">BitChord इस घड़ी पर नहीं है</string>
-    <string name="wear_os_up_to_date">अप-टू-डेट · %1$s</string>
-    <string name="wear_os_update_available">अपडेट उपलब्ध है</string>
-    <string name="wear_os_unknown">इंस्टॉल है · वर्शन की जाँच नहीं हो सकी</string>
-    <string name="wear_os_sending">आपकी घड़ी पर भेजा जा रहा है…</string>
-    <string name="wear_os_sent">भेज दिया — घड़ी पूछे तो उसी पर पूरा करें</string>
-    <string name="wear_os_send_failed">अपडेट नहीं भेजा जा सका (%1$s)</string>
-    <string name="wear_os_install">इंस्टॉल करें</string>
-    <string name="wear_os_update">अपडेट करें</string>
-    <string name="wear_os_install_title">अपनी घड़ी पर इंस्टॉल करें</string>
-    <string name="wear_os_step_wifi">घड़ी को इस फ़ोन वाले Wi-Fi से ही कनेक्ट करें।</string>
-    <string name="wear_os_step_developer">घड़ी में डेवलपर विकल्प चालू करें। Galaxy Watch: सेटिंग → घड़ी के बारे में → सॉफ़्टवेयर जानकारी → सॉफ़्टवेयर वर्शन पर पाँच बार टैप करें। Pixel Watch: सेटिंग → सिस्टम → के बारे में → बिल्ड नंबर पर सात बार टैप करें।</string>
-    <string name="wear_os_step_debugging">डेवलपर विकल्प में ADB डीबगिंग और वायरलेस डीबगिंग चालू करें।</string>
-    <string name="wear_os_step_pair">नया डिवाइस पेयर करें पर टैप करें, फिर घड़ी पर दिखा छह अंकों का कोड डालें।</string>
-    <string name="wear_os_searching">Wi-Fi पर आपकी घड़ी खोजी जा रही है…</string>
-    <string name="wear_os_found">आपकी घड़ी मिल गई</string>
-    <string name="wear_os_pairing">पेयर हो रहा है…</string>
-    <string name="wear_os_installing">आपकी घड़ी पर BitChord इंस्टॉल हो रहा है…</string>
-    <string name="wear_os_installed">इंस्टॉल हो गया। अब आप वायरलेस डीबगिंग फिर से बंद कर सकते हैं।</string>
-    <string name="wear_os_failed">यह काम नहीं किया (%1$s)। कोड जाँचें और फिर कोशिश करें।</string>
-    <string name="wear_os_unsupported">घड़ी पर इंस्टॉल करने के लिए इस फ़ोन में Android 11 या उसके बाद का वर्शन चाहिए।</string>
-    <string name="wear_os_code_hint">पेयरिंग कोड</string>
-    <string name="wear_os_done">हो गया</string>
     <string name="signed_by">%1$s द्वारा हस्ताक्षरित</string>
     <string name="song_info">गाने की जानकारी</string>
     <string name="song_info_album">एल्बम</string>
@@ -1421,7 +1388,6 @@
     <string name="remove_from_history_failed">इतिहास से नहीं हटाया जा सका</string>
     <string name="addon_blocked_title">यह गाना नहीं चल सकता</string>
     <string name="addon_blocked_quality">%1$s पर ऑडियो क्वालिटी %2$s पर सेट है। %3$s के गाने सिर्फ़ लॉसलेस में चलते हैं — इसे चलाने के लिए सेटिंग्स → ऑडियो क्वालिटी में बदलें।</string>
-    <string name="addon_blocked_watch">संगीत आपकी घड़ी से चल रहा है, जो ऑडियो को लॉसलेस से नीचे सीमित करती है। फ़ोन पर संगीत वापस आते ही %1$s के गाने फिर चलेंगे।</string>
     <string name="download_addon_left_out_title">%1$s के बिना डाउनलोड हो रहा है</string>
     <string name="download_addon_not_allowed">%1$s डाउनलोड की अनुमति नहीं देता, इसलिए आपके गाने आपके दूसरे सोर्स से सेव हो रहे हैं।</string>
     <string name="download_addon_needs_lossless_output">%1$s सिर्फ़ तभी संगीत देता है जब वायर्ड, USB या LDAC-क्लास हेडफ़ोन जुड़े हों। जब तक कोई न जुड़े, डाउनलोड इसे छोड़ देते हैं, इसलिए आपके गाने आपके दूसरे सोर्स से सेव हो रहे हैं।</string>
@@ -1435,8 +1401,8 @@
     <string name="font_footer">पुराना विकल्प वह मोटा और सटा हुआ फ़ॉन्ट वापस लाता है जो ऐप Apple Music से मिलाए जाने से पहले इस्तेमाल करता था।</string>
     <string name="bit_perfect_output">बिट-परफ़ेक्ट आउटपुट</string>
     <string name="bit_perfect_bypassed_footer">बिट-परफ़ेक्ट आउटपुट तैयार है, इसलिए धुंधली सेटिंग्स बायपास हैं और Dolby Atmos वर्शन नहीं माँगे जाते। DAC डिस्कनेक्ट होने या मोड बंद होने पर ये फिर से काम करेंगी।</string>
-    <string name="bit_perfect_sheet_warning">ट्रैक को बिना बदलाव DAC पर भेजता है। इक्वलाइज़र, लाउडनेस नॉर्मलाइज़ेशन, क्रॉसफ़ेड, ऑटोमिक्स, प्लेबैक स्पीड और BitChord का वॉल्यूम बायपास हो जाते हैं।</string>
-    <string name="bit_perfect_mode_off_subtitle">ऑडियो Android के मिक्सर और BitChord के इफ़ेक्ट से होकर जाता है।</string>
+    <string name="bit_perfect_sheet_warning">ट्रैक को बिना बदलाव DAC पर भेजता है। इक्वलाइज़र, लाउडनेस नॉर्मलाइज़ेशन, क्रॉसफ़ेड, ऑटोमिक्स, प्लेबैक स्पीड और BitVinyl का वॉल्यूम बायपास हो जाते हैं।</string>
+    <string name="bit_perfect_mode_off_subtitle">ऑडियो Android के मिक्सर और BitVinyl के इफ़ेक्ट से होकर जाता है।</string>
     <string name="bit_perfect_mode_usb_android">USB DAC</string>
     <string name="bit_perfect_mode_usb_android_subtitle">Android 14 हर ट्रैक के अपने रेट और बिट डेप्थ पर DAC खोलता है, बिना मिक्सिंग या रीसैंपलिंग के।</string>
     <string name="bit_perfect_requires_android_14">Android 14 या उसके बाद का वर्शन चाहिए</string>
@@ -1444,13 +1410,13 @@
     <string name="bit_perfect_mode_dap_exclusive_subtitle">अपने DAC वाले म्यूज़िक प्लेयर के लिए। हर ट्रैक के अपने रेट पर हेडफ़ोन या लाइन आउटपुट को एक्सक्लूसिव रूप से खोलता है। हर डिवाइस एक्सक्लूसिव मोड नहीं देता।</string>
     <string name="bit_perfect_requires_android_8_1">Android 8.1 या उसके बाद का वर्शन चाहिए</string>
     <string name="bit_perfect_mode_usb_direct">USB DAC (डायरेक्ट ड्राइवर)</string>
-    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord किसी भी Android वर्शन पर DAC को खुद चलाता है और वॉल्यूम DAC पर ही सेट करता है। USB अनुमति माँगता है। सामान्य आउटपुट से काफ़ी तेज़ हो सकता है।</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitVinyl किसी भी Android वर्शन पर DAC को खुद चलाता है और वॉल्यूम DAC पर ही सेट करता है। USB अनुमति माँगता है। सामान्य आउटपुट से काफ़ी तेज़ हो सकता है।</string>
     <string name="dac_volume">DAC वॉल्यूम</string>
     <string name="dac_volume_subtitle">DAC पर ही सेट होता है; म्यूज़िक को स्केल नहीं किया जाता</string>
     <string name="usb_allow_fixed_volume">बिना वॉल्यूम कंट्रोल वाले DAC की अनुमति दें</string>
     <string name="usb_allow_fixed_volume_subtitle">वरना ऐसा DAC सामान्य आउटपुट से चलेगा</string>
     <string name="usb_allow_fixed_volume_confirm_title">फ़ुल स्केल पर चलाएँ?</string>
-    <string name="usb_allow_fixed_volume_confirm_message">BitChord इस तरह के DAC का वॉल्यूम सेट नहीं कर सकता, इसलिए यह फ़ुल स्केल पर चलता है और सिर्फ़ DAC का अपना नॉब, अगर हो, आवाज़ नियंत्रित करता है। संवेदनशील हेडफ़ोन पर यह ख़तरनाक रूप से तेज़ हो सकता है।</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitVinyl इस तरह के DAC का वॉल्यूम सेट नहीं कर सकता, इसलिए यह फ़ुल स्केल पर चलता है और सिर्फ़ DAC का अपना नॉब, अगर हो, आवाज़ नियंत्रित करता है। संवेदनशील हेडफ़ोन पर यह ख़तरनाक रूप से तेज़ हो सकता है।</string>
     <string name="convert_for_limited_dac">कम क्षमता वाले DAC के लिए बदलें</string>
     <string name="convert_for_limited_dac_subtitle">आपके DAC की सीमा से ऊपर के ट्रैक को उसके सबसे ऊँचे फ़ॉर्मैट में बदलता है। ट्रैक शुरू होने में ज़्यादा समय लग सकता है और वे मूल के मुकाबले बिट-परफ़ेक्ट नहीं होंगे।</string>
     <string name="bit_perfect_confirm_title">बिट-परफ़ेक्ट आउटपुट चालू करें?</string>
@@ -1460,7 +1426,7 @@
     <string name="bit_perfect_status_inexact">%1$s · सटीक नहीं: यह सोर्स लॉसलेस PCM नहीं है</string>
     <string name="bit_perfect_status_waiting">समर्थित आउटपुट पर लॉसलेस ट्रैक का इंतज़ार है</string>
     <string name="bit_perfect_status_unavailable">इस ट्रैक के लिए उपलब्ध नहीं (%1$s)</string>
-    <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
+    <string name="diwali_title">BitVinyl की ओर से दीपावली की शुभकामनाएँ</string>
     <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
     <string name="diwali_cta">चलो जश्न मनाएँ</string>
     <string name="sync_local_lyrics">स्थानीय बोल सिंक करें</string>

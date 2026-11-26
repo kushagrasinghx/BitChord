@@ -52,7 +52,8 @@ object OfflinePlaylists {
     const val PREFIX = "local:offline:"
     const val LIKED_ID = "liked"
 
-    private const val PREF_NAME = "bitchord_offline_playlists"
+    private const val PREF_NAME = "bitvinyl_offline_playlists"
+    private const val LEGACY_PREF_NAME = "bitchord_offline_playlists"
     private const val KEY_PLAYLISTS = "playlists_json"
 
     private lateinit var prefs: SharedPreferences
@@ -73,7 +74,15 @@ object OfflinePlaylists {
     fun init(context: Context, likedTitle: String) {
         if (this::prefs.isInitialized) return
         this.likedTitle = likedTitle
-        prefs = context.applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val p = context.applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        if (!p.contains(KEY_PLAYLISTS)) {
+            val legacy = context.applicationContext.getSharedPreferences(LEGACY_PREF_NAME, Context.MODE_PRIVATE)
+            val legacyData = legacy.getString(KEY_PLAYLISTS, null)
+            if (legacyData != null) {
+                p.edit().putString(KEY_PLAYLISTS, legacyData).apply()
+            }
+        }
+        prefs = p
         publish(load())
         // Everything after what was just read, however soon it comes: a like
         // made before this collector is up is still the newest state when it is.

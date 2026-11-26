@@ -424,18 +424,7 @@ object AudioCache {
      * The videoId behind a request. Playback asks through the custom scheme;
      * read-ahead builds the same URI, so both land on one cache entry.
      */
-    /**
-     * Marks a read made for the BitChord watch app. Its streams are capped below
-     * lossless — see [AppSettings.streamCeilingOverride] — and so are kept apart
-     * from this phone's own: a lossless file cached by the phone must never be
-     * what the watch is handed, and the other way round.
-     */
-    const val WATCH_READ_PARAM = "watch_read"
-
-    private val keyFactory = CacheKeyFactory { spec ->
-        val key = phoneKey(spec)
-        if (spec.uri.getQueryParameter(WATCH_READ_PARAM) != null) "$key#watch" else key
-    }
+    private val keyFactory = CacheKeyFactory { spec -> phoneKey(spec) }
 
     private fun phoneKey(spec: androidx.media3.datasource.DataSpec): String =
         spec.uri.getQueryParameter("v")
@@ -1242,10 +1231,9 @@ object AudioCache {
     private fun settleDirectEntry(uri: Uri) {
         if (uri.scheme != "bitchord" || uri.authority != "watch") return
         val videoId = uri.getQueryParameter("v") ?: return
-        // A rendition of its own (an upgrade, a revert), the watch's capped
-        // copy and Automix's Opus are none of this: each has its own entry.
+        // A rendition of its own (an upgrade, a revert) and Automix's Opus are
+        // none of this: each has its own entry.
         if (QualityUpgrade.cacheTag(uri) != null ||
-            uri.getQueryParameter(WATCH_READ_PARAM) != null ||
             AutomixAnalysisSource.requestsYouTubeOpus(
                 uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
             )

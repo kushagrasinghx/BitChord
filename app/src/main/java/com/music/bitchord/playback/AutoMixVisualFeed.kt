@@ -12,10 +12,19 @@ internal object AutoMixVisualFeed {
     private var generation = 0L
     private var armedAtMs = 0L
 
-    fun arm(outgoing: AutoMixVisualTrack, incoming: AutoMixVisualTrack): Long {
+    fun arm(
+        outgoing: AutoMixVisualTrack,
+        incoming: AutoMixVisualTrack,
+        remoteArtworkScope: Long?,
+        bypassArtwork: Boolean,
+        artworkDecisionPending: Boolean = false,
+    ): Long {
         val id = ++generation
         armedAtMs = SystemClock.elapsedRealtime()
-        mutableState.value = AutoMixVisualState(id, outgoing, incoming)
+        mutableState.value = AutoMixVisualState(
+            id, outgoing, incoming, remoteArtworkScope = remoteArtworkScope, bypassArtwork = bypassArtwork,
+            artworkDecisionPending = artworkDecisionPending,
+        )
         return id
     }
 
@@ -23,11 +32,17 @@ internal object AutoMixVisualFeed {
         it.generation == id && (it.mixActive || it.phase == AutoMixVisualPhase.ARMED)
     }
 
+    fun resolveArtwork(id: Long, bypass: Boolean) {
+        val armed = pending(id)?.takeIf { it.phase == AutoMixVisualPhase.ARMED && it.artworkDecisionPending } ?: return
+        mutableState.value = armed.copy(bypassArtwork = bypass, artworkDecisionPending = false)
+    }
+
     fun start(id: Long?, audioSeconds: Double) {
         val previous = pending(id) ?: return
         if (previous.mixActive) return
         mutableState.value = previous.copy(
             phase = AutoMixVisualPhase.MIXING,
+            artworkDecisionPending = false,
             overlapStartSeconds = 0.0,
             audioSeconds = audioSeconds,
             sampledAtNanos = System.nanoTime(),
@@ -40,7 +55,7 @@ internal object AutoMixVisualFeed {
         mutableState.value = previous.copy(
             audioSeconds = at,
             swapSeconds = at,
-            artworkWindow = windowAfter(at, endSeconds),
+            artworkWindow = if (previous.bypassArtwork) null else windowAfter(at, endSeconds),
             sampledAtNanos = System.nanoTime(),
         )
     }
@@ -49,7 +64,7 @@ internal object AutoMixVisualFeed {
         AutoMixArtworkTuning.windowAfter(swap, end, (SystemClock.elapsedRealtime() - armedAtMs) / 1000.0)
 
     fun advance(id: Long?, audioSeconds: Double, endSeconds: Double) {
-        val previous = pending(id)?.takeIf { it.mixActive } ?: return
+        val previous = pending(id)?.takeIf { it.mixActive && !it.bypassArtwork } ?: return
         val at = maxOf(previous.audioSeconds, audioSeconds)
         val window = previous.artworkWindow?.let {
             when {

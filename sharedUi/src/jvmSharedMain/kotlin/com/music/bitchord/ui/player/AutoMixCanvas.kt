@@ -47,7 +47,7 @@ internal class AutoMixCanvasPair {
         entry: QueueEntryIdentity?,
         gate: AutoMixArtworkGate = AutoMixArtworkGate(),
     ): AutoMixCanvasTracks? {
-        if (!gate.allows(state.generation) || seenGeneration == state.generation || entry != state.outgoing.identity) return null
+        if (!gate.allows(state) || seenGeneration == state.generation || entry != state.outgoing.identity) return null
         // A not-yet-bound UI selection must not consume the generation.
         seenGeneration = state.generation
         return AutoMixCanvasTracks(
@@ -154,9 +154,13 @@ internal class AutoMixCanvasTracks(
     private val standbyProgress = ::standbyOpacity
     private val spatialStandby = CanvasOrganicReveal(generation, standbyProgress, allowSpatialMask = true)
     private val opacityStandby = CanvasOrganicReveal(generation, standbyProgress, allowSpatialMask = false)
+    private val liveHeroReveal = CanvasLiveRevealPair(generation, standbyProgress)
 
     fun standbyReveal(allowSpatialMask: Boolean): CanvasOrganicReveal =
         if (allowSpatialMask) spatialStandby else opacityStandby
+
+    fun matchedHeroReveal(matchesFootprint: Boolean, stationary: Boolean): CanvasLiveRevealPair? =
+        liveHeroReveal.takeIf { matchesFootprint && stationary && liveOutgoing && liveIncoming && !sharesClip }
 
     fun outgoingStillBannerReveal(
         frames: AutoMixCoverFrames?,

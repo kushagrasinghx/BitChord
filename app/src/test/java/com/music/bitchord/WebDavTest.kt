@@ -159,6 +159,20 @@ class WebDavTest {
     }
 
     @Test
+    fun artworkAuthorizationSnapshotDoesNotDriftToTheNewAccount() {
+        try {
+            WebDavAuth.update("old.example.invalid", "Basic old-fixture")
+            val old = WebDavAuth.current
+            WebDavAuth.update("new.example.invalid", "Basic new-fixture")
+            assertEquals("Basic old-fixture", old.headerFor("old.example.invalid"))
+            assertNull(old.headerFor("new.example.invalid"))
+            assertNull(WebDavAuth.current.headerFor("old.example.invalid"))
+        } finally {
+            WebDavAuth.update(null, null)
+        }
+    }
+
+    @Test
     fun authorizesOnlyConfiguredHost() {
         WebDavAuth.update("https://cloud.example.com/music", "user", "pass")
         assertTrue(WebDavAuth.shouldAuthorize("cloud.example.com"))

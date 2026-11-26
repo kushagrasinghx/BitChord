@@ -1,6 +1,9 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ImageBitmap
@@ -37,6 +40,7 @@ interface PlayerHost {
 
     /** Optional in-process feed; platforms without AutoMix leave it absent. */
     val autoMixVisualState: StateFlow<AutoMixVisualState?>? get() = null
+    val remoteArtworkScope: StateFlow<Long>? get() = null
 
     /** Visual-only seek intent, before the scrubber dispatches its transport command. */
     fun onAutoMixScrubIntent() = Unit
@@ -442,7 +446,19 @@ class CanvasOrganicReveal(
     val progress: () -> Float,
     val allowSpatialMask: Boolean,
     val outgoingStill: CanvasStillRevealTarget? = null,
+    val livePair: CanvasLiveRevealPair? = null,
+    val outgoingLiveAlpha: (() -> Float)? = null,
 )
+
+/** The outgoing slot only compensates a live destination actually drawing the shared mask. */
+class CanvasLiveRevealPair internal constructor(private val generation: Long, private val progress: () -> Float) {
+    var maskedIncomingBounds by mutableStateOf(IntSize.Zero)
+
+    internal val incoming = CanvasOrganicReveal(generation, progress, true, livePair = this)
+
+    internal fun outgoingLiveHeroReveal(presentationAlpha: () -> Float) =
+        CanvasOrganicReveal(generation, progress, true, livePair = this, outgoingLiveAlpha = presentationAlpha)
+}
 
 /** The still sleeve's full-width, top-aligned bounds in the outgoing view's pixels. */
 class CanvasStillRevealTarget(

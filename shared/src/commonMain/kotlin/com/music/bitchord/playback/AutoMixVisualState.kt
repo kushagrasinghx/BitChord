@@ -85,8 +85,14 @@ data class AutoMixVisualState(
     val artworkProgress: Float = 0f,
     /** System.nanoTime() when [audioSeconds] was sampled; 0 when unknown. */
     val sampledAtNanos: Long = 0L,
+    val remoteArtworkScope: Long? = null,
+    /** Frozen before visual admission; later artwork readiness cannot change the rendering strategy. */
+    val bypassArtwork: Boolean = false,
+    /** A possible match is still preparing. No visual owners may arm until settled. */
+    val artworkDecisionPending: Boolean = false,
 ) {
     val mixActive: Boolean get() = phase == AutoMixVisualPhase.MIXING
+    val admitsArtwork: Boolean get() = !bypassArtwork && !artworkDecisionPending
 
     /**
      * [artworkProgress] carried forward from its sample to a display frame at [frameNanos]

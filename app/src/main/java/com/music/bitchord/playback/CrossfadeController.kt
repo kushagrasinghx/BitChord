@@ -185,6 +185,8 @@ class CrossfadeController(
      * a later gapless boundary without waiting on the service.
      */
     private val onArmIncoming: (MediaItem, String?) -> Unit = { _, _ -> },
+    /** Cache-only decision for the exact pair, before any visual consumer sees the arm. */
+    private val artworkAdmissionFor: (ExoPlayer, Int) -> AutoMixArtworkAdmission = { _, _ -> AutoMixArtworkAdmission.REVEAL },
     /** The armed incoming item, only when AutoMix owns the overlap. */
     private val onArmAutoMixIncoming: (MediaItem) -> Unit = {},
     /**
@@ -233,6 +235,8 @@ class CrossfadeController(
     private val loudnessGain: (String) -> Float = { 1f },
     /** The session's playhead moved on purpose during a loop mix: a loop wrap (true) or a re-anchor (false). */
     private val onMixPositionJump: (wrapped: Boolean) -> Unit = {},
+    /** Request fresh positions for the position-driven AutoMix audio fade, not its optional artwork. */
+    private val onAutoMixAudioClockNeeded: (Boolean) -> Unit = {},
 ) {
 
     private enum class Phase {
@@ -683,6 +687,24 @@ class CrossfadeController(
 
     fun cancelAutoMixVisual() = AutoMixVisualFeed.cancel(visualGeneration)
 
+    private fun startAutoMixVisual(active: ExoPlayer, audioSeconds: Double) {
+        val generation = visualGeneration ?: return
+        resolvePendingAutoMixArtwork(active, generation)
+        AutoMixVisualFeed.start(generation, audioSeconds)
+    }
+
+    fun resolvePendingAutoMixArtwork(active: ExoPlayer, generation: Long) {
+        if (active !== outgoing || generation != visualGeneration) return
+        if (AutoMixVisualFeed.pending(generation)?.artworkDecisionPending != true) return
+        checkAutoMixVisualTimeline(active)
+        val armed = AutoMixVisualFeed.pending(generation)?.takeIf { it.artworkDecisionPending } ?: return
+        when (artworkAdmissionFor(active, armed.incoming.armedIndex)) {
+            AutoMixArtworkAdmission.WAITING -> Unit
+            AutoMixArtworkAdmission.BYPASS -> AutoMixVisualFeed.resolveArtwork(generation, bypass = true)
+            AutoMixArtworkAdmission.REVEAL -> AutoMixVisualFeed.resolveArtwork(generation, bypass = false)
+        }
+    }
+
     private fun armAutoMixVisual(out: ExoPlayer, into: ExoPlayer, nextIndex: Int, items: List<MediaItem>) {
         fun trackAt(index: Int): AutoMixVisualTrack? {
             val item = items.getOrNull(index) ?: return null
@@ -701,7 +723,17 @@ class CrossfadeController(
         val to = trackAt(nextIndex) ?: return
         visualQueue = items
         visualCurrentIndex = from.armedIndex
-        visualGeneration = AutoMixVisualFeed.arm(from, to)
+        val remoteArtworkScope = AppSettings.remoteArtworkScope.value.takeIf {
+            listOf(from, to).any { track ->
+                val id = track.identity.mediaId
+                id.startsWith("webdav:") || id.startsWith("smb:")
+            }
+        }
+        val admission = artworkAdmissionFor(out, nextIndex)
+        visualGeneration = AutoMixVisualFeed.arm(
+            from, to, remoteArtworkScope, bypassArtwork = admission == AutoMixArtworkAdmission.BYPASS,
+            artworkDecisionPending = admission == AutoMixArtworkAdmission.WAITING,
+        )
         out.addListener(visualDeckErrors)
         into.addListener(visualDeckErrors)
     }
@@ -863,6 +895,7 @@ class CrossfadeController(
     }
 
     fun release() {
+        onAutoMixAudioClockNeeded(false)
         clearAutoMixVisual()
         tickerJob?.cancel()
         tickerJob = null
@@ -1581,6 +1614,8 @@ class CrossfadeController(
             }
         }
 
+        // Arm early: a wake already scheduled by Media3 cannot be pulled forward by this hint.
+        onAutoMixAudioClockNeeded(smart)
         phase = Phase.ARMING
         if (smart) {
             armAutoMixVisual(out, into, nextIndex, items)
@@ -1775,7 +1810,7 @@ class CrossfadeController(
         // would run straight over the marker for the transition now under way.
         AppSettings.smartTransitionWindow.value = null
         phase = Phase.FADING
-        AutoMixVisualFeed.start(visualGeneration, audioSeconds = 0.0)
+        startAutoMixVisual(out, audioSeconds = 0.0)
     }
 
     /**
@@ -2805,7 +2840,7 @@ class CrossfadeController(
             startLoopAlignment(session)
         }
         val visualEnd = session.clock.releaseAt
-        if (m >= 0.0) AutoMixVisualFeed.start(visualGeneration, m.coerceAtMost(visualEnd))
+        if (m >= 0.0) startAutoMixVisual(out, m.coerceAtMost(visualEnd))
         if (!handedOff && m >= session.clock.handoffAt) {
             handOff(out, into, m, visualEnd)
         }
@@ -3068,6 +3103,7 @@ class CrossfadeController(
      * away gracefully.
      */
     private fun bail() {
+        onAutoMixAudioClockNeeded(false)
         cancelAutoMixVisual()
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         if (phase == Phase.LOOP_ARMING || phase == Phase.LOOP_RUNNING) {
@@ -3099,6 +3135,7 @@ class CrossfadeController(
     private fun leavingOnBail(): ExoPlayer? = if (handedOff) outgoing else incoming
 
     private fun finish() {
+        onAutoMixAudioClockNeeded(false)
         clearAutoMixVisual()
         val wasTransitioning = phase != Phase.IDLE
         if (phase != Phase.IDLE) {

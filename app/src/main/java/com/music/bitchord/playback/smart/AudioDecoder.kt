@@ -113,11 +113,28 @@ object AudioDecoder {
         endSeconds: Double,
         abort: () -> Boolean = { false },
     ): Pair<Pcm, Double>? {
+        val (pcm, start) = decodeRegionChunks(source, startSeconds, endSeconds, abort) ?: return null
+        return Pcm(pcm.flatten(), pcm.sampleRate) to start
+    }
+
+    internal class MonoPcmChunks(val chunks: List<FloatArray>, val sampleRate: Double) {
+        val sampleCount: Int = chunks.sumOf { it.size }
+
+        fun flatten(): FloatArray = flatten(chunks, sampleCount)
+    }
+
+    /** Keeps decoder output in order without allocating a second, contiguous Java buffer. */
+    internal fun decodeRegionChunks(
+        source: MediaDataSource,
+        startSeconds: Double,
+        endSeconds: Double,
+        abort: () -> Boolean = { false },
+    ): Pair<MonoPcmChunks, Double>? {
         val chunks = ArrayList<FloatArray>()
         val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, _ ->
             chunks += toMono(buffer, info, channels)
         } ?: return null
-        return Pcm(flatten(chunks), decoded.first) to decoded.second
+        return MonoPcmChunks(chunks, decoded.first) to decoded.second
     }
 
     /**
@@ -159,8 +176,8 @@ object AudioDecoder {
         }
 
     /** Concatenates the decoded chunks into one contiguous buffer. */
-    private fun flatten(chunks: List<FloatArray>): FloatArray {
-        val samples = FloatArray(chunks.sumOf { it.size })
+    private fun flatten(chunks: List<FloatArray>, sampleCount: Int = chunks.sumOf { it.size }): FloatArray {
+        val samples = FloatArray(sampleCount)
         var offset = 0
         for (chunk in chunks) {
             chunk.copyInto(samples, offset)

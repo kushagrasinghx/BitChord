@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
@@ -19,22 +20,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import coil3.BitmapImage
 import coil3.PlatformContext
 import coil3.compose.LocalPlatformContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
-import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
+import coil3.size.Precision
+import coil3.size.Scale
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.PLAYER_ART_MEMORY_CACHE_KEY_EXTRA
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.ui.graphics.forPixelAccess
+import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Keep the mounted native state (including the selected fallback) keyed to the same clip. */
+internal fun stableCanvasPresentation(previous: CanvasArtwork?, candidate: CanvasArtwork?): CanvasArtwork? =
+    previous?.takeIf { candidate != null && it.samePresentationAs(candidate) } ?: candidate
 
 /**
  * The looping clip some releases publish alongside their cover, for [song], or
@@ -58,7 +67,16 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     // which is the flicker. A different song keys differently and starts
     // clean; the same-titled-impostor case is guarded where the clip is
     // adopted, by [CanvasArtwork.matches].
-    var canvas by remember(song.title, song.artist) { mutableStateOf<CanvasArtwork?>(null) }
+    val lastPresentation = remember { arrayOfNulls<CanvasArtwork>(1) }
+    var canvas by remember(song.title, song.artist) {
+        // Continuity does not depend on which feed publishes first. Only keep the
+        // current decoder's key when this selection has its own matching cached clip.
+        val prior = lastPresentation[0]
+        val same = if (prior == null || !canvasAllowedNow) null else {
+            PlayerPlatform.host.cachedCanvas(song)?.takeIf { it.samePresentationAs(prior) }
+        }
+        mutableStateOf(same)
+    }
     LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, disableSpotifyCanvas) {
         if (!canvasAllowedNow) {
             canvas = null
@@ -90,20 +108,32 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas
     }
 
-    return canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
+    val candidate = canvas?.takeIf { canvasAllowedNow && (!disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY) }
+    val displayed = stableCanvasPresentation(lastPresentation[0], candidate)
+    SideEffect { lastPresentation[0] = displayed }
+    return displayed
 }
 
 /**
- * The full-size cover request, shared by the player and the AutoMix prepared cover so
- * a prepared decode is the entry the player then reads. Coil leaves size out of the
- * memory-cache key, and the blur and palette reads load the same URL at thumbnail
- * sizes; under a URL-only key their small decode could replace the full one, and the
- * next track's hold-over placeholder came up pixelated. The extra keeps the full-size
- * decode in its own slot; same-size widget requests use the same extra.
+ * Share the full-size decode between speculative loads and the player's Crop painter.
+ * Keep it separate from thumbnail entries even when artworkAt returns the same URI.
  */
 internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): ImageRequest.Builder =
     ImageRequest.Builder(context).data(artworkUrl).size(ART_PX)
+        .scale(Scale.FILL).precision(Precision.INEXACT)
+        .forPixelAccess()
         .memoryCacheKeyExtra(PLAYER_ART_MEMORY_CACHE_KEY_EXTRA, ART_PX.toString())
+
+/** Main thread only. Coil owns the pixels; keep just enough to draw a warm selection on its first frame. */
+internal object WarmPlayerCovers {
+    private val covers = object : LinkedHashMap<String, WeakReference<BitmapImage>>(2, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, WeakReference<BitmapImage>>) = size > 2
+    }
+
+    fun remember(url: String, image: BitmapImage) { covers[url] = WeakReference(image) }
+    fun get(url: String?): DecodedAutoMixCover? = url?.let(covers::get)?.get()?.let { DecodedAutoMixCover(it) }
+    fun clear() = covers.clear()
+}
 
 /**
  * The player's cover: the one request every surface draws it from, whether it
@@ -115,15 +145,14 @@ internal fun playerCoverRequest(context: PlatformContext, artworkUrl: String?): 
 internal class PlayerArtwork(
     val url: String?,
     private val context: PlatformContext,
-    /** The last track's cover, drawn in this one's place until it loads — see [lastCover]. */
-    private val holdOver: MemoryCache.Key? = null,
 ) {
+    val prepared = WarmPlayerCovers.get(url)
     /**
      * Whether the cover is on screen. Keyed on the artwork rather than on the
      * track, because that is what it actually describes and because only Coil
      * can set it back to true.
      */
-    var loaded by mutableStateOf(false)
+    var loaded by mutableStateOf(prepared != null)
         private set
 
     /**
@@ -146,29 +175,12 @@ internal class PlayerArtwork(
     /** Latched on an error, and only upwards — cleared by the retry itself. */
     internal var failed by mutableStateOf(false)
 
-    /** This cover's memory-cache entry, once it has been drawn. */
-    private var shown: MemoryCache.Key? = null
-    private var decodedCover: DecodedAutoMixCover? = null
+    private var decodedCover: DecodedAutoMixCover? = prepared
     private var decodedDuringMix: Long? = null
 
     fun decodedCoverBefore(generation: Long): DecodedAutoMixCover? =
         decodedCover?.takeIf { decodedDuringMix != generation }
 
-    fun noteDisplayedCover(cover: DecodedAutoMixCover) {
-        shown = cover.cacheKey
-    }
-
-    /**
-     * What the next cover should stand on while it loads: this one, or, if it
-     * never got as far as the screen — a track skipped straight past — the one
-     * it was standing on itself.
-     *
-     * Without it every new cover started from an empty painter, and the
-     * placeholder tile's music note showed between two perfectly good covers
-     * for as long as the decode took. That is longest for local files: a
-     * MediaStore album-art URI has no disk cache to come from.
-     */
-    val lastCover: MemoryCache.Key? get() = shown ?: holdOver
 
     /**
      * The one request for this cover, built once.
@@ -188,8 +200,6 @@ internal class PlayerArtwork(
     val request: ImageRequest by derivedStateOf {
         val attempt = attempt
         playerCoverRequest(context, url)
-            // Not part of the cache key, so the AutoMix prepared cover still shares it.
-            .placeholderMemoryCacheKey(holdOver)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
             // request keeps the memory-cache identity of the AutoMix prepared cover
@@ -207,7 +217,6 @@ internal class PlayerArtwork(
         // through Loading.
         if (state is AsyncImagePainter.State.Success) {
             failed = false
-            shown = state.result.memoryCacheKey
             decodedCover = state.result.decodedAutoMixCover()
             decodedDuringMix = PlayerPlatform.host.autoMixVisualState?.value?.takeIf { it.mixActive }?.generation
         }
@@ -224,10 +233,7 @@ internal class PlayerArtwork(
 internal fun rememberPlayerArtwork(remoteArt: String?): PlayerArtwork {
     val context = LocalPlatformContext.current
     val artUrl = remoteArt?.artworkAt(ART_PX)
-    val last = remember { arrayOfNulls<PlayerArtwork>(1) }
-    val art = remember(artUrl) {
-        PlayerArtwork(artUrl, context, last[0]?.lastCover).also { last[0] = it }
-    }
+    val art = remember(artUrl, context) { PlayerArtwork(artUrl, context) }
     LaunchedEffect(artUrl, art.failed) {
         // A track with no artwork at all fails immediately and would fail
         // identically three more times: there is no request to make, so there is

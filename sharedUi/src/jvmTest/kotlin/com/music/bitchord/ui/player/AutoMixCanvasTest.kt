@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.model.QueueEntryIdentity
@@ -24,6 +25,27 @@ class AutoMixCanvasTest {
         AutoMixVisualTrack(outgoing, 0, null),
         AutoMixVisualTrack(incoming, 1, null),
     )
+
+    @Test
+    fun matchingGenerationDoesNotReserveAStandbyCanvas() {
+        val owner = AutoMixCanvasPair()
+        owner.displayed(outgoing, clip, rendered = true)
+        assertNull(owner.start(visual.copy(artworkDecisionPending = true), outgoing))
+        assertNull(owner.start(visual.copy(bypassArtwork = true), outgoing))
+        assertNull(owner.visual)
+        assertSame(clip, requireNotNull(owner.start(visual.copy(generation = 2), outgoing)).pinnedClip)
+    }
+
+    @Test
+    fun sharedCanvasKeepsTheNativeStateKeyIncludingItsSelectedFallback() {
+        val mounted = CanvasArtwork("main.m3u8", fallbackUrl = "fallback.mp4", title = "Outgoing", source = CanvasSource.APPLE)
+        val selected = mounted.copy(title = "Incoming", artist = "Other credit")
+        assertFalse(mounted == selected) // Android keys its rendition and rendered state on the object.
+        assertSame(mounted, stableCanvasPresentation(mounted, selected))
+        val changedFallback = selected.copy(fallbackUrl = "different.mp4")
+        assertSame(changedFallback, stableCanvasPresentation(mounted, changedFallback))
+        assertNull(stableCanvasPresentation(mounted, null))
+    }
 
     @Test
     fun disablingArtworkRejectsTheHeldGenerationButNotTheNextMix() {
@@ -159,6 +181,40 @@ class AutoMixCanvasTest {
         tracks.reportIncoming(true)
         tracks.sealIncoming()
         assertEquals(0f, fallback.progress(), message = "a ready frame is still hidden before the window")
+    }
+
+    @Test
+    fun onlyDistinctReadyCanvasesWithMatchingStationaryHeroSlotsShareTheFeatherCorrection() {
+        val pinned = CanvasArtwork("outgoing.mp4")
+        val mix = visual.copy(phase = AutoMixVisualPhase.MIXING, artworkWindow = AutoMixArtworkWindow(1.0, 3.0))
+        val tracks = AutoMixCanvasTracks(visual.generation, outgoing, incoming, pinned) { mix }
+        tracks.started = true
+        tracks.incomingClip = clip
+        assertNull(tracks.matchedHeroReveal(matchesFootprint = true, stationary = true))
+
+        tracks.reportIncoming(true)
+        assertTrue(tracks.sealIncoming())
+        tracks.windowOpen = true
+        tracks.progress = 0.5f
+        assertNull(tracks.matchedHeroReveal(matchesFootprint = false, stationary = true))
+        assertNull(tracks.matchedHeroReveal(matchesFootprint = true, stationary = false))
+
+        val reveal = requireNotNull(tracks.matchedHeroReveal(matchesFootprint = true, stationary = true))
+        val outgoingReveal = reveal.outgoingLiveHeroReveal { 1f }
+        assertSame(outgoingReveal.livePair, reveal.incoming.livePair)
+        assertSame(outgoingReveal.progress, reveal.incoming.progress)
+        assertEquals(visual.generation, outgoingReveal.generation)
+        assertEquals(tracks.standbyOpacity(), outgoingReveal.progress())
+        assertEquals(IntSize.Zero, reveal.maskedIncomingBounds)
+        assertNull(reveal.incoming.outgoingLiveAlpha)
+        assertNull(outgoingReveal.outgoingStill)
+
+        tracks.incomingClip = pinned
+        assertNull(tracks.matchedHeroReveal(matchesFootprint = true, stationary = true))
+        tracks.incomingClip = clip
+        tracks.reportIncoming(false)
+        assertNull(tracks.matchedHeroReveal(matchesFootprint = true, stationary = true))
+        assertEquals(0f, outgoingReveal.progress())
     }
 
     @Test

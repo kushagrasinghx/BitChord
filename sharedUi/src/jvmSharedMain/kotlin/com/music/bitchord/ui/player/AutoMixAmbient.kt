@@ -49,7 +49,7 @@ internal class AutoMixAmbient(
     fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = settled.takeIf { cancelled || targetReady }
 }
 
-/** Keep the reset epoch after leaving a promoted track, so the next ordinary skip still tweens. */
+/** Keep the AutoMix reset epoch stable after leaving a promoted track. */
 @Composable
 internal fun <T : Any> rememberAmbientSnapKey(requested: T?): T? {
     val previous = remember { mutableStateOf<T?>(null) }
@@ -97,10 +97,10 @@ internal fun directAutoMixAmbientSelection(
 ): Pair<Long, QueueEntryIdentity>? {
     if (entry == null) return null
     if (visual != null && (entry == visual.outgoing.identity || entry == visual.incoming.identity)) {
-        if (visual.mixActive) return if (gate.allows(visual.generation)) null else visual.generation to entry
+        if (visual.mixActive) return if (gate.allows(visual)) null else visual.generation to entry
         // A terminal sample can overtake the selection update. Don't treat a
         // terminal feed left behind during later navigation as a new handoff.
-        if (visual.swapSeconds != null && !gate.allows(visual.generation) && entry == visual.incoming.identity &&
+        if (visual.swapSeconds != null && !gate.allows(visual) && entry == visual.incoming.identity &&
             (previous?.first == visual.generation || lastEntry == visual.outgoing.identity)
         ) return visual.generation to entry
     }
@@ -111,13 +111,15 @@ internal fun directAutoMixAmbientSelection(
 @Composable
 internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: String?, gate: AutoMixArtworkGate): AutoMixAmbient {
     val feed = PlayerPlatform.host.autoMixVisualState ?: return AutoMixAmbient()
-    val history = remember(feed) { AmbientArtworkHistory() }
+    val live = feed.value
+    val remote = live?.remoteArtworkScope != null || entry?.mediaId?.let { it.startsWith("webdav:") || it.startsWith("smb:") } == true
+    val history = remember(feed, gate.remoteArtworkScope.takeIf { remote }) { AmbientArtworkHistory() }
     val currentEntry = rememberUpdatedState(entry)
     val sample = remember(feed) { mutableStateOf(feed.value) }
     val boundary = remember(feed) { mutableStateOf(feed.value?.boundary()) }
     LaunchedEffect(feed, gate) {
         feed.collect {
-            sample.value = it?.takeIf { state -> gate.allows(state.generation) }
+            sample.value = it?.takeIf(gate::allows)
             boundary.value = it?.boundary()
         }
     }
@@ -125,12 +127,12 @@ internal fun rememberAutoMixAmbient(entry: QueueEntryIdentity?, resolvedUrl: Str
     // Also sample synchronously when session metadata recomposes first. The boundary state
     // is only an invalidation signal; it does not own the ordering of the two feeds.
     val observedBoundary = boundary.value
-    val visual = feed.value
+    val visual = live?.takeIf { gate.matchesScope(it.remoteArtworkScope) }
     val direct = directAutoMixAmbientSelection(
         visual, entry, gate, history.direct ?: history.settled?.second?.settled?.takeUnless { gate.allows(it.first) },
         history.lastEntry.takeUnless { visual?.generation == history.closedGeneration },
     )
-    val stage = visual?.takeIf { gate.allows(it.generation) }?.boundary()
+    val stage = visual?.takeIf(gate::allows)?.boundary()
         .let { if (it == observedBoundary) observedBoundary else it }
     val prepared = preparedAutoMixAmbient?.takeIf { it.generation == stage?.generation }
     val holdsPair = stage?.phase == AutoMixVisualPhase.MIXING && stage.generation != history.closedGeneration

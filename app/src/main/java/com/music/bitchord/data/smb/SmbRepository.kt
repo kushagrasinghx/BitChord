@@ -22,12 +22,12 @@ object SmbRepository {
 
     suspend fun getSongs(): List<Song> = withContext(Dispatchers.IO) {
         if (!isConfigured()) return@withContext emptyList()
-        val host = SmbAuth.host
-        val share = SmbAuth.share
-        val listing = SmbClient.listLibrary().getOrThrow()
+        val server = SmbAuth.artworkServer
+        val authority = SmbConfig.authority(server.host, server.port)
+        val listing = SmbClient.listLibrary(server).getOrThrow()
         val artByDir = listing.images.groupBy { dirKey(it.path) }
         listing.audio.map { entry ->
-            toSong(host, share, entry, artByDir[dirKey(entry.path)].orEmpty())
+            toSong(authority, server.share, entry, artByDir[dirKey(entry.path)].orEmpty())
         }
     }
 
@@ -39,7 +39,7 @@ object SmbRepository {
         password: String,
     ): Result<Unit> = SmbClient.testConnection(host, share, basePath, username, password)
 
-    private fun toSong(
+    internal fun toSong(
         host: String,
         share: String,
         entry: SmbClient.Entry,
@@ -50,14 +50,15 @@ object SmbRepository {
         val fullPath = entry.path
         val album = fullPath.substringBeforeLast('/', "").substringAfterLast('/').trim()
             .takeIf { it.isNotBlank() }
-        val coverUrls = siblings.map { streamUrl(host, share, it.path) }
+        val coverUrls = siblings.map { SmbConfig.streamUrl(host, share, it.path) }
         return SmbConfig.songFor(host, share, fullPath, albumName = album).copy(
+            // Listing IDs historically used the bare host. Keep existing IDs while
+            // the stream/cover URIs independently carry the effective authority.
+            videoId = SmbConfig.idFor(SmbConfig.normalizeHost(host), share, fullPath),
             thumbnailUrl = RemoteArtwork.pick(coverUrls),
         )
     }
 
-    private fun streamUrl(host: String, share: String, path: String): String =
-        "smb://${SmbConfig.normalizeHost(host)}/${share.trim().trim('/')}/${path.trim('/')}"
 
     private fun dirKey(path: String): String =
         path.trim('/').substringBeforeLast('/', "").lowercase(java.util.Locale.ROOT)

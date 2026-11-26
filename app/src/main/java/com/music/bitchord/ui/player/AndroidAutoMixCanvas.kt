@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.exoplayer.ExoPlayer
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AutoMixVisualFeed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -58,7 +59,11 @@ internal object NowPlayingCanvasDecoders {
         // A retired Spotify Canvas or sealed-out standby closes while the mix is still
         // animating. Keep its blocking release() off every frame of that mix.
         private fun releaseWhenIdle() {
-            if (AutoMixVisualFeed.state.value?.mixActive == true) {
+            val visual = AutoMixVisualFeed.state.value
+            if (visual?.mixActive == true && visual.admitsArtwork &&
+                AppSettings.autoMixArtwork.value.allows(AppSettings.smartFadeEnabled.value, visual.generation) &&
+                (visual.remoteArtworkScope == null || visual.remoteArtworkScope == AppSettings.remoteArtworkScope.value)
+            ) {
                 mainHandler.postDelayed(::releaseWhenIdle, DEFERRED_RELEASE_MS)
                 return
             }

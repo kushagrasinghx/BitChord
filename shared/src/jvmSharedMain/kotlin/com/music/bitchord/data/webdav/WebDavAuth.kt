@@ -8,19 +8,20 @@ package com.music.bitchord.data.webdav
  * on every WebDAV edit.
  */
 object WebDavAuth {
-    @Volatile var host: String? = null
-    @Volatile var authHeader: String? = null
+    class Snapshot(private val host: String?, val authHeader: String?) {
+        fun headerFor(requestHost: String): String? = authHeader?.takeIf {
+            it.isNotBlank() && requestHost.equals(host, ignoreCase = true)
+        }
+    }
+
+    @Volatile var current = Snapshot(null, null)
+        private set
+    val authHeader: String? get() = current.authHeader
 
     /** [host] and [header] as WebDavConfig derives them from the saved server. */
     fun update(host: String?, header: String?) {
-        this.host = host
-        authHeader = header
+        current = Snapshot(host, header)
     }
 
-    fun shouldAuthorize(requestHost: String): Boolean {
-        val expected = host ?: return false
-        val header = authHeader ?: return false
-        if (header.isBlank()) return false
-        return requestHost.equals(expected, ignoreCase = true)
-    }
+    fun shouldAuthorize(requestHost: String): Boolean = current.headerFor(requestHost) != null
 }

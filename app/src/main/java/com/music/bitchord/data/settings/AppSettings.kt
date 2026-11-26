@@ -780,6 +780,41 @@ object AppSettings {
     val smbUsername = MutableStateFlow("")
     val smbPassword = MutableStateFlow("")
 
+    private val _remoteArtworkScope = MutableStateFlow(0L)
+    val remoteArtworkScope = _remoteArtworkScope.asStateFlow()
+    internal class RemoteArtworkAuth(
+        val scope: Long,
+        val smb: com.music.bitchord.data.smb.SmbAuth.ArtworkServer,
+        val webDav: com.music.bitchord.data.webdav.WebDavAuth.Snapshot,
+    )
+    @Volatile private var artworkAuth = captureArtworkAuth(0L)
+    internal fun remoteArtworkAuth(scope: Long): RemoteArtworkAuth? = artworkAuth.takeIf { it.scope == scope }
+
+    private fun captureArtworkAuth(scope: Long) = RemoteArtworkAuth(
+        scope, com.music.bitchord.data.smb.SmbAuth.artworkServer, com.music.bitchord.data.webdav.WebDavAuth.current,
+    )
+
+    private fun publishArtworkAuth(scope: Long) {
+        artworkAuth = captureArtworkAuth(scope)
+        _remoteArtworkScope.value = scope
+    }
+
+    private data class SmbSource(val authority: String, val share: String, val basePath: String, val username: String, val password: String) {
+        override fun toString() = "SmbSource(redacted)"
+    }
+
+    private data class WebDavSource(val url: String, val username: String, val password: String) {
+        override fun toString() = "WebDavSource(redacted)"
+    }
+
+    private data class ArtworkSources(val smb: SmbSource, val webDav: WebDavSource) {
+        val fingerprint by lazy {
+            remoteArtworkSourceFingerprint(listOf(smb.authority, smb.share, smb.basePath, smb.username, smb.password,
+                webDav.url, webDav.username, webDav.password))
+        }
+    }
+    private val artworkRevision = RemoteArtworkRevision<ArtworkSources>()
+
     /**
      * Browse ids of the playlists pinned to the top of the Library tab, in the
      * order they were pinned.
@@ -991,6 +1026,7 @@ object AppSettings {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         this.authStore = authStore
         moveSecretsOutOfSettings()
+        mutateRemoteArtworkSettings()
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         com.music.bitchord.data.OfflinePlaylists.init(
             context,
@@ -1013,6 +1049,7 @@ object AppSettings {
      */
     fun reload() {
         if (!this::prefs.isInitialized) return
+        mutateRemoteArtworkSettings()
         readAll()
     }
 
@@ -1203,26 +1240,7 @@ object AppSettings {
             ?: LibrarySort.DEFAULT
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
-        webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
-        webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
-        webdavPassword.value = authStore.webdavPassword.orEmpty()
-        smbHost.value = prefs.getString(KEY_SMB_HOST, "").orEmpty()
-        smbShare.value = prefs.getString(KEY_SMB_SHARE, "").orEmpty()
-        smbBasePath.value = prefs.getString(KEY_SMB_BASE_PATH, "").orEmpty()
-        smbUsername.value = prefs.getString(KEY_SMB_USERNAME, "").orEmpty()
-        smbPassword.value = authStore.smbPassword.orEmpty()
-        com.music.bitchord.data.smb.SmbAuth.update(
-            smbHost.value,
-            smbShare.value,
-            smbBasePath.value,
-            smbUsername.value,
-            smbPassword.value,
-        )
-        com.music.bitchord.data.webdav.WebDavAuth.update(
-            webdavUrl.value,
-            webdavUsername.value,
-            webdavPassword.value,
-        )
+
         pinnedPlaylists.value = readPinnedPlaylists()
         discordToken.value = authStore.discordToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
@@ -2164,94 +2182,91 @@ object AppSettings {
         prefs.edit().putString(KEY_LOCAL_MUSIC_FOLDER_URI, value).apply()
     }
 
-    fun setWebDavUrl(value: String) {
-        val normalized = value.trim().trimEnd('/')
-        webdavUrl.value = normalized
-        prefs.edit().putString(KEY_WEBDAV_URL, normalized).apply()
-        publishWebDavAuth()
+    fun setWebDavUrl(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_WEBDAV_URL, value.trim().trimEnd('/')).apply()
     }
 
-    fun setWebDavUsername(value: String) {
-        val normalized = value.trim()
-        webdavUsername.value = normalized
-        prefs.edit().putString(KEY_WEBDAV_USERNAME, normalized).apply()
-        publishWebDavAuth()
+    fun setWebDavUsername(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_WEBDAV_USERNAME, value.trim()).apply()
     }
 
     /** Writes through to the encrypted store; pass "" to forget. */
-    fun setWebDavPassword(value: String) {
-        webdavPassword.value = value
+    fun setWebDavPassword(value: String) = mutateRemoteArtworkSettings {
         authStore.webdavPassword = value.ifEmpty { null }
-        publishWebDavAuth()
     }
 
-    fun clearWebDav() {
-        setWebDavUrl("")
-        setWebDavUsername("")
-        setWebDavPassword("")
+    fun clearWebDav() = mutateRemoteArtworkSettings {
+        prefs.edit().remove(KEY_WEBDAV_URL).remove(KEY_WEBDAV_USERNAME).apply()
+        authStore.webdavPassword = null
     }
 
-    fun setSmbHost(value: String) {
-        val normalized = value.trim()
-        smbHost.value = normalized
-        prefs.edit().putString(KEY_SMB_HOST, normalized).apply()
-        publishSmbAuth()
+    fun setSmbHost(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_SMB_HOST, value.trim()).apply()
     }
 
-    fun setSmbShare(value: String) {
-        val normalized = value.trim().trim('/')
-        smbShare.value = normalized
-        prefs.edit().putString(KEY_SMB_SHARE, normalized).apply()
-        publishSmbAuth()
+    fun setSmbShare(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_SMB_SHARE, value.trim().trim('/')).apply()
     }
 
-    fun setSmbBasePath(value: String) {
-        val normalized = value.trim().trim('/')
-        smbBasePath.value = normalized
-        prefs.edit().putString(KEY_SMB_BASE_PATH, normalized).apply()
-        publishSmbAuth()
+    fun setSmbBasePath(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_SMB_BASE_PATH, value.trim().trim('/')).apply()
     }
 
-    fun setSmbUsername(value: String) {
-        val normalized = value.trim()
-        smbUsername.value = normalized
-        prefs.edit().putString(KEY_SMB_USERNAME, normalized).apply()
-        publishSmbAuth()
+    fun setSmbUsername(value: String) = mutateRemoteArtworkSettings {
+        prefs.edit().putString(KEY_SMB_USERNAME, value.trim()).apply()
     }
 
     /** Writes through to the encrypted store; pass "" to forget. */
-    fun setSmbPassword(value: String) {
-        smbPassword.value = value
+    fun setSmbPassword(value: String) = mutateRemoteArtworkSettings {
         authStore.smbPassword = value.ifEmpty { null }
-        publishSmbAuth()
     }
 
-    fun clearSmb() {
-        setSmbHost("")
-        setSmbShare("")
-        setSmbBasePath("")
-        setSmbUsername("")
-        setSmbPassword("")
+    fun clearSmb() = mutateRemoteArtworkSettings {
+        prefs.edit().remove(KEY_SMB_HOST).remove(KEY_SMB_SHARE).remove(KEY_SMB_BASE_PATH).remove(KEY_SMB_USERNAME).apply()
+        authStore.smbPassword = null
     }
 
-    private fun publishSmbAuth() {
+    // The same transaction covers restore and setters, from storage mutation through publication.
+    private fun mutateRemoteArtworkSettings(edit: () -> Unit = {}) {
         if (!this::prefs.isInitialized || !this::authStore.isInitialized) return
-        com.music.bitchord.data.smb.SmbAuth.update(
-            smbHost.value,
-            smbShare.value,
-            smbBasePath.value,
-            smbUsername.value,
-            smbPassword.value,
-        )
-    }
-
-    private fun publishWebDavAuth() {
-        if (!this::prefs.isInitialized || !this::authStore.isInitialized) return
-        com.music.bitchord.data.webdav.WebDavAuth.update(
-            webdavUrl.value,
-            webdavUsername.value,
-            webdavPassword.value,
-        )
+        artworkRevision.update(
+            persistedScope = { source ->
+                restoredRemoteArtworkScope(authStore.settingSecret(KEY_REMOTE_ARTWORK_SCOPE), source.fingerprint)
+            },
+            persistScope = { scope, source ->
+                // A restart with a partially persisted edit must not adopt the old pixels.
+                val record = "$scope:${source.fingerprint}"
+                if (authStore.settingSecret(KEY_REMOTE_ARTWORK_SCOPE) != record) {
+                    authStore.setSettingSecret(KEY_REMOTE_ARTWORK_SCOPE, record)
+                }
+            },
+            editAndRead = {
+                edit()
+                webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
+                webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
+                webdavPassword.value = authStore.webdavPassword.orEmpty()
+                smbHost.value = prefs.getString(KEY_SMB_HOST, "").orEmpty()
+                smbShare.value = prefs.getString(KEY_SMB_SHARE, "").orEmpty()
+                smbBasePath.value = prefs.getString(KEY_SMB_BASE_PATH, "").orEmpty()
+                smbUsername.value = prefs.getString(KEY_SMB_USERNAME, "").orEmpty()
+                smbPassword.value = authStore.smbPassword.orEmpty()
+                val config = com.music.bitchord.data.smb.SmbConfig
+                val (host, port) = config.splitHostPort(smbHost.value)
+                ArtworkSources(
+                    SmbSource(config.authority(host, port), smbShare.value.trim().trim('/'),
+                        smbBasePath.value.trim().trim('/').replace('\\', '/'), smbUsername.value.trim(), smbPassword.value),
+                    WebDavSource(webdavUrl.value.trim().trimEnd('/'), webdavUsername.value.trim(), webdavPassword.value),
+                )
+            },
+        ) { scope, next, previous ->
+            if (next.smb != previous?.smb) with(next.smb) {
+                com.music.bitchord.data.smb.SmbAuth.update(authority, share, basePath, username, password)
+            }
+            if (next.webDav != previous?.webDav) with(next.webDav) {
+                com.music.bitchord.data.webdav.WebDavAuth.update(url, username, password)
+            }
+            publishArtworkAuth(scope)
+        }
     }
 
     private fun readLocalMusicSort(key: String): LocalMusicSort =
@@ -2341,23 +2356,25 @@ object AppSettings {
      */
     fun importPrefs(values: Map<String, Any?>) {
         if (!this::prefs.isInitialized) return
-        val kept = prefs.all.filterKeys { it in SECRETS || it in DEVICE_LOCAL }
-        prefs.edit().apply {
-            clear()
-            val incoming = values.filterKeys { it !in SECRETS && it !in DEVICE_LOCAL }
-            (kept + incoming).forEach { (key, value) ->
-                when (value) {
-                    is Boolean -> putBoolean(key, value)
-                    is Int -> putInt(key, value)
-                    is Long -> putLong(key, value)
-                    is Float -> putFloat(key, value)
-                    is String -> putString(key, value)
-                    is Set<*> -> putStringSet(key, value.filterIsInstance<String>().toSet())
-                    else -> Unit
+        mutateRemoteArtworkSettings {
+            val kept = prefs.all.filterKeys { it in SECRETS || it in DEVICE_LOCAL }
+            prefs.edit().apply {
+                clear()
+                val incoming = values.filterKeys { it !in SECRETS && it !in DEVICE_LOCAL }
+                (kept + incoming).forEach { (key, value) ->
+                    when (value) {
+                        is Boolean -> putBoolean(key, value)
+                        is Int -> putInt(key, value)
+                        is Long -> putLong(key, value)
+                        is Float -> putFloat(key, value)
+                        is String -> putString(key, value)
+                        is Set<*> -> putStringSet(key, value.filterIsInstance<String>().toSet())
+                        else -> Unit
+                    }
                 }
-            }
-        }.apply()
-        reload()
+            }.apply()
+        }
+        readAll()
     }
 
     /**
@@ -2516,6 +2533,7 @@ object AppSettings {
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"
     private const val KEY_WEBDAV_URL = "webdav_url"
+    private const val KEY_REMOTE_ARTWORK_SCOPE = "remote_artwork_scope"
     private const val KEY_WEBDAV_USERNAME = "webdav_username"
     private const val KEY_SMB_HOST = "smb_host"
     private const val KEY_SMB_SHARE = "smb_share"

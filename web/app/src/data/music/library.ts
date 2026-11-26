@@ -107,7 +107,8 @@ export function groupedMixes(mixes: KeyedMix[]): MixSections {
 /**
  * The orders an album or playlist page can show its songs in (SongSort.kt),
  * as the phone's sort menu lists them. Track number is left out: it sorts by
- * a local file's tags, and the web has no local files.
+ * a local file's tags, and the one page with those, a Local Music album
+ * (LocalGroupPage), is already in that order (LocalGroups.kt sortedForAlbum).
  */
 export const SONG_SORTS = [
   { value: 'DATE_ADDED_DESC', label: 'Date Added (Newest First)' },

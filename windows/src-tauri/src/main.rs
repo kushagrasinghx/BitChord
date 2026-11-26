@@ -8,6 +8,7 @@
 //! in a browser. WebView2 is Chromium, so it loads the same MV3 build the
 //! Chrome zip holds; this file only hosts the two together.
 
+mod logs;
 mod media_session;
 mod memory;
 mod sign_in;
@@ -70,6 +71,9 @@ fn main() {
                 ))
                 .initialization_script(include_str!("../shell/media-session.js"))
                 .build()?;
+            if let Some(webview) = app.get_webview_window("main") {
+                logs::start(&webview);
+            }
             if let Some(window) = app.get_window("main") {
                 title_bar::apply(&window);
                 media_session::init(app.handle(), &window)?;

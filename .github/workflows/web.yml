@@ -8,7 +8,8 @@ name: Web
 # compiled to JavaScript in web/shared-kotlin/dist. The shared-kotlin job keeps
 # that copy current, so a change to shared/ reaches the web without anyone
 # porting it: on a branch of this repository it commits the regenerated files
-# itself; on a fork's PR it fails and names the command.
+# itself; on a fork's PR it only warns (the web job still tests the fresh build),
+# and the push to main after merging commits it.
 on:
   push:
     branches: [main]
@@ -54,6 +55,13 @@ jobs:
       - name: Regenerate web/shared-kotlin
         run: ./gradlew :shared:exportWeb
 
+      # The web job tests against this build, so a fork's PR is tested with its own shared/ even
+      # though nothing can be committed back to it.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-kotlin
+          path: web/shared-kotlin/dist
+
       - name: Commit it, or say how
         env:
           SAME_REPO: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository }}
@@ -62,9 +70,11 @@ jobs:
             echo "web/shared-kotlin matches shared/."
             exit 0
           fi
+          # A fork can't be pushed to, and most Android contributors work from one: don't fail their
+          # PR over the web's copy. The push to main after merging regenerates it.
           if [ "$SAME_REPO" != "true" ]; then
-            echo "::error file=web/shared-kotlin/README.md::shared/ changed, so the web player's copy of it is stale. Run ./gradlew :shared:exportWeb and commit web/shared-kotlin."
-            exit 1
+            echo "::warning file=web/shared-kotlin/README.md::shared/ changed, so web/shared-kotlin is regenerated when this merges. Nothing to do here; ./gradlew :shared:exportWeb updates it locally."
+            exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
@@ -97,6 +107,12 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+
+      # The shared-kotlin job's fresh build (identical to the committed copy on a branch here).
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-kotlin
+          path: web/shared-kotlin/dist
 
       - name: Install
         run: pnpm install --frozen-lockfile

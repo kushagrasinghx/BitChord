@@ -13,8 +13,9 @@ TypeScript copy, so a change to one on Android is the same change on the web.
 It is committed because the site builds on Cloudflare Pages, which has Node but
 no JDK. CI regenerates it whenever `shared/` changes
 (`.github/workflows/web.yml`, job *shared-kotlin*). On a branch in this
-repository it commits the update itself; on a fork's PR it fails and names the
-command above.
+repository it commits the update itself. A fork's PR can't be pushed to, so there
+it only warns, the web is tested against the fresh build anyway, and the push to
+`main` after merging commits it.
 
 What's exported, and how it maps to Kotlin, is in
 `shared/src/jsMain/kotlin/com/music/bitchord/web/`. Each export is a thin

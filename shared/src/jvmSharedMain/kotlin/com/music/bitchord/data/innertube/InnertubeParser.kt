@@ -756,6 +756,7 @@ object InnertubeParser {
 
         val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
+        val videoType = renderer.musicVideoType().asVideoOrNull()
 
         return Song(
             videoId = videoId,
@@ -780,12 +781,14 @@ object InnertubeParser {
             // is simply absent, which is what makes "remove from playlist"
             // offer itself exactly where it means something.
             setVideoId = renderer.o("playlistItemData").s("playlistSetVideoId"),
-            // The row type word is the clean signal when present ("All" tab);
-            // otherwise a music-video upload gives itself away with widescreen
-            // art where a catalogue track has square album cover art. Not an
+            // The row type word is the clean signal when present ("All" tab).
+            // YouTube also states the kind on the play endpoint, and that is
+            // the one to trust over art: a music video can carry a square
+            // thumbnail, while a catalogue track can carry a widescreen one.
+            // Art is only the fallback for a row that says neither. Not an
             // episode, whose art is a widescreen still too: it is listened to,
             // and a "video" is dropped from the All tab's results.
-            isVideo = !episode && (rowType == "video" || thumbnails.isNotSquare()),
+            isVideo = !episode && (rowType == "video" || (videoType ?: thumbnails.isNotSquare())),
             isExplicit = renderer.hasExplicitBadge(),
             // Extract the "Remove from history" feedback token from the row's menu, if present.
             feedbackToken = extractFeedbackToken(renderer),
@@ -891,6 +894,8 @@ object InnertubeParser {
         }
         val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
+        val videoType = renderer.o("onTap").o("watchEndpoint")
+            .watchMusicVideoType().asVideoOrNull()
 
         return Song(
             videoId = videoId,
@@ -905,7 +910,7 @@ object InnertubeParser {
             artists = completeArtistCredits(artist.orEmpty(), credits.artists),
             albumId = credits.albumId,
             albumName = credits.albumName,
-            isVideo = rowType == "video" || thumbnails.isNotSquare(),
+            isVideo = rowType == "video" || (videoType ?: thumbnails.isNotSquare()),
             isExplicit = renderer["subtitleBadges"].hasExplicitBadge(),
         )
     }
@@ -1309,11 +1314,32 @@ object InnertubeParser {
     /** A catalogue song (ATV), as opposed to a music video upload. */
     private fun JsonObject.isAudioTrack(): Boolean = musicVideoType() == MUSIC_VIDEO_TYPE_ATV
 
+    /**
+     * The kind YouTube says this row is, where it says so.
+     *
+     * A track row states it on the play button's watch endpoint rather than on
+     * a top-level `navigationEndpoint`, so both placements are read. Null means
+     * the response did not say, and callers fall back to the art's shape.
+     */
     private fun JsonObject.musicVideoType(): String? =
-        o("navigationEndpoint").o("watchEndpoint").o("watchEndpointMusicSupportedConfigs")
-            .o("watchEndpointMusicConfig").s("musicVideoType")
+        o("navigationEndpoint").o("watchEndpoint").watchMusicVideoType()
+            ?: o("overlay").o("musicItemThumbnailOverlayRenderer").o("content")
+                .o("musicPlayButtonRenderer").o("playNavigationEndpoint")
+                .o("watchEndpoint").watchMusicVideoType()
+
+    private fun JsonObject?.watchMusicVideoType(): String? =
+        o("watchEndpointMusicSupportedConfigs").o("watchEndpointMusicConfig").s("musicVideoType")
+
+    /** True for a video upload, false for a catalogue track, null when unstated. */
+    private fun String?.asVideoOrNull(): Boolean? = when (this) {
+        MUSIC_VIDEO_TYPE_ATV -> false
+        MUSIC_VIDEO_TYPE_OMV, MUSIC_VIDEO_TYPE_UGC -> true
+        else -> null
+    }
 
     private const val MUSIC_VIDEO_TYPE_ATV = "MUSIC_VIDEO_TYPE_ATV"
+    private const val MUSIC_VIDEO_TYPE_OMV = "MUSIC_VIDEO_TYPE_OMV"
+    private const val MUSIC_VIDEO_TYPE_UGC = "MUSIC_VIDEO_TYPE_UGC"
 
     /**
      * Tracks of a watch queue (`next` response) — the AutoPlay radio mix.
@@ -1681,13 +1707,14 @@ object InnertubeParser {
             .o("thumbnail").a("thumbnails")
         val subtitle = renderer.o("subtitle").runs()
         // A card with no browse target is a playable track, not an album,
-        // playlist or artist; widescreen art on one of those means it's a
-        // music-video upload rather than the catalogue track, which the
-        // player can now show — same test as parseResponsiveListItem's.
-        val isVideo = resolvedBrowseId == null && videoId != null && (
-            thumbnails.isNotSquare() ||
-                renderer.s("aspectRatio")?.contains("16_9") == true
-            )
+        // playlist or artist. YouTube's own video type wins over art here,
+        // because a music video's thumbnail is not always widescreen; the
+        // card's aspect ratio and the art are fallbacks for older responses
+        // that do not state a type.
+        val videoType = renderer.musicVideoType().asVideoOrNull()
+        val widescreen = thumbnails.isNotSquare() ||
+            renderer.s("aspectRatio")?.contains("16_9") == true
+        val isVideo = resolvedBrowseId == null && videoId != null && (videoType ?: widescreen)
         // An album/playlist billed as a video chart/compilation — "N videos"
         // in the subtitle, or "video" in the card's own title (e.g. "Daily
         // Top Music Videos") — is the same dead-end as in parseBrowseItem.

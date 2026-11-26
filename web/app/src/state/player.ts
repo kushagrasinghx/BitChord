@@ -996,7 +996,8 @@ let lastEmptyRetry = 0;
 function ensureAutoplay() {
   const { autoplay, repeat, queue, index, status } = usePlayer.getState();
   if (!autoplay || repeat !== 'off' || index < 0 || status !== 'playing' || partyHooks?.inParty()) return;
-  if (index + 1 < queue.length || refilling) return;
+  // A local file has no YouTube radio to ask for (refillAutoplay won't seed from one either).
+  if (index + 1 < queue.length || refilling || isLocalId(queue[index]?.track.videoId)) return;
   const now = Date.now();
   if (now - lastEmptyRetry < EMPTY_RETRY_MS) return;
   lastEmptyRetry = now;

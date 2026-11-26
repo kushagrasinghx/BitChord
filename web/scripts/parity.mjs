@@ -7,7 +7,8 @@
  * web runs it compiled, web/shared-kotlin). What can't be shared is where the two
  * can drift, so this:
  *
- *   node web/scripts/parity.mjs check              every path in the map exists (fails if not)
+ *   node web/scripts/parity.mjs check              every web/shared path in the map exists (fails if
+ *                                                  not); a moved Android path only warns
  *   node web/scripts/parity.mjs changed <files...> warn, as GitHub annotations, about each
  *                                                  feature whose Android side changed while
  *                                                  its web side didn't
@@ -46,9 +47,13 @@ function main([command, ...args]) {
   const features = loadMap();
   if (command === 'check') {
     const missing = missingPaths(features);
-    for (const m of missing) console.log(`::error file=web/parity.json::${m.feature}: ${m.side} path ${m.path} doesn't exist; update web/parity.json`);
-    if (missing.length) process.exit(1);
-    console.log(`web/parity.json: ${features.length} features, every path exists.`);
+    // An Android-side rename must never fail an Android-only PR: it's a warning, fixed in the map later.
+    for (const m of missing) {
+      const level = m.side === 'android' ? 'warning' : 'error';
+      console.log(`::${level} file=web/parity.json::${m.feature}: ${m.side} path ${m.path} doesn't exist; update web/parity.json`);
+    }
+    if (missing.some((m) => m.side !== 'android')) process.exit(1);
+    console.log(`web/parity.json: ${features.length} features, ${missing.length ? `${missing.length} Android path(s) moved` : 'every path exists'}.`);
   } else if (command === 'changed') {
     const gaps = drifted(features, args);
     for (const { feature, androidChanged } of gaps) {

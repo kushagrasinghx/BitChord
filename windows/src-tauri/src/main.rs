@@ -8,6 +8,7 @@
 //! in a browser. WebView2 is Chromium, so it loads the same MV3 build the
 //! Chrome zip holds; this file only hosts the two together.
 
+mod files;
 mod logs;
 mod media_session;
 mod memory;
@@ -73,6 +74,7 @@ fn main() {
                 .build()?;
             if let Some(webview) = app.get_webview_window("main") {
                 logs::start(&webview);
+                files::allow_player_file_access(&webview);
             }
             if let Some(window) = app.get_window("main") {
                 title_bar::apply(&window);

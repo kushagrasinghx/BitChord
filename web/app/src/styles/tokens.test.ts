@@ -20,6 +20,22 @@ describe('tokens.css', () => {
     expect(block(":root:not([data-theme='light'])")).toEqual(block(":root[data-theme='dark']"));
   });
 
+  // Android's colour schemes are the source: a change to Theme.kt fails here, naming the token to update.
+  it('carries the phone colours from Theme.kt', () => {
+    const kt = readFileSync(fileURLToPath(new URL('../../../../app/src/main/java/com/music/bitchord/ui/theme/Theme.kt', import.meta.url)), 'utf8');
+    const token: Record<string, string> = { background: '--pageBG', onBackground: '--systemPrimary', surface: '--surface', surfaceVariant: '--surfaceVariant', onSurfaceVariant: '--onSurfaceVariant', outline: '--outline' };
+    const named: Record<string, string> = { White: '#ffffff', Black: '#000000' };
+    for (const [scheme, selector] of [['LightColors', ':root'], [`DarkColors`, ":root[data-theme='dark']"]] as const) {
+      const body = kt.slice(kt.indexOf(`val ${scheme} =`), kt.indexOf('\n)', kt.indexOf(`val ${scheme} =`)));
+      const css = block(selector);
+      const pairs = [...body.matchAll(/(\w+) = Color(?:\(0xFF([0-9A-Fa-f]{6})\)|\.(White|Black))/g)].filter(([, role]) => token[role]);
+      expect(pairs.length, scheme).toBe(Object.keys(token).length);
+      for (const [, role, hex, name] of pairs) {
+        expect(css, `${scheme}.${role} -> ${token[role]}`).toContain(`${token[role]}: ${hex ? `#${hex.toLowerCase()}` : named[name]};`);
+      }
+    }
+  });
+
   it('keeps the names other code draws from', () => {
     // The Windows app's sign-in sheet and scrollbars read these by name.
     for (const name of [

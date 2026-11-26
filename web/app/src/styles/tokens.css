@@ -402,6 +402,8 @@
   --keyColor-rgb: 255, 255, 255;
   --keyColorBG: #ffffff;
   --keyColor-contrast: #000000;
+  /* body's colour resolved --systemPrimary before this block, so headings with no colour class need it here. */
+  color: var(--systemPrimary);
 }
 
 [data-tint='light'] {

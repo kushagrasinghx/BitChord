@@ -535,6 +535,12 @@
     background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
   }
 
+  /* Artwork covers that fill (it's painted under the image), so a control holding artwork gets a soft outline too. */
+  :where(a[href], button, [role='button'], [role='link'], [tabindex]:not([tabindex='-1'])):focus-visible:has(img, canvas, video) {
+    outline: 2px solid rgba(var(--keyColor-rgb), 0.6);
+    outline-offset: 2px;
+  }
+
   /* The rail's width (see the rail variant): a 48px glyph column with 12px either side. */
   @media (min-width: 484px) and (max-width: 899.98px) {
     :root {

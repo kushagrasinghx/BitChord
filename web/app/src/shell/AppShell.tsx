@@ -156,6 +156,17 @@ export function AppShell() {
     <div className="grid h-full grid-rows-[minmax(0,1fr)_auto]">
       {/* The side panel slides in from beyond the right edge; never let it scroll the page. */}
       <div className="relative min-h-0 overflow-hidden">
+        {/* First stop for the keyboard: past the sidebar's tabs and playlists to the page. */}
+        <a
+          href="#page-content"
+          onClick={(event) => {
+            event.preventDefault();
+            content.current?.focus();
+          }}
+          className="sr-only rounded-full bg-key-bg px-4 py-2 text-on-key focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-(--z-modal)"
+        >
+          Skip to content
+        </a>
         <Sidebar />
         <MobileTopBar />
         {/* The page scrolls under the fixed sidebar and the floating player. --top-bar-trailing-width is the
@@ -170,7 +181,7 @@ export function AppShell() {
         >
           <TopBar />
           {/* Clears the floating pill: its height, its offset, and some air. */}
-          <div ref={content} className="min-h-full pt-(--top-bar-clearance,0px) pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)]">
+          <div ref={content} id="page-content" tabIndex={-1} className="min-h-full pt-(--top-bar-clearance,0px) pb-[calc(var(--player-pill-height)+var(--player-bottom-offset)+40px)]">
             <Outlet />
           </div>
         </main>

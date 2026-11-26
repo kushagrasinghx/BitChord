@@ -54,6 +54,14 @@ internal object YtDlpFormatSelection {
     /** True when [kind] at 0-based [attempt] leaves another client to ask. */
     fun shouldTryNext(kind: YtDlpFailureKind, attempt: Int): Boolean =
         retryable(kind) && attempt < CLIENTS.lastIndex
+
+    /**
+     * Whether [playerClient] accepts YouTube cookies.
+     *
+     * `visionos` and `android` do not support cookies; passing a `Cookie`
+     * header causes yt-dlp to skip them completely.
+     */
+    fun supportsCookies(playerClient: String?): Boolean = playerClient == null
 }
 
 /**
@@ -218,9 +226,11 @@ object YtDlpDownloader {
             if (playerClient != null) {
                 addOption("--extractor-args", "youtube:player_client=$playerClient")
             }
-            val cookie = runCatching { AuthStore(context).cookie }.getOrNull()
-            if (!cookie.isNullOrBlank()) {
-                addOption("--add-header", "Cookie: ${cookie.trim()}")
+            if (YtDlpFormatSelection.supportsCookies(playerClient)) {
+                val cookie = runCatching { AuthStore(context).cookie }.getOrNull()
+                if (!cookie.isNullOrBlank()) {
+                    addOption("--add-header", "Cookie: ${cookie.trim()}")
+                }
             }
             addOption("-o", outputTemplate)
         }

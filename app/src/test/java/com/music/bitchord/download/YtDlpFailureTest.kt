@@ -145,4 +145,11 @@ class YtDlpFailureTest {
             ),
         )
     }
+
+    @Test
+    fun `cookie-less clients do not receive cookies`() {
+        assertFalse(YtDlpFormatSelection.supportsCookies("visionos,android"))
+        assertFalse(YtDlpFormatSelection.supportsCookies("android"))
+        assertTrue(YtDlpFormatSelection.supportsCookies(null))
+    }
 }

@@ -25,28 +25,9 @@ import java.util.Locale
 object LocalMediaRepository {
 
     private const val TAG = "BitChord"
-    private const val MIN_LOCAL_MUSIC_DURATION_MS = 30_000L
-
-    // `mp4` only ever reaches this list as an audio row — MediaStore files a
-    // video .mp4 under Video, not Audio — so it is the audio-only MP4s Dolby
-    // and Apple music downloads come as (AC-4, E-AC-3, ALAC). `dsf`/`dff` are
-    // DSD, which DsdExtractor plays.
-    private val localMusicExtensions = setOf(
-        "mp3", "m4a", "mp4", "flac", "ogg", "opus", "aac", "webm", "dsf", "dff",
-    )
-
-    private val nonMusicPathSegments = listOf(
-        "/alarms/",
-        "/notifications/",
-        "/ringtones/",
-        "/podcasts/",
-        "/audiobooks/",
-        "/recordings/",
-        "/voice recorder/",
-        "/sound_recorder/",
-        "/call_rec/",
-        "/whatsapp voice notes/",
-    )
+    // The filter, its extensions and the tag clean-up are LocalMusicRules
+    // (shared/commonMain), so the web player's Local Music keeps the same files.
+    private const val MIN_LOCAL_MUSIC_DURATION_MS = LocalMusicRules.MIN_LOCAL_MUSIC_DURATION_MS
 
     /** Check if storage/audio permission is granted to query device local music. */
     fun hasStoragePermission(context: Context): Boolean {
@@ -178,8 +159,7 @@ object LocalMediaRepository {
     )
 
     /** What MediaStore writes into a column it has nothing for. */
-    private fun String?.cleanTag(): String? =
-        takeUnless { it.isNullOrBlank() || it == "<unknown>" }
+    private fun String?.cleanTag(): String? = LocalMusicRules.cleanTag(this)
 
     /**
      * A way for a build to look beyond MediaStore — the Android TV app reads USB
@@ -469,34 +449,11 @@ object LocalMediaRepository {
     private fun String.normalizedPath(): String =
         replace('\\', '/').trimEnd('/').lowercase(Locale.ROOT)
 
-    /**
-     * MediaStore's `IS_MUSIC` flag is advisory and often includes notification
-     * sounds, voice notes and recorder output. Keep this second gate independent
-     * of scanner metadata so the same bad rows stay out across Android vendors.
-     */
-    internal fun isEligibleLocalMusic(durationMs: Long, displayName: String, path: String?): Boolean {
-        if (durationMs in 1 until MIN_LOCAL_MUSIC_DURATION_MS) return false
+    /** [LocalMusicRules.isEligibleLocalMusic], by its old name for the callers and tests that ask this object. */
+    internal fun isEligibleLocalMusic(durationMs: Long, displayName: String, path: String?): Boolean =
+        LocalMusicRules.isEligibleLocalMusic(durationMs, displayName, path)
 
-        val fileName = path?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-            ?: displayName
-        val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
-        if (extension !in localMusicExtensions) return false
-
-        val normalizedPath = path
-            ?.replace('\\', '/')
-            ?.lowercase(Locale.ROOT)
-            ?: return true
-        return nonMusicPathSegments.none(normalizedPath::contains)
-    }
-
-    private fun String.removeAudioExtension(): String {
-        val extension = substringAfterLast('.', "").lowercase(Locale.ROOT)
-        return if (extension in localMusicExtensions || extension == "wav") {
-            substringBeforeLast('.').ifBlank { this }
-        } else {
-            this
-        }
-    }
+    private fun String.removeAudioExtension(): String = LocalMusicRules.removeAudioExtension(this)
 
     private fun isAudioFileName(name: String): Boolean {
         val lower = name.lowercase(Locale.ROOT)
@@ -567,16 +524,8 @@ object LocalMediaRepository {
         )
     }
 
-    /**
-     * MediaStore packs the disc into the same int (`disc * 1000 + track`), so
-     * 1003 is disc 1 track 3 rather than track 1003. Unpacks it; null when the
-     * scanner wrote nothing usable.
-     */
-    internal fun trackNumberFromMediaStore(raw: Int?): Int? {
-        if (raw == null || raw <= 0) return null
-        val track = if (raw >= 1000) raw % 1000 else raw
-        return track.takeIf { it in 1..999 }
-    }
+    /** [LocalMusicRules.trackNumberFromMediaStore]. */
+    internal fun trackNumberFromMediaStore(raw: Int?): Int? = LocalMusicRules.trackNumberFromMediaStore(raw)
 
     /**
      * [picture] kept as a file under [dir], one per source [key], for Coil to
@@ -598,14 +547,8 @@ object LocalMediaRepository {
 
     private const val EMBEDDED_ART_DIR = "embedded_art"
 
-    /**
-     * `CD_TRACK_NUMBER` arrives as `"3"` or `"3/12"`. Takes the head; null when
-     * it isn't a number.
-     */
-    internal fun trackNumberFromTag(raw: String?): Int? {
-        val head = raw?.substringBefore('/')?.trim() ?: return null
-        return head.toIntOrNull()?.takeIf { it in 1..999 }
-    }
+    /** [LocalMusicRules.trackNumberFromTag]. */
+    internal fun trackNumberFromTag(raw: String?): Int? = LocalMusicRules.trackNumberFromTag(raw)
 
     private fun formatDuration(ms: Long): String {
         val totalSecs = ms / 1000

@@ -1,37 +1,28 @@
 import { useEffect, useRef } from 'react';
 import { usePlayer } from '@/state/player';
-
-/** Each bar's lowest point; all three peak at full height (Common.kt PLAYING_BAR_MINIMUMS). */
-const MINIMUMS = [0.38, 0.78, 0.52];
+import { barScale, joinBarClock, MINIMUMS } from './playingBarMotion';
 
 /**
  * The playing row's three bars on a dark 24px plate (sharedUi/.../components/
- * Common.kt SearchPlayingBars). Each rises from its minimum to full height and
- * falls again over its own period (520, 650 and 780ms, peaking at 260, 310 and
- * 360ms), then plays that backwards, so the three drift in and out of step
- * rather than marching. Paused, they hold where they are, as the phone's do;
- * under reduced motion they stand still.
+ * Common.kt SearchPlayingBars), moved by the shared bar clock (playingBarMotion.ts).
+ * Paused, they hold where they are, as the phone's do; under reduced motion
+ * they stand still.
  */
 export function PlayingBars({ playing = true, className = '' }: { playing?: boolean; className?: string }) {
   const bars = useRef<(HTMLSpanElement | null)[]>([]);
-  const animations = useRef<Animation[]>([]);
+  const clock = useRef(0);
 
   useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    animations.current = bars.current.flatMap((bar, i) => {
-      const duration = 520 + i * 130;
-      const low = `scaleY(${MINIMUMS[i]})`;
-      const animation = bar?.animate?.(
-        [{ transform: low }, { transform: 'scaleY(1)', offset: (260 + i * 50) / duration }, { transform: low }],
-        { duration, iterations: Infinity, direction: 'alternate' },
-      );
-      return animation ? [animation] : [];
+    if (!playing || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let last = performance.now();
+    return joinBarClock(() => {
+      const now = performance.now();
+      clock.current += Math.min(now - last, 250) / 1000;
+      last = now;
+      bars.current.forEach((bar, i) => {
+        if (bar) bar.style.transform = `scaleY(${barScale(clock.current, i).toFixed(3)})`;
+      });
     });
-    return () => animations.current.forEach((animation) => animation.cancel());
-  }, []);
-
-  useEffect(() => {
-    animations.current.forEach((animation) => (playing ? animation.play() : animation.pause()));
   }, [playing]);
 
   return (

@@ -28,16 +28,6 @@ import com.music.bitchord.ui.tv.components.TvDialog
 import com.music.bitchord.ui.tv.components.TvDialogButton
 import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-
-/**
- * Outlives the alert on purpose: "Hide" closes it, and the download has to keep
- * going behind it. [AppUpdateChecker] holds the one download there can be.
- */
-private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
 /**
  * A new BitChord TV release is out: download its APK and hand it to the system
@@ -98,7 +88,7 @@ private fun TvUpdateControls(state: DownloadState, notes: String?, onDismiss: ()
             DownloadState.Idle -> {
                 TvDialogButton(
                     text = "Download and Install",
-                    onClick = { downloadScope.launch { AppUpdateChecker.downloadApk(context) } },
+                    onClick = { AppUpdateChecker.startDownload(context) },
                     initialFocus = true,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -130,7 +120,7 @@ private fun TvUpdateControls(state: DownloadState, notes: String?, onDismiss: ()
             is DownloadState.Failed -> {
                 TvDialogButton(
                     text = "Try Again",
-                    onClick = { downloadScope.launch { AppUpdateChecker.downloadApk(context) } },
+                    onClick = { AppUpdateChecker.startDownload(context) },
                     initialFocus = true,
                 )
                 Spacer(modifier = Modifier.height(6.dp))

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { PrefetchLink } from '@/components/PrefetchLink';
-import { count, formatMinutes } from '@/replay/format';
+import { count, formatListening, formatMinutes } from '@/replay/format';
 import { periodLabel } from '@/replay/periods';
 import { useReplay } from '@/replay/queries';
 import { allMonths } from '@/replay/store';
@@ -21,11 +21,14 @@ export function LibraryReplayCards() {
   if (!charts || charts.totalPlays === 0) return null;
   const [song] = charts.songs;
   const [artist] = charts.artists;
+  const [album] = charts.albums;
   const label = periodLabel('month', new Date());
+  // The phone's four (ReplayModel.kt ReplaySummary.cards), worded as it words them.
   const cards = [
     { label: 'Minutes listened', value: formatMinutes(charts.totalMs), detail: `${count(charts.totalPlays, 'play')} · ${label}`, art: song?.art },
-    ...(song ? [{ label: 'Top song', value: song.title, detail: song.artist, art: song.art }] : []),
-    ...(artist ? [{ label: 'Top artist', value: artist.title, detail: count(artist.plays, 'play'), art: artist.art }] : []),
+    ...(song ? [{ label: 'Top song', value: song.title, detail: `${song.artist} · ${count(song.plays, 'play')}`, art: song.art }] : []),
+    ...(artist ? [{ label: 'Top artist', value: artist.title, detail: `${formatListening(artist.ms)} · ${count(artist.plays, 'play')}`, art: artist.art }] : []),
+    ...(album ? [{ label: 'Top album', value: album.title, detail: [album.subtitle, formatListening(album.ms)].filter(Boolean).join(' · '), art: album.art }] : []),
   ];
   return (
     <ul className="flex snap-x snap-mandatory scroll-px-(--body-gutter) gap-3 overflow-x-auto px-(--body-gutter) py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -33,6 +36,8 @@ export function LibraryReplayCards() {
         <li key={card.label} className="w-[300px] flex-none snap-start">
           <PrefetchLink
             to="/replay"
+            // The cards are this month's, so Replay opens on the month (LibraryReplayEntry's landing page).
+            state={{ period: 'month' }}
             className="group relative isolate flex aspect-[1.586] flex-col justify-end overflow-hidden rounded-[20px] p-5 text-white shadow-[0_8px_16px_rgb(0_0_0/0.25)]"
           >
             <span className="absolute inset-0 -z-1 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none">

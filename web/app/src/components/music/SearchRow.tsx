@@ -23,8 +23,11 @@ const KIND_LABEL: Record<MusicItem['kind'], string> = {
   unknown: '',
 };
 
-/** What a row says under its title: YouTube's own line, or what kind of thing it is (SearchScreen.kt BrowseRow). */
-export const subtitleOf = (item: MusicItem) => item.subtitle || KIND_LABEL[item.kind];
+/**
+ * What a row says under its title: YouTube's own line, else its artists as SongRow shows them (some
+ * result cards come without the line), else what kind of thing it is (SearchScreen.kt BrowseRow).
+ */
+export const subtitleOf = (item: MusicItem) => item.subtitle || item.artists.map((a) => a.name).join(', ') || KIND_LABEL[item.kind];
 
 /*
  * The phone's search rows (sharedUi/.../ui/screens/SearchScreen.kt SongRow,

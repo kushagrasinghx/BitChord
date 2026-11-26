@@ -2,6 +2,7 @@ import type { ReplayCharts, ReplayRow, ReplaySong } from '@bitchord/shared-kotli
 import '@/replay/replay.css';
 import { ChevronRight, Clock, Play, Share, type LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { Artwork } from '@/components/music/Artwork';
@@ -51,8 +52,9 @@ const sectionTitle = 'pt-2 pb-2.5 type-[800_22px/26px] tracking-[-0.25px]';
  * in the colours of the record that defined it.
  */
 export default function ReplayPage() {
-  // Lifetime first, as the phone opens it.
-  const [period, setPeriod] = useState<ReplayPeriod>('all');
+  // Lifetime first, as the phone opens it, unless a way in names its period (the Library's month cards).
+  const landing = (useLocation().state as { period?: ReplayPeriod } | null)?.period;
+  const [period, setPeriod] = useState<ReplayPeriod>(landing ?? 'all');
   const replay = useReplay(period);
   const year = yearShown(new Date());
   const story = useReplayYear(year).data ?? null;

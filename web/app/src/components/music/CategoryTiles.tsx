@@ -99,7 +99,9 @@ function CategoryTile({ category }: { category: Category }) {
         className="relative isolate block aspect-[1.72] overflow-hidden rounded-mood text-white transition-[scale] duration-200 ease-panel hover:scale-[1.015] active:scale-[.98]"
         style={{ background: tone.stripe }}
       >
-        <span className="absolute inset-y-0 right-0 -z-1 w-[72%]" style={{ background: tone.placeholder }}>
+        {/* The placeholder only until the cover lands: a square cover is narrower than this span, and the
+            colour left beside it would show as a hard band against the stripe. */}
+        <span className="absolute inset-y-0 right-0 -z-1 w-[72%]" style={{ background: loaded ? undefined : tone.placeholder }}>
           {artwork && (
             <img
               src={artwork}

@@ -105,7 +105,7 @@ export function AccountButton() {
                       key={channel.id}
                       checked={channel.id === active.id}
                       icon={<Avatar src={channel.avatarUrl} name={channel.name} size={20} />}
-                      trailing={channel.brand ? 'Brand' : undefined}
+                      trailing={channel.brand ? 'Brand Account' : undefined}
                       onSelect={() => {
                         close();
                         if (channel.id !== active.id) select.mutate(channel.id);
@@ -126,6 +126,8 @@ export function AccountButton() {
               >
                 Add Account
               </MenuItem>
+              {/* Apart from Add Account, so a slip doesn't disconnect. */}
+              <MenuSeparator />
               <MenuItem
                 destructive
                 onSelect={() => {

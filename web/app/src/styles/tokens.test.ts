@@ -28,11 +28,11 @@ describe('tokens.css', () => {
     for (const [scheme, selector] of [['LightColors', ':root'], [`DarkColors`, ":root[data-theme='dark']"]] as const) {
       const body = kt.slice(kt.indexOf(`val ${scheme} =`), kt.indexOf('\n)', kt.indexOf(`val ${scheme} =`)));
       const css = block(selector);
-      const pairs = [...body.matchAll(/(\w+) = Color(?:\(0xFF([0-9A-Fa-f]{6})\)|\.(White|Black))/g)].filter(([, role]) => token[role]);
+      const pairs = [...body.matchAll(/(\w+) = Color(?:\(0xFF([0-9A-Fa-f]{6})\)|\.(White|Black))/g)]
+        .map(([, role = '', hex, name = '']) => ({ name: token[role], value: hex ? `#${hex.toLowerCase()}` : named[name] }))
+        .filter((pair) => pair.name);
       expect(pairs.length, scheme).toBe(Object.keys(token).length);
-      for (const [, role, hex, name] of pairs) {
-        expect(css, `${scheme}.${role} -> ${token[role]}`).toContain(`${token[role]}: ${hex ? `#${hex.toLowerCase()}` : named[name]};`);
-      }
+      for (const { name, value } of pairs) expect(css, `${scheme} ${name}`).toContain(`${name}: ${value};`);
     }
   });
 

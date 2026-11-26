@@ -3231,6 +3231,8 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute == AppRoute.WearOs) {
                             WearOsScreen(contentPadding = listPadding)
+                        } else if (pageRoute == AppRoute.DesktopConnect) {
+                            com.music.bitchord.ui.screens.DesktopConnectScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.DriveBackup) {
                             DriveBackupScreen(
                                 contentPadding = listPadding,
@@ -3304,6 +3306,7 @@ private fun BitChordApp(
                                 onTranslationLanguage = { showTranslationLanguage = true },
                                 onSources = { navigator.push(AppRoute.Sources) },
                                 onListenTogether = { navigator.push(AppRoute.ListenTogether) },
+                                onDesktopConnect = { navigator.push(AppRoute.DesktopConnect) },
                                 onWearOs = { navigator.push(AppRoute.WearOs) },
                                 onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                                 onAppLanguage = { showAppLanguage = true },
@@ -4002,6 +4005,7 @@ private fun BitChordApp(
                         AppRoute.AccountScrobbling -> stringResource(R.string.account_scrobbling)
                         AppRoute.Sources -> stringResource(R.string.sources)
                         AppRoute.ListenTogether -> stringResource(R.string.listen_together)
+                        AppRoute.DesktopConnect -> "Connect (LAN Remote)"
                         AppRoute.WearOs -> stringResource(R.string.wear_os_page_title)
                         AppRoute.DriveBackup -> stringResource(R.string.drive_backup_title)
                         AppRoute.DriveDevices -> stringResource(R.string.drive_devices_title)

@@ -91,6 +91,7 @@ export function VolumeControl({ open, onOpen, className, iconSize = 20 }: Volume
       <button
         className={className}
         aria-label={muted ? 'Unmute' : 'Mute'}
+        title={muted ? 'Unmute (M)' : 'Mute (M)'}
         aria-pressed={muted}
         onClick={toggleMute}
         onPointerEnter={onOpen}

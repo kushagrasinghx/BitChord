@@ -45,6 +45,7 @@ function BottomGlyph({ icon: Icon, label, lit, onClick, className = '' }: { icon
       className={`relative grid flex-none place-items-center text-white/75 transition-[translate] duration-220 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${className}`}
       style={{ width: ACTION, height: ACTION }}
       aria-label={label}
+      title={label}
       aria-pressed={lit}
       onClick={onClick}
     >
@@ -72,6 +73,7 @@ function Segment({ label, lit, onClick, children }: { label: string; lit?: boole
       className="grid h-full flex-none place-items-center text-white/75 transition-colors duration-200 aria-pressed:bg-white/14 aria-pressed:text-white"
       style={{ width: SEGMENT }}
       aria-label={label}
+      title={label}
       aria-pressed={lit}
       onClick={onClick}
     >

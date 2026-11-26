@@ -34,6 +34,7 @@ export function Transport({ compact }: { compact: boolean }) {
         className={`${glyph} size-[53px]`}
         disabled={!hasTrack}
         aria-label="Previous"
+        title="Previous (Shift+←)"
         onClick={() => {
           setSkips((s) => ({ ...s, previous: s.previous + 1 }));
           previous();
@@ -57,6 +58,7 @@ export function Transport({ compact }: { compact: boolean }) {
           style={{ width: playTouch, height: playTouch }}
           disabled={!hasTrack}
           aria-label={playing ? 'Pause' : 'Play'}
+          title={playing ? 'Pause (Space)' : 'Play (Space)'}
           onClick={togglePlay}
         >
           <PlayPauseGlyph playing={playing} size={playSize} />
@@ -66,6 +68,7 @@ export function Transport({ compact }: { compact: boolean }) {
         className={`${glyph} size-[53px]`}
         disabled={!hasTrack || !hasNext}
         aria-label="Next"
+        title="Next (Shift+→)"
         onClick={() => {
           setSkips((s) => ({ ...s, next: s.next + 1 }));
           next();

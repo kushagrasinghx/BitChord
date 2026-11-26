@@ -113,7 +113,6 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
   const browserFullScreen = useBrowserFullScreen();
   // Whether this player put the page in the browser's full screen, so closing it leaves it again.
   const enteredBrowserFullScreen = useRef(false);
-  const handle = useRef<HTMLButtonElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
@@ -122,7 +121,8 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    handle.current?.focus({ preventScroll: true });
+    // The dialog itself, not its first button: no stray focus box, and Tab starts at Close.
+    sheet.current?.focus({ preventScroll: true });
     return () => {
       if (enteredBrowserFullScreen.current && document.fullscreenElement) void document.exitFullscreen();
       opener?.focus({ preventScroll: true });
@@ -234,6 +234,7 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
         role="dialog"
         aria-modal="true"
         aria-label="Now Playing"
+        tabIndex={-1}
         data-full-screen
         data-player
         data-paused={!playing || undefined}
@@ -251,11 +252,12 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
           </div>
         )}
 
-        {/* The handle (LandscapePlayer.kt): a 38×5 bar, white at 70%, 8px down. Click it, drag it down, or press Esc. */}
+        {/* The handle (LandscapePlayer.kt): a 38×5 bar, white at 70%, 8px down. Click it, drag it down, or press Esc.
+            A pointer's handle only: the keyboard and screen readers have Close player beside it. */}
         <button
-          ref={handle}
+          tabIndex={-1}
+          aria-hidden="true"
           className="absolute top-0 left-1/2 z-1 grid h-6 w-16 -translate-x-1/2 cursor-grab place-items-start justify-center pt-2 active:cursor-grabbing"
-          aria-label="Close"
           onPointerDown={drag.onPointerDown}
           onClick={close}
         >
@@ -274,6 +276,7 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
           <button
             className="absolute top-2 right-3 z-1 grid size-8 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
             aria-label={browserFullScreen ? 'Exit full screen' : 'Enter full screen'}
+            title={browserFullScreen ? 'Exit full screen' : 'Enter full screen'}
             onClick={toggleBrowserFullScreen}
           >
             {browserFullScreen ? <Minimize size={16} /> : <Maximize size={16} />}

@@ -111,6 +111,11 @@ export function useScrubber() {
         if (span) span.style.opacity = mix.active ? String(1 - mix.cover) : '';
       }
       if (mixLabel.current) mixLabel.current.style.opacity = mix.active ? String(mix.cover * (0.35 + 0.65 * mix.alpha)) : '0';
+      // The slider's value for assistive tech, written with the bar rather than through a render.
+      const slider = element.closest('[role="slider"]');
+      slider?.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
+      slider?.setAttribute('aria-valuenow', String(Math.round(time)));
+      slider?.setAttribute('aria-valuetext', `${clock(time)} of ${clock(duration || 0)}`);
       if (dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
       // Plain playback moves the bar a pixel or two a second: four redraws a second are enough,
       // rather than one per display refresh for as long as music plays. Still through a frame,
@@ -133,6 +138,21 @@ export function useScrubber() {
   };
 
   const handlers = {
+    // A real slider for the keyboard and screen readers; the arrows step as the app's ←/→ do.
+    role: 'slider' as const,
+    tabIndex: 0,
+    'aria-label': 'Seek',
+    'aria-valuemin': 0,
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      const audio = getAudio();
+      if (!audio || !Number.isFinite(audio.duration)) return;
+      const now = getPlayhead()?.sec ?? audio.currentTime;
+      const step = ({ ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 } as Record<string, number>)[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? audio.duration : step === undefined ? null : now + step;
+      if (to === null) return;
+      e.preventDefault();
+      seek(Math.min(audio.duration, Math.max(0, to)));
+    },
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (!getAudio()) return;
       e.currentTarget.setPointerCapture(e.pointerId);

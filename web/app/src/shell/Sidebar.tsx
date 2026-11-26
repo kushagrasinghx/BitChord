@@ -225,8 +225,11 @@ export function Sidebar() {
             <span className="type-[700_19px/24px] tracking-[-0.01em] rail:sr-only">BitChord</span>
           </PrefetchLink>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none] rail:px-3">
+        {/* The tabs stay put; only the playlists under them scroll. */}
+        <div className="pr-3 pl-5 rail:px-3">
           <TabList onNavigate={close} />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none] rail:px-3">
           {/* Rows of playlist names have no glyph worth a rail; Library and its own pages still reach them. */}
           <div className="rail:hidden">
             {signedIn && <LibraryNav onNavigate={close} />}

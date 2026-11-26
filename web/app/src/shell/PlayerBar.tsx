@@ -136,7 +136,6 @@ function BarScrubber({ scrubber }: { scrubber: ReturnType<typeof useScrubber> })
       idle={3}
       pressed={5}
       data-scrubber
-      aria-hidden="true"
       className="absolute inset-x-7 -bottom-[5px] [--slider-fill:color-mix(in_srgb,var(--color-primary)_72%,transparent)] [--slider-track:color-mix(in_srgb,var(--color-primary)_14%,transparent)] max-lg:hidden"
       style={{ height: 16 }}
       onPointerEnter={() => setOver(true)}
@@ -215,6 +214,7 @@ export function PlayerBar() {
           className={`${slot} me-2 max-lg:hidden`}
           disabled={!hasTrack}
           aria-label="Previous"
+          title="Previous (Shift+←)"
           onClick={() => {
             setSkips((s) => ({ ...s, previous: s.previous + 1 }));
             previous();
@@ -230,7 +230,7 @@ export function PlayerBar() {
             <span className="size-[22px] animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           </span>
         ) : (
-          <button className={slot} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>
+          <button className={slot} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'} onClick={togglePlay}>
             <PlayPauseGlyph playing={playing} size={32} mini />
           </button>
         )}
@@ -239,6 +239,7 @@ export function PlayerBar() {
           className={`${slot} ms-2`}
           disabled={!hasTrack || !hasNext}
           aria-label="Next"
+          title="Next (Shift+→)"
           onClick={() => {
             setSkips((s) => ({ ...s, next: s.next + 1 }));
             next();
@@ -258,10 +259,10 @@ export function PlayerBar() {
           }}
         >
           {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
-          <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
+          <button className={fading} aria-label="Lyrics" title="Lyrics (L)" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
             {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}
           </button>
-          <button className={fading} aria-label="Up Next" aria-pressed={sidePanel === 'up-next'} onClick={() => toggleSidePanel('up-next')}>
+          <button className={fading} aria-label="Up Next" title="Up Next (Q)" aria-pressed={sidePanel === 'up-next'} onClick={() => toggleSidePanel('up-next')}>
             <UpNextIcon size={18} />
           </button>
           {track ? <TrackMenu track={track} className={fading} placement="above-end" player /> : <span className="size-8" />}

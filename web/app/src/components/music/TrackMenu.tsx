@@ -262,6 +262,7 @@ export function TrackMenu({
     <button
       className={className}
       aria-label={`More options for ${track.title}`}
+      title="More options"
       aria-haspopup="menu"
       aria-expanded={menuUp}
       data-open={open || undefined}

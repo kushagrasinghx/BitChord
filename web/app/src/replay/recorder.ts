@@ -1,4 +1,5 @@
 import type { ReplayMonth, ReplayTally } from '@bitchord/shared-kotlin';
+import { isLocalId } from '@/data/local/ids';
 import { trackLog } from '@/playback/trackLog';
 import { getPlayhead, usePlayer } from '@/state/player';
 import { monthKey } from './periods';
@@ -85,7 +86,8 @@ function sample() {
     entry?.album?.name ?? null,
     entry?.album?.id ?? null,
     entry?.artists[0]?.id ?? null,
-    entry?.thumbnail ?? nowPlaying.artworkUrl,
+    // A local file's cover is a blob URL that dies with the visit, so the Replay keeps none for it.
+    isLocalId(nowPlaying.videoId) ? null : (entry?.thumbnail ?? nowPlaying.artworkUrl),
   );
   void enqueue(async () => {
     const at = new Date(now);

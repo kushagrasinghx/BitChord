@@ -1,6 +1,7 @@
 import { ListEnd, ListPlus, ListStart, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PlayIcon } from '@/components/icons/Transport';
+import { isLocalId } from '@/data/local/ids';
 import { useSignedIn } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
 import type { QueueSource } from '@/playback/queue/timeline';
@@ -64,7 +65,8 @@ export function SelectionBar({ tracks, source, onClear }: { tracks: Track[]; sou
           <button className={action} onClick={done(() => usePlayer.getState().addToQueue(tracks, source))}>
             <ListEnd size={16} /> Add to Queue
           </button>
-          {signedIn && (
+          {/* A YouTube playlist can't hold a local file. */}
+          {signedIn && !tracks.some((t) => isLocalId(t.videoId)) && (
             <button className={action} aria-haspopup="dialog" onClick={() => setPicking(true)}>
               <ListPlus size={16} /> Add to Playlist
             </button>

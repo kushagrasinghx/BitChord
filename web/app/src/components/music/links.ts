@@ -1,7 +1,9 @@
+import { isLocalGroupId, localGroupHref } from '@/data/local/ids';
 import type { BrowseLink, MusicItem } from '@/data/music/types';
 
 /** Where tapping an item goes; null for songs and videos, which play instead. */
 export function hrefFor(item: Pick<MusicItem, 'kind' | 'id'>): string | null {
+  if (isLocalGroupId(item.id)) return localGroupHref(item.id);
   switch (item.kind) {
     case 'album':
       return `/album/${encodeURIComponent(item.id)}`;
@@ -18,11 +20,14 @@ export function hrefFor(item: Pick<MusicItem, 'kind' | 'id'>): string | null {
   }
 }
 
+// A local file credits its LocalGroups pages (LocalGroups.kt), which open in Library › Local music.
 export function artistHref(id: string | null): string | null {
+  if (isLocalGroupId(id)) return localGroupHref(id!);
   return id ? `/artist/${encodeURIComponent(id)}` : null;
 }
 
 export function albumHref(id: string | null): string | null {
+  if (isLocalGroupId(id)) return localGroupHref(id!);
   return id ? `/album/${encodeURIComponent(id)}` : null;
 }
 

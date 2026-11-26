@@ -20,6 +20,7 @@ import {
 import { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { MenuItem, MenuQuickAction, MenuQuickActions, MenuSeparator, type MenuPlacement } from '@/components/Menu';
+import { isLocalId } from '@/data/local/ids';
 import { fetchRadio } from '@/data/music/api';
 import { useLikeStatus, useSetDisliked, useSetLiked, useSignedIn } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
@@ -140,6 +141,8 @@ function DownloadRow({ track }: { track: Track }) {
  * Download (where this device can keep files);
  * Go to album, Go to artist, Song info; and in the player's own menu the
  * sleep timer, AutoMix and lyrics offset. Account rows only signed in.
+ * A local file keeps only what isn't YouTube's: the queue rows and its own
+ * album and artist pages (LocalFolder.kt's song actions, on the phone).
  */
 export function TrackMenuItems({ track, player }: { track: Track; player?: boolean }) {
   const signedIn = useSignedIn();
@@ -149,6 +152,7 @@ export function TrackMenuItems({ track, player }: { track: Track; player?: boole
   const { playNext, addToQueue, setAutomix } = usePlayer.getState();
   const [page, setPage] = useState<'sleep' | 'offset' | null>(null);
   const artist = track.artists[0];
+  const local = isLocalId(track.videoId);
   const go = (to: Promise<string>) => {
     close();
     void to.then((href) => {
@@ -163,8 +167,8 @@ export function TrackMenuItems({ track, player }: { track: Track; player?: boole
   if (page === 'offset') return <LyricsOffsetItems onBack={() => setPage(null)} />;
   return (
     <>
-      <QuickTiles track={track} signedIn={signedIn} onShared={close} />
-      {signedIn && (
+      {!local && <QuickTiles track={track} signedIn={signedIn} onShared={close} />}
+      {signedIn && !local && (
         <>
           <MenuSeparator />
           <MenuItem icon={<ListPlus />} onSelect={() => openDialog({ kind: 'playlists', tracks: [track] })}>
@@ -172,10 +176,14 @@ export function TrackMenuItems({ track, player }: { track: Track; player?: boole
           </MenuItem>
         </>
       )}
-      <MenuSeparator />
-      <MenuItem icon={<Radio />} onSelect={() => (close(), void startRadio(track))}>
-        Start radio
-      </MenuItem>
+      {!local && (
+        <>
+          <MenuSeparator />
+          <MenuItem icon={<Radio />} onSelect={() => (close(), void startRadio(track))}>
+            Start radio
+          </MenuItem>
+        </>
+      )}
       <MenuItem icon={<ListStart />} onSelect={() => (close(), playNext([track]))}>
         Play next
       </MenuItem>
@@ -183,9 +191,9 @@ export function TrackMenuItems({ track, player }: { track: Track; player?: boole
         Add to queue
       </MenuItem>
       {/* The Library hub's check: without Cache Storage there is nowhere to keep the file. */}
-      {offlineSupported() && <DownloadRow track={track} />}
+      {offlineSupported() && !local && <DownloadRow track={track} />}
       <MenuSeparator />
-      {(track.album || player) && (
+      {(track.album || (player && !local)) && (
         <MenuItem
           icon={<Disc3 />}
           description={track.album?.name}
@@ -203,9 +211,11 @@ export function TrackMenuItems({ track, player }: { track: Track; player?: boole
           Go to artist
         </MenuItem>
       )}
-      <MenuItem icon={<Info />} onSelect={() => openDialog({ kind: 'info', track })}>
-        Song info
-      </MenuItem>
+      {!local && (
+        <MenuItem icon={<Info />} onSelect={() => openDialog({ kind: 'info', track })}>
+          Song info
+        </MenuItem>
+      )}
       {player && (
         <>
           <MenuSeparator />

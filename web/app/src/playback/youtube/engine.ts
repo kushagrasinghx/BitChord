@@ -5,6 +5,7 @@ import { Constants, Utils, YT, type Innertube } from 'youtubei.js/web';
 import { timed, trackLog } from '../trackLog';
 import { botguard } from './botguard';
 import { ytAuthSnapshot } from '@/extension/useYtAuth';
+import { isLocalId } from '@/data/local/ids';
 import { offlineCopy, type OfflineTrack } from '../offline/store';
 import { getInnertube, getSignedInnertube } from './innertube';
 import {
@@ -28,8 +29,8 @@ export interface LoadedTrack {
   durationSec: number;
   /** Largest first. */
   thumbnails: { url: string; width: number; height: number }[];
-  /** OFFLINE: played from the downloaded copy (playback/offline). */
-  client: PlayerClientName | 'OFFLINE';
+  /** OFFLINE: played from the downloaded copy (playback/offline); LOCAL: a file in the Local Music folder (data/local). */
+  client: PlayerClientName | 'OFFLINE' | 'LOCAL';
   /** The audio format actually selected, e.g. "251 opus 140kbps". */
   format: string;
   /** The same, field by field, for stats for nerds. */
@@ -45,7 +46,7 @@ export interface StreamStats {
   bitrateKbps: number | null;
   sampleRateHz: number | null;
   channels: number | null;
-  /** "direct" (googlevideo URLs, by range), "SABR", or "file" (the downloaded copy). */
+  /** "direct" (googlevideo URLs, by range), "SABR", or "file" (the downloaded copy, or a local file). */
   mode: 'direct' | 'SABR' | 'file';
 }
 
@@ -71,6 +72,17 @@ export class SupersededError extends Error {
 
 /** How long to wait before re-asking after the server sent no media (its backoffs measured 0-2s). */
 const RETRY_STREAMING_SECONDS = 2;
+
+/** What stats for nerds calls a file's audio, by the type it was loaded as (data/local/scan.ts mimeOf). */
+const CODECS: Record<string, string> = {
+  'audio/webm': 'Opus',
+  'audio/mp4': 'AAC',
+  'audio/aac': 'AAC',
+  'audio/mpeg': 'MP3',
+  'audio/flac': 'FLAC',
+  'audio/ogg': 'Ogg',
+  'audio/wav': 'WAV',
+};
 
 /** Waiting longer than this for the first audio means the client's stream isn't going to start. */
 const FIRST_AUDIO_TIMEOUT_MS = 15_000;
@@ -169,7 +181,10 @@ export class YouTubeEngine {
     try {
       const player = await this.ensurePlayer();
       // A downloaded copy plays first, online or not: no session, no request, no stream to lose.
-      const offline = await offlineCopy(videoId).catch(() => null);
+      // A local file plays the same way, from its handle; one that can't be read fails the load.
+      const offline = isLocalId(videoId)
+        ? await import('@/data/local/library').then((m) => m.localCopy(videoId))
+        : await offlineCopy(videoId).catch(() => null);
       this.checkCurrent(generation);
       if (offline) return await this.startOffline(player, offline, startSec, autoplay, generation);
       this.yt ??= await timed('InnerTube session', videoId, getInnertube);
@@ -337,15 +352,16 @@ export class YouTubeEngine {
       });
     }
     await this.firstAudio(generation);
-    const codec = track.mimeType === 'audio/webm' ? 'Opus' : 'AAC';
-    trackLog.i(`playing the downloaded copy (${codec}, ${Math.round(track.sizeBytes / 1024)} KB)`, track.videoId);
+    const codec = CODECS[track.mimeType] ?? 'AAC';
+    const local = isLocalId(track.videoId);
+    trackLog.i(`playing the ${local ? 'local file' : 'downloaded copy'} (${codec}, ${Math.round(track.sizeBytes / 1024)} KB)`, track.videoId);
     return {
       videoId: track.videoId,
       title: track.title,
       author: track.author,
       durationSec: track.durationSec || Math.round(this.audio.duration) || 0,
       thumbnails: track.thumbnail ? [{ url: track.thumbnail, width: 0, height: 0 }] : [],
-      client: 'OFFLINE',
+      client: local ? 'LOCAL' : 'OFFLINE',
       format: `${codec} file`,
       stream: { codec, itag: null, bitrateKbps: null, sampleRateHz: null, channels: null, mode: 'file' },
       loudnessDb: null,

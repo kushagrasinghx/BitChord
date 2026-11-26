@@ -40,7 +40,7 @@ fn main() {
             }
         }))
         .register_uri_scheme_protocol(sign_in::SCHEME, |_ctx, _request| sign_in::serve())
-        .invoke_handler(tauri::generate_handler![media_session::media_session])
+        .invoke_handler(tauri::generate_handler![media_session::media_session, title_bar::title_bar_theme])
         .on_window_event(|window, event| {
             if let WindowEvent::Resized(_) = event {
                 sign_in::relayout(window.app_handle());
@@ -71,6 +71,7 @@ fn main() {
                     include_str!("../shell/player.css")
                 ))
                 .initialization_script(include_str!("../shell/media-session.js"))
+                .initialization_script(include_str!("../shell/title-bar.js"))
                 .build()?;
             if let Some(webview) = app.get_webview_window("main") {
                 logs::start(&webview);

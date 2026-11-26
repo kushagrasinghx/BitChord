@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Download, History, Plus } from 'lucide-react';
+import { ChevronRight, Download, Folder, History, Plus } from 'lucide-react';
 import { useState, type ComponentType, type ReactNode } from 'react';
 import { SiSpotify } from 'react-icons/si';
 import { useNavigate } from 'react-router';
@@ -10,6 +10,7 @@ import { SkeletonBlock } from '@/components/Skeleton';
 import { LibraryReplayCards } from '@/components/music/LibraryReplayCards';
 import { CircleLockup, SquareLockup } from '@/components/music/Lockups';
 import { NeedsExtension } from '@/components/music/States';
+import { localMusicSupported } from '@/data/local/settings';
 import { createPlaylist } from '@/data/music/api';
 import type { LibrarySection } from '@/data/music/library';
 import { isPinned, pinnedFirst, usePinnedPlaylists } from '@/data/music/pinnedPlaylists';
@@ -278,6 +279,8 @@ export default function LibraryHubPage() {
 
   const links: FolderLink[] = [
     ...(offlineSupported() ? [{ to: '/library/downloads', title: 'Downloads', Icon: Download }] : []),
+    // After Downloads, as LibraryPhoneParts.kt libraryLinks orders them; only where a folder can be opened.
+    ...(localMusicSupported() ? [{ to: '/library/local', title: 'Local Music', Icon: Folder }] : []),
     // The phone keeps history behind a top-bar button on this page; here it is one of the folders.
     ...(signedIn ? [{ to: '/library/recent', title: 'History', Icon: History }] : []),
     { to: '/spotify', title: 'Spotify', Icon: SiSpotify },

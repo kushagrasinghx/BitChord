@@ -1,5 +1,6 @@
 import type { DetectedExtension } from '@bitchord/shared/bridge';
 import { create } from 'zustand';
+import { isLocalId } from '@/data/local/ids';
 import type { Track } from '@/data/music/types';
 import { extensionQueryKey } from '@/extension/useExtension';
 import { artworkAtPixels } from '@/lib/artwork';
@@ -807,7 +808,8 @@ async function startAt(at: number, { startSec = 0, auto = false, autoplay = true
   cancelCrossfade();
   const token = ++loadToken;
 
-  if (!extensionReady()) {
+  // A file in the Local Music folder plays without YouTube, so without the extension.
+  if (!isLocalId(entry.track.videoId) && !extensionReady()) {
     usePlayer.setState({
       index: at,
       nowPlaying: { ...hintOf(entry.track), title: entry.track.title || 'Can’t play this here yet' },
@@ -943,7 +945,8 @@ function refillAutoplay(force = false, anySeed = false): Promise<void> {
       .reverse()
       .find((e) => !exhaustedSeeds.has(e.track.videoId))?.track;
   }
-  if (!playing || !seed || exhaustedSeeds.has(seed.videoId)) return Promise.resolve();
+  // A local file has no YouTube radio to carry on from.
+  if (!playing || !seed || exhaustedSeeds.has(seed.videoId) || isLocalId(seed.videoId)) return Promise.resolve();
   if (!force && autoplaySeed === seed.videoId) return Promise.resolve();
   autoplaySeed = seed.videoId;
   refilling ??= (async () => {

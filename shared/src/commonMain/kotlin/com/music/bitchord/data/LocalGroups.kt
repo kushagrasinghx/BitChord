@@ -4,8 +4,6 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.LocalMusicSort
 import com.music.bitchord.download.DownloadedCollection
-import com.music.bitchord.download.Downloads
-import java.util.Locale
 
 /**
  * One album, playlist or artist inside a device folder, opened from the
@@ -39,6 +37,10 @@ data class LocalGroup(
  * Kept out of the UI because both sides need it: the folder draws the
  * groupings, and the view model has to rebuild one from a fresh listing when
  * its page is reloaded or reopened by id.
+ *
+ * In commonMain, moved out of app/, so the web player's Local Music groups
+ * files by the same rules and addresses its pages by the same ids (it reaches
+ * this through shared/src/jsMain/.../web/LocalWeb.kt).
  */
 object LocalGroups {
     /**
@@ -65,6 +67,13 @@ object LocalGroups {
         "$PREFIX$kind:${folderId.removePrefix("local:")}:$name"
 
     private val KINDS = setOf(ALBUM, ARTIST, FOLDER)
+
+    /**
+     * `Downloads.PLAYLIST_PREFIX`, which stays with the Android downloader:
+     * [albumsOf] opens a release downloaded whole on its record's page.
+     * LocalGroupsTest checks the two agree.
+     */
+    private const val DOWNLOADED_PREFIX = "local:playlist:"
 
     private class Parsed(val kind: String, val folderId: String, val name: String)
 
@@ -130,7 +139,7 @@ object LocalGroups {
     ): List<LocalGroup> {
         val asked = collections.map { collection ->
             LocalGroup(
-                browseId = Downloads.pageIdFor(collection.id),
+                browseId = DOWNLOADED_PREFIX + collection.id,
                 title = collection.title,
                 // A playlist's tracks are off forty releases, so the first
                 // one's artist is no credit for it.
@@ -143,19 +152,19 @@ object LocalGroups {
                 downloadId = collection.id,
             )
         }
-        val claimed = asked.mapTo(HashSet()) { it.title.lowercase(Locale.ROOT) }
+        val claimed = asked.mapTo(HashSet()) { it.title.lowercase() }
         val derived = songs
             .groupBy { it.albumName }
             .mapNotNull { (name, group) ->
                 // Null is every track that never said what release it was off,
                 // and there is no row to draw for "no album" — those are the
                 // Songs tab's and nothing else's.
-                if (name == null || name.lowercase(Locale.ROOT) in claimed) return@mapNotNull null
+                if (name == null || name.lowercase() in claimed) return@mapNotNull null
                 album(folderId, name, group)
             }
         return (asked + derived).sortedWith(
             compareByDescending<LocalGroup> { it.downloadId != null }
-                .thenBy { it.title.lowercase(Locale.ROOT) },
+                .thenBy { it.title.lowercase() },
         )
     }
 
@@ -166,7 +175,7 @@ object LocalGroups {
     fun artistsOf(folderId: String, songs: List<Song>): List<LocalGroup> =
         songs.groupBy { it.artist }
             .map { (name, group) -> artist(folderId, name, group) }
-            .sortedBy { it.title.lowercase(Locale.ROOT) }
+            .sortedBy { it.title.lowercase() }
 
     /**
      * The Folders tab: every directory on the device holding any of [songs],
@@ -183,7 +192,7 @@ object LocalGroups {
                 if (path == null) return@mapNotNull null
                 folder(folderId, path, group)
             }
-            .sortedWith(compareBy<LocalGroup> { it.title.lowercase(Locale.ROOT) }.thenBy { it.subtitle })
+            .sortedWith(compareBy<LocalGroup> { it.title.lowercase() }.thenBy { it.subtitle })
 
     /**
      * The grouping [browseId] names, rebuilt from [songs] — its own rows, as
@@ -257,7 +266,7 @@ fun Song.matchesSearch(query: String): Boolean =
 /** A device folder's running order, per the sort its top bar menu picked. */
 fun List<Song>.sortedForLibrary(order: LocalMusicSort): List<Song> = when (order) {
     LocalMusicSort.TITLE_ASC -> sortedByTitle()
-    LocalMusicSort.TITLE_DESC -> sortedWith(compareByDescending<Song> { it.title.lowercase(Locale.ROOT) })
+    LocalMusicSort.TITLE_DESC -> sortedWith(compareByDescending<Song> { it.title.lowercase() })
     LocalMusicSort.DATE_ADDED -> sortedWith(
         compareByDescending<Song> { it.localDateAddedSeconds ?: Long.MIN_VALUE }
             .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title },

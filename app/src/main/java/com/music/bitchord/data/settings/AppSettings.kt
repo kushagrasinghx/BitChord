@@ -153,13 +153,7 @@ enum class EqualizerMode {
     MANUAL,
 }
 
-/** Stable persisted ordering for each on-device music library. */
-enum class LocalMusicSort {
-    TITLE_ASC,
-    TITLE_DESC,
-    DATE_ADDED,
-    DATE_MODIFIED,
-}
+// LocalMusicSort is in shared/commonMain, beside the sortedForLibrary that reads it.
 
 /**
  * App settings, backed by SharedPreferences and exposed as flows.

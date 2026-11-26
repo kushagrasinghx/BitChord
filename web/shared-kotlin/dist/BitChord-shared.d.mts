@@ -120,6 +120,48 @@ export declare namespace MixGroups {
 export declare function groupMixes(ids: Array<string>, titles: Array<string>, englishTitles: Array<string>): MixGroups;
 export declare function songSorts(): Array<string>;
 export declare function detailSortOrder(titles: Array<string>, sort: string): Array<number>;
+export declare class LocalRow {
+    constructor(title: string, artist: string, album: Nullable<string>, path: Nullable<string>, trackNumber: Nullable<number>, thumbnailUrl: Nullable<string>);
+    get title(): string;
+    get artist(): string;
+    get album(): Nullable<string>;
+    get path(): Nullable<string>;
+    get trackNumber(): Nullable<number>;
+    get thumbnailUrl(): Nullable<string>;
+}
+export declare namespace LocalRow {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => LocalRow;
+    }
+}
+export declare class LocalGroupRow {
+    constructor(browseId: string, title: string, subtitle: string, thumbnailUrl: Nullable<string>, kind: string, songs: Array<number>);
+    get browseId(): string;
+    get title(): string;
+    get subtitle(): string;
+    get thumbnailUrl(): Nullable<string>;
+    get kind(): string;
+    get songs(): Array<number>;
+}
+export declare namespace LocalGroupRow {
+    /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+    namespace $metadata$ {
+        const constructor: abstract new () => LocalGroupRow;
+    }
+}
+export declare function localAlbums(folderId: string, rows: Array<LocalRow>): Array<LocalGroupRow>;
+export declare function localArtists(folderId: string, rows: Array<LocalRow>): Array<LocalGroupRow>;
+export declare function localFolders(folderId: string, rows: Array<LocalRow>): Array<LocalGroupRow>;
+export declare function localGroup(browseId: string, rows: Array<LocalRow>): Nullable<LocalGroupRow>;
+export declare function localGroupKind(browseId: string): Nullable<string>;
+export declare function localAlbumPageId(folderId: string, name: string): string;
+export declare function localArtistPageId(folderId: string, name: string): string;
+export declare function localUseTrackTags(rows: Array<LocalRow>): boolean;
+export declare function isEligibleLocalMusic(durationMs: number, displayName: string, path: Nullable<string>): boolean;
+export declare function localTrackNumber(raw: Nullable<string>): Nullable<number>;
+export declare function localCleanTag(raw: Nullable<string>): Nullable<string>;
+export declare function localTitle(tag: Nullable<string>, fileName: string): string;
 export declare class LyricClock {
     constructor(startMs: number);
     get displayedMs(): number;

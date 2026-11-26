@@ -1,4 +1,5 @@
 import { lastPlayedWindow } from '@bitchord/shared-kotlin';
+import { isLocalId } from '@/data/local/ids';
 import type { QueueEntry } from '@/playback/queue/timeline';
 import { getPlayhead, restoreQueue, usePlayer } from '@/state/player';
 
@@ -48,6 +49,10 @@ export function parseSaved(raw: string | null): SavedQueue | null {
 export function keepLastQueue(): void {
   const saved = parseSaved(localStorage.getItem(KEY));
   if (saved) restoreQueue(saved.queue, saved.index, saved.positionSec);
+  // Local files come back with last visit's cover URLs, which died with it.
+  if (saved?.queue.some((e) => isLocalId(e.track.videoId))) {
+    void import('@/data/local/library').then((m) => m.startLocalLibrary().then(m.refreshQueueArtwork));
+  }
   // Until the restored song plays, there's no element to read its position from.
   let unplayedSec = saved?.positionSec ?? 0;
 

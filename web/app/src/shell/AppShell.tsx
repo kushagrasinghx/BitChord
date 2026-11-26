@@ -5,6 +5,7 @@ import { useDiscordPresence } from '@/playback/discordPresence';
 import { startHistoryReporting } from '@/playback/historyReporting';
 import { startLivePresence } from '@/playback/livePresence';
 import { startListeningRecorder } from '@/replay/recorder';
+import { localMusicSupported, useLocalSettings } from '@/data/local/settings';
 import { Outlet, useLocation, useNavigationType } from 'react-router';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { config } from '@/config';
@@ -104,6 +105,10 @@ export function AppShell() {
   useEffect(() => startLivePresence(), []);
   // Counts what plays here for the Replay, as the phone's ListeningRecorder does.
   useEffect(() => startListeningRecorder(), []);
+  // Local Music's index, and a rescan if the folder may be read (data/local): only once a folder has been chosen.
+  useEffect(() => {
+    if (useLocalSettings.getState().folder && localMusicSupported()) void import('@/data/local/library').then((m) => m.startLocalLibrary());
+  }, []);
   const extension = useExtension();
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);

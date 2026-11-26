@@ -261,6 +261,13 @@
       "name": "Full-screen player: layout, transport, seek, volume, lyrics and queue panes, backdrop, sheet",
       "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LandscapePlayer.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerControls.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ThinSlider.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerQueue.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ArtworkMeshBackdrop.kt", "app/src/main/java/com/music/bitchord/MainActivity.kt"],
       "web": ["web/app/src/shell/FullScreenPlayer.tsx", "web/app/src/shell/player/", "web/app/src/shell/LyricsPanel.tsx", "web/app/src/shell/UpNext.tsx"]
+    },
+    {
+      "id": "local-music",
+      "name": "Local Music: the chosen folder, its scan and tags, the Songs/Artists/Albums/Folders tabs and their pages, the non-music filter",
+      "android": ["app/src/main/java/com/music/bitchord/data/LocalMediaRepository.kt", "app/src/main/java/com/music/bitchord/ui/screens/LocalFolder.kt", "app/src/main/java/com/music/bitchord/ui/screens/SettingsSheet.kt", "app/src/main/java/com/music/bitchord/ui/screens/LibraryPhoneParts.kt"],
+      "web": ["web/app/src/data/local/", "web/app/src/pages/LocalMusicPage.tsx", "web/app/src/pages/LocalGroupPage.tsx", "web/app/src/pages/LocalMusicSettings.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/LocalGroups.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/LocalMusicRules.kt", "shared/src/jsMain/kotlin/com/music/bitchord/web/LocalWeb.kt"]
     }
   ]
 }

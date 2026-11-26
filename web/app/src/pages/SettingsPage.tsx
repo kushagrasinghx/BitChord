@@ -1,4 +1,4 @@
-import { Archive, ChevronLeft, CircleArrowDown, CircleEllipsis, CirclePlay, History, PaintbrushVertical, Puzzle, Search, User, Users, Video, X } from 'lucide-react';
+import { Archive, ChevronLeft, CircleArrowDown, CircleEllipsis, CirclePlay, History, LibraryBig, PaintbrushVertical, Puzzle, Search, User, Users, Video, X } from 'lucide-react';
 import { useState, type ComponentType } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { SiDiscord, SiSpotify } from 'react-icons/si';
@@ -13,6 +13,7 @@ import { offlineSupported } from '@/playback/offline/store';
 import { AppearanceSettings } from './AppearanceSettings';
 import { DownloadsSettings, PremiumAudioToggle, YourDataSettings } from './DataSettings';
 import { ContentSettings, SpotifyIntegration } from './IntegrationSettings';
+import { LocalMusicSettings } from './LocalMusicSettings';
 import { MiscSettings, PlaybackSettings } from './PlayerSettings';
 import { Chevron, Group, RowGlyph, SettingsRow, SettingsSearchProvider, Toggle, useMatches, type Glyph } from './SettingsRows';
 import { settingsUi } from './settingsStyles';
@@ -48,14 +49,16 @@ function youtubeText(auth: ReturnType<typeof useYtAuth>): string {
 /**
  * The groups of Settings that are pages of their own, in the order the
  * phone's main page lists them (SettingsSheet.kt SettingsCategory), each with
- * its glyph. The phone's Performance, Local Music, Storage and Language have
- * nothing in them in a browser, so they aren't listed.
+ * its glyph. The phone's Performance, Storage and Language have nothing in
+ * them in a browser, so they aren't listed. Local Music is, even where the
+ * browser can't open a folder, to say so.
  */
 const CATEGORIES: { id: string; title: string; icon: Glyph; Rows: ComponentType; shown?: () => boolean }[] = [
   { id: 'downloads', title: 'Downloads', icon: CircleArrowDown, Rows: DownloadsSettings, shown: offlineSupported },
   { id: 'playback', title: 'Playback', icon: CirclePlay, Rows: PlaybackSettings },
   { id: 'content', title: 'Content Preferences', icon: Video, Rows: ContentSettings },
   { id: 'appearance', title: 'Appearance', icon: PaintbrushVertical, Rows: AppearanceSettings },
+  { id: 'local-music', title: 'Local Music', icon: LibraryBig, Rows: LocalMusicSettings },
   { id: 'data', title: 'Your Data', icon: Archive, Rows: YourDataSettings },
   { id: 'misc', title: 'Miscellaneous', icon: CircleEllipsis, Rows: MiscSettings },
 ];

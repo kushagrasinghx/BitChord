@@ -122,21 +122,25 @@ internal fun rememberFullArtworkBlurImage(
     currentSelectionOnly: Boolean = false,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var loaded by remember { mutableStateOf(imageUrl to (seed ?: cachedFullArtworkBlur(imageUrl))) }
+    var loaded by remember(imageUrl.takeIf { currentSelectionOnly }) {
+        mutableStateOf(seed ?: cachedFullArtworkBlur(imageUrl))
+    }
 
     LaunchedEffect(imageUrl, artPx, prepare, seed) {
         val image = seed ?: cachedFullArtworkBlur(imageUrl) ?: if (prepare && imageUrl != null) {
             loadFullArtworkBlur(context, imageUrl, artPx)
         } else null
-        loaded = imageUrl to image
+        loaded = image
     }
-    return if (currentSelectionOnly && loaded.first != imageUrl) cachedFullArtworkBlur(imageUrl) else loaded.second
+    return seed ?: loaded
 }
 
 private suspend fun loadFullArtworkBlur(context: PlatformContext, imageUrl: String, artPx: Int): ImageBitmap? {
-    val request = artworkPixelsRequest(context, imageUrl, artPx, FULL_BLUR_SOURCE_PX)
-    val result = SingletonImageLoader.get(context).execute(request)
-    val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return null
+    val bitmap = warmPlayerAmbientPixels(imageUrl, artPx) ?: run {
+        val request = artworkPixelsRequest(context, imageUrl, artPx, FULL_BLUR_SOURCE_PX)
+        val result = SingletonImageLoader.get(context).execute(request)
+        (result as? SuccessResult)?.image?.toImageBitmap() ?: return null
+    }
     val ready = withContext(Dispatchers.Default) { bitmap.boxBlurred(FULL_BLUR_PASSES) }
     fullBlurCache[imageUrl] = ready
     return ready
@@ -205,6 +209,13 @@ private fun ImageBitmap.ambientThumbnail(): ImageBitmap {
     }
 }
 
+/** Reuse the decoded sleeve if selection overtook speculative ambient preparation. */
+internal suspend fun warmPlayerAmbientPixels(imageUrl: String, artPx: Int): ImageBitmap? {
+    if (artPx != ART_PX) return null
+    val bitmap = WarmPlayerCovers.get(imageUrl.artworkAt(artPx))?.image?.toImageBitmap() ?: return null
+    return withContext(Dispatchers.Default) { bitmap.ambientThumbnail() }
+}
+
 fun retainAutoMixPlayerCover(generation: Long, cover: SuccessResult) {
     AutoMixPreparedCover.retain(generation, cover)
 }
@@ -242,7 +253,7 @@ fun clearPrefetchedPlayerArtwork() {
  *
  * The blur is baked into [image] (see [rememberFullArtworkBlurImage]), so this
  * is a plain image draw: nothing here re-blurs while the player moves or a
- * clip plays over it. A new cover crossfades in over the last one.
+ * clip plays over it. In Now Playing, a new selection starts with its own blur.
  *
  * It looks the same in all three states and reads nothing that moves, so moving
  * between them never redraws it: only what sits on top of it changes.
@@ -255,20 +266,16 @@ fun FullArtworkBlurBackdrop(
     FullArtworkBlurBackdrop(image, modifier, mix = null, currentIsOutgoing = false)
 }
 
-/** Cold selections start on the fallback; warm selections keep the ordinary fade. */
+/** Reset ordinary animation state on selection, but leave the live AutoMix layers mounted. */
 @Composable
-internal fun coldArtworkResetKey(selection: Any?, ready: Boolean, mixing: Boolean): Int {
-    var previous by remember { mutableStateOf(selection) }
-    var reset by remember { mutableStateOf(0) }
-    val nextReset = if (!mixing && previous != selection && !ready) reset + 1 else reset
-    SideEffect {
-        if (!mixing) {
-            previous = selection
-            reset = nextReset
-        }
-    }
-    return nextReset
+internal fun rememberBackdropSelectionKey(selection: Any?, mixing: Boolean): Any? {
+    val previous = remember { BackdropSelection(selection) }
+    if (mixing) return previous.value
+    SideEffect { previous.value = selection }
+    return selection
 }
+
+private class BackdropSelection(var value: Any?)
 
 @Composable
 internal fun FullArtworkBlurBackdrop(
@@ -277,12 +284,12 @@ internal fun FullArtworkBlurBackdrop(
 ) {
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
         val history = remember { BlurLayers() }
-        val coldReset = coldArtworkResetKey(selectionKey, ready = image != null, mixing = mix != null)
+        val selected = rememberBackdropSelectionKey(selectionKey, mixing = mix != null)
         val heldTarget = remember(mix) {
             if (mix == null) null else history.target ?: cachedFullArtworkBlur(mix.outgoingUrl)
                 ?: image.takeIf { currentIsOutgoing }
         }
-        key(coldReset) {
+        key(selected) {
             FullBlurTrackFade(if (mix == null) image else heldTarget, history, draw = mix == null, immediate = immediate)
         }
         if (mix != null) {
@@ -382,6 +389,14 @@ internal fun rememberArtworkMesh(
 
     LaunchedEffect(imageUrl, artPx, clipKey) {
         if (imageUrl == null || mesh != null) return@LaunchedEffect
+        meshCache[imageUrl]?.let {
+            mesh = it
+            return@LaunchedEffect
+        }
+        warmPlayerAmbientPixels(imageUrl, artPx)?.let {
+            mesh = cacheStillMesh(imageUrl, it)
+            return@LaunchedEffect
+        }
         val request = artworkPixelsRequest(context, imageUrl, artPx, MESH_PX)
         // Tried more than once, because this effect is keyed on the artwork and
         // nothing else: a read that fails is not retried by Coil and cannot be
@@ -435,7 +450,7 @@ internal fun rememberArtworkMesh(
  * `RenderEffect`. The softness a full-screen blur used to supply is baked into
  * that texture off the main thread when it is read — see [MESH_BLUR_RADIUS] — so
  * nothing here has to be re-blurred as it changes, whatever it is sitting under.
- * A skip or a clip's new colours cost one fade of two such draws, and between
+ * A clip's new colours can cost one fade of two such draws, and between
  * them the backdrop is only composited, however the player above it moves.
  *
  * The old backdrop paid a 60Hz blur permanently, for blobs orbiting behind a
@@ -462,7 +477,6 @@ internal fun ArtworkMeshBackdrop(
     mesh: ArtworkMesh?, modifier: Modifier, seam: () -> Dp, fallback: Color = FallbackBackdrop,
     mix: AutoMixAmbientMix?, currentIsOutgoing: Boolean = false,
     directSelection: Pair<Long, QueueEntryIdentity>? = null, directStill: Boolean = false,
-    selectionKey: Any? = null,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
@@ -475,14 +489,11 @@ internal fun ArtworkMeshBackdrop(
     var fadingToFallback by remember { mutableStateOf(false) }
     val fade = remember { Animatable(0f) }
     var appliedDirect by remember { mutableStateOf<Pair<Long, QueueEntryIdentity>?>(null) }
-    var appliedSelection by remember { mutableStateOf(selectionKey) }
-    val immediate = (selectionKey != appliedSelection && mesh == null) ||
-        (directSelection != null && (appliedDirect != directSelection || directStill))
+    val immediate = directSelection != null && (appliedDirect != directSelection || directStill)
 
-    LaunchedEffect(mesh, mix, reduceAnimation, directSelection, directStill, selectionKey) {
+    LaunchedEffect(mesh, mix, reduceAnimation, directSelection, directStill) {
         if (mix != null) return@LaunchedEffect
         val next = mesh
-        appliedSelection = selectionKey
         if (immediate) {
             shown = next
             incoming = null
@@ -537,7 +548,7 @@ internal fun ArtworkMeshBackdrop(
             mix.prepared?.mesh?.let { drawMesh(it, seamY, alpha = mix.ease()) }
         } else {
             drawn.wasDrawn = true
-            // Paint the selected mesh (or the regular fallback) even before the effect settles.
+            // A new selection starts with its own mesh (or fallback), even before the effect settles.
             drawn.base = if (immediate) mesh else shown
             drawn.baseAlpha = if (!immediate && fadingToFallback) 1f - fade.value else 1f
             drawn.overlay = incoming.takeUnless { immediate }

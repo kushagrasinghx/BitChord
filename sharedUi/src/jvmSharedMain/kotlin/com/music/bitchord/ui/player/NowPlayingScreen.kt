@@ -345,7 +345,8 @@ private fun PlayerMeshBackdrop(
     val mix = ambient.mixFor(seed != null)
     val url = imageUrl ?: ambient.incoming?.resolvedUrl
     val frame = canvasFrame()
-    val mesh = key(entry ?: trackKey, snapKey) { rememberArtworkMesh(url, frame, ART_PX, seed, canvasKey) }
+    val mesh = key(entry ?: trackKey, snapKey, sourceScope) { rememberArtworkMesh(url, frame, ART_PX, seed, canvasKey) }
+    val selected = rememberBackdropSelectionKey((entry ?: trackKey) to url, mixing = mix != null)
     val currentSeamTarget by rememberUpdatedState(seamTarget)
     val seam = remember { Animatable(Snapshot.withoutReadObservation { seamTarget() }, Dp.VectorConverter) }
     // Glides to a clip's edge as the clip fades in, and is put straight where
@@ -359,7 +360,7 @@ private fun PlayerMeshBackdrop(
             }
         }
     }
-    key(snapKey, sourceScope) {
+    key(snapKey, sourceScope, selected) {
         ArtworkMeshBackdrop(
             mesh = mesh,
             seam = { seam.value },
@@ -368,7 +369,6 @@ private fun PlayerMeshBackdrop(
             currentIsOutgoing = entry == mix?.outgoing,
             directSelection = ambient.direct,
             directStill = ambient.direct != null && frame == null,
-            selectionKey = (entry ?: trackKey) to url,
         )
     }
 }
@@ -391,7 +391,9 @@ private fun LegacyMeshBackdrop(
     val snapKey = rememberAmbientSnapKey(requestedSnap)
     val seed = settled ?: cachedArtworkPalette(url).takeIf { ambient.cancelled || ambient.direct != null }
     val frame = canvasFrame()
-    val palette = key(snapKey) { rememberArtworkColors(url, frame, seed, canvasKey) }
+    val palette = key(entry ?: trackKey, snapKey, sourceScope) {
+        rememberArtworkColors(url, frame, seed, canvasKey, playerArtPx = ART_PX)
+    }
     val mix = ambient.mixFor(settled != null)
     key(sourceScope) {
         MeshGradientBackground(
@@ -404,7 +406,6 @@ private fun LegacyMeshBackdrop(
             currentIsOutgoing = entry == mix?.outgoing,
             directStill = ambient.direct != null && frame == null,
             selectionKey = (entry ?: trackKey) to url,
-            selectionReady = seed != null || frame != null || cachedArtworkPalette(url) != null,
         )
     }
 }
@@ -2023,21 +2024,25 @@ fun NowPlayingScreen(
     val ambientBlurUrl = remoteArt ?: ambient.incoming?.resolvedUrl
     val blurSeed = ambient.incoming?.blur
     val blurSnapKey = rememberAmbientSnapKey(ambient.snapKey(blurSeed != null))
-    val fullArtworkBlurImage = rememberFullArtworkBlurImage(
-        imageUrl = ambientBlurUrl,
-        artPx = ART_PX,
-        seed = blurSeed,
-        currentSelectionOnly = true,
-        prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
-            lyricsOpen || queueOpen || playerPrewarmStage >= 1,
-    )
+    val fullArtworkBlurImage = key(ambientSourceScope, blurSnapKey) {
+        rememberFullArtworkBlurImage(
+            imageUrl = ambientBlurUrl,
+            artPx = ART_PX,
+            seed = blurSeed,
+            currentSelectionOnly = true,
+            prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
+                lyricsOpen || queueOpen || playerPrewarmStage >= 1,
+        )
+    }
     val blurMix = ambient.mixFor(blurSeed != null)
     val heldBlurAvailable = remember(blurMix) {
         blurMix != null && (cachedFullArtworkBlur(blurMix.outgoingUrl) != null ||
             (coverEntry == blurMix.outgoing && fullArtworkBlurImage != null))
     }
+    // In Simple the blur layer also owns the cold fallback; don't fade the whole layer in
+    // when its first bitmap arrives, or a subsequent warm skip can inherit that opacity.
     val blurAvailable = if (blurMix != null) heldBlurAvailable else
-        ambient.direct != null || blurSeed != null || fullArtworkBlurImage != null
+        playerTheme == PlayerTheme.SIMPLE || ambient.direct != null || blurSeed != null || fullArtworkBlurImage != null
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
     // changes when the artwork preparation above completes for another song.
@@ -2048,7 +2053,7 @@ fun NowPlayingScreen(
     val currentBlurSnapKey = rememberUpdatedState(blurSnapKey)
     val currentBlurIsOutgoing = rememberUpdatedState(coverEntry == blurMix?.outgoing)
     val directBlur = rememberUpdatedState(ambient.direct != null)
-    val currentBlurSelection = rememberUpdatedState(coverEntry to ambientBlurUrl)
+    val currentBlurSelection = rememberUpdatedState((coverEntry ?: song.videoId) to ambientBlurUrl)
     val currentBlurSourceScope = rememberUpdatedState(ambientSourceScope)
     val fullArtworkBlurContent = remember {
         movableContentOf<Modifier> { backdropModifier ->

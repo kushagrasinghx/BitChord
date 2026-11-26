@@ -49,7 +49,7 @@ internal class AutoMixAmbient(
     fun snapKey(targetReady: Boolean): Pair<Long, QueueEntryIdentity>? = settled.takeIf { cancelled || targetReady }
 }
 
-/** Keep the reset epoch after leaving a promoted track, so the next ordinary skip still tweens. */
+/** Keep the AutoMix reset epoch stable after leaving a promoted track. */
 @Composable
 internal fun <T : Any> rememberAmbientSnapKey(requested: T?): T? {
     val previous = remember { mutableStateOf<T?>(null) }

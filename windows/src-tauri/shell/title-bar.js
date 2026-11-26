@@ -9,7 +9,12 @@
     last = dark;
     window.__TAURI_INTERNALS__?.invoke('title_bar_theme', { dark });
   };
-  new MutationObserver(report).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', report);
-  report();
+  const start = () => {
+    new MutationObserver(report).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', report);
+    report();
+  };
+  // Init scripts run before <html> exists; by DOMContentLoaded the player's theme is already applied.
+  if (document.documentElement) start();
+  else document.addEventListener('DOMContentLoaded', start, { once: true });
 })();

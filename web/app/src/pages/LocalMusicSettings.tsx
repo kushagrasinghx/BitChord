@@ -40,7 +40,7 @@ export function LocalMusicSettings() {
         <ButtonRow
           icon={FolderLock}
           title={`Allow access to ${folder}`}
-          detail="Your browser asks again after a restart."
+          detail="Access to this folder lapses after a restart."
           keywords={keywords}
           onClick={() => void allowAccess()}
         />

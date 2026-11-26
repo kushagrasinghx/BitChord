@@ -88,7 +88,7 @@ function AllowAccess({ folder }: { folder: string }) {
       <FolderLock className="size-6 flex-none text-primary" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block truncate type-body text-primary">Allow access to {folder}</span>
-        <span className="block type-callout text-secondary">Your browser asks again after a restart. The songs below play once it’s allowed.</span>
+        <span className="block type-callout text-secondary">Access to this folder lapses after a restart. The songs below play once it’s allowed again.</span>
       </span>
     </button>
   );

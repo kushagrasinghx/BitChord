@@ -58,6 +58,41 @@ data class CapturedSession(
  */
 object BrowserSession {
 
+    /** Abstraction over cookie jar operations, allowing deterministic testing. */
+    interface CookieStore {
+        fun getCookie(url: String): String?
+        fun setCookie(url: String, value: String)
+        fun flush()
+        fun removeStorage(origins: List<String>) {}
+    }
+
+    private val systemCookieStore: CookieStore = object : CookieStore {
+        override fun getCookie(url: String): String? =
+            runCatching { CookieManager.getInstance() }.getOrNull()?.getCookie(url)
+
+        override fun setCookie(url: String, value: String) {
+            runCatching { CookieManager.getInstance() }.getOrNull()?.setCookie(url, value)
+        }
+
+        override fun flush() {
+            runCatching { CookieManager.getInstance() }.getOrNull()?.flush()
+        }
+
+        override fun removeStorage(origins: List<String>) {
+            runCatching {
+                val storage = android.webkit.WebStorage.getInstance()
+                origins.forEach { storage.deleteOrigin(it) }
+            }
+        }
+    }
+
+    @Volatile
+    internal var cookieStore: CookieStore = systemCookieStore
+
+    internal fun resetCookieStore() {
+        cookieStore = systemCookieStore
+    }
+
     /**
      * Makes the in-app YouTube page use a saved account without asking Google
      * to sign any account out.
@@ -70,19 +105,15 @@ object BrowserSession {
      */
     fun installGoogleCookies(cookieHeader: String) {
         clearGoogleCookies()
-        val manager = runCatching { CookieManager.getInstance() }.getOrElse {
-            Log.w("BitChord", "no cookie manager to restore: ${it.message}")
-            return
-        }
         val entries = cookieHeader.split(';').mapNotNull { entry ->
             val name = entry.substringBefore('=').trim()
             val value = entry.substringAfter('=', "").trim()
             if (name.isEmpty() || value.isEmpty()) null else "$name=$value; Path=/; Secure"
         }
         YOUTUBE_ORIGINS.forEach { origin ->
-            entries.forEach { cookie -> manager.setCookie(origin, cookie) }
+            entries.forEach { cookie -> cookieStore.setCookie(origin, cookie) }
         }
-        runCatching { manager.flush() }
+        cookieStore.flush()
         Log.d("BitChord", "restored ${entries.size} browser cookies for the selected account")
     }
 
@@ -96,17 +127,9 @@ object BrowserSession {
      * overwritten with an expired one of the same name.
      */
     fun clearGoogleCookies() {
-        // Best effort throughout. CookieManager needs a WebView provider, and
-        // on a device that is mid-update or has none there isn't one — which is
-        // a reason for the next sign-in to be less convenient, not a reason for
-        // signing out to crash.
-        val manager = runCatching { CookieManager.getInstance() }.getOrElse {
-            Log.w("BitChord", "no cookie manager to clear: ${it.message}")
-            return
-        }
         var cleared = 0
         GOOGLE_ORIGINS.forEach { origin ->
-            val jar = manager.getCookie(origin) ?: return@forEach
+            val jar = cookieStore.getCookie(origin) ?: return@forEach
             val host = origin.substringAfter("://")
             jar.split(';').forEach { entry ->
                 val name = entry.substringBefore('=').trim()
@@ -115,19 +138,16 @@ object BrowserSession {
                 // `.google.com` is not removed by expiring it on the host, and
                 // which of the two a given cookie used is not recorded here.
                 val expired = "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"
-                manager.setCookie(origin, "$expired; Path=/")
-                manager.setCookie(origin, "$expired; Path=/; Domain=$host")
-                manager.setCookie(origin, "$expired; Path=/; Domain=.$host")
-                manager.setCookie(origin, "$expired; Path=/accounts")
-                manager.setCookie(origin, "$expired; Path=/ServiceLogin")
+                cookieStore.setCookie(origin, "$expired; Path=/")
+                cookieStore.setCookie(origin, "$expired; Path=/; Domain=$host")
+                cookieStore.setCookie(origin, "$expired; Path=/; Domain=.$host")
+                cookieStore.setCookie(origin, "$expired; Path=/accounts")
+                cookieStore.setCookie(origin, "$expired; Path=/ServiceLogin")
                 cleared++
             }
         }
-        runCatching {
-            val storage = android.webkit.WebStorage.getInstance()
-            GOOGLE_ORIGINS.forEach { origin -> storage.deleteOrigin(origin) }
-            manager.flush()
-        }
+        cookieStore.removeStorage(GOOGLE_ORIGINS)
+        cookieStore.flush()
         Log.d("BitChord", "cleared $cleared browser cookies for Google")
     }
 

@@ -20,7 +20,9 @@ on:
       - 'windows/**'
       - 'web/**'
       - 'shared/**'
-      - 'build.gradle.kts'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
       - 'app/src/main/java/com/music/bitchord/data/AppUpdateChecker.kt'
       - '.github/workflows/windows.yml'
   pull_request:
@@ -52,17 +54,21 @@ jobs:
           workspaces: windows/src-tauri
 
       # The installer bundles web/app's build: compile shared/ for it here rather than trust the committed
-      # web/shared-kotlin, which can lag shared/ once the site deploys from Actions (web-deploy.yml).
-      - uses: actions/setup-java@v4
+      # web/shared-kotlin, which can lag shared/ once the site deploys from Actions (web-deploy.yml). Only
+      # where the web player runs shared Kotlin (web/shared-kotlin exists): before that there is no exportWeb.
+      - if: hashFiles('web/shared-kotlin/package.json') != ''
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - if: hashFiles('web/shared-kotlin/package.json') != ''
+        uses: gradle/actions/setup-gradle@v4
 
+      # gradlew.bat: the runner checks out with CRLF, which the sh script can't run.
       - name: Compile shared/ for the web
-        shell: bash
-        run: ./gradlew :shared:exportWeb
+        if: hashFiles('web/shared-kotlin/package.json') != ''
+        run: ./gradlew.bat :shared:exportWeb
 
       # Installs, builds the extension and the site, then the shell (windows/README.md).
       - name: Build

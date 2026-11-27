@@ -44,8 +44,12 @@ export function VideoCornerControls({ fullScreen, onToggle, className = '' }: { 
  * moving or tabbing brings them back. A click on the picture plays or
  * pauses, as in every desktop video player, and a double click, Esc, F or
  * the corner button goes back to the player.
+ *
+ * The controls draw at the player's `scale` (playerScale): a whole monitor
+ * is the biggest window the player ever gets, and phone-sized controls on it
+ * read as an afterthought.
  */
-export function FullscreenVideo({ onExit }: { onExit: () => void }) {
+export function FullscreenVideo({ scale, onExit }: { scale: number; onExit: () => void }) {
   const nowPlaying = usePlayer((s) => s.nowPlaying);
   const playing = usePlayer((s) => s.status === 'playing' || s.status === 'buffering');
   const [shown, setShown] = useState(true);
@@ -115,21 +119,23 @@ export function FullscreenVideo({ onExit }: { onExit: () => void }) {
     >
       <VideoSurface fit="contain" className="pointer-events-none absolute inset-0" />
       <div
-        className={`absolute inset-0 flex flex-col bg-[linear-gradient(rgb(0_0_0/0.62),transparent_30%,transparent_55%,rgb(0_0_0/0.78))] px-8 py-6 transition-opacity motion-reduce:transition-none ${shown ? 'opacity-100 duration-200' : 'pointer-events-none opacity-0 duration-300'}`}
+        className={`absolute inset-0 flex flex-col bg-[linear-gradient(rgb(0_0_0/0.62),transparent_30%,transparent_55%,rgb(0_0_0/0.78))] transition-opacity motion-reduce:transition-none ${shown ? 'opacity-100 duration-200' : 'pointer-events-none opacity-0 duration-300'}`}
       >
-        <div className="flex items-center gap-4">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate type-[600_18px/22px] text-white">{nowPlaying?.title}</span>
-            <span className="truncate type-[400_14px/18px] text-white/70">{nowPlaying?.artist}</span>
+        <div className="flex size-full flex-col px-6 py-4" style={{ zoom: scale }}>
+          <div className="flex items-center gap-4">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate type-[600_18px/22px] text-white">{nowPlaying?.title}</span>
+              <span className="truncate type-[400_14px/18px] text-white/70">{nowPlaying?.artist}</span>
+            </div>
+            <VideoCornerControls fullScreen onToggle={onExit} />
           </div>
-          <VideoCornerControls fullScreen onToggle={onExit} />
-        </div>
-        <div className="pointer-events-none flex flex-1 items-center justify-center">
-          <div className="pointer-events-auto w-full max-w-[420px]">
-            <Transport compact={false} />
+          <div className="pointer-events-none flex flex-1 items-center justify-center">
+            <div className="pointer-events-auto w-full max-w-[420px]">
+              <Transport compact={false} />
+            </div>
           </div>
+          <Scrubber />
         </div>
-        <Scrubber />
       </div>
     </div>
   );

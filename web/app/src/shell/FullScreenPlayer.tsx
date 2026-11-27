@@ -367,7 +367,7 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
           </div>
         </div>
 
-        {videoFull && video && <FullscreenVideo onExit={() => setVideoFull(false)} />}
+        {videoFull && video && <FullscreenVideo scale={scale} onExit={() => setVideoFull(false)} />}
       </div>
     </>
   );

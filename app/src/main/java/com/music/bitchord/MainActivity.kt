@@ -134,6 +134,7 @@ import com.music.bitchord.auth.SpotifyLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.data.PlaylistCsvExporter
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
@@ -2241,6 +2242,30 @@ private fun BitChordApp(
      * permission arrives as forty loose tracks.
      */
     var downloadPendingFrom by remember { mutableStateOf<DownloadTarget?>(null) }
+    var csvExportPending by remember { mutableStateOf<List<Song>>(emptyList()) }
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        val songs = csvExportPending
+        csvExportPending = emptyList()
+        if (uri == null || songs.isEmpty()) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                val csv = PlaylistCsvExporter.buildCsv(songs)
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(csv.toByteArray(Charsets.UTF_8))
+                } ?: error("Cannot open output stream")
+            }.isSuccess
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    if (ok) context.getString(R.string.export_csv_success, songs.size)
+                    else context.getString(R.string.export_csv_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
     val notifyPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* Refusing costs the progress notification, not the download. */ }
@@ -5490,7 +5515,7 @@ private fun BitChordApp(
                 // account. Left off an artist card (Share there is a
                 // channel link, not a release, and nobody asked for it)
                 // and off anything with no real browse id behind it.
-                onShare = target.browseId
+                    onShare = target.browseId
                     ?.takeIf { remote && (target.type == BrowseType.ALBUM || target.type == BrowseType.PLAYLIST) }
                     ?.let { id ->
                         {
@@ -5507,6 +5532,12 @@ private fun BitChordApp(
                             browseActions = null
                         }
                     },
+                onExportCsv = act { songs ->
+                    if (songs.isNotEmpty()) {
+                        csvExportPending = songs
+                        csvExportLauncher.launch(PlaylistCsvExporter.sanitizeFileName(target.title))
+                    }
+                }.takeIf { target.type == BrowseType.PLAYLIST || target.type == BrowseType.ALBUM || target.songs.isNotEmpty() },
                 isPinned = pinnableId != null && pinnableId in pinnedPlaylists,
                 onTogglePin = pinnableId?.let { id ->
                     {

@@ -1501,4 +1501,7 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="export_csv" translatable="false">Export as CSV</string>
+    <string name="export_csv_success" translatable="false">Exported %1$d tracks to CSV</string>
+    <string name="export_csv_failed" translatable="false">Failed to export CSV</string>
 </resources>

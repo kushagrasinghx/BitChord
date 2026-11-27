@@ -1,0 +1,5 @@
+node_modules/
+build/
+src-tauri/target/
+src-tauri/gen/
+build.log

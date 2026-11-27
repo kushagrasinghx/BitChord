@@ -1,0 +1,104 @@
+name: Windows
+
+# The Windows app (windows/): the web player and its extension, built as they
+# are for the site, inside a Tauri shell. Runs when the shell or either of the
+# web packages it hosts changes, and uploads the installer.
+#
+# Publishing a GitHub release also attaches the installer to it, built from the
+# release's tag, as BitChord-<tag>-windows-setup.exe next to the APKs. That is the
+# whole Windows release step: the app's update check (windows/src-tauri/src/update.rs)
+# looks for that file on the latest release.
+#
+# The tests include windows/src-tauri/src/upstream.rs: checks, against upstream's own
+# files, of the few things the Windows app relies on there (sign-in URLs, design
+# tokens, the Media Session, the releases it checks). So a change under web/ that
+# would quietly break the Windows app fails here, on that change's own PR.
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - 'windows/**'
+      - 'web/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'app/src/main/java/com/music/bitchord/data/AppUpdateChecker.kt'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths: *paths
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows · build installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows/src-tauri
+
+      # The installer bundles web/app's build: compile shared/ for it here rather than trust the committed
+      # web/shared-kotlin, which can lag shared/ once the site deploys from Actions (web-deploy.yml). Only
+      # where the web player runs shared Kotlin (web/shared-kotlin exists): before that there is no exportWeb.
+      - if: hashFiles('web/shared-kotlin/package.json') != ''
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - if: hashFiles('web/shared-kotlin/package.json') != ''
+        uses: gradle/actions/setup-gradle@v4
+
+      # gradlew.bat: the runner checks out with CRLF, which the sh script can't run.
+      - name: Compile shared/ for the web
+        if: hashFiles('web/shared-kotlin/package.json') != ''
+        run: ./gradlew.bat :shared:exportWeb
+
+      # Installs, builds the extension and the site, then the shell (windows/README.md).
+      - name: Build
+        run: node windows/scripts/build.mjs
+
+      # After the build: the shell compiles against web/app's built site.
+      - name: Test (shell, and what it relies on upstream)
+        run: cargo test --release --manifest-path windows/src-tauri/Cargo.toml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-windows
+          path: windows/src-tauri/target/release/bundle/nsis/*.exe
+
+  release:
+    name: Windows · attach installer to the release
+    needs: windows
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bitchord-windows
+
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cp ./*-setup.exe "BitChord-$TAG-windows-setup.exe"
+          gh release upload "$TAG" "BitChord-$TAG-windows-setup.exe" --clobber --repo "$GITHUB_REPOSITORY"

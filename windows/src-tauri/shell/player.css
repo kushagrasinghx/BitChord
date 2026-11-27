@@ -1,0 +1,55 @@
+/*
+ * The shell's adjustments to the web player, which src/main.rs adds to the page
+ * at load as a constructed stylesheet, so upstream's page is untouched.
+ */
+
+/*
+ * The "BitChord Extension" entries, in the sidebar and as the last row of
+ * Settings' integrations group: the extension is built into this app, so there
+ * is nothing to install or update there. Upstream's /extension route is the hook.
+ * The row is its group's last, and each row draws the divider above itself, so
+ * no stray line is left. The "Get the Extension" prompts stay: they only show if
+ * the extension is missing, which here would mean something is genuinely wrong.
+ */
+nav a[href="/extension"],
+section > a[href="/extension"] {
+  display: none;
+}
+
+/*
+ * Scrollbars in the player's glass. A floating capsule with the player pill's
+ * recipe (`glass-pill` in web/app/src/styles/global.css): the glass fill and its
+ * 0.5px inner stroke, on a transparent track with no arrow buttons. Every colour
+ * is one of upstream's tokens, so it follows the player's light/dark appearance
+ * and any redesign.
+ *
+ * Elements upstream gives `scrollbar-width` (the sidebar, Up Next) keep their
+ * standard scrollbars: Chromium ignores these rules on them.
+ */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  /* The transparent border floats the capsule off the window's edge. */
+  border: 4px solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: padding-box;
+  background-color: var(--glassMaterialBackground);
+  background-image: linear-gradient(var(--systemQuaternary), var(--systemQuaternary));
+  box-shadow: inset 0 0 0 0.5px rgb(from var(--glassMaterialInnerStroke) r g b / var(--glassMaterialInnerStrokeAlpha));
+}
+::-webkit-scrollbar-thumb:hover {
+  background-image: linear-gradient(var(--systemTertiary), var(--systemTertiary));
+}
+::-webkit-scrollbar-thumb:active {
+  background-image: linear-gradient(var(--systemSecondary), var(--systemSecondary));
+}

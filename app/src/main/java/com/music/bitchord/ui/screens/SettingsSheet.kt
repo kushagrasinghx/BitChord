@@ -1070,6 +1070,54 @@ fun SettingsScreen(
                     onClick = { AppSettings.setHideHomeVideos(!hideHomeVideos) },
                 )
             }
+            val blockedFeedItems by AppSettings.blockedFeedItems.collectAsStateWithLifecycle()
+            var showBlockedFeedDialog by remember { mutableStateOf(false) }
+            val hiddenFeedItemsTitle = stringResource(R.string.hidden_feed_items)
+            row(hiddenFeedItemsTitle, "hide", "block", "filter", "artist", "album", "track", "feed", "home") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hiddenFeedItemsTitle,
+                    subtitle = stringResource(R.string.hidden_feed_items_subtitle),
+                    value = if (blockedFeedItems.isEmpty()) stringResource(R.string.hidden_feed_items_empty) else "${blockedFeedItems.size}",
+                    onClick = { showBlockedFeedDialog = true },
+                )
+            }
+            if (showBlockedFeedDialog) {
+                AlertDialog(
+                    onDismissRequest = { showBlockedFeedDialog = false },
+                    title = { Text(hiddenFeedItemsTitle) },
+                    text = {
+                        if (blockedFeedItems.isEmpty()) {
+                            Text(stringResource(R.string.hidden_feed_items_empty))
+                        } else {
+                            androidx.compose.foundation.layout.Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                            ) {
+                                blockedFeedItems.forEach { entry ->
+                                    SettingsRow(
+                                        title = entry.title,
+                                        subtitle = entry.subtitle.takeIf { it.isNotBlank() },
+                                        value = stringResource(R.string.unhide),
+                                        onClick = { AppSettings.unblockFeedItem(entry.key) },
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showBlockedFeedDialog = false }) {
+                            Text(stringResource(R.string.close))
+                        }
+                    },
+                    dismissButton = if (blockedFeedItems.isNotEmpty()) {
+                        {
+                            TextButton(onClick = { AppSettings.clearBlockedFeedItems() }) {
+                                Text(stringResource(R.string.clear_all))
+                            }
+                        }
+                    } else null,
+                )
+            }
             val hideTopPicksTitle = stringResource(R.string.hide_top_picks)
             row(hideTopPicksTitle, "top picks", "recommendations", "feed", "home") {
                 SettingsRow(

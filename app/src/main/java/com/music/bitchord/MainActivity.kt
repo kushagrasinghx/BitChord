@@ -151,6 +151,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.data.model.withoutBlocked
 import com.music.bitchord.data.model.withoutVideos
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
@@ -881,15 +882,23 @@ private fun BitChordApp(
     val homeState by viewModel.home.collectAsStateWithLifecycle()
     val hideRecents by AppSettings.hideRecents.collectAsStateWithLifecycle()
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
+    val blockedFeedItems by AppSettings.blockedFeedItems.collectAsStateWithLifecycle()
     val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
     val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
     // Only what Home draws: Top Picks reads the unfiltered feed from the view model.
-    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents) {
+    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents, blockedFeedItems) {
         val loaded = homeState as? UiState.Success
-        if (loaded != null && (hideHomeVideos || hideRecents)) {
+        if (loaded != null && (hideHomeVideos || hideRecents || blockedFeedItems.isNotEmpty())) {
             var shelves = loaded.data
             if (hideRecents) shelves = shelves.filterNot { it.title == YtMusicRepository.RECENT_TITLE }
             if (hideHomeVideos) shelves = shelves.withoutVideos()
+            if (blockedFeedItems.isNotEmpty()) {
+                val blockedKeys = blockedFeedItems.mapTo(HashSet()) { it.key }
+                val blockedArtists = blockedFeedItems
+                    .filter { it.kind == "ARTIST" }
+                    .mapNotNullTo(HashSet()) { it.title.trim().lowercase().takeIf(String::isNotEmpty) }
+                shelves = shelves.withoutBlocked(blockedKeys, blockedArtists)
+            }
             UiState.Success(shelves)
         } else {
             homeState
@@ -4848,6 +4857,20 @@ private fun BitChordApp(
                 // drops it for a local file via `isOffline`, this catches
                 // the rest.
                 onShare = share.takeIf { song.videoId.isNotBlank() },
+                onHideFromFeed = song.videoId.takeIf { it.isNotBlank() && !it.startsWith("local:") }?.let { id ->
+                    {
+                        AppSettings.blockFeedItem(
+                            AppSettings.BlockedFeedEntry(
+                                key = "video:$id",
+                                title = song.title,
+                                subtitle = song.artist,
+                                kind = "TRACK",
+                            ),
+                        )
+                        songActions = null
+                        Toast.makeText(context, context.getString(R.string.hidden_from_feed_toast), Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onCopyLog = if (fromPlayer && !fromQueue) {
                     {
                         songActions = null
@@ -5507,6 +5530,20 @@ private fun BitChordApp(
                             browseActions = null
                         }
                     },
+                onHideFromFeed = target.browseId?.takeIf { remote }?.let { id ->
+                    {
+                        AppSettings.blockFeedItem(
+                            AppSettings.BlockedFeedEntry(
+                                key = "browse:$id",
+                                title = target.title,
+                                subtitle = target.subtitle,
+                                kind = target.type.name,
+                            ),
+                        )
+                        browseActions = null
+                        Toast.makeText(context, context.getString(R.string.hidden_from_feed_toast), Toast.LENGTH_SHORT).show()
+                    }
+                },
                 isPinned = pinnableId != null && pinnableId in pinnedPlaylists,
                 onTogglePin = pinnableId?.let { id ->
                     {

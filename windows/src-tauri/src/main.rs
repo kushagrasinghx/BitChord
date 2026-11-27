@@ -8,17 +8,19 @@
 //! in a browser. WebView2 is Chromium, so it loads the same MV3 build the
 //! Chrome zip holds; this file only hosts the two together.
 
+mod discord_rpc;
 mod files;
 mod logs;
 mod media_session;
 mod memory;
 mod sign_in;
 mod title_bar;
+mod tray;
 mod update;
 #[cfg(test)]
 mod upstream;
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Every webview in the app gets these (WebView2 refuses a second webview whose
 /// options differ). Tauri's defaults, which setting any replaces: its disabled
@@ -32,12 +34,9 @@ pub const BROWSER_ARGS: &str = concat!(
 
 fn main() {
     tauri::Builder::default()
-        // A second launch (a taskbar pin, a shortcut) focuses the running player.
+        // A second launch (a taskbar pin, a shortcut) focuses the running player (even if hidden in tray).
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            tray::show_window(app);
         }))
         .register_uri_scheme_protocol(sign_in::SCHEME, |_ctx, _request| sign_in::serve())
         .invoke_handler(tauri::generate_handler![media_session::media_session])
@@ -52,6 +51,8 @@ fn main() {
             // names the media controls and update notifications "BitChord", with its icon.
             let app_id: Vec<u16> = app.config().identifier.encode_utf16().chain([0]).collect();
             unsafe { windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(app_id.as_ptr()) };
+
+            app.manage(discord_rpc::init());
 
             // scripts/build.mjs bundles the built extension at resources/extensions/bitchord.
             let extensions = app.path().resource_dir()?.join("extensions");
@@ -80,9 +81,15 @@ fn main() {
                 title_bar::apply(&window);
                 media_session::init(app.handle(), &window)?;
             }
+            let _ = tray::init(app.handle());
             update::spawn(app.handle());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("BitChord failed to start");
+        .build(tauri::generate_context!())
+        .expect("BitChord failed to start")
+        .run(|app, event| {
+            if matches!(event, RunEvent::Exit) {
+                discord_rpc::shutdown(app);
+            }
+        });
 }

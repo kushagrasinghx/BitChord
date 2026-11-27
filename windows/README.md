@@ -140,23 +140,28 @@ if it is there (`installer-hooks.nsh`), found by its MSI upgrade code. It
 registered per machine, so Windows may ask for permission to remove it. Its own
 settings and sign-ins don't carry over (different storage).
 
-## Media controls
+## Media controls, Discord Rich Presence, and system tray
 
-The media keys, the volume flyout and Quick Settings control the player as
-**BitChord**. Chromium's own integration would register them for
-`msedgewebview2.exe`, which Windows shows as "Unknown app", so it is turned off
-(`HardwareMediaKeyHandling`). `src/media_session.rs` registers the controls for
-BitChord's window instead, fed by `shell/media-session.js`, which mirrors the
-player's Media Session (title, artist, album, artwork, state) and runs the
-player's own handlers when a button is pressed. Windows takes the name and icon
-from the installer's shortcuts, so a copy run without installing shows "Unknown
-app" there.
+- **Media controls:** The media keys, volume flyout, Quick Settings and timeline progress bar control
+  the player as **BitChord**. Chromium's own integration would register them for `msedgewebview2.exe`,
+  which Windows shows as "Unknown app", so it is turned off (`HardwareMediaKeyHandling`).
+  `src/media_session.rs` registers the controls and timeline for BitChord's window instead, fed by
+  `shell/media-session.js`, which mirrors the player's Media Session (title, artist, album, artwork,
+  position, duration, rate, state) and runs the player's own handlers when a button is pressed.
+  Windows takes the name and icon from the installer's shortcuts, so a copy run without installing
+  shows "Unknown app" there.
+- **Discord Rich Presence (`src/discord_rpc.rs`):** Connects directly to Discord Desktop over Windows'
+  local IPC named pipe (`\\.\pipe\discord-ipc-0..9`) using BitChord's official application ID, without
+  a Discord login or user token. While Discord Desktop isn't running, or while nothing is playing,
+  the worker stays idle with zero CPU usage.
+- **System tray (`src/tray.rs`):** Adds a notification-area icon with the current track, Play/Pause,
+  Next, Previous, Show/Hide and Quit. Hiding to the tray puts WebView2 into the same hidden low-memory
+  state as minimising (`src/memory.rs`).
 
 ## Known limits
 
 - **Sign-in** lives in the app's WebView2 profile, not your browser's: you sign in once inside the app.
 - The sheet uses Tauri's child webviews, which are behind its `unstable` feature flag.
-- **Discord presence** needs the extension to script a `discord.com` tab; WebView2 extensions
-  may not allow that, so it can be unavailable.
+- **Discord Rich Presence** requires Discord Desktop running locally (browser-only Discord has no IPC pipe).
 - WebView2 extension support is a subset of Chrome's (no toolbar popup). The player never
   needs the popup; everything it calls goes through the bridge.

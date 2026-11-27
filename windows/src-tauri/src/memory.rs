@@ -31,9 +31,14 @@ fn visibility_script(hidden: bool) -> &'static str {
     }
 }
 
-/// Called on every resize (minimising is one): acts only when the minimised state changes.
+/// Called on every resize (minimising is one): acts only when the background state changes.
 pub fn follow_window<R: Runtime>(window: &Window<R>) {
-    let background = window.is_minimized().unwrap_or(false);
+    let background = window.is_minimized().unwrap_or(false) || !window.is_visible().unwrap_or(true);
+    set_background(window, background);
+}
+
+/// Explicitly toggles WebView2's hidden/low-memory state (used both on minimise and tray hide).
+pub fn set_background<R: Runtime>(window: &Window<R>, background: bool) {
     if BACKGROUND.swap(background, Ordering::Relaxed) == background {
         return;
     }

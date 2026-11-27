@@ -117,9 +117,24 @@ fn player_still_reports_through_media_session() {
             }
         }
     }
-    for api in ["navigator.mediaSession", ".setActionHandler(", "new MediaMetadata", ".playbackState ="] {
-        assert!(sources.contains(api), "web/app no longer uses {api}; media keys would stop reaching it");
+    for api in [
+        "navigator.mediaSession",
+        ".setActionHandler(",
+        ".setPositionState(",
+        "new MediaMetadata",
+        ".playbackState =",
+    ] {
+        assert!(sources.contains(api), "web/app no longer uses {api}; media controls and Discord IPC would stop receiving updates");
     }
+}
+
+#[test]
+fn discord_application_id_matches_upstream() {
+    let discord = upstream("web/extension/lib/discord.ts");
+    assert!(
+        discord.contains(crate::discord_rpc::APPLICATION_ID),
+        "web/extension/lib/discord.ts changed APPLICATION_ID; update APPLICATION_ID in src/discord_rpc.rs"
+    );
 }
 
 #[test]

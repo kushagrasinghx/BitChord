@@ -9,7 +9,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # unstable: child webviews (Window::add_child), which the sign-in sheet is made of.
-tauri = { version = "2", features = ["unstable"] }
+# tray-icon: notification-area tray icon with playback controls (tray-icon is already in Cargo.lock).
+tauri = { version = "2", features = ["unstable", "tray-icon"] }
 tauri-plugin-single-instance = "2"
 # These are all already in the graph through Tauri; listing them only turns on what the shell calls.
 # windows-sys: the title bar (DWM), the app identity (Shell), the update dialog (WindowsAndMessaging).

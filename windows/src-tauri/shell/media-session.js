@@ -7,6 +7,8 @@
   if (!session) return;
   const proto = Object.getPrototypeOf(session);
   const handlers = new Map();
+  let positionState = null;
+  let lastReportedPos = null;
 
   const largest = (artwork) =>
     [...(artwork ?? [])].sort((a, b) => size(b) - size(a))[0]?.src ?? null;
@@ -28,6 +30,9 @@
       queued = false;
       const meta = session.metadata;
       const artwork = largest(meta?.artwork);
+      if (positionState) {
+        lastReportedPos = { ...positionState, at: Date.now() };
+      }
       window.__TAURI_INTERNALS__
         ?.invoke('media_session', {
           state: {
@@ -37,6 +42,9 @@
             artwork: artwork && httpUrl(artwork),
             playback: session.playbackState,
             actions: [...handlers.keys()],
+            duration: positionState?.duration ?? null,
+            position: positionState?.position ?? null,
+            playbackRate: positionState?.playbackRate ?? null,
           },
         })
         .catch(() => {});
@@ -65,6 +73,33 @@
     return setActionHandler.call(this, action, handler);
   };
 
-  // media_session.rs calls this for Windows' buttons: play, pause, nexttrack, previoustrack, stop.
+  if (typeof proto.setPositionState === 'function') {
+    const setPositionState = proto.setPositionState;
+    session.setPositionState = function (state) {
+      const result = setPositionState.call(this, state);
+      if (!state || !Number.isFinite(state.duration) || state.duration <= 0) {
+        positionState = null;
+      } else {
+        const next = {
+          duration: state.duration,
+          position: Number.isFinite(state.position) ? state.position : 0,
+          playbackRate: Number.isFinite(state.playbackRate) && state.playbackRate > 0 ? state.playbackRate : 1,
+        };
+        positionState = next;
+        const shouldReport =
+          !lastReportedPos ||
+          Math.abs(next.duration - lastReportedPos.duration) > 1 ||
+          Math.abs(next.playbackRate - lastReportedPos.playbackRate) > 0.01 ||
+          Math.abs(
+            next.position -
+              (lastReportedPos.position + ((Date.now() - lastReportedPos.at) / 1000) * lastReportedPos.playbackRate),
+          ) > 2;
+        if (shouldReport) report();
+      }
+      return result;
+    };
+  }
+
+  // media_session.rs and tray.rs call this for Windows' buttons: play, pause, nexttrack, previoustrack, stop.
   window.__bitchordMediaAction = (action) => handlers.get(action)?.({ action });
 })();

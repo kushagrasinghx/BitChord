@@ -18,10 +18,11 @@ import android.content.SharedPreferences
  * crashing on launch; see [EncryptedPrefs]. Kept out of backups for the first
  * reason, in backup_rules.xml and data_extraction_rules.xml.
  */
-class AuthStore(context: Context) {
+class AuthStore internal constructor(private val prefs: SharedPreferences) {
 
-    private val prefs: SharedPreferences =
+    constructor(context: Context) : this(
         EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
+    )
 
     var cookie: String?
         get() = prefs.getString(KEY_COOKIE, null)
@@ -53,12 +54,12 @@ class AuthStore(context: Context) {
         set(value) = replaceSessions(value)
 
     var activeAccountId: String?
-        get() = prefs.getString(KEY_ACTIVE_ACCOUNT, null)
-        set(value) = prefs.edit().putString(KEY_ACTIVE_ACCOUNT, value).apply()
+        get() = prefs.getString(KEY_ACTIVE_ACCOUNT, null)?.ifEmpty { null }
+        set(value) = prefs.edit().putString(KEY_ACTIVE_ACCOUNT, value?.ifEmpty { null }).apply()
 
     var activeProfileId: String?
-        get() = prefs.getString(KEY_ACTIVE_PROFILE, null)
-        set(value) = prefs.edit().putString(KEY_ACTIVE_PROFILE, value).apply()
+        get() = prefs.getString(KEY_ACTIVE_PROFILE, null)?.ifEmpty { null }
+        set(value) = prefs.edit().putString(KEY_ACTIVE_PROFILE, value?.ifEmpty { null }).apply()
 
     val activeSession: GoogleAccountSession?
         get() = sessions.firstOrNull { it.accountId == activeAccountId }
@@ -81,17 +82,37 @@ class AuthStore(context: Context) {
     }
 
     fun select(accountId: String, profileId: String?) {
-        activeAccountId = accountId
-        activeProfileId = profileId
+        activeAccountId = accountId.ifEmpty { null }
+        activeProfileId = profileId?.ifEmpty { null }
     }
 
     fun removeAccount(accountId: String): GoogleAccountSession? {
+        val currentActiveId = sessions.firstOrNull { it.accountId == activeAccountId }?.accountId
+            ?: activeSession?.accountId
+        val wasActive = (accountId == currentActiveId)
         val remaining = sessions.filterNot { it.accountId == accountId }
-        replaceSessions(remaining)
-        val fallback = remaining.firstOrNull()
-        select(fallback?.accountId.orEmpty(), fallback?.activeProfileId)
-        prefs.edit().putString(KEY_COOKIE, fallback?.cookie).apply()
-        BrowserSession.clearGoogleCookies()
+        if (remaining.size != sessions.size) {
+            replaceSessions(remaining)
+        }
+        val fallback = if (wasActive) {
+            remaining.firstOrNull()
+        } else {
+            remaining.firstOrNull { it.accountId == currentActiveId } ?: remaining.firstOrNull()
+        }
+        if (wasActive) {
+            if (fallback != null) {
+                select(fallback.accountId, fallback.activeProfileId)
+                prefs.edit().putString(KEY_COOKIE, fallback.cookie).apply()
+                BrowserSession.installGoogleCookies(fallback.cookie)
+            } else {
+                prefs.edit()
+                    .remove(KEY_COOKIE)
+                    .remove(KEY_ACTIVE_ACCOUNT)
+                    .remove(KEY_ACTIVE_PROFILE)
+                    .apply()
+                BrowserSession.clearGoogleCookies()
+            }
+        }
         return fallback
     }
 

@@ -35,6 +35,7 @@ export function ReplayCard({
   return (
     <button
       type="button"
+      data-art-focus
       className="relative isolate flex aspect-[1.586] w-[300px] flex-none snap-start flex-col overflow-hidden rounded-[20px] px-[18px] py-4 text-start text-white shadow-[0_10px_28px_rgb(0_0_0/0.35),0_3px_8px_rgb(0_0_0/0.25)] transition-[scale] duration-150 ease-out enabled:active:scale-[.98] disabled:cursor-default"
       disabled={!onClick}
       onClick={onClick}

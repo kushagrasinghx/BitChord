@@ -91,7 +91,8 @@ export function useScrubber() {
     if (!audio || !element) return;
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let seeked = false;
+    // The first draw of each run writes the value (a new track, play, pause); later ticks stay quiet while focused.
+    let seeked = true;
     const draw = () => {
       // A seek redraws at once; it replaces the pending redraw rather than starting a second chain.
       cancelAnimationFrame(frame);

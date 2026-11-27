@@ -29,6 +29,7 @@ function StationTile({ item }: { item: MusicItem }) {
   return (
     <PrefetchLink
       to={hrefFor(item) ?? '/radio'}
+      data-art-focus
       className="relative isolate flex aspect-square flex-col overflow-hidden rounded-[12px] bg-joe text-white artwork-stroke"
       aria-label={item.title}
     >

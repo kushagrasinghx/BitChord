@@ -30,7 +30,8 @@ describe('TrackMatcher', () => {
   // TrackMatcher.kt PT_BR_FEATURING, which the old TypeScript port lacked.
   it('takes a Portuguese guest credit off the title', () => {
     expect(matches(song('Evidências', 'Chitãozinho & Xororó'), 'Evidências (part. Ana Castela)', 'Chitãozinho & Xororó')).toBe(true);
-    expect(matches(song('Part. 2', 'Artist'), 'Part. 2', 'Artist')).toBe(true);
+    // "Part. 2" is a title, not a credit: stripped, it would make Part. 2 and Part. 3 the same song.
+    expect(matches(song('Part. 2', 'Artist'), 'Part. 3', 'Artist')).toBe(false);
   });
 
   it('matches CJK titles across punctuation and spacing differences', () => {

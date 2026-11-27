@@ -72,6 +72,8 @@ export function VolumeRow() {
           onPointerUp={() => setHeld(false)}
           onPointerCancel={() => setHeld(false)}
           onKeyDown={(e) => {
+            // Shift/Ctrl+arrows are the app's next, previous and volume keys, not this slider's.
+            if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
             const step = { ArrowRight: 0.05, ArrowUp: 0.05, ArrowLeft: -0.05, ArrowDown: -0.05 }[e.key];
             if (step === undefined) return;
             e.preventDefault();

@@ -15,7 +15,7 @@ function typing(target: EventTarget | null): boolean {
 export const SEEK_STEP = 10;
 
 /** The keys a slider steps with; letters and Space stay the player's while one has focus. */
-const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
 
 /**
  * Whether a key belongs to what has focus rather than to the player: a field,
@@ -27,10 +27,9 @@ const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 
 export function keyBelongsToFocus({ target, key, shiftKey }: Pick<KeyboardEvent, 'target' | 'key' | 'shiftKey'>): boolean {
   const element = target as HTMLElement | null;
   if (typing(element)) return true;
-  if (element?.closest?.('[role="slider"]')) return !shiftKey && SLIDER_KEYS.has(key);
-  return !!element?.closest?.(
-    '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])',
-  );
+  // A widget or dialog that takes every key wins over a slider inside it.
+  if (element?.closest?.('[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])')) return true;
+  return !!element?.closest?.('[role="slider"]') && !shiftKey && SLIDER_KEYS.has(key);
 }
 
 function seekBy(seconds: number) {

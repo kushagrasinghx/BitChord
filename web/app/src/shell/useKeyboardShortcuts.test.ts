@@ -42,15 +42,19 @@ describe('useKeyboardShortcuts with the seek slider focused (as after clicking i
     const host = document.createElement('div');
     document.body.append(slider, host);
     const root = createRoot(host);
-    await act(async () => root.render(createElement(MemoryRouter, null, createElement(Shortcuts))));
-    slider.focus();
-    for (const init of [{ key: ' ' }, { key: 'm' }, { key: 'ArrowRight', shiftKey: true }]) {
-      slider.dispatchEvent(new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }));
+    try {
+      await act(async () => root.render(createElement(MemoryRouter, null, createElement(Shortcuts))));
+      slider.focus();
+      for (const init of [{ key: ' ' }, { key: 'm' }, { key: 'ArrowRight', shiftKey: true }]) {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }));
+      }
+      expect(calls).toEqual(['play', 'mute', 'next']);
+    } finally {
+      await act(async () => root.unmount());
+      slider.remove();
+      host.remove();
+      usePlayer.setState({ togglePlay: real.togglePlay, toggleMute: real.toggleMute, next: real.next });
+      (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
     }
-    expect(calls).toEqual(['play', 'mute', 'next']);
-    await act(async () => root.unmount());
-    slider.remove();
-    host.remove();
-    usePlayer.setState({ togglePlay: real.togglePlay, toggleMute: real.toggleMute, next: real.next });
   });
 });

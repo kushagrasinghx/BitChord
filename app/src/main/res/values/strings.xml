@@ -1501,4 +1501,11 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="hide_from_feed" translatable="false">Hide from feed</string>
+    <string name="hidden_from_feed_toast" translatable="false">Hidden from feed</string>
+    <string name="hidden_feed_items" translatable="false">Hidden feed items</string>
+    <string name="hidden_feed_items_subtitle" translatable="false">Manage artists, albums, playlists, and tracks hidden from your home feed</string>
+    <string name="hidden_feed_items_empty" translatable="false">No hidden items</string>
+    <string name="unhide" translatable="false">Restore</string>
+    <string name="clear_all" translatable="false">Clear all</string>
 </resources>

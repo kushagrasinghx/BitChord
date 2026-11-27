@@ -556,6 +556,24 @@ fun List<HomeShelf>.withoutVideos(): List<HomeShelf> = mapNotNull { shelf ->
     if (items.isEmpty()) null else shelf.copy(items = items)
 }
 
+/** Filters out user-blocked tracks, albums, playlists, or artists from home shelves. */
+fun List<HomeShelf>.withoutBlocked(
+    blockedKeys: Set<String>,
+    blockedArtists: Set<String>,
+): List<HomeShelf> {
+    if (blockedKeys.isEmpty() && blockedArtists.isEmpty()) return this
+    return mapNotNull { shelf ->
+        val items = shelf.items.filterNot { item ->
+            val videoHit = item.videoId != null && "video:${item.videoId}" in blockedKeys
+            val browseHit = item.browseId != null && "browse:${item.browseId}" in blockedKeys
+            val artistHit = blockedArtists.isNotEmpty() &&
+                item.subtitle.trim().lowercase() in blockedArtists
+            videoHit || browseHit || artistHit
+        }
+        if (items.isEmpty()) null else shelf.copy(items = items)
+    }
+}
+
 /**
  * The layout a shelf of [items] gets, as the web player decides it: rows when
  * YouTube itself listed tracks as rows (or the shelf is Listen again, which the

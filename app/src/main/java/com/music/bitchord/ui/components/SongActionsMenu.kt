@@ -165,6 +165,7 @@ fun SongActionsMenu(
      */
     audioVersionMissing: Boolean = false,
     onShare: (() -> Unit)? = null,
+    onHideFromFeed: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
      * except the player, where "this track" means something.
@@ -420,6 +421,9 @@ fun SongActionsMenu(
             // Last: the one row here nobody reaches for by accident.
             onCopyLog?.let {
                 ActionRow(SfIcons.Bug, stringResource(R.string.copy_log), accent = palette.accent, onClick = it)
+            }
+            onHideFromFeed?.let {
+                ActionRow(SfIcons.VisibilityOff, stringResource(R.string.hide_from_feed), onClick = it)
             }
         }
     }

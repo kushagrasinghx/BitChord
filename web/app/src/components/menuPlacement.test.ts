@@ -10,7 +10,13 @@ describe('placeMenu', () => {
     expect(placeMenu(button, size, viewport, 'above-end')).toEqual({ left: 676, top: 434, maxHeight: 726, origin: 'right bottom' });
   });
 
-  const card = { left: 50, right: 270, top: 50, bottom: 270 };
+  it('hangs below a button, or above one at the window foot where it would be squashed', () => {
+    const high = { left: 900, right: 932, top: 40, bottom: 72 };
+    expect(placeMenu(high, size, viewport, 'below-end')).toEqual({ left: 676, top: 78, maxHeight: 714, origin: 'right top' });
+    expect(placeMenu(button, size, viewport, 'below-end')).toEqual({ left: 676, top: 434, maxHeight: 726, origin: 'right bottom' });
+  });
+
+  const card ={ left: 50, right: 270, top: 50, bottom: 270 };
   it('opens at the pointer on a card, growing from it', () => {
     expect(placeMenu(card, size, viewport, 'below-end', { x: 100, y: 100 })).toMatchObject({ left: 100, top: 100, origin: 'left top' });
   });

@@ -48,11 +48,16 @@ export function placeMenu(
       origin: `${right ? 'right' : 'left'} ${up ? 'bottom' : 'top'}`,
     };
   }
+  const maxHeight = anchor.top - GAP - MENU_MARGIN;
   if (placement === 'below-end') {
     const top = anchor.bottom + GAP;
-    return { left: clampX(anchor.right - size.width), top, maxHeight: viewport.height - top - MENU_MARGIN, origin: 'right top' };
+    const roomBelow = viewport.height - top - MENU_MARGIN;
+    // Below unless it doesn't fit there and above is roomier (a picker at the window's foot), as a right-click's does.
+    if (size.height <= roomBelow || roomBelow >= maxHeight) {
+      return { left: clampX(anchor.right - size.width), top, maxHeight: roomBelow, origin: 'right top' };
+    }
+    placement = 'above-end';
   }
-  const maxHeight = anchor.top - GAP - MENU_MARGIN;
   const top = Math.max(MENU_MARGIN, anchor.top - GAP - size.height);
   return placement === 'above-start'
     ? { left: clampX(anchor.left), top, maxHeight, origin: 'left bottom' }

@@ -59,8 +59,9 @@ jobs:
         with:
           node-version: 22
 
-      - name: Regenerate web/shared-kotlin
-        run: ./gradlew :shared:exportWeb
+      # shared/'s own tests first: the web runs this code, and no other workflow tests shared/.
+      - name: Test shared/ and regenerate web/shared-kotlin
+        run: ./gradlew :shared:jvmTest :shared:exportWeb
 
       # What the web job tests, so it checks this change's shared/ even where nothing can be committed.
       - uses: actions/upload-artifact@v4

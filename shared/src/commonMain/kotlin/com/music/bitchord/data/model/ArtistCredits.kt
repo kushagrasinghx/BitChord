@@ -163,8 +163,8 @@ private fun String.startsWithIgnoringCase(prefix: String, at: Int): Boolean =
  * decides instead, which can ask them.
  */
 object ArtistNameIndex {
-    // Parsers fill this from several threads on the JVM; @Synchronized guards every access. Names are
-    // normalised before the lock is taken, so threads only queue for the map access itself.
+    // Parsers fill this from several threads on the JVM; @Synchronized guards every access. The lookups and
+    // record normalise names before taking the lock, so readers only queue for the map access itself.
     private val channels = HashMap<String, MutableSet<String>>()
     private val joiners = HashSet<String>()
     private val joinerTexts = HashSet<String>()

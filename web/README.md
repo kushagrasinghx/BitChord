@@ -90,7 +90,7 @@ The only scope asked for is `https://www.googleapis.com/auth/drive.appdata`, alr
 Pages' build has no JDK, so it ships the shared Kotlin committed in `shared-kotlin/`, and a fork's PR that changes `shared/` has to commit that copy itself (`./gradlew :shared:exportWeb`). To drop that chore, deploy from GitHub Actions instead (`.github/workflows/web-deploy.yml`), which compiles `shared/` on every deploy:
 
 1. Repository secrets `CLOUDFLARE_API_TOKEN` (a Cloudflare API token with Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID`.
-2. Repository variables: the site's `VITE_*` settings above (every one that is set is passed to the build), `PAGES_PROJECT` if the project isn't called `bitchord`, and `WEB_DEPLOY_FROM_ACTIONS=true`.
+2. Repository variables: the site's `VITE_*` settings above (every one that is set is passed to the build, so it ends up in the public site: never put a secret in one), `PAGES_PROJECT` if the project isn't called `bitchord`, and `WEB_DEPLOY_FROM_ACTIONS=true`.
 3. In the Pages project, turn off automatic Git deployments, so the old build doesn't publish over it.
 
 From then on, a stale `shared-kotlin/` only warns in CI.

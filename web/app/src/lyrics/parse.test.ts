@@ -67,6 +67,22 @@ describe('karaoke (QRC/YRC)', () => {
     const lines = parseKaraoke('[1000,2000](1000,500,0)Hel(1500,500,0)lo (2000,1000,0)there');
     expect(lines[0]).toMatchObject({ timeMs: 1000, text: 'Hello there', sungUntilMs: 3000 });
   });
+
+  // SyllableRuns.kt wordsFromRuns, through LyricModelWeb: runs glue into words at the spaces, keeping each run as a syllable.
+  it('glues runs into words, with the syllables of a split word', () => {
+    const [line] = parseKaraoke('[1000,2000](1000,500,0)Hel(1500,500,0)lo (2000,1000,0)there');
+    expect(line!.words.map((w) => w.text)).toEqual(['Hello', 'there']);
+    expect(line!.words[0]!.syllables).toEqual([
+      { startMs: 1000, endMs: 1500, startChar: 0, endChar: 3 },
+      { startMs: 1500, endMs: 2000, startChar: 3, endChar: 5 },
+    ]);
+    expect(line!.words[1]!.syllables).toEqual([]);
+  });
+
+  it('keeps each CJK run a word of its own', () => {
+    const [line] = parseKaraoke('[1000,2000](1000,300,0)夜(1300,300,0)に(1600,400,0)駆ける');
+    expect(line!.words.map((w) => w.text)).toEqual(['夜', 'に', '駆ける']);
+  });
 });
 
 describe('provider envelopes (ProviderLyrics)', () => {

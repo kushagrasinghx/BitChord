@@ -5,6 +5,7 @@ import {
   hasConflictingAlbums,
   matches,
   queries,
+  ranked,
   romajiOf,
   uniquelyMostCreditedCloseMatch,
   type MatchCandidate,
@@ -32,6 +33,21 @@ describe('TrackMatcher', () => {
     expect(matches(song('Evidências', 'Chitãozinho & Xororó'), 'Evidências (part. Ana Castela)', 'Chitãozinho & Xororó')).toBe(true);
     // "Part. 2" is a title, not a credit: stripped, it would make Part. 2 and Part. 3 the same song.
     expect(matches(song('Part. 2', 'Artist'), 'Part. 3', 'Artist')).toBe(false);
+  });
+
+  // TrackMatcher.kt explicitScore: a known explicit/clean edition refuses the other, so Spotify import picks the right cut.
+  it('picks the explicit or clean edition asked for', () => {
+    const clean = { ...song('Bad Guy', 'Billie Eilish', '3:14'), explicit: false };
+    const dirty = { ...song('Bad Guy', 'Billie Eilish', '3:14'), explicit: true };
+    expect(best([clean, dirty], { title: 'Bad Guy', artist: 'Billie Eilish', durationSec: 194, isExplicit: true })).toBe(dirty);
+    expect(best([dirty, clean], { title: 'Bad Guy', artist: 'Billie Eilish', durationSec: 194, isExplicit: false })).toBe(clean);
+  });
+
+  // TrackMatcher.kt CREDITS_DISAGREE: a close runtime vouches for a differently credited row, but never a video's runtime.
+  it("doesn't let a music video's runtime vouch for someone else's song", () => {
+    const other = song('Brown Rang', 'Somebody Else', '3:30');
+    expect(ranked([other], { title: 'Brown Rang', artist: 'Yo Yo Honey Singh', durationSec: 211 })).toHaveLength(1);
+    expect(ranked([other], { title: 'Brown Rang', artist: 'Yo Yo Honey Singh', durationSec: 211, isVideo: true })).toHaveLength(0);
   });
 
   it('matches CJK titles across punctuation and spacing differences', () => {

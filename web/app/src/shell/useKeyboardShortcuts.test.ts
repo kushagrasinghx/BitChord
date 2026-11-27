@@ -35,6 +35,7 @@ describe('useKeyboardShortcuts with the seek slider focused (as after clicking i
   it('still plays and pauses on Space, mutes on M and skips on Shift+→', async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const calls: string[] = [];
+    const real = usePlayer.getState();
     usePlayer.setState({ togglePlay: () => calls.push('play'), toggleMute: () => calls.push('mute'), next: () => calls.push('next') } as never);
     const slider = Object.assign(document.createElement('div'), { tabIndex: 0 });
     slider.setAttribute('role', 'slider');
@@ -48,5 +49,8 @@ describe('useKeyboardShortcuts with the seek slider focused (as after clicking i
     }
     expect(calls).toEqual(['play', 'mute', 'next']);
     await act(async () => root.unmount());
+    slider.remove();
+    host.remove();
+    usePlayer.setState({ togglePlay: real.togglePlay, toggleMute: real.toggleMute, next: real.next });
   });
 });

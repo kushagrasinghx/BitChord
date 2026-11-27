@@ -8,9 +8,9 @@
 
 use std::ffi::c_void;
 
-use tauri::{Runtime, Window};
+use tauri::{Runtime, Theme, Window};
 use windows_sys::Win32::Graphics::Dwm::{
-    DWMSBT_TRANSIENTWINDOW, DWMWA_SYSTEMBACKDROP_TYPE, DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute,
+    DWMSBT_TRANSIENTWINDOW, DWMWA_SYSTEMBACKDROP_TYPE, DwmSetWindowAttribute,
 };
 
 pub fn apply<R: Runtime>(window: &Window<R>) {
@@ -23,12 +23,12 @@ pub fn apply<R: Runtime>(window: &Window<R>) {
 }
 
 /// Draws the bar dark or light to match the page under it, so a dark player never sits under a light bar.
-/// The DWM attribute itself, not Tauri's set_theme: that also forces WebView2's colour scheme, breaking System.
+/// `dark` is None for Settings' System: the bar then follows Windows, as the page does. Through the window's
+/// preferred theme rather than the DWM flag alone, since tao rewrites that flag from the system theme on every
+/// WM_SETTINGCHANGE unless a theme is preferred. That also sets WebView2's preferred colour scheme to the same
+/// theme (tauri-runtime-wry, on ThemeChanged), which is harmless: Light or Dark is what the page shows anyway,
+/// and None hands both back to Windows.
 #[tauri::command]
-pub fn title_bar_theme<R: Runtime>(window: Window<R>, dark: bool) {
-    let Ok(hwnd) = window.hwnd() else { return };
-    let value: i32 = dark.into(); // a Win32 BOOL
-    unsafe {
-        DwmSetWindowAttribute(hwnd.0, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, (&raw const value).cast::<c_void>(), size_of_val(&value) as u32);
-    }
+pub fn title_bar_theme<R: Runtime>(window: Window<R>, dark: Option<bool>) -> tauri::Result<()> {
+    window.set_theme(dark.map(|dark| if dark { Theme::Dark } else { Theme::Light }))
 }

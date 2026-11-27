@@ -31,6 +31,8 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeMute
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.Icon
+import android.content.Context
+import android.media.AudioManager
 import android.view.KeyEvent
 import android.view.Window
 import androidx.compose.runtime.Composable
@@ -116,18 +118,43 @@ fun handleDacVolumeKey(event: KeyEvent): Boolean {
     return true
 }
 
+internal fun volumeAdjustDirectionForKey(keyCode: Int): Int? = when (keyCode) {
+    KeyEvent.KEYCODE_VOLUME_UP -> AudioManager.ADJUST_RAISE
+    KeyEvent.KEYCODE_VOLUME_DOWN -> AudioManager.ADJUST_LOWER
+    else -> null
+}
+
 /**
- * [handleDacVolumeKey] for the dialog window this is composed in: the full
- * player and any other sheet that takes focus away from the activity.
+ * Intercepts hardware volume keys in the full player sheet when [AppSettings.hideSystemVolumePanelInPlayer]
+ * is enabled, adjusting [AudioManager.STREAM_MUSIC] without `FLAG_SHOW_UI` so the system overlay
+ * stays hidden and the in-player volume slider responds immediately.
+ */
+fun handlePlayerVolumeKey(context: Context, event: KeyEvent): Boolean {
+    if (handleDacVolumeKey(event)) return true
+    if (!AppSettings.hideSystemVolumePanelInPlayer.value) return false
+    if (CastController.state.value.casting || WearBridge.watchOutput.value.active) return false
+    val direction = volumeAdjustDirectionForKey(event.keyCode) ?: return false
+    if (event.action == KeyEvent.ACTION_DOWN) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            ?: return false
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, 0)
+    }
+    return true
+}
+
+/**
+ * [handleDacVolumeKey] and [handlePlayerVolumeKey] for the dialog window this is composed in:
+ * the full player and any other sheet that takes focus away from the activity.
  */
 @Composable
 fun DacVolumeKeys() {
-    val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
+    val view = LocalView.current
+    val window = (view.parent as? DialogWindowProvider)?.window ?: return
     DisposableEffect(window) {
         val original = window.callback
         val intercepting = object : Window.Callback by original {
             override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-                handleDacVolumeKey(event) || original.dispatchKeyEvent(event)
+                handlePlayerVolumeKey(view.context, event) || original.dispatchKeyEvent(event)
         }
         window.callback = intercepting
         onDispose {

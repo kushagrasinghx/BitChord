@@ -295,6 +295,7 @@ object AppSettings {
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
+    val hideSystemVolumePanelInPlayer = MutableStateFlow(true)
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
@@ -1063,6 +1064,7 @@ object AppSettings {
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
         )
         sleepTimerFadeOut.value = prefs.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, true)
+        hideSystemVolumePanelInPlayer.value = prefs.getBoolean(KEY_HIDE_SYSTEM_VOLUME_PANEL_IN_PLAYER, true)
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
@@ -1427,6 +1429,11 @@ object AppSettings {
     fun setSleepTimerFadeOut(value: Boolean) {
         sleepTimerFadeOut.value = value
         prefs.edit().putBoolean(KEY_SLEEP_TIMER_FADE_OUT, value).apply()
+    }
+
+    fun setHideSystemVolumePanelInPlayer(value: Boolean) {
+        hideSystemVolumePanelInPlayer.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SYSTEM_VOLUME_PANEL_IN_PLAYER, value).apply()
     }
 
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
@@ -2428,6 +2435,7 @@ object AppSettings {
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
+    private const val KEY_HIDE_SYSTEM_VOLUME_PANEL_IN_PLAYER = "hide_system_volume_panel_in_player"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"

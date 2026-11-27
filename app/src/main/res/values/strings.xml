@@ -1501,4 +1501,6 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="hide_system_volume_panel" translatable="false">Hide system volume panel in player</string>
+    <string name="hide_system_volume_panel_subtitle" translatable="false">Capture volume keys while the player is open so its slider updates without the system popup</string>
 </resources>

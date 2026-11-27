@@ -775,6 +775,22 @@ fun SettingsScreen(
                     )
                 }
             }
+            val hideSystemVolumePanel by AppSettings.hideSystemVolumePanelInPlayer.collectAsStateWithLifecycle()
+            val hideSystemVolumeTitle = stringResource(R.string.hide_system_volume_panel)
+            row(hideSystemVolumeTitle, "volume", "system", "panel", "hud", "slider", "player") {
+                SettingsRow(
+                    icon = SfIcons.VolumeUp,
+                    title = hideSystemVolumeTitle,
+                    subtitle = stringResource(R.string.hide_system_volume_panel_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hideSystemVolumePanel,
+                            onCheckedChange = AppSettings::setHideSystemVolumePanelInPlayer,
+                        )
+                    },
+                    onClick = { AppSettings.setHideSystemVolumePanelInPlayer(!hideSystemVolumePanel) },
+                )
+            }
             val loudnessTitle = stringResource(R.string.loudness_normalization)
             row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs") {
                 BypassedByBitPerfect(bitPerfectReady) {

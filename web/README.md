@@ -87,6 +87,14 @@ The only scope asked for is `https://www.googleapis.com/auth/drive.appdata`, alr
 
 `build:site` packages the extension first, so each deploy publishes the zips and `downloads/extension.json` with the version from `web/extension/package.json`. The Extension page polls that file and offers the update when it's newer than the installed one. Bump that version to make an update show.
 
+Pages' build has no JDK, so it ships the shared Kotlin committed in `shared-kotlin/`, and a fork's PR that changes `shared/` has to commit that copy itself (`./gradlew :shared:exportWeb`). To drop that chore, deploy from GitHub Actions instead (`.github/workflows/web-deploy.yml`), which compiles `shared/` on every deploy:
+
+1. Repository secrets `CLOUDFLARE_API_TOKEN` (a Cloudflare API token with Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID`.
+2. Repository variables: the site's `VITE_*` settings above (every one that is set is passed to the build), `PAGES_PROJECT` if the project isn't called `bitchord`, and `WEB_DEPLOY_FROM_ACTIONS=true`.
+3. In the Pages project, turn off automatic Git deployments, so the old build doesn't publish over it.
+
+From then on, a stale `shared-kotlin/` only warns in CI.
+
 ## Checks
 
 ```bash

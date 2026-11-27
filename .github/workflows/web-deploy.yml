@@ -1,0 +1,80 @@
+name: Web deploy
+
+# Builds the site with the shared Kotlin compiled here, then deploys it to
+# Cloudflare Pages. Pages' own build has no JDK, so it can only use the copy
+# committed in web/shared-kotlin, which a PR from a fork can't have refreshed
+# for it (CI can't push to a fork, and main only takes reviewed PRs). Deploying
+# from here means the site always runs current shared/ code, and web.yml lets
+# such a PR through with a warning instead of making its author run Gradle.
+#
+# Off until the repository variable WEB_DEPLOY_FROM_ACTIONS is "true". To switch
+# over (web/README.md, Deploy):
+#   secrets   CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
+#   variables WEB_DEPLOY_FROM_ACTIONS=true, PAGES_PROJECT (default bitchord),
+#             and the site's VITE_* settings, named as in web/README.md
+# and turn off the Pages project's own Git builds.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/web-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Web · deploy to Cloudflare Pages
+    if: vars.WEB_DEPLOY_FROM_ACTIONS == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The compiled copy of shared/ this build runs, whatever is committed.
+      - name: Compile shared/ for the web
+        run: ./gradlew :shared:exportWeb
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # Every VITE_* repository variable that is set, so a new setting needs no change here.
+      - name: The site's settings
+        env:
+          VARS: ${{ toJSON(vars) }}
+        run: node -e 'for (const [k, v] of Object.entries(JSON.parse(process.env.VARS))) if (k.startsWith("VITE_") && v) console.log(`${k}=${v}`)' >> "$GITHUB_ENV"
+
+      - name: Build
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:site
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web/app/dist --project-name=${{ vars.PAGES_PROJECT || 'bitchord' }} --branch=main

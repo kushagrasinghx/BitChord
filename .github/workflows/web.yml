@@ -10,7 +10,9 @@ name: Web
 # porting it: on a branch of this repository it commits the regenerated files
 # itself; on a fork's PR, which it can't push to, it fails and names the
 # command (main's ruleset stops CI pushing there after a merge, so the copy must
-# be current before it).
+# be current before it). Once web-deploy.yml deploys the site with shared/
+# compiled fresh (WEB_DEPLOY_FROM_ACTIONS), a stale copy only warns: nothing
+# ships it. The web job always tests the fresh build.
 on:
   push:
     branches: [main]
@@ -58,12 +60,24 @@ jobs:
       - name: Regenerate web/shared-kotlin
         run: ./gradlew :shared:exportWeb
 
+      # What the web job tests, so it checks this change's shared/ even where nothing can be committed.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-kotlin
+          path: web/shared-kotlin/dist
+
       - name: Commit it, or say how
         env:
           SAME_REPO: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository }}
+          DEPLOY_FROM_ACTIONS: ${{ vars.WEB_DEPLOY_FROM_ACTIONS }}
         run: |
           if git diff --quiet -- web/shared-kotlin && [ -z "$(git ls-files --others --exclude-standard web/shared-kotlin)" ]; then
             echo "web/shared-kotlin matches shared/."
+            exit 0
+          fi
+          # web-deploy.yml compiles shared/ itself, so a copy CI can't commit (a fork, or main) ships nowhere.
+          if [ "$DEPLOY_FROM_ACTIONS" = "true" ] && { [ "$SAME_REPO" != "true" ] || [ "$GITHUB_EVENT_NAME" = "push" ]; }; then
+            echo "::warning file=web/shared-kotlin/README.md::web/shared-kotlin is behind shared/. The site is deployed with shared/ compiled fresh, so nothing to do; ./gradlew :shared:exportWeb refreshes it locally."
             exit 0
           fi
           # A fork can't be pushed to, and nothing can bring main up to date after a merge (its
@@ -92,6 +106,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      # The shared-kotlin job's fresh build: the same as the committed copy unless that one couldn't be updated.
+      - uses: actions/download-artifact@v4
+        with:
+          name: shared-kotlin
+          path: web/shared-kotlin/dist
 
       # The pnpm version comes from web/package.json's packageManager.
       - uses: pnpm/action-setup@v4

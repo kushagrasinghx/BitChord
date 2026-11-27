@@ -15,7 +15,8 @@ no JDK. CI regenerates it whenever `shared/` changes
 (`.github/workflows/web.yml`, job *shared-kotlin*). On a branch in this
 repository it commits the update itself; on a fork's PR, which CI can't push to,
 it fails and names the command above (`main` only takes reviewed PRs, so nothing
-could catch it up after a merge).
+could catch it up after a merge). Deploying from GitHub Actions, which compiles
+`shared/` itself, turns that into a warning: see web/README.md, Deploy.
 
 What's exported, and how it maps to Kotlin, is in
 `shared/src/jsMain/kotlin/com/music/bitchord/web/`. Each export is a thin

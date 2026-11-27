@@ -39,6 +39,8 @@ jobs:
     permissions:
       # To commit the regenerated files back to a branch of this repository.
       contents: write
+    outputs:
+      exported: ${{ steps.exported.outputs.done }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,6 +68,10 @@ jobs:
           name: shared-kotlin
           path: web/shared-kotlin/dist
 
+      # Lets the web job run even when the next step fails a fork's PR, so it still gets test results.
+      - id: exported
+        run: echo "done=true" >> "$GITHUB_OUTPUT"
+
       - name: Commit it, or say how
         env:
           SAME_REPO: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == github.repository }}
@@ -80,8 +86,12 @@ jobs:
             echo "::warning file=web/shared-kotlin/README.md::web/shared-kotlin is behind shared/. The site is deployed with shared/ compiled fresh, so nothing to do; ./gradlew :shared:exportWeb refreshes it locally."
             exit 0
           fi
-          # A fork can't be pushed to, and nothing can bring main up to date after a merge (its
-          # ruleset only takes reviewed PRs), so the fork's PR carries the regenerated copy itself.
+          # main's ruleset only takes reviewed PRs, so CI can't push there: say so rather than fail on a refused push.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo "::warning file=web/shared-kotlin/README.md::main's web/shared-kotlin is behind shared/. Refresh it in a PR (./gradlew :shared:exportWeb)."
+            exit 0
+          fi
+          # A fork can't be pushed to either, so the fork's PR carries the regenerated copy itself.
           if [ "$SAME_REPO" != "true" ]; then
             echo "::error file=web/shared-kotlin/README.md::shared/ changed, so the web player's copy of it is stale. Run ./gradlew :shared:exportWeb and commit web/shared-kotlin."
             exit 1
@@ -96,6 +106,8 @@ jobs:
   web:
     name: Web · typecheck, test, build
     needs: shared-kotlin
+    # Also when shared-kotlin failed a fork's PR over its committed copy: the fresh build is in the artifact.
+    if: ${{ !cancelled() && needs.shared-kotlin.outputs.exported == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:

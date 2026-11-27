@@ -35,10 +35,22 @@ permissions:
 jobs:
   deploy:
     name: Web · deploy to Cloudflare Pages
-    if: vars.WEB_DEPLOY_FROM_ACTIONS == 'true'
+    # main only: --branch=main below makes this the live site, so a manual run from another branch must not.
+    if: vars.WEB_DEPLOY_FROM_ACTIONS == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The pnpm version comes from web/package.json's packageManager; Node before Gradle, as web.yml sets them up.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
 
       - uses: actions/setup-java@v4
         with:
@@ -51,21 +63,12 @@ jobs:
       - name: Compile shared/ for the web
         run: ./gradlew :shared:exportWeb
 
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: web/package.json
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      # Every VITE_* repository variable that is set, so a new setting needs no change here.
+      # Every VITE_* repository variable that is set, so a new setting needs no change here. One line each in
+      # GITHUB_ENV, so a value holding a line break is refused rather than written.
       - name: The site's settings
         env:
           VARS: ${{ toJSON(vars) }}
-        run: node -e 'for (const [k, v] of Object.entries(JSON.parse(process.env.VARS))) if (k.startsWith("VITE_") && v) console.log(`${k}=${v}`)' >> "$GITHUB_ENV"
+        run: node -e 'for (const [k, v] of Object.entries(JSON.parse(process.env.VARS))) if (k.startsWith("VITE_") && v) { if (/[\r\n]/.test(v)) throw new Error(`${k} holds a line break`); console.log(`${k}=${v}`) }' >> "$GITHUB_ENV"
 
       - name: Build
         working-directory: web
@@ -73,7 +76,8 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build:site
 
-      - uses: cloudflare/wrangler-action@v3
+      # Pinned to v3's commit, since this step is handed the Cloudflare API token.
+      - uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

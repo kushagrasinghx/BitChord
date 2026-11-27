@@ -62,6 +62,13 @@ async function ensurePlayer(): Promise<shaka.Player> {
   created.addEventListener('error', (event) => {
     const error = (event as unknown as { detail: shaka.util.Error }).detail;
     trackLog.d(`video: Shaka error ${error.code} (severity ${error.severity})`, loaded);
+    // A picture that has died mid-song would sit frozen or black in the sleeve: back to the artwork, as a failed load is.
+    if (error.severity === shaka.util.Error.Severity.CRITICAL && loaded) {
+      trackLog.w(`video: the picture stopped (Shaka ${error.code}); showing the artwork`, loaded);
+      loaded = null;
+      loadedQuality = null;
+      useVideo.setState({ videoId: null });
+    }
   });
   // Auto moves between renditions as it measures the connection; the switcher shows where it landed.
   for (const event of ['adaptation', 'variantchanged'] as const) {

@@ -30,6 +30,7 @@ const GROUPS: { title: string; rows: [keys: string[][], label: string][] }[] = [
     rows: [
       [[['L']], 'Show or hide lyrics'],
       [[['Q']], 'Show or hide the queue'],
+      [[['F']], 'Music video full screen'],
       [[['Esc']], 'Close the player or side panel'],
       [[['/'], [MOD, 'F']], 'Search'],
       [[['Alt', '←']], 'Back'],

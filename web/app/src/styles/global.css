@@ -535,6 +535,11 @@
     background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
   }
 
+  /* On the full-screen player's dark glass the key colour at 14% disappears; white shows where focus is. */
+  [data-player] :where(a[href], button, [role='button'], [role='slider'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    background-image: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.2));
+  }
+
   /* Where artwork covers the whole control, it hides that fill (painted under the image), so those opt in to a soft outline. */
   [data-art-focus]:focus-visible {
     outline: 2px solid rgba(var(--keyColor-rgb), 0.6);

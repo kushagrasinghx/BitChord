@@ -469,7 +469,7 @@ export function UpNext({ variant = 'panel' }: { variant?: 'panel' | 'player' }) 
   );
 
   const sectionHeading = (title: string, rowsIn: QueueRow[], extra?: ReactNode) => (
-    <h4 className={heading}>
+    <h3 className={heading}>
       <span className="min-w-0 flex-1 truncate">{title}</span>
       {!selection && (
         <>
@@ -477,16 +477,16 @@ export function UpNext({ variant = 'panel' }: { variant?: 'panel' | 'player' }) 
           {extra}
         </>
       )}
-    </h4>
+    </h3>
   );
 
   return (
     <>
       {/* PlayerQueue.kt's header: "Queue" in titleLarge and the Select pill; selecting, the count, Select All and close. */}
       <div className={`flex items-center gap-1 ${player ? 'pb-1' : 'px-5 pt-[23px] pb-1'}`}>
-        <h3 className="min-w-0 flex-1 truncate type-title-large text-primary" aria-live={selection ? 'polite' : undefined}>
+        <h2 className="min-w-0 flex-1 truncate type-title-large text-primary" aria-live={selection ? 'polite' : undefined}>
           {selection ? `${selected.length} Selected` : 'Queue'}
-        </h3>
+        </h2>
         {selection ? (
           <>
             <button
@@ -593,7 +593,7 @@ export function UpNext({ variant = 'panel' }: { variant?: 'panel' | 'player' }) 
               <div className="flex items-center gap-2 py-3.5">
                 <InfinityIcon size={18} strokeWidth={2.4} className="flex-none text-primary/75" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <h4 className="type-title-2-emphasized text-primary">Autoplay</h4>
+                  <h3 className="type-title-2-emphasized text-primary">Autoplay</h3>
                   <p className="type-callout text-secondary">
                     {autoplayRows.length ? 'Similar music, selected to play next' : 'Similar music will keep playing'}
                   </p>

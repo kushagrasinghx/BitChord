@@ -398,7 +398,7 @@ function ProviderPicker({
       ) : (
         <>
           <div className="flex min-w-0 flex-1 flex-col">
-            <h3 className="truncate type-title-large text-primary">Lyrics</h3>
+            <h2 className="truncate type-title-large text-primary">Lyrics</h2>
             {picker}
           </div>
           {actions}

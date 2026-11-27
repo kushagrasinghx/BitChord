@@ -38,14 +38,29 @@ type Glyph = ComponentType<{ size?: number }>;
  * glyph cut out of it, so whatever is behind shows through the glyph. The
  * cut-out is an SVG mask holding the glyph in black.
  */
-function BottomGlyph({ icon: Icon, label, lit, onClick, className = '' }: { icon: Glyph; label: string; lit: boolean; onClick: () => void; className?: string }) {
+function BottomGlyph({
+  icon: Icon,
+  label,
+  shortcut,
+  lit,
+  onClick,
+  className = '',
+}: {
+  icon: Glyph;
+  label: string;
+  shortcut: string;
+  lit: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
   const mask = useId();
   return (
     <button
       className={`relative grid flex-none place-items-center text-white/75 transition-[translate] duration-220 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${className}`}
       style={{ width: ACTION, height: ACTION }}
       aria-label={label}
-      title={label}
+      title={`${label} (${shortcut})`}
+      aria-keyshortcuts={shortcut}
       aria-pressed={lit}
       onClick={onClick}
     >
@@ -152,6 +167,7 @@ export function ActionRow({ pane, onPane }: { pane: Pane; onPane: (pane: Pane) =
         <BottomGlyph
           icon={LyricsIcon}
           label={pane === 'lyrics' ? 'Close lyrics' : 'Lyrics'}
+          shortcut="L"
           lit={pane === 'lyrics'}
           onClick={() => onPane(pane === 'lyrics' ? 'main' : 'lyrics')}
           className={compact ? 'translate-x-(--close-in)' : ''}
@@ -184,6 +200,7 @@ export function ActionRow({ pane, onPane }: { pane: Pane; onPane: (pane: Pane) =
         <BottomGlyph
           icon={UpNextIcon}
           label={queueOpen ? 'Close queue' : 'Queue'}
+          shortcut="Q"
           lit={queueOpen}
           onClick={() => onPane(queueOpen ? 'main' : 'queue')}
           className={compact ? '-translate-x-(--close-in)' : ''}
@@ -195,7 +212,8 @@ export function ActionRow({ pane, onPane }: { pane: Pane; onPane: (pane: Pane) =
           {host ? `${host}’s Jam` : 'Listening together'}
         </button>
       ) : (
-        <span className="max-w-[65%] truncate type-[600_11px/13px] text-white/55">This computer</span>
+        // Only under the speaker it names; without Listen Together there is no glyph for it to caption.
+        partyOffered && <span className="max-w-[65%] truncate type-[600_11px/13px] text-white/55">This computer</span>
       )}
     </div>
   );

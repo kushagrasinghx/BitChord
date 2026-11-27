@@ -2,6 +2,7 @@ import { PrefetchLink } from '@/components/PrefetchLink';
 import { albumHref, artistHref, hrefFor } from '@/components/music/links';
 import type { Track } from '@/data/music/types';
 import type { QueueSource } from '@/playback/queue/timeline';
+import type { ReactNode } from 'react';
 import { usePlayer, type NowPlaying } from '@/state/player';
 import { NerdStats } from '../NerdStats';
 import { LyricStrip } from './LyricStrip';
@@ -42,7 +43,8 @@ function OriginCaption({ track }: { track: Track | null }) {
 /**
  * The right column in its main state (LandscapePlayer.kt LandscapeMainPane):
  * where the queue came from, the credits, the current line, the scrubber, the
- * transport and the volume bar, at most 560px wide. A short window
+ * transport and the volume bar, at most 560px wide, and then whatever
+ * `footer` holds. A short window
  * (`compact`, under 440px tall) tightens every gap and the transport.
  */
 export function MainPane({
@@ -50,11 +52,14 @@ export function MainPane({
   track,
   compact,
   onOpenLyrics,
+  footer,
 }: {
   nowPlaying: NowPlaying;
   track: Track | null;
   compact: boolean;
   onOpenLyrics: () => void;
+  /** Under the volume bar: the action row, when the window is sideways. */
+  footer?: ReactNode;
 }) {
   return (
     <div className="flex w-full max-w-[560px] flex-col">
@@ -69,6 +74,12 @@ export function MainPane({
       <Transport compact={compact} />
       <div style={{ height: compact ? 0 : 12 }} />
       <VolumeRow />
+      {footer && (
+        <>
+          <div style={{ height: compact ? 12 : 28 }} />
+          {footer}
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boxBlur } from './boxBlur';
-import { currentLineIndex } from './lyricLines';
+import { currentLineIndex, wordSung } from './lyricLines';
 import { sheetSettlesOpen, stepCriticalSpring } from './motion';
 import { line } from '@/lyrics/model';
 
@@ -64,5 +64,30 @@ describe('currentLineIndex', () => {
     expect(currentLineIndex(lines, 1000)).toBe(0);
     expect(currentLineIndex(lines, 4000)).toBe(1);
     expect(currentLineIndex(lines, 9000)).toBe(2);
+  });
+});
+
+describe('wordSung', () => {
+  const plain = { startMs: 1000, endMs: 2000, text: 'hello', syllables: [] };
+  // "e" sung 1000–1100, then a held pause, "nough" 1500–2000.
+  const split = {
+    startMs: 1000,
+    endMs: 2000,
+    text: 'enough',
+    syllables: [
+      { startMs: 1000, endMs: 1100, startChar: 0, endChar: 1 },
+      { startMs: 1500, endMs: 2000, startChar: 1, endChar: 6 },
+    ],
+  };
+
+  it('fills a plain word evenly over its time', () => {
+    expect(wordSung(plain, 900)).toBe(0);
+    expect(wordSung(plain, 1500)).toBeCloseTo(0.5);
+    expect(wordSung(plain, 2500)).toBe(1);
+  });
+
+  it('rests on a syllable boundary through the pause', () => {
+    expect(wordSung(split, 1300)).toBeCloseTo(1 / 6);
+    expect(wordSung(split, 1750)).toBeCloseTo((1 + 2.5) / 6);
   });
 });

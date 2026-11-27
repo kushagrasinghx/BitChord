@@ -7,6 +7,7 @@ import { useReducedMotion } from '@/data/spotify/canvas';
 import type { NowPlaying } from '@/state/player';
 import { BestPartPill } from '../BestPartPill';
 import { NowPlayingCover } from '../NowPlayingCover';
+import { VideoCornerControls } from './FullscreenVideo';
 import { FAST_OUT_SLOW_IN } from './motion';
 
 /** NowPlayingScreen.kt THUMB_SIZE: the sleeve as the header's thumbnail while a pane is up on a narrow window. */
@@ -41,6 +42,7 @@ export function Sleeve({
   docked = false,
   dock,
   onClick,
+  onVideoFullScreen,
 }: {
   nowPlaying: NowPlaying;
   /** The album's name, which Apple's motion covers are looked up by. */
@@ -52,6 +54,8 @@ export function Sleeve({
   docked?: boolean;
   dock: Ref<HTMLDivElement>;
   onClick?: () => void;
+  /** Puts a music video in its own full screen (FullscreenVideo). */
+  onVideoFullScreen?: () => void;
 }) {
   const motion = useTrackMotion(nowPlaying.title, nowPlaying.artist, album);
   const box = useRef<HTMLDivElement>(null);
@@ -109,6 +113,10 @@ export function Sleeve({
             )}
             {video && <VideoSurface className="absolute inset-0 bg-black" />}
           </div>
+          {/* MusicVideoLayout.kt VideoCornerControls: the quality and full screen on the picture's top-right corner. */}
+          {video && !thumb && onVideoFullScreen && (
+            <VideoCornerControls fullScreen={false} onToggle={onVideoFullScreen} className="absolute top-2 right-2" />
+          )}
           {!thumb && <BestPartPill />}
         </div>
       </div>

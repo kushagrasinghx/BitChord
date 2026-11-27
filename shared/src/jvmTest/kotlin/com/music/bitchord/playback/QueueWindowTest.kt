@@ -170,4 +170,44 @@ class QueueWindowTest {
             assertTrue(window.upcoming(10_000).all { it.cycleId == 0L })
         }
     }
+
+    // Queue screen removals (#1536): a context row taken out stays out of what is
+    // materialized ahead, without changing the logical order or the cursor.
+
+    @Test
+    fun anExcludedUpcomingEntryIsSkippedButTheOrderIsKept() {
+        val window = QueueWindow(6).startAt(1, shuffle = false)
+        val cycle = window.cycleId
+
+        assertTrue(window.exclude(QueueWindowEntry(3, cycle)))
+
+        assertEquals(listOf(2, 4, 5), window.upcoming().map { it.canonicalIndex })
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), window.order)
+        assertEquals(1, window.currentCanonicalIndex)
+        // Excluding it again is still accepted; it is already out.
+        assertTrue(window.exclude(QueueWindowEntry(3, cycle)))
+    }
+
+    @Test
+    fun onlyAnUpcomingEntryCanBeExcluded() {
+        val window = QueueWindow(6).startAt(2, shuffle = false)
+        val cycle = window.cycleId
+
+        assertFalse(window.exclude(QueueWindowEntry(2, cycle)), "the playing entry")
+        assertFalse(window.exclude(QueueWindowEntry(0, cycle)), "an entry already behind the cursor")
+        assertFalse(window.exclude(QueueWindowEntry(9, cycle)), "no such canonical index")
+        assertFalse(QueueWindow(6).exclude(QueueWindowEntry(3, 0L)), "a window that never started")
+    }
+
+    @Test
+    fun exclusionsSurviveASnapshotAndRestartingClearsThem() {
+        val window = QueueWindow(6).startAt(0, shuffle = false)
+        window.exclude(QueueWindowEntry(4, window.cycleId))
+
+        val restored = QueueWindow.restore(window.snapshot())
+        assertEquals(listOf(1, 2, 3, 5), restored.upcoming().map { it.canonicalIndex })
+
+        restored.startAt(0, shuffle = false)
+        assertEquals(listOf(1, 2, 3, 4, 5), restored.upcoming().map { it.canonicalIndex })
+    }
 }

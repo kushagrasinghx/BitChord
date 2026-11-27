@@ -21,6 +21,7 @@
     <string name="search">搜尋</string>
     <string name="clear_search">清除搜尋</string>
     <string name="library">資料庫</string>
+    <string name="radio">電台</string>
     <string name="home">首頁</string>
     <string name="play">播放</string>
     <string name="explore">探索</string>
@@ -84,6 +85,8 @@
     <string name="testing">測試中…</string>
     <string name="connected">已連線</string>
     <string name="account_integrations">賬號與整合</string>
+    <string name="youtube_premium_audio">YouTube Premium 音訊</string>
+    <string name="youtube_premium_audio_subtitle">我有 Premium：串流更高音質的約 256 kbps Opus，而非標準的 160 kbps</string>
     <string name="account_scrobbling">賬號與Scrobbling</string>
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>
@@ -185,7 +188,7 @@
     <string name="playback">播放</string>
     <string name="appearance">外觀</string>
     <string name="storage">儲存空間</string>
-    <string name="your_data">你的資料</string>
+    <string name="your_data">備份與還原</string>
     <string name="miscellaneous">其他</string>
     <string name="lossless_hq_audio">無損 / 高品質音訊</string>
     <string name="on_wifi">使用 Wi-Fi 時</string>
@@ -195,6 +198,7 @@
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
     <string name="automix">Automix [測試版]</string>
+    <string name="automix_overview">Automix 概覽</string>
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
     <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>
@@ -499,8 +503,14 @@
     <string name="listen_most_around">你通常在%1$s左右收聽最多。</string>
     <string name="lyrics_share_title">分享歌詞</string>
     <string name="lyrics_share_description">你選中的幾行，連同封面排在一張卡片上。</string>
-    <string name="lyrics_share_story">轉為快拍尺寸</string>
-    <string name="lyrics_share_story_revert">恢復為卡片</string>
+    <string name="lyrics_share_story">轉為快拍</string>
+    <string name="lyrics_share_story_revert">轉為卡片</string>
+    <string name="lyrics_share_canvas">動態封面</string>
+    <string name="lyrics_share_video">影片</string>
+    <string name="lyrics_share_image">圖片</string>
+    <string name="lyrics_share_saving">正在儲存…</string>
+    <string name="lyrics_share_gradient">漸層</string>
+    <string name="lyrics_share_show_logo">顯示 BitChord 標誌</string>
     <string name="listening_shape">你的收聽規律</string>
     <string name="member_since">加入時間</string>
     <string name="member_since_value">加入時間：%1$s</string>
@@ -623,6 +633,14 @@
     <string name="version_cut_aligned">已對齊</string>
     <string name="automix_enabled_subtitle">根據曲目本身自動把控每次過渡的時機與混合效果。如果手機發熱或播放卡頓，請將其關閉。</string>
     <string name="automix_disabled_subtitle">自動把控過渡的時機與混合效果，無需手動調節。在效能較弱的裝置上效果可能有所不同。</string>
+    <string name="automix_models_downloading">正在下載 Automix（%1$d MB）… %2$d%%。完成前歌曲會使用一般淡入淡出。</string>
+    <string name="automix_model">Automix 模型</string>
+    <string name="automix_model_missing">尚未下載。開啟 Automix 時會自動下載，也可以現在下載。</string>
+    <string name="automix_model_download">下載 (%1$d MB)</string>
+    <string name="automix_model_ready">已下載，在此裝置上佔用 %1$d MB。</string>
+    <string name="automix_models_failed">無法下載模型。請檢查網路連線後重試。</string>
+    <string name="automix_model_delete_title">刪除 Automix 模型？</string>
+    <string name="automix_model_delete_warning">這將釋放 %1$d MB 並關閉 Automix。再次開啟 Automix 時會重新下載模型。</string>
     <string name="advanced_automix">高階自動混音</string>
     <string name="advanced_automix_subtitle">像 DJ 一樣混音：保持節拍同步，每次切換都踩在拍子上，並在不搭的歌曲之間直接切換。無需額外處理。</string>
     <string name="no_lyrics_sources_enabled">無。將不會獲取歌詞。</string>
@@ -834,6 +852,8 @@
     <string name="export_compatible_downloads">匯出相容的下載</string>
     <string name="sync_downloaded_playlists">保持播放清單更新</string>
     <string name="sync_downloaded_playlists_subtitle">每天檢查兩次，並下載已下載播放清單中新加入的歌曲</string>
+    <string name="download_liked_songs">下載喜歡的歌曲</string>
+    <string name="download_liked_songs_subtitle">下載你喜歡的音樂，以及之後你喜歡的每首歌曲</string>
     <string name="playlist_sync_ask_title">%1$s 有新歌曲：%2$d</string>
     <string name="playlist_sync_ask_text">輕觸即可下載</string>
     <string name="playlist_sync_done_title">已新增至 %1$s：%2$d</string>
@@ -979,6 +999,7 @@
     <string name="sort_date_added_toggle">新增日期</string>
 
     <string name="sort_default">預設排序</string>
+    <string name="sort_track_number">曲目編號</string>
 
     <string name="sort_library">排序</string>
 
@@ -1250,8 +1271,6 @@
 
 
     <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
-    <string name="source_needs_update">此附加元件已過時。目前仍可使用，但請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
-    <string name="source_outdated">附加元件已過時</string>
     <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
     <string name="source_downloads_off">僅限線上播放</string>
@@ -1434,4 +1453,87 @@
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
     <string name="source_downloads_on">允許下載</string>
+    <string name="find_a_playlist">尋找播放列表</string>
+    <string name="no_playlists_match">沒有符合「%1$s」的播放列表</string>
+    <string name="hide_lyrics_preview">隱藏歌詞</string>
+    <string name="hide_lyrics_preview_subtitle">隱藏播放器上的歌詞行</string>
+    <string name="show_total_duration">顯示總時長</string>
+    <string name="show_total_duration_subtitle">顯示歌曲的完整長度，而非剩餘時間</string>
+    <string name="sleep_timer_fade_out">暫停前淡出</string>
+    <string name="sleep_timer_fade_out_subtitle">在最後 30 秒內逐漸降低音量</string>
+    <string name="disable_spotify_canvas">停用 Spotify Canvas</string>
+    <string name="disable_spotify_canvas_subtitle">永不使用 Spotify Canvas。動態封面會改由其他來源提供</string>
+    <plurals name="queue_removed_count">
+        <item quantity="other">已移除 %1$d 首歌曲</item>
+    </plurals>
+    <string name="queue_removed_song">已移除 %1$s</string>
+    <string name="queue_undo_action">復原</string>
+    <string name="queue_cleared">已清空播放佇列</string>
+    <string name="queue_selected_count">已選擇 %1$d 項</string>
+    <string name="queue_playlist_added">已新增 %1$d/%2$d 首歌曲</string>
+    <string name="queue_playlist_partial">%1$s（%2$d 首不相容，%3$d 首已存在，%4$d 首失敗）</string>
+    <!-- Google Drive backup (DriveBackupScreen) -->
+    <string name="drive_backup_title">Google 雲端硬碟備份</string>
+    <string name="drive_backup_unavailable">Google 雲端硬碟備份需要 Google Play 服務，但這部裝置沒有。</string>
+    <string name="drive_backup_never">從未</string>
+    <string name="drive_restore_failed">還原失敗：%1$s</string>
+    <string name="drive_account_header">Google 帳戶</string>
+    <string name="drive_connect_failed">無法連線：%1$s</string>
+    <string name="drive_connect">連結 Google 雲端硬碟</string>
+    <string name="drive_connect_subtitle">選擇這支手機上的帳戶來備份</string>
+    <string name="drive_sign_in_again_subtitle">Google 雲端硬碟的存取權已遭移除。請重新登入以繼續備份。</string>
+    <string name="drive_sign_in_again">登入</string>
+    <string name="drive_restore_header">還原</string>
+    <string name="drive_backup_footer">備份會存放在你 Google 雲端硬碟中的隱藏應用程式資料夾，並佔用雲端硬碟儲存空間。絕不包含密碼和登入資訊。如要刪除，請開啟雲端硬碟 → 設定 → 管理應用程式。</string>
+    <string name="drive_restore_connect_first">請先連結 Google 帳戶</string>
+    <string name="drive_restore_action">還原</string>
+    <string name="drive_disconnect_confirm_title">要中斷 Google 雲端硬碟連結嗎？</string>
+    <string name="drive_backup_restoring">正在還原…</string>
+    <string name="drive_frequency_daily">每天</string>
+    <string name="drive_frequency_weekly">每週</string>
+    <string name="drive_frequency_monthly">每月</string>
+    <!-- Google Drive sync across devices (DriveBackupScreen, DriveDevicesScreen) -->
+    <string name="drive_auto_sync_header">自動同步</string>
+    <string name="drive_auto_sync_footer">在電量不低時，這支手機會在背景上傳自己的收聽記錄，並下載你其他裝置的記錄。手動同步也會計入排程。</string>
+    <string name="drive_choose_device">選擇這支手機的裝置</string>
+    <string name="drive_choose_device_subtitle">以新裝置身分備份，或還原為雲端硬碟中已有的裝置</string>
+    <string name="drive_device_not_set">選擇裝置</string>
+    <string name="drive_device_synced">同步於 %1$s</string>
+    <string name="drive_devices_checking">正在尋找裝置…</string>
+    <string name="drive_devices_failed">無法載入裝置：%1$s</string>
+    <string name="drive_devices_footer">所有裝置的收聽記錄會在 Replay 中加總。輕觸裝置即可刪除其備份。</string>
+    <string name="drive_devices_header">裝置</string>
+    <string name="drive_devices_none">這個帳戶還沒有裝置</string>
+    <string name="drive_devices_none_other">這個帳戶還沒有其他裝置</string>
+    <string name="drive_devices_title">備份或還原為</string>
+    <string name="drive_forked_notice">另一支手機已還原為這個裝置，因此這支手機現在以 %1$s 的身分同步。</string>
+    <string name="drive_new_device">以新裝置身分備份</string>
+    <string name="drive_new_device_footer">這支手機的收聽記錄會保留為獨立裝置，你其他裝置的收聽記錄會在 Replay 中一併加總。</string>
+    <string name="drive_remove_confirm_title">要刪除 %1$s 的備份嗎？</string>
+    <string name="drive_remove_confirm_body">它的備份會從 Google 雲端硬碟刪除，其收聽記錄也會從你所有裝置的 Replay 中移除。此動作無法復原。</string>
+    <string name="drive_delete_mine_body">這支手機的備份會從 Google 雲端硬碟刪除，並關閉自動同步。這支手機上的 Replay 會保留所有記錄，輕觸「立即同步」即可建立新的備份。</string>
+    <string name="drive_rename">重新命名</string>
+    <string name="drive_rename_title">重新命名這支手機</string>
+    <string name="drive_rename_message">你的其他裝置會以這個名稱顯示這支手機。</string>
+    <string name="drive_restore_as_done">現以 %1$s 的身分同步 · %2$s</string>
+    <string name="drive_restore_as_footer">這支手機會成為你選擇的裝置：該裝置的收聽記錄和設定會取代這支手機上的。</string>
+    <string name="drive_restore_as_header">還原為</string>
+    <string name="drive_restore_as_subtitle">選擇雲端硬碟中的裝置以繼續使用</string>
+    <string name="drive_restore_as_title">還原為其他裝置</string>
+    <string name="drive_sync_done">剛剛已同步</string>
+    <string name="drive_sync_downloading">正在從 %1$s 下載 · 第 %2$d 個，共 %3$d 個</string>
+    <string name="drive_sync_failed">同步失敗：%1$s</string>
+    <string name="drive_sync_last">上次同步</string>
+    <string name="drive_sync_now">立即同步</string>
+    <string name="drive_sync_preparing">正在準備同步…</string>
+    <string name="drive_sync_uploading">正在上傳第 %1$d 個月，共 %2$d 個月</string>
+    <string name="drive_this_phone">這支手機</string>
+    <string name="drive_this_phone_header">這支手機</string>
+    <string name="drive_this_phone_subtitle">這支手機備份所用的裝置</string>
+    <string name="drive_restore_confirm_title">要還原為 %1$s 嗎？</string>
+    <string name="drive_restore_confirm_body">這支手機會成為 %1$s。該裝置的收聽記錄和設定會取代這支手機上的，之後這支手機將以 %1$s 的身分同步。不包含登入資訊。</string>
+    <string name="drive_disconnect_confirm_body">同步會停止。雲端硬碟中的內容會保留，在重新連結之前，這支手機的 Replay 將不再包含你其他裝置的收聽記錄。</string>
+    <string name="drive_backup_row_subtitle">在你的所有裝置間備份並同步 Replay</string>
+    <string name="drive_over_cellular">使用行動數據同步</string>
+    <string name="drive_over_cellular_subtitle">關閉時，自動同步會等待 Wi-Fi</string>
 </resources>

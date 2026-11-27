@@ -65,15 +65,17 @@ import java.util.Locale
 @UnstableApi
 class TrackAnalyzer(private val context: Context, private val cache: AudioCache) {
 
+    // The weights are downloaded rather than shipped; see [AutomixModels]. Until
+    // they arrive, these throw, and the trackers answer with no evidence.
     private val tracker = BeatTracker(
         modelPath = {
             java.io.File(context.filesDir, BeatTracker.RETIRED_MODEL_ASSET).delete()
-            unpackedAsset(BeatTracker.MODEL_ASSET)
+            AutomixModels.path(AutomixModels.BEAT)
         },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
     private val vocals = VocalTracker(
-        modelPath = { unpackedAsset(VocalTracker.MODEL_ASSET) },
+        modelPath = { AutomixModels.path(AutomixModels.VOCALS) },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
 
@@ -82,24 +84,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // this; with no sink they went nowhere on the phone, which is how a
         // beat model that found nothing went unnoticed.
         AnalysisLog.install { message, error -> Log.w(TAG, message, error) }
-    }
-
-    /**
-     * A model's weights on disk, unpacked from assets the first time they are
-     * asked for.
-     *
-     * ONNX Runtime wants a file it can memory-map, and an asset inside the APK
-     * is not one. This used to live inside each tracker; it moved out when they
-     * became shared with the desktop build, which unpacks from the jar instead.
-     */
-    private fun unpackedAsset(name: String): String {
-        val file = java.io.File(context.filesDir, name)
-        if (!file.exists() || file.length() == 0L) {
-            context.assets.open(name).use { input ->
-                file.outputStream().use { output -> input.copyTo(output) }
-            }
-        }
-        return file.absolutePath
+        AutomixModels.install(context)
     }
 
     /**

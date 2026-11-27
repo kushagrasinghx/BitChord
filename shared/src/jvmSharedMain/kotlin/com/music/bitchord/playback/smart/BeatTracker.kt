@@ -52,7 +52,7 @@ class BeatTracker(
      *
      * A path rather than a [Context]: this is the only thing the tracker ever
      * wanted the platform for, and each application already knows how to put
-     * its own copy of the weights somewhere readable — unpacked from assets on
+     * its own copy of the weights somewhere readable — downloaded on first use on
      * Android, from the jar's resources on the desktop.
      */
     private val modelPath: () -> String,
@@ -83,19 +83,17 @@ class BeatTracker(
             runCatching { session?.close() }
             session = null
             return runCatching {
-                val file = File(modelPath())
-                val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(threads)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                    // ORT's arena allocator keeps every block it has ever needed, which for this
-                    // graph is tens of megabytes of native heap retained for the life of the
-                    // session, far past the model's own size, on a process that also has to
-                    // survive in the background. Analysis runs a handful of times per track, so
-                    // allocating per run is the right trade.
-                    setCPUArenaAllocator(false)
-                    setMemoryPatternOptimization(false)
-                }
-                OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
+                val path = File(modelPath()).absolutePath
+                // The Android runtime is built with only the operators this model needs (see
+                // native/onnxruntime). ALL_OPT fuses nodes into contrib operators that are listed
+                // there too; should one ever be missing, BASIC_OPT keeps the graph to the model's
+                // own operators, so Automix runs a little slower instead of not at all.
+                runCatching { open(path, threads, OrtSession.SessionOptions.OptLevel.ALL_OPT) }
+                    .recoverCatching {
+                        AnalysisLog.warn("Beat model failed at ALL_OPT; retrying at BASIC_OPT", it)
+                        open(path, threads, OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+                    }
+                    .getOrThrow()
                     .also {
                         session = it
                         sessionThreads = threads
@@ -103,6 +101,21 @@ class BeatTracker(
             }.onFailure { AnalysisLog.warn("Beat model unavailable; falling back to no grid", it) }
                 .getOrNull()
         }
+    }
+
+    private fun open(path: String, threads: Int, level: OrtSession.SessionOptions.OptLevel): OrtSession {
+        val options = OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(threads)
+            setOptimizationLevel(level)
+            // ORT's arena allocator keeps every block it has ever needed, which for this
+            // graph is tens of megabytes of native heap retained for the life of the
+            // session, far past the model's own size, on a process that also has to
+            // survive in the background. Analysis runs a handful of times per track, so
+            // allocating per run is the right trade.
+            setCPUArenaAllocator(false)
+            setMemoryPatternOptimization(false)
+        }
+        return OrtEnvironment.getEnvironment().createSession(path, options)
     }
 
     /**
@@ -222,7 +235,7 @@ class BeatTracker(
          * The official final0 checkpoint with only its MatMuls quantized (int8, per channel); the
          * convolutions stay float. The earlier `beat_this_int8.onnx` quantized the convolutions
          * too and found no beats at all. A new name rather than the old one because the app
-         * unpacks assets once by name and would keep serving the stale copy.
+         * keeps a model under its file name and would keep serving the stale copy.
          */
         const val MODEL_ASSET = "beat_this_final0_q8.onnx"
 

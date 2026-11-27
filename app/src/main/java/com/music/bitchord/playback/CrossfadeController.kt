@@ -19,6 +19,7 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.playback.loopmix.LoopMixPort
 import com.music.bitchord.playback.loopmix.LoopMixRenderer
 import com.music.bitchord.playback.loopmix.LoopMixSession
@@ -184,6 +185,8 @@ class CrossfadeController(
      * a later gapless boundary without waiting on the service.
      */
     private val onArmIncoming: (MediaItem, String?) -> Unit = { _, _ -> },
+    /** The armed incoming item, only when AutoMix owns the overlap. */
+    private val onArmAutoMixIncoming: (MediaItem) -> Unit = {},
     /**
      * A smooth headroom trim for both players while two tracks overlap:
      * `1 / sqrt(incomingGain + outgoingGain)`, 1 otherwise.
@@ -671,6 +674,75 @@ class CrossfadeController(
     fun msSinceTransition(): Long? =
         settledAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
 
+    private var visualGeneration: Long? = null
+    private var visualQueue: List<MediaItem> = emptyList()
+    private var visualCurrentIndex = C.INDEX_UNSET
+    private val visualDeckErrors = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) = cancelAutoMixVisual()
+    }
+
+    fun cancelAutoMixVisual() = AutoMixVisualFeed.cancel(visualGeneration)
+
+    private fun armAutoMixVisual(out: ExoPlayer, into: ExoPlayer, nextIndex: Int, items: List<MediaItem>) {
+        fun trackAt(index: Int): AutoMixVisualTrack? {
+            val item = items.getOrNull(index) ?: return null
+            val entryId = item.queueEntryId
+            val ordinal = (0 until index).count {
+                val prior = items[it]
+                prior.mediaId == item.mediaId && prior.queueEntryId == entryId
+            }
+            return AutoMixVisualTrack(
+                QueueEntryIdentity(item.mediaId, entryId, ordinal),
+                index,
+                item.mediaMetadata.artworkUri?.toString(),
+            )
+        }
+        val from = trackAt(out.currentMediaItemIndex) ?: return
+        val to = trackAt(nextIndex) ?: return
+        visualQueue = items
+        visualCurrentIndex = from.armedIndex
+        visualGeneration = AutoMixVisualFeed.arm(from, to)
+        out.addListener(visualDeckErrors)
+        into.addListener(visualDeckErrors)
+    }
+
+    private fun clearAutoMixVisual() {
+        if (visualGeneration == null) return
+        cancelAutoMixVisual()
+        outgoing?.removeListener(visualDeckErrors)
+        incoming?.removeListener(visualDeckErrors)
+        visualGeneration = null
+        visualQueue = emptyList()
+        visualCurrentIndex = C.INDEX_UNSET
+    }
+
+    // MediaMetadata.equals does not compare the contents of extras.
+    private fun sameVisualQueueItem(expected: MediaItem, actual: MediaItem?): Boolean =
+        actual != null && expected == actual && expected.queueEntryId == actual.queueEntryId &&
+            expected.queueTier == actual.queueTier
+
+    /**
+     * Raw playlist mutations can bypass the session wrapper. Allow the controller's pure
+     * append reconciliation and the service's post-handoff history trim/rotation, but
+     * not a replaced or reordered snapshot. Accepted user edits use the intent hook.
+     */
+    fun checkAutoMixVisualTimeline(player: ExoPlayer) {
+        val visual = AutoMixVisualFeed.pending(visualGeneration) ?: return
+        val index = player.currentMediaItemIndex
+        val trim = visualCurrentIndex - index
+        val retained = visualQueue.size - trim
+        if (index !in 0 until player.mediaItemCount || trim < 0 || (!handedOff && trim != 0) ||
+            retained > player.mediaItemCount || (0 until retained).any {
+                !sameVisualQueueItem(visualQueue[it + trim], player.getMediaItemAt(it))
+            } || (!handedOff && player.nextMediaItemIndex != visual.incoming.armedIndex)
+        ) {
+            cancelAutoMixVisual()
+        } else {
+            visualQueue = (0 until player.mediaItemCount).map(player::getMediaItemAt)
+            visualCurrentIndex = index
+        }
+    }
+
     private val listener = object : Player.Listener {
         override fun onPositionDiscontinuity(
             oldPosition: Player.PositionInfo,
@@ -693,7 +765,11 @@ class CrossfadeController(
                 // harmless and shouldn't cost the listener the blend.
                 Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> bail()
                 Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> bail()
-                Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> ranOutBeforeHandoff()
+                Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> {
+                    cancelAutoMixVisual()
+                    ranOutBeforeHandoff()
+                }
+                Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> cancelAutoMixVisual()
             }
         }
 
@@ -787,6 +863,7 @@ class CrossfadeController(
     }
 
     fun release() {
+        clearAutoMixVisual()
         tickerJob?.cancel()
         tickerJob = null
         loopBuildJob?.cancel()
@@ -828,12 +905,14 @@ class CrossfadeController(
      * player this class has finished with.
      */
     fun onSkipRequested() {
+        cancelAutoMixVisual()
         if (phase != Phase.IDLE) bail()
     }
 
     // ---- Ticker -------------------------------------------------------------
 
     private fun tick() {
+        if (visualGeneration != null && !AppSettings.smartFadeEnabled.value) cancelAutoMixVisual()
         // A pause has to take the other player with it, or one half of the blend
         // carries on alone over a stopped one. Mirrored every tick rather than
         // handled as an event, so audio focus loss, the sleep timer and the
@@ -1468,7 +1547,7 @@ class CrossfadeController(
         // settings rather than whatever the standby was left on last time.
         into.skipSilenceEnabled = out.skipSilenceEnabled
         into.repeatMode = out.repeatMode
-        into.shuffleModeEnabled = out.shuffleModeEnabled
+        into.shuffleModeEnabled = false
         // Stacks on top of the listener's speed control rather than replacing
         // it, so a beatmatched transition and "play everything at 1.25x" don't
         // fight each other. Undone in [finish].
@@ -1503,6 +1582,10 @@ class CrossfadeController(
         }
 
         phase = Phase.ARMING
+        if (smart) {
+            armAutoMixVisual(out, into, nextIndex, items)
+            items.getOrNull(nextIndex)?.let(onArmAutoMixIncoming)
+        }
         return true
     }
 
@@ -1692,6 +1775,7 @@ class CrossfadeController(
         // would run straight over the marker for the transition now under way.
         AppSettings.smartTransitionWindow.value = null
         phase = Phase.FADING
+        AutoMixVisualFeed.start(visualGeneration, audioSeconds = 0.0)
     }
 
     /**
@@ -1702,7 +1786,12 @@ class CrossfadeController(
      * point it becomes the louder of the two. From here [outgoing] is the idle
      * player, still audible, being faded away.
      */
-    private fun handOff(out: ExoPlayer, into: ExoPlayer) {
+    private fun handOff(
+        out: ExoPlayer,
+        into: ExoPlayer,
+        visualAudioSeconds: Double? = null,
+        visualEndSeconds: Double? = null,
+    ) {
         if (handedOff) return
         // AutoPlay may have appended to the queue since the standby was loaded
         // with a copy of it — during arming or the first half of the blend,
@@ -1716,7 +1805,32 @@ class CrossfadeController(
         // firing on a player this class is about to demote.
         listenTo(into)
         handedOff = true
+        AutoMixVisualFeed.pending(visualGeneration)?.let { visual ->
+            val expected = visualQueue.getOrNull(visual.incoming.armedIndex)
+            if (expected == null || into.currentMediaItemIndex != visual.incoming.armedIndex ||
+                !sameVisualQueueItem(expected, into.currentMediaItem)
+            ) {
+                cancelAutoMixVisual()
+            } else {
+                visualQueue = (0 until into.mediaItemCount).map(into::getMediaItemAt)
+                visualCurrentIndex = into.currentMediaItemIndex
+            }
+        }
+        val endOfItemSample = if (visualAudioSeconds == null && AutoMixVisualFeed.pending(visualGeneration) != null) {
+            // A hold can hand over between ticks. Sample positions without advancing
+            // the interpolated clock used by the faders, before changing session roles.
+            val span = effectiveFadeSpan(into)
+            val axisMs = if (render.advanced) span * mediaRatio.toFloat() else span.toFloat()
+            val elapsed = (into.currentPosition - incomingCueTimeMs).coerceAtLeast(0L).toFloat()
+            val remaining = out.duration.takeIf { it != C.TIME_UNSET && it > 0L }?.minus(out.currentPosition)
+            val endProgress = remaining?.let { (span - it).toFloat() / span } ?: 0f
+            val progress = maxOf(elapsed / axisMs, endProgress).coerceIn(0f, 1f)
+            (progress * axisMs / 1000.0) to (axisMs / 1000.0)
+        } else null
         onHandoff(out, into)
+        val swap = visualAudioSeconds ?: endOfItemSample?.first
+        val end = visualEndSeconds ?: endOfItemSample?.second
+        if (swap != null && end != null) AutoMixVisualFeed.swap(visualGeneration, swap, end)
 
         // The outgoing player holds the whole queue too, and a standard
         // crossfade runs right up to its track's natural end — at which point
@@ -1763,6 +1877,15 @@ class CrossfadeController(
         Log.d(TAG, "reconciled ${appended.size} appended item(s) onto the incoming player")
     }
 
+    private fun effectiveFadeSpan(player: ExoPlayer): Long {
+        val remainingIncoming = player.duration
+            .takeIf { it != C.TIME_UNSET && it > 0L }
+            ?.minus(incomingCueTimeMs)
+            ?.coerceAtLeast(0L)
+        val incomingCap = remainingIncoming?.div(3) ?: Long.MAX_VALUE
+        return minOf(fadeMs, incomingCap).coerceAtLeast(1L)
+    }
+
     /**
      * The crossfade proper.
      *
@@ -1788,12 +1911,7 @@ class CrossfadeController(
         // end of an 8-second fade — finishing the blend on its first tick and
         // landing as an abrupt cut, which is precisely the failure a cued
         // transition is supposed to avoid.
-        val remainingIncoming = player.duration
-            .takeIf { it != C.TIME_UNSET && it > 0L }
-            ?.minus(incomingCueTimeMs)
-            ?.coerceAtLeast(0L)
-        val incomingCap = remainingIncoming?.div(3) ?: Long.MAX_VALUE
-        val span = minOf(fadeMs, incomingCap).coerceAtLeast(1L)
+        val span = effectiveFadeSpan(player)
         val elapsed = (inClock.read(player) - incomingCueTimeMs).coerceAtLeast(0.0).toFloat()
         // Advanced: [fadeMs] is outgoing time, and a stretched incoming track
         // covers `rate` times as much of its own timeline in it — unscaled, a
@@ -1805,8 +1923,11 @@ class CrossfadeController(
         // analysed anchor. In that case the outgoing deck must still reach
         // zero before its final sample instead of remaining loud and appearing
         // to stop. Normally this is zero and incoming timing remains authority.
+        // Through [outClock], not the raw report: near the file end this term leads the
+        // blend, and the raw position only moves every ~280ms (see [PositionClock]). Read
+        // raw, the faders and the AutoMix artwork reveal advanced in quarter-second lurches.
         val outRemaining = out.duration.takeIf { it != C.TIME_UNSET && it > 0L }
-            ?.minus(out.currentPosition)
+            ?.minus(outClock.read(out).toLong())
         val endDrivenProgress = outRemaining?.let {
             ((span - it).toFloat() / span).coerceIn(0f, 1f)
         } ?: 0f
@@ -1838,9 +1959,13 @@ class CrossfadeController(
         // from under it: until the handoff its queue still runs on past the
         // track, and reaching the end would start the next item — the very
         // song fading in — a second time on the player that is leaving.
+        val visualEnd = wallSpan / 1000.0
+        val visualTime = progress * wallSpan / 1000.0
         if (!handedOff && (progress >= render.handoffAt || (outRemaining != null && outRemaining <= HANDOFF_GUARD_MS))) {
-            handOff(out, player)
+            handOff(out, player, visualTime, visualEnd)
         }
+        AutoMixVisualFeed.advance(visualGeneration, visualTime, visualEnd)
+        if (progress >= 1f) AutoMixVisualFeed.complete(visualGeneration)
         publishBlend(out, player)
         if (AppSettings.smartMixView.value != null) AppSettings.smartMixProgress.value = progress
         rideFilters(incomingAt, outgoingAt)
@@ -2549,6 +2674,7 @@ class CrossfadeController(
         incoming = into
         outgoingItemIndex = out.currentMediaItemIndex
         armDeadline = SystemClock.elapsedRealtime() + LOOP_BUILD_TIMEOUT_MS
+        armAutoMixVisual(out, into, nextIndex, (0 until out.mediaItemCount).map(out::getMediaItemAt))
         holdAtEnd(out)
         val sampleRate = outPort.sampleRate
         val inLevel = (loudnessGain(inItem.mediaId) / loudnessGain(outItem.mediaId))
@@ -2597,7 +2723,7 @@ class CrossfadeController(
         queuedItemCount = items.size
         into.skipSilenceEnabled = false
         into.repeatMode = out.repeatMode
-        into.shuffleModeEnabled = out.shuffleModeEnabled
+        into.shuffleModeEnabled = false
         into.setPlaybackSpeed(AppSettings.playbackSpeed.value)
         // Silent through its own sink until the handover, so the player's
         // volume stays where the listener's ear expects it.
@@ -2625,6 +2751,7 @@ class CrossfadeController(
                 "incoming from ${"%.3f".format(Locale.ROOT, session.inStartTrack)}s, handover at " +
                 "${"%.3f".format(Locale.ROOT, session.handoverTrack)}s, mix ${"%.1f".format(Locale.ROOT, session.clock.elementAt)}s",
         )
+        items.getOrNull(nextIndex)?.let(onArmAutoMixIncoming)
     }
 
     /** Waits for the outgoing sink to splice over to the renderer. */
@@ -2677,8 +2804,14 @@ class CrossfadeController(
         ) {
             startLoopAlignment(session)
         }
+        val visualEnd = session.clock.releaseAt
+        if (m >= 0.0) AutoMixVisualFeed.start(visualGeneration, m.coerceAtMost(visualEnd))
         if (!handedOff && m >= session.clock.handoffAt) {
-            handOff(out, into)
+            handOff(out, into, m, visualEnd)
+        }
+        if (m >= 0.0) {
+            AutoMixVisualFeed.advance(visualGeneration, m.coerceAtMost(visualEnd), visualEnd)
+            if (m >= visualEnd) AutoMixVisualFeed.complete(visualGeneration)
         }
         publishLoopBeat(session, m, now)
         announceLoopPosition()
@@ -2796,6 +2929,7 @@ class CrossfadeController(
      * already put it.
      */
     private fun loopBail(reason: String, settle: Boolean = true) {
+        cancelAutoMixVisual()
         val session = loopSession
         Log.d(TAG, "loop mix stops ($phase): $reason")
         loopBuildJob?.cancel()
@@ -2934,6 +3068,7 @@ class CrossfadeController(
      * away gracefully.
      */
     private fun bail() {
+        cancelAutoMixVisual()
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         if (phase == Phase.LOOP_ARMING || phase == Phase.LOOP_RUNNING) {
             loopBail("interrupted", settle = false)
@@ -2964,6 +3099,7 @@ class CrossfadeController(
     private fun leavingOnBail(): ExoPlayer? = if (handedOff) outgoing else incoming
 
     private fun finish() {
+        clearAutoMixVisual()
         val wasTransitioning = phase != Phase.IDLE
         if (phase != Phase.IDLE) {
             Log.d(TAG, "finish from $phase")

@@ -198,4 +198,15 @@
     <string name="search_library_empty">Cari lagu di folder Musik Lokal Anda.</string>
     <string name="search_library_hint">Lagu, Artis, dan Album</string>
     <string name="search_library_no_results">Tidak ada di Musik Lokal yang cocok dengan “%1$s”.</string>
+    <string name="add_to_queue">Tambahkan ke antrean</string>
+    <string name="queue_selected_count">%1$d dipilih</string>
+    <string name="queue_select_all">Pilih semua</string>
+    <string name="queue_select">Pilih</string>
+    <string name="queue_close_selection">Tutup mode pilih</string>
+    <string name="queue_add_to_playlist">Playlist</string>
+    <string name="queue_download">Unduh</string>
+    <string name="queue_selection_remove">Hapus</string>
+    <string name="queue_add_all_to_playlist">Tambahkan semua ke playlist</string>
+    <string name="mixes_yours">Mix Anda</string>
+    <string name="mixes_none">Belum ada mix. Terus dengarkan dan YouTube Music akan membuatkannya untuk Anda.</string>
 </resources>

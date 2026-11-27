@@ -46,6 +46,7 @@ object AndroidStreamHooks {
             )
         }
         StreamResolver.maxKbps = { AppSettings.effectiveAudioQuality.maxKbps }
+        StreamResolver.premiumAudio = { AppSettings.youtubePremiumAudio.value }
         InnerTubeXResolver.debugLogging = BuildConfig.DEBUG
     }
 

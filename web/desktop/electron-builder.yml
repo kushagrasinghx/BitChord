@@ -1,0 +1,50 @@
+# BitChord desktop: Windows (NSIS installer), macOS (DMG, Apple silicon and
+# Intel) and Linux (AppImage and .deb). Built in CI by
+# .github/workflows/desktop.yml, one runner per OS.
+appId: in.bitchord.desktop
+productName: BitChord
+copyright: Copyright © Kushagra Singh
+directories:
+  output: release
+  buildResources: build
+# main and preload are bundled (scripts/build.mjs), so nothing from
+# node_modules ships.
+files:
+  - out/**
+  - renderer/**
+  - build/icon.png
+  - package.json
+asar: true
+npmRebuild: false
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+mac:
+  category: public.app-category.music
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # No Apple Developer ID yet: ad-hoc signed, so Apple silicon runs it, but
+  # Gatekeeper asks the user to allow it once (README).
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+linux:
+  category: AudioVideo;Audio;Player
+  maintainer: Kushagra Singh
+  synopsis: Music player for YouTube Music
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

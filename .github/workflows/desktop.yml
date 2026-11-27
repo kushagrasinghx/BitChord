@@ -1,0 +1,132 @@
+name: Desktop
+
+# BitChord for Windows, macOS and Linux (web/desktop): the web player in
+# Electron, with the extension's work built in. Each OS builds on its own
+# runner, since installers are best made on the system they're for.
+#
+# - Pushes to main and pull requests that touch web/: build all three and
+#   keep the installers as workflow artifacts (Actions → the run → Artifacts).
+# - Run workflow (workflow_dispatch): the same, on any branch.
+# - A published GitHub release: the same, versioned from its tag (v1.10 →
+#   1.10.0), and the installers are attached to that release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+  release:
+    types: [published]
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Desktop · ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            target: --win
+          - name: macOS
+            os: macos-latest
+            target: --mac
+          - name: Linux
+            os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    permissions:
+      # Attaching the installers to a release.
+      contents: write
+    defaults:
+      run:
+        working-directory: web
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pnpm version comes from web/package.json's packageManager.
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # A release ships Listen Together, so it needs the real server (the
+      # repository variable VITE_PARTY_SERVER_URL, as on Cloudflare Pages).
+      # Other builds fall back to a placeholder, as the Web workflow does.
+      - name: Check the party server
+        if: github.event_name == 'release' && vars.VITE_PARTY_SERVER_URL == ''
+        run: |
+          echo "::error::Set the repository variable VITE_PARTY_SERVER_URL (Settings → Secrets and variables → Actions → Variables) before releasing the desktop app."
+          exit 1
+
+      - name: Version from the release tag
+        if: github.event_name == 'release'
+        working-directory: web/desktop
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          case "$version" in
+            *.*.*) ;;
+            *.*) version="$version.0" ;;
+            *) version="$version.0.0" ;;
+          esac
+          npm pkg set version="$version"
+          echo "Desktop version $version"
+
+      - name: Typecheck
+        run: pnpm --filter @bitchord/desktop typecheck
+
+      - name: Build the site and the app
+        run: pnpm --filter @bitchord/desktop build:app
+        env:
+          VITE_PARTY_SERVER_URL: ${{ vars.VITE_PARTY_SERVER_URL || 'https://party.example.com' }}
+
+      # Unsigned for now: no code-signing certificates are configured.
+      # electron-builder ad-hoc signs the macOS build (electron-builder.yml).
+      - name: Package
+        working-directory: web/desktop
+        run: pnpm exec electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-${{ matrix.name }}
+          path: |
+            web/desktop/release/*.exe
+            web/desktop/release/*.dmg
+            web/desktop/release/*.AppImage
+            web/desktop/release/*.deb
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        working-directory: web/desktop/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber *.exe *.dmg *.AppImage *.deb

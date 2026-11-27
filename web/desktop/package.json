@@ -1,0 +1,27 @@
+{
+  "name": "@bitchord/desktop",
+  "private": true,
+  "version": "1.10.0",
+  "description": "BitChord for Windows, macOS and Linux",
+  "author": "Kushagra Singh",
+  "homepage": "https://bitchord.in",
+  "main": "out/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:app": "node scripts/build.mjs --with-app",
+    "start": "node scripts/build.mjs && electron .",
+    "dev": "node scripts/build.mjs && electron . --dev",
+    "dist": "node scripts/build.mjs --with-app && electron-builder --publish never",
+    "typecheck": "tsc -p .",
+    "icon": "node scripts/icon.mjs"
+  },
+  "devDependencies": {
+    "@bitchord/shared": "workspace:*",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^22.20.5",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

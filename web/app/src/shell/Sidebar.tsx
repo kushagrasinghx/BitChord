@@ -163,18 +163,20 @@ export function Sidebar() {
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
         </div>
         <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5">
-          <PrefetchNavLink to="/extension" className={item} onClick={close}>
-            {/* Chrome's own toolbar glyph for extensions (Material "extension"). */}
-            <span className={icon}>
-              <MdOutlineExtension size={18} />
-            </span>
-            <span className={navLabel}>BitChord Extension</span>
-            {update.state === 'available' && (
-              <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-white" title={`Version ${update.latest.version} is available`}>
-                Update
+          {!config.desktop && (
+            <PrefetchNavLink to="/extension" className={item} onClick={close}>
+              {/* Chrome's own toolbar glyph for extensions (Material "extension"). */}
+              <span className={icon}>
+                <MdOutlineExtension size={18} />
               </span>
-            )}
-          </PrefetchNavLink>
+              <span className={navLabel}>BitChord Extension</span>
+              {update.state === 'available' && (
+                <span className="ml-auto rounded-[10px] bg-key px-[7px] py-0.5 type-subhead-emphasized text-white" title={`Version ${update.latest.version} is available`}>
+                  Update
+                </span>
+              )}
+            </PrefetchNavLink>
+          )}
           <AccountButton />
           <div className="flex items-center justify-between">
             <a className="inline-flex items-center gap-1 ps-1 type-callout text-primary hover:underline" href={config.androidAppUrl} target="_blank" rel="noreferrer">

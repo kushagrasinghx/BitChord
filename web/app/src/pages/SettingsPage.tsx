@@ -2,6 +2,7 @@ import { ChevronRight, Users } from 'lucide-react';
 import { lazy, Suspense, useState, type ComponentType, type ReactNode } from 'react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { SiApplemusic, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
+import { config } from '@/config';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { useDiscord } from '@/extension/useDiscord';
@@ -96,12 +97,14 @@ export default function SettingsPage() {
           {present && discord.state === 'ready' && discord.discord.available && (
             <LinkRow to="/settings/discord" icon={<Glyph Icon={SiDiscord} color="#5865f2" />} title="Discord" value={discordText} />
           )}
-          <LinkRow
-            to="/extension"
-            icon={<Glyph Icon={MdOutlineExtension} color="#636366" />}
-            title="BitChord Extension"
-            value={present ? `v${extension.extension.info.version}` : 'Not installed'}
-          />
+          {!config.desktop && (
+            <LinkRow
+              to="/extension"
+              icon={<Glyph Icon={MdOutlineExtension} color="#636366" />}
+              title="BitChord Extension"
+              value={present ? `v${extension.extension.info.version}` : 'Not installed'}
+            />
+          )}
         </section>
         <section className={`${settingsUi.group} mt-3 empty:hidden`}>
           <Toggle
@@ -119,11 +122,13 @@ export default function SettingsPage() {
 
         <h2 className={settingsUi.sectionHeader}>Apple Music</h2>
         <section className={settingsUi.group}>
-          <div className={settingsUi.integration}>
-            <Glyph Icon={SiApplemusic} color="#fa2d48" />
-            <span className={settingsUi.integrationName}>Extension Access</span>
-            {present ? <AppleMusicIntegration /> : <span className={settingsUi.value}>Needs the extension</span>}
-          </div>
+          {!config.desktop && (
+            <div className={settingsUi.integration}>
+              <Glyph Icon={SiApplemusic} color="#fa2d48" />
+              <span className={settingsUi.integrationName}>Extension Access</span>
+              {present ? <AppleMusicIntegration /> : <span className={settingsUi.value}>Needs the extension</span>}
+            </div>
+          )}
           <AppleMusicToggles />
         </section>
         <p className={settingsUi.footer}>From Apple Music’s public pages. No Apple Music account or sign-in needed.</p>
@@ -193,10 +198,12 @@ export default function SettingsPage() {
               <ChevronRight size={16} />
             </span>
           </button>
-          <div className={settingsUi.integrationPlain}>
-            <span className={settingsUi.integrationName}>Lyric Sources Access</span>
-            {present ? <LyricSourcesAccess /> : <span className={settingsUi.value}>Needs the extension</span>}
-          </div>
+          {!config.desktop && (
+            <div className={settingsUi.integrationPlain}>
+              <span className={settingsUi.integrationName}>Lyric Sources Access</span>
+              {present ? <LyricSourcesAccess /> : <span className={settingsUi.value}>Needs the extension</span>}
+            </div>
+          )}
         </section>
       </div>
       {lyrics && (

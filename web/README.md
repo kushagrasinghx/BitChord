@@ -7,6 +7,7 @@ The web player and its companion browser extension. The plan, and the decisions 
 | `app/` | The site: Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, Tailwind CSS v4 |
 | `extension/` | Manifest V3 extension for Chromium and Firefox, built with WXT |
 | `shared/` | The page ↔ extension bridge contract and client, used by both |
+| `desktop/` | The site as a Windows, macOS and Linux app (Electron), with the extension's work built in. See [`desktop/README.md`](desktop/README.md) |
 | `docs/` | `apple-music-dom.md` (the design measurements), `kira-notes.md` (how the reference YouTube web client plays), `youtube-playback.md`, `youtube-signin.md`, `queue-and-player.md`, `lyrics.md`, `spotify-and-discord.md` |
 | `fixtures/` | Real captured responses for parser tests (see its README) |
 | `scripts/` | `capture-fixtures.mjs` |

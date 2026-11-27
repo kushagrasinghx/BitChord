@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { config } from '@/config';
 import { getBridge } from '@/extension/bridge';
 import { LYRIC_EXTENSION_ORIGINS as EXTENSION_ORIGINS } from '@/lyrics/http';
 import { useLyricsSettings } from '@/lyrics/settings';
@@ -97,21 +98,26 @@ export function LyricsSettings({ onClose }: { onClose: () => void }) {
             </span>
           </label>
 
-          <h3 className={section}>Extension access</h3>
-          {granted === null ? (
-            <p className={note}>KuGou, Musixmatch, Genius and PaxSenix need the BitChord extension.</p>
-          ) : missing.length ? (
-            <div className="flex items-center gap-3">
-              <p className={note}>
-                KuGou, Musixmatch, Genius and PaxSenix don’t let web pages ask them directly. Allow the extension to,
-                once.
-              </p>
-              <button className="flex-none rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-white" onClick={() => void getBridge()?.call('lyrics.requestPermissions', { origins: missing })}>
-                Allow
-              </button>
-            </div>
-          ) : (
-            <p className={note}>All providers are reachable.</p>
+          {/* The desktop app reaches every provider itself. */}
+          {!config.desktop && (
+            <>
+              <h3 className={section}>Extension access</h3>
+              {granted === null ? (
+                <p className={note}>KuGou, Musixmatch, Genius and PaxSenix need the BitChord extension.</p>
+              ) : missing.length ? (
+                <div className="flex items-center gap-3">
+                  <p className={note}>
+                    KuGou, Musixmatch, Genius and PaxSenix don’t let web pages ask them directly. Allow the extension to,
+                    once.
+                  </p>
+                  <button className="flex-none rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-white" onClick={() => void getBridge()?.call('lyrics.requestPermissions', { origins: missing })}>
+                    Allow
+                  </button>
+                </div>
+              ) : (
+                <p className={note}>All providers are reachable.</p>
+              )}
+            </>
           )}
 
           <h3 className={section}>PaxSenix key</h3>

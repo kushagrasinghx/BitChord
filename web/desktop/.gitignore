@@ -1,0 +1,5 @@
+out/
+renderer/
+release/
+# The repo ignores build/ (Gradle); here it holds the app icon.
+!build/

@@ -10,4 +10,9 @@ export const config = {
   androidAppUrl: import.meta.env.VITE_ANDROID_APP_URL || 'https://github.com/kushagrasinghx/BitChord/releases/latest',
   /** BitChord's Listen Together server. vite.config.ts refuses a production build without it. */
   partyServerUrl: import.meta.env.VITE_PARTY_SERVER_URL ?? '',
+  /**
+   * Running in the desktop app (web/desktop), whose preload sets this flag.
+   * The app is its own bridge there, so nothing asks for the extension.
+   */
+  desktop: typeof window !== 'undefined' && !!(window as { bitchordDesktop?: unknown }).bitchordDesktop,
 } as const;

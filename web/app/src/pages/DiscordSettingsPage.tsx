@@ -1,3 +1,4 @@
+import { config } from '@/config';
 import { PageHeader } from '@/components/PageHeader';
 import { useDiscord } from '@/extension/useDiscord';
 import { DiscordIntegration, DiscordSettings } from './IntegrationSettings';
@@ -18,8 +19,10 @@ export default function DiscordSettingsPage() {
         </section>
         {status.state === 'ready' && !status.discord.connected && (
           <p className={settingsUi.footer}>
-            Connect opens a page from the extension that reads your Discord session from a discord.com tab. The web player never
-            sees it. This uses your account’s own token, which Discord’s terms don’t allow.
+            {config.desktop
+              ? 'Connect opens discord.com in a BitChord window and reads your session there, once you’re signed in.'
+              : 'Connect opens a page from the extension that reads your Discord session from a discord.com tab. The web player never sees it.'}{' '}
+            This uses your account’s own token, which Discord’s terms don’t allow.
           </p>
         )}
         {status.state === 'ready' && status.discord.connected && (

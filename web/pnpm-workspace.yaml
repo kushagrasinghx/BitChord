@@ -2,6 +2,7 @@ packages:
   - app
   - extension
   - shared
+  - desktop
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.104.3'
   - '@tanstack/react-query@5.104.3'
@@ -12,3 +13,8 @@ minimumReleaseAgeExclude:
 # unapproved install script, so it is declined here, explicitly.
 allowBuilds:
   protobufjs: false
+  # The desktop app (web/desktop): esbuild's postinstall checks its native
+  # binary; electron-winstaller's is for Squirrel installers, which the
+  # NSIS build doesn't use.
+  esbuild: true
+  electron-winstaller: false

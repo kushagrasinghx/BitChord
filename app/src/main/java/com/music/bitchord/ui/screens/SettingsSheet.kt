@@ -83,6 +83,7 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import com.music.bitchord.data.DataUsageTracker
 import com.music.bitchord.data.lyrics.translationLanguageName
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -1620,6 +1621,56 @@ fun SettingsScreen(
                         loader.memoryCache?.clear()
                         loader.diskCache?.clear()
                         Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
+                    },
+                )
+            }
+            val dataUsageSummary by DataUsageTracker.summary.collectAsStateWithLifecycle()
+            var showDataUsageDialog by remember { mutableStateOf(false) }
+            val dataUsageTitle = stringResource(R.string.data_usage)
+            row(dataUsageTitle, "data", "usage", "bandwidth", "wifi", "mobile", "cellular", "network") {
+                SettingsRow(
+                    icon = SfIcons.SignalCellularAlt,
+                    title = dataUsageTitle,
+                    subtitle = stringResource(R.string.data_usage_subtitle),
+                    value = DataUsageTracker.formatBytes(dataUsageSummary.last30Days.totalBytes),
+                    onClick = { showDataUsageDialog = true },
+                )
+            }
+            if (showDataUsageDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDataUsageDialog = false },
+                    title = { Text(dataUsageTitle) },
+                    text = {
+                        androidx.compose.foundation.layout.Column {
+                            SettingsRow(
+                                title = "Today",
+                                subtitle = "Stream ${DataUsageTracker.formatBytes(dataUsageSummary.today.streamingBytes)} · Download ${DataUsageTracker.formatBytes(dataUsageSummary.today.downloadBytes)}",
+                                value = DataUsageTracker.formatBytes(dataUsageSummary.today.totalBytes),
+                                onClick = {},
+                            )
+                            SettingsRow(
+                                title = "Last 7 days",
+                                subtitle = "Stream ${DataUsageTracker.formatBytes(dataUsageSummary.last7Days.streamingBytes)} · Download ${DataUsageTracker.formatBytes(dataUsageSummary.last7Days.downloadBytes)}",
+                                value = DataUsageTracker.formatBytes(dataUsageSummary.last7Days.totalBytes),
+                                onClick = {},
+                            )
+                            SettingsRow(
+                                title = "Last 30 days",
+                                subtitle = "Wi-Fi ${DataUsageTracker.formatBytes(dataUsageSummary.last30Days.wifiBytes)} · Mobile ${DataUsageTracker.formatBytes(dataUsageSummary.last30Days.mobileBytes)}",
+                                value = DataUsageTracker.formatBytes(dataUsageSummary.last30Days.totalBytes),
+                                onClick = {},
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showDataUsageDialog = false }) {
+                            Text(stringResource(R.string.close))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { DataUsageTracker.reset() }) {
+                            Text(stringResource(R.string.reset))
+                        }
                     },
                 )
             }

@@ -8,6 +8,7 @@ import {
   buildContextQueue,
   computeJumpOrder,
   playedUserQueueIndices,
+  sectionedOrder,
   shuffledStartingOrder,
   shuffledUpcomingOrder,
   splitQueue,
@@ -35,10 +36,26 @@ const video = (id: string, title: string, artist?: string): Candidate => ({ trac
 const ids = (tracks: Track[]) => tracks.map((t) => t.videoId);
 
 // Ported from app/src/test/…/QueueBuilderTest.kt
+describe('sectionedOrder (QueueTimeline.kt)', () => {
+  it('puts restored rows back as user queue, then context, then AutoPlay, each in the order given', () => {
+    const tiers: QueueTier[] = ['context', 'autoplay', 'user', 'context', 'user'];
+    expect(sectionedOrder([4, 1, 3, 0, 2], tiers)).toEqual([4, 2, 3, 0, 1]);
+  });
+});
+
 describe('extendStation (QueueBuilder)', () => {
   it('leaves out the music video cut of a mix', () => {
     const extra = extendStation([], [song('aaa', 'Dildaara (Stand By Me)', 'Vishal-Shekhar'), video('bbb', 'Lyrical Video: Dildara Song', 'Shafqat Amanat Ali'), song('ccc', 'Sajni')], 10);
     expect(ids(extra)).toEqual(['aaa', 'ccc']);
+  });
+  // QueueBuilder.kt MIN_VIDEO_STATION: a video-seeded station keeps to videos only once it has three.
+  it('keeps a video-seeded station on videos when there are three of them', () => {
+    const mix = [video('v1', 'One', 'A'), song('s1', 'Two', 'B'), video('v2', 'Three', 'C'), video('v3', 'Four', 'D')];
+    expect(ids(extendStation([], mix, 10, true))).toEqual(['v1', 'v2', 'v3']);
+  });
+  it('plays every candidate on a video-seeded station with fewer than three videos', () => {
+    const mix = [video('v1', 'One', 'A'), song('s1', 'Two', 'B'), video('v2', 'Three', 'C')];
+    expect(ids(extendStation([], mix, 10, true)).sort()).toEqual(['s1', 'v1', 'v2']);
   });
   it('still plays a mix of nothing but videos', () => {
     expect(ids(extendStation([], [video('aaa', 'One', 'A'), video('bbb', 'Two', 'B')], 10))).toEqual(['aaa', 'bbb']);

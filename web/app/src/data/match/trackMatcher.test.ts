@@ -27,6 +27,12 @@ describe('TrackMatcher', () => {
     expect(matches(song("Don't Stop Me Now", 'QUEEN'), 'Dont Stop Me Now', 'Queen')).toBe(true);
   });
 
+  // TrackMatcher.kt PT_BR_FEATURING, which the old TypeScript port lacked.
+  it('takes a Portuguese guest credit off the title', () => {
+    expect(matches(song('Evidências', 'Chitãozinho & Xororó'), 'Evidências (part. Ana Castela)', 'Chitãozinho & Xororó')).toBe(true);
+    expect(matches(song('Part. 2', 'Artist'), 'Part. 2', 'Artist')).toBe(true);
+  });
+
   it('matches CJK titles across punctuation and spacing differences', () => {
     expect(matches(song('夜に駆ける', 'YOASOBI', '4:20'), '夜 に 駆ける！', 'YOASOBI', 261)).toBe(true);
     expect(matches(song('좋은 날', 'IU'), '좋은날', 'IU')).toBe(true);

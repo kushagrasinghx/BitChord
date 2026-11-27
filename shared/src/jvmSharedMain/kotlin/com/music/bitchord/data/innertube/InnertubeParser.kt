@@ -1475,9 +1475,20 @@ object InnertubeParser {
         // Null, not INDIFFERENT, for anything this row doesn't actually say —
         // see [SongMenu.likeStatus]. A missing like button and a stated
         // "no rating" are different answers and must not collapse into one.
-        val likeStatus = when (
-            collectRenderers(row, "likeButtonRenderer").firstOrNull().s("likeStatus")
-        ) {
+        //
+        // YouTube is migrating its watch layout from renderers to ViewModels:
+        // signed-in responses increasingly carry the thumbs state as a
+        // `likeStatusEntity` (in the video action bar's segmented
+        // like/dislike ViewModel, and again in `frameworkUpdates`) instead of
+        // a `likeButtonRenderer` on the queue row. Responses that drop the
+        // renderer made every track parse as unrated, so the player's star
+        // never showed a liked song as liked. Both shapes are read here, the
+        // renderer first: the entity keys off the currently playing video,
+        // while the row's own renderer answers for the row.
+        val rendererStatus = collectRenderers(row, "likeButtonRenderer").firstOrNull().s("likeStatus")
+        val entityStatus = likeStatusEntityOf(row, videoId)
+            ?: likeStatusEntityOf(root, videoId)
+        val likeStatus = when (rendererStatus ?: entityStatus) {
             "LIKE" -> LikeStatus.LIKE
             "DISLIKE" -> LikeStatus.DISLIKE
             "INDIFFERENT" -> LikeStatus.INDIFFERENT
@@ -1509,6 +1520,33 @@ object InnertubeParser {
 
     private fun JsonElement?.feedbackToken(endpoint: String): String? =
         this.o(endpoint).o("feedbackEndpoint").s("feedbackToken")
+
+    /**
+     * The thumbs state carried by a ViewModel-era response: the watch page's
+     * like/dislike control is a `segmentedLikeDislikeButtonViewModel` whose
+     * backing `likeStatusEntity` names the rating, mirrored into
+     * `frameworkUpdates.entityBatchUpdate`. Entities are keyed per video
+     * (the key embeds the video id), so a [root] holding several is filtered
+     * down to [videoId]'s own — reading the first would answer for whichever
+     * video YouTube happened to list first.
+     *
+     * Older and newer responses disagree on the field name (`likeStatus` in
+     * current ones, `status` in early ViewModel experiments); both are read.
+     */
+    private fun likeStatusEntityOf(root: JsonElement, videoId: String): String? =
+        collectRenderers(root, "likeStatusEntity")
+            .firstOrNull { entity ->
+                val key = entity.s("key")
+                // Keys are url-encoded base64 protobufs embedding the video
+                // id ("\x12\x0bdQw4w9WgXcQ…"); unknown shapes are trusted,
+                // since the watch answer is for this one video anyway.
+                key == null || key.contains(videoId, ignoreCase = true) ||
+                    runCatching {
+                        val unescaped = java.net.URLDecoder.decode(key, Charsets.UTF_8)
+                        String(java.util.Base64.getUrlDecoder().decode(unescaped)).contains(videoId)
+                    }.getOrDefault(false)
+            }
+            ?.let { it.s("likeStatus") ?: it.s("status") }
 
     /**
      * Whether a toggle menu item is the library one, told by its icons rather

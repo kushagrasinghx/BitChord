@@ -535,8 +535,8 @@
     background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
   }
 
-  /* Artwork covers that fill (it's painted under the image), so a control holding artwork gets a soft outline too. */
-  :where(a[href], button, [role='button'], [role='link'], [tabindex]:not([tabindex='-1'])):focus-visible:has(img, canvas, video) {
+  /* Where artwork covers the whole control, it hides that fill (painted under the image), so those opt in to a soft outline. */
+  [data-art-focus]:focus-visible {
     outline: 2px solid rgba(var(--keyColor-rgb), 0.6);
     outline-offset: 2px;
   }

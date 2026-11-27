@@ -96,6 +96,7 @@ function CategoryTile({ category }: { category: Category }) {
     <li ref={ref}>
       <PrefetchLink
         to={browseHref(category.link)}
+        data-art-focus
         className="relative isolate block aspect-[1.72] overflow-hidden rounded-mood text-white transition-[scale] duration-200 ease-panel hover:scale-[1.015] active:scale-[.98]"
         style={{ background: tone.stripe }}
       >

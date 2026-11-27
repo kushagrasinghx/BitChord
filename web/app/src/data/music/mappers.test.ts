@@ -132,6 +132,8 @@ describe('search', () => {
     const results = mapSearch(new YTMusic.Search(response('search-all'), actions, { is_filtered: false } as never));
     expect(results.top[0]!.title).toBe('Radiohead');
     for (const song of results.songs) expect(song.artists.length, song.title).toBeGreaterThan(0);
+    const cardSong = results.songs.find((s) => s.title === 'You And Whose Army?');
+    expect(cardSong?.subtitle).toBe('Radiohead');
   });
 });
 

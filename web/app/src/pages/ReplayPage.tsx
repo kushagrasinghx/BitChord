@@ -54,7 +54,7 @@ const sectionTitle = 'pt-2 pb-2.5 type-[800_22px/26px] tracking-[-0.25px]';
 export default function ReplayPage() {
   // Lifetime first, as the phone opens it, unless a way in names its period (the Library's month cards).
   const landing = (useLocation().state as { period?: ReplayPeriod } | null)?.period;
-  const [period, setPeriod] = useState<ReplayPeriod>(landing ?? 'all');
+  const [period, setPeriod] = useState<ReplayPeriod>(PERIODS.some((p) => p.id === landing) ? landing! : 'all');
   const replay = useReplay(period);
   const year = yearShown(new Date());
   const story = useReplayYear(year).data ?? null;

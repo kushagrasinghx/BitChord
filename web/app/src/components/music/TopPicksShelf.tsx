@@ -283,6 +283,7 @@ function TopPickCard({
   return (
     <button
       type="button"
+      data-art-focus
       className={`${cardFrame} ${wide ? wideFrame : ''}`}
       aria-busy={busy || undefined}
       aria-label={`${text.eyebrow}: ${text.title}`}
@@ -357,7 +358,7 @@ function MoodTile({ mood }: { mood: Mood }) {
     setBusy(false);
   };
   return (
-    <button type="button" className={`group/mood flex w-full min-w-0 flex-col text-start ${pending}`} aria-busy={busy || undefined} onClick={() => void play()}>
+    <button type="button" data-art-focus className={`group/mood flex w-full min-w-0 flex-col text-start ${pending}`} aria-busy={busy || undefined} onClick={() => void play()}>
       <span className="relative isolate block aspect-square w-full overflow-hidden rounded-card artwork-stroke transition-[scale] duration-150 ease-out group-active/mood:scale-[.98]">
         <MoodArt mood={mood} square still />
         <Brand size="tile" />

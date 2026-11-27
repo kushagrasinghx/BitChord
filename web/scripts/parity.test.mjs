@@ -1,7 +1,7 @@
 // node --test web/scripts/parity.test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { drifted, loadMap, missingPaths } from './parity.mjs';
+import { drifted, isFatal, loadMap, missingPaths } from './parity.mjs';
 
 const features = [
   { id: 'sleep', name: 'Sleep timer', android: ['app/src/SleepTimer.kt'], web: ['web/app/src/sleepTimer.ts'], shared: ['shared/src/commonMain/SleepFade.kt'] },
@@ -23,7 +23,11 @@ test('a path that no longer exists is reported', () => {
   assert.deepEqual(missing, [{ feature: 'sleep', side: 'web', path: 'web/app/src/sleepTimer.ts' }]);
 });
 
-// Only the web and shared sides: an Android rename is the map's to catch up with, not a failure (parity.mjs check).
-test("the repository's own map names web and shared files that exist", () => {
-  assert.deepEqual(missingPaths(loadMap()).filter((m) => m.side !== 'android'), []);
+test('only a missing web path fails the check; Android and shared/ renames warn', () => {
+  assert.deepEqual(['android', 'shared', 'web'].map((side) => isFatal({ side })), [false, false, true]);
+});
+
+// What would fail CI: an Android or shared/ rename is the map's to catch up with (parity.mjs check).
+test("the repository's own map names web files that exist", () => {
+  assert.deepEqual(missingPaths(loadMap()).filter(isFatal), []);
 });

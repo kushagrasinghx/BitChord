@@ -38,6 +38,7 @@ export function LibraryReplayCards() {
             to="/replay"
             // The cards are this month's, so Replay opens on the month (LibraryReplayEntry's landing page).
             state={{ period: 'month' }}
+            data-art-focus
             className="group relative isolate flex aspect-[1.586] flex-col justify-end overflow-hidden rounded-[20px] p-5 text-white shadow-[0_8px_16px_rgb(0_0_0/0.25)]"
           >
             <span className="absolute inset-0 -z-1 transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none">

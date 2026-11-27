@@ -295,6 +295,9 @@ object AppSettings {
     private val _autoMixArtwork = MutableStateFlow(AutoMixArtworkPreferences())
     val autoMixArtwork = _autoMixArtwork.asStateFlow()
     val sleepTimerFadeOut = MutableStateFlow(true)
+    val autoClearCacheIntervalDays = MutableStateFlow(0)
+    val autoClearCacheMaxMb = MutableStateFlow(0)
+    val lastAutoCacheCleanupMs = MutableStateFlow(0L)
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
@@ -1063,6 +1066,9 @@ object AppSettings {
             miniPlayerTransition = prefs.getBoolean(KEY_AUTOMIX_MINI_ART_TRANSITION, false),
         )
         sleepTimerFadeOut.value = prefs.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, true)
+        autoClearCacheIntervalDays.value = prefs.getInt(KEY_AUTO_CLEAR_CACHE_INTERVAL_DAYS, 0)
+        autoClearCacheMaxMb.value = prefs.getInt(KEY_AUTO_CLEAR_CACHE_MAX_MB, 0)
+        lastAutoCacheCleanupMs.value = prefs.getLong(KEY_LAST_AUTO_CACHE_CLEANUP_MS, 0L)
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
@@ -1427,6 +1433,21 @@ object AppSettings {
     fun setSleepTimerFadeOut(value: Boolean) {
         sleepTimerFadeOut.value = value
         prefs.edit().putBoolean(KEY_SLEEP_TIMER_FADE_OUT, value).apply()
+    }
+
+    fun setAutoClearCacheIntervalDays(days: Int) {
+        autoClearCacheIntervalDays.value = days
+        prefs.edit().putInt(KEY_AUTO_CLEAR_CACHE_INTERVAL_DAYS, days).apply()
+    }
+
+    fun setAutoClearCacheMaxMb(mb: Int) {
+        autoClearCacheMaxMb.value = mb
+        prefs.edit().putInt(KEY_AUTO_CLEAR_CACHE_MAX_MB, mb).apply()
+    }
+
+    fun setLastAutoCacheCleanupMs(timestampMs: Long) {
+        lastAutoCacheCleanupMs.value = timestampMs
+        prefs.edit().putLong(KEY_LAST_AUTO_CACHE_CLEANUP_MS, timestampMs).apply()
     }
 
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
@@ -2428,6 +2449,9 @@ object AppSettings {
     private const val KEY_AUTOMIX_ART_TRANSITION = "automix_art_transition"
     private const val KEY_AUTOMIX_MINI_ART_TRANSITION = "automix_mini_art_transition"
     private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
+    private const val KEY_AUTO_CLEAR_CACHE_INTERVAL_DAYS = "auto_clear_cache_interval_days"
+    private const val KEY_AUTO_CLEAR_CACHE_MAX_MB = "auto_clear_cache_max_mb"
+    private const val KEY_LAST_AUTO_CACHE_CLEANUP_MS = "last_auto_cache_cleanup_ms"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"

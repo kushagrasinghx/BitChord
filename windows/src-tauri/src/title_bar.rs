@@ -23,6 +23,7 @@ pub fn apply<R: Runtime>(window: &Window<R>) {
 }
 
 /// Draws the bar dark or light to match the page under it, so a dark player never sits under a light bar.
+/// The DWM attribute itself, not Tauri's set_theme: that also forces WebView2's colour scheme, breaking System.
 #[tauri::command]
 pub fn title_bar_theme<R: Runtime>(window: Window<R>, dark: bool) {
     let Ok(hwnd) = window.hwnd() else { return };

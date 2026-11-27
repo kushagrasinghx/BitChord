@@ -12,6 +12,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.DataUsageTracker
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
@@ -1161,12 +1162,17 @@ object Downloads {
 
                 val destination = DownloadStore.begin(context, name, route.mimeType)
                 pending = destination
+                var downloadedBytes = 0L
                 destination.openStream().use { sink ->
                     route.write(sink) { written, total ->
+                        downloadedBytes = written
                         val fraction = written.toFloat() / total
                         _active.update { it + (id to DownloadState.Running(fraction)) }
                         DownloadSession.running(id, fraction)
                     }
+                }
+                if (downloadedBytes > 0L && !route.describe.startsWith("song cache")) {
+                    DataUsageTracker.recordDownloadBytes(downloadedBytes)
                 }
                 val words = lyrics?.await()
                 val cover = artwork?.await()

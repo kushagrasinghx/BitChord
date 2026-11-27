@@ -56,6 +56,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
+import com.music.bitchord.data.DataUsageTracker
 import androidx.media3.exoplayer.upstream.BandwidthMeter
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
@@ -4651,6 +4652,9 @@ class PlaybackService : MediaLibraryService() {
                 bytesTransferred: Int,
             ) {
                 bytes.addAndGet(bytesTransferred.toLong())
+                if (isNetwork && bytesTransferred > 0) {
+                    DataUsageTracker.recordStreamBytes(bytesTransferred.toLong())
+                }
                 delegate.transferListener?.onBytesTransferred(source, dataSpec, isNetwork, bytesTransferred)
             }
 

@@ -8,6 +8,20 @@ export function clock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+const SEEK_STEP: Record<string, number> = { ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 };
+
+/**
+ * Where a key on the focused seek line moves the playhead, or null when the key isn't the line's: the arrows
+ * step ten seconds as the app's own ←/→ do, Home and End go to either end, and Shift/Ctrl/Alt/Meta+arrows are
+ * left to the app (next, previous, volume) rather than seeking too.
+ */
+export function seekTarget(e: Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>, now: number, duration: number): number | null {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !Number.isFinite(duration)) return null;
+  const step = SEEK_STEP[e.key];
+  const to = e.key === 'Home' ? 0 : e.key === 'End' ? duration : step === undefined ? null : now + step;
+  return to === null ? null : Math.min(duration, Math.max(0, to));
+}
+
 // ---- The Automix pulse (the phone's MixPulse, ThinSlider.kt) -------------------------------
 
 /** How long the fill takes to glide out to full width, and back, around a blend. */
@@ -153,16 +167,11 @@ export function useScrubber() {
     'aria-label': 'Seek',
     'aria-valuemin': 0,
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
-      // Shift/Ctrl+arrows are the app's next, previous and volume, not a seek.
-      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const audio = getAudio();
-      if (!audio || !Number.isFinite(audio.duration)) return;
-      const now = getPlayhead()?.sec ?? audio.currentTime;
-      const step = ({ ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 } as Record<string, number>)[e.key];
-      const to = e.key === 'Home' ? 0 : e.key === 'End' ? audio.duration : step === undefined ? null : now + step;
+      const to = audio ? seekTarget(e, getPlayhead()?.sec ?? audio.currentTime, audio.duration) : null;
       if (to === null) return;
       e.preventDefault();
-      seek(Math.min(audio.duration, Math.max(0, to)));
+      seek(to);
     },
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (!getAudio()) return;

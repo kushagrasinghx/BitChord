@@ -2,7 +2,7 @@ import { replayCharts, replayYear, ReplayMonth, ReplayTally, ReplayTrack } from 
 import { describe, expect, it } from 'vitest';
 import { meshDimmed, meshSlots, meshTuned, rgbOf } from './colors';
 import { formatDay, formatHour, formatListening } from './format';
-import { periodMonths } from './periods';
+import { landingPeriod, periodMonths } from './periods';
 import { cardContent } from './year/content';
 
 const track = (id: string, artist: string, album: string | null = null) =>
@@ -133,5 +133,13 @@ describe('the palette mesh', () => {
     expect(meshTuned(rgbOf(0xffffff))).toBe('hsl(0 0% 58%)');
     expect(meshTuned(rgbOf(0x000000))).toBe('hsl(0 0% 28%)');
     expect(meshDimmed(rgbOf(0xfa2d48))).toMatch(/^hsl\(352(\.\d+)? 95% 12%\)$/);
+  });
+});
+
+describe('landingPeriod', () => {
+  it("opens on the period a link asked for, and on Lifetime for anything else", () => {
+    expect(landingPeriod('month')).toBe('month');
+    expect(landingPeriod('decade')).toBe('all');
+    expect(landingPeriod(undefined)).toBe('all');
   });
 });

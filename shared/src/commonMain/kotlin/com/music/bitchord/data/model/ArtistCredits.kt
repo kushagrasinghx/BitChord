@@ -163,21 +163,26 @@ private fun String.startsWithIgnoringCase(prefix: String, at: Int): Boolean =
  * decides instead, which can ask them.
  */
 object ArtistNameIndex {
-    // Parsers fill this from several threads on the JVM; @Synchronized guards every access.
+    // Parsers fill this from several threads on the JVM; @Synchronized guards every access. Names are
+    // normalised before the lock is taken, so threads only queue for the map access itself.
     private val channels = HashMap<String, MutableSet<String>>()
     private val joiners = HashSet<String>()
     private val joinerTexts = HashSet<String>()
     private val joinerSightings = HashMap<String, Int>()
 
     /** Notes an artist YouTube linked, under the name it wrote. */
-    @Synchronized
     fun record(refs: List<ArtistRef>) {
-        refs.forEach { ref ->
+        val stated = refs.mapNotNull { ref ->
             val name = normalizedArtistName(ref.name)
             val id = ref.browseId
-            if (name.isEmpty() || id.isNullOrBlank()) return@forEach
-            channels.getOrPut(name) { HashSet() }.add(id)
+            if (name.isEmpty() || id.isNullOrBlank()) null else name to id
         }
+        if (stated.isNotEmpty()) recordNormalized(stated)
+    }
+
+    @Synchronized
+    private fun recordNormalized(stated: List<Pair<String, String>>) {
+        stated.forEach { (name, id) -> channels.getOrPut(name) { HashSet() }.add(id) }
     }
 
     /**
@@ -227,15 +232,16 @@ object ArtistNameIndex {
      * The channel YouTube stated for [name], or null when it has never stated
      * one or has stated more than one.
      */
+    fun lookup(name: String): String? = lookupNormalized(normalizedArtistName(name))
+
     @Synchronized
-    fun lookup(name: String): String? {
-        val ids = channels[normalizedArtistName(name)] ?: return null
-        return ids.singleOrNull()
-    }
+    private fun lookupNormalized(key: String): String? = channels[key]?.singleOrNull()
 
     /** Whether [text] has been seen joining two credited names. */
+    fun isJoiner(text: String): Boolean = isJoinerNormalized(normalizedArtistName(text))
+
     @Synchronized
-    fun isJoiner(text: String): Boolean = normalizedArtistName(text) in joiners
+    private fun isJoinerNormalized(key: String): Boolean = key in joiners
 
     /**
      * The joiners as they were written, for cutting a line up on them.

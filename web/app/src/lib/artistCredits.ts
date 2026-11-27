@@ -44,7 +44,7 @@ function splitCreditLine(artist: string): ArtistRef[] {
  */
 export function artistCredits(artist: string, artists: readonly ArtistRef[]): ArtistRef[] {
   const stated = artists.filter((a) => a.name.trim());
-  const wholeLine = stated.length === 1 && !stated[0]!.id && new RegExp(CREDIT_JOINER.source).test(stated[0]!.name);
+  const wholeLine = stated.length === 1 && !stated[0]!.id && new RegExp(CREDIT_JOINER.source, 'u').test(stated[0]!.name);
   return stated.length && !wholeLine ? stated : splitCreditLine(stated[0]?.name ?? artist);
 }
 

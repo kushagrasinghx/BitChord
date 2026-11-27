@@ -18,6 +18,9 @@ export const PERIODS = [
 
 export type ReplayPeriod = (typeof PERIODS)[number]['id'];
 
+/** The period a link asked to open on (Library's Replay cards ask for the month), else Lifetime. */
+export const landingPeriod = (asked: unknown): ReplayPeriod => PERIODS.find((p) => p.id === asked)?.id ?? 'all';
+
 const isoDay = (date: Date) => `${monthKey(date)}-${String(date.getDate()).padStart(2, '0')}`;
 
 /**

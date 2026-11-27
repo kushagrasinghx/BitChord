@@ -36,8 +36,8 @@
     schedule(opts: ScheduleOptions, adjustPrevious?: boolean): void;
     start(when?: number, offset?: number, duration?: number): void;
     stop(when?: number): void;
-    /** One Float32Array per channel, equal lengths. Appends after existing buffers. */
-    addBuffers(buffers: Float32Array[]): Promise<number>;
+    /** One Float32Array per channel, equal lengths. Appends after existing buffers. [transfer] hands them over instead of copying. */
+    addBuffers(buffers: Float32Array[], transfer?: Transferable[]): Promise<number>;
     dropBuffers(toSeconds?: number): Promise<{ start: number; end: number } | void>;
     /** Processing latency in seconds; schedule at least this far ahead. Remote call — resolves async. */
     latency(): Promise<number>;

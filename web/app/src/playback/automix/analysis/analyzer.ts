@@ -3,10 +3,12 @@
 // BitChord: the audio comes from YouTube (fetchTrackAudio) instead of a local
 // file, the queue is keyed by video id and takes priorities, and results are
 // kept in memory as well as IndexedDB so the mix loop can read them synchronously.
+import { collectGarbage } from '@/lib/gc';
 import { trackLog } from '@/playback/trackLog';
 import { getAnalysis, putAnalysis } from '../db';
 import { fetchTrackAudio, type TrackAudio } from '../fetchAudio';
-import type { AnalyzeResponse } from './analysis.worker';
+import type { AnalyzeRequest, AnalyzeResponse } from './analysis.worker';
+import type { ModelsRequest } from './models.worker';
 import { BEAT_SR, VOCAL_WINDOW_SEC } from './models';
 import type { TrackAnalysis, TrackTags } from './types';
 import { ANALYSIS_VERSION } from './types';
@@ -27,19 +29,23 @@ const BEAT_WINDOW_SEC = 59;
  */
 const USE_BEAT_MODEL = true;
 const USE_VOCAL_MODEL = true;
-/** BitChord: compressed audio kept for the loop mix to decode from (current, next, a few around). */
-const KEEP_BYTES_FOR = 6;
+/** BitChord: compressed audio kept for the loop mix to decode from: the playing track, the next and the last. */
+const KEEP_BYTES_FOR = 3;
+
 
 /**
  * Sequential analysis queue: fetch -> decode at 44.1k -> mono downmix ->
  * transfer to the essentia worker -> persist TrackAnalysis to IndexedDB. One
  * track at a time keeps peak memory at one decoded file.
+ *
+ * BitChord: each step runs in a worker of its own that ends with its answer
+ * (runWorker): essentia's WebAssembly heap and ONNX Runtime's only ever grow
+ * (~150 MB and ~360 MB on a song), so a worker kept alive held both for as
+ * long as the app ran, and one after the other they are never held together.
  */
 class Analyzer {
-  private worker: Worker | null = null;
   private queue: { videoId: string; tags: TrackTags }[] = [];
   private running = false;
-  private pendingResolve: ((r: AnalyzeResponse) => void) | null = null;
   private readonly results = new Map<string, TrackAnalysis>();
   private readonly status = new Map<string, AnalysisStatus>();
   private readonly listeners = new Set<() => void>();
@@ -115,19 +121,25 @@ class Analyzer {
     for (const l of this.listeners) l();
   }
 
-  private ensureWorker(): Worker {
-    if (this.worker) return this.worker;
-    const worker = new Worker(new URL('./analysis.worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (ev: MessageEvent<AnalyzeResponse>) => {
-      this.pendingResolve?.(ev.data);
-      this.pendingResolve = null;
-    };
-    worker.onerror = (ev) => {
-      this.pendingResolve?.({ type: 'error', fileKey: '', message: ev.message ?? 'worker error' });
-      this.pendingResolve = null;
-    };
-    this.worker = worker;
-    return worker;
+  /**
+   * Posts [message] to a new worker and ends the worker once it answers (or
+   * fails), which frees everything it allocated.
+   */
+  private runWorker(create: () => Worker, message: AnalyzeRequest | ModelsRequest, transfer: Transferable[]): Promise<AnalyzeResponse> {
+    return new Promise((resolve) => {
+      const worker = create();
+      const finish = (response: AnalyzeResponse) => {
+        worker.terminate();
+        resolve(response);
+      };
+      worker.onmessage = (ev: MessageEvent<AnalyzeResponse>) => finish(ev.data);
+      worker.onerror = (ev) => finish({ type: 'error', fileKey: message.fileKey, message: ev.message ?? 'worker error' });
+      try {
+        worker.postMessage(message, transfer);
+      } catch (e) {
+        finish({ type: 'error', fileKey: message.fileKey, message: String(e) });
+      }
+    });
   }
 
   private async run(): Promise<void> {
@@ -157,83 +169,122 @@ class Analyzer {
       }
     }
     this.running = false;
+    // what the analyses decoded and handed back, at once rather than whenever V8 next looks
+    collectGarbage();
   }
 
   private async analyzeOne(videoId: string, tags: TrackTags): Promise<TrackAnalysis> {
+    const started = performance.now();
     const { bytes: arrayBuffer, musicVideo } = await this.trackAudio(videoId);
-    const decodeCtx = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: ANALYSIS_SR });
-    const buffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
-    const mono = downmixToMono(buffer);
-    const durationSec = buffer.duration;
+    const fetched = performance.now();
+    const { mono, durationSec, beatWindows, vocalWindows } = await decodeForAnalysis(arrayBuffer);
+    // the decodes the windows were cut from are garbage now, before the workers' heaps grow
+    collectGarbage();
+    const decoded = performance.now();
 
-    const beatWindows: { offsetSec: number; pcm: Float32Array }[] = [];
-    const vocalWindows: { offsetSec: number; left: Float32Array; right: Float32Array }[] = [];
-    // BitChord: the phone's models read the opening and the end. Beat This!
-    // wants mono at 22,050 Hz (the browser's resampler, not decimation: an
-    // aliased spectrogram gives a wrong grid, not a noisy one); open-unmix
-    // stereo at 44.1 kHz.
-    if (USE_BEAT_MODEL) {
-      const beatCtx = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: BEAT_SR });
-      const mono22 = downmixToMono(await beatCtx.decodeAudioData(arrayBuffer.slice(0)));
-      beatWindows.push({ offsetSec: 0, pcm: mono22.slice(0, Math.round(Math.min(durationSec, BEAT_WINDOW_SEC) * BEAT_SR)) });
-      if (durationSec > BEAT_WINDOW_SEC) {
-        const from = durationSec - BEAT_WINDOW_SEC;
-        beatWindows.push({ offsetSec: from, pcm: mono22.slice(Math.round(from * BEAT_SR)) });
-      }
-    }
-    if (USE_VOCAL_MODEL) {
-      const left = buffer.getChannelData(0);
-      const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
-      // the opening the incoming loop is looked for in (45 s) and the end the
-      // outgoing one is (60 s): two windows and three, where the song is long enough
-      const vocalStarts = [0, VOCAL_WINDOW_SEC].filter((s) => s + VOCAL_WINDOW_SEC <= durationSec);
-      for (let k = 1; k <= 3; k++) {
-        const start = durationSec - k * VOCAL_WINDOW_SEC;
-        if (start >= 2 * VOCAL_WINDOW_SEC) vocalStarts.push(start);
-      }
-      for (const start of vocalStarts) {
-        const a = Math.round(start * ANALYSIS_SR);
-        const b = Math.min(left.length, a + Math.floor(VOCAL_WINDOW_SEC * ANALYSIS_SR));
-        vocalWindows.push({ offsetSec: start, left: left.slice(a, b), right: right.slice(a, b) });
-      }
-    }
+    // Vite bundles each worker from the literal URL inside `new Worker(...)`.
+    const essentia = await this.runWorker(
+      () => new Worker(new URL('./analysis.worker.ts', import.meta.url), { type: 'module' }),
+      { type: 'analyze', fileKey: videoId, samples: mono, sampleRate: ANALYSIS_SR },
+      [mono.buffer],
+    );
+    if (essentia.type === 'error' || !essentia.result) throw new Error(essentia.message ?? 'analysis failed');
 
-    const worker = this.ensureWorker();
-    const response = await new Promise<AnalyzeResponse>((resolve, reject) => {
-      this.pendingResolve = resolve;
-      try {
-        worker.postMessage(
-          { type: 'analyze', fileKey: videoId, samples: mono, sampleRate: ANALYSIS_SR, beatWindows, vocalWindows },
-          [mono.buffer, ...beatWindows.map((w) => w.pcm.buffer), ...vocalWindows.flatMap((w) => [w.left.buffer, w.right.buffer])],
-        );
-      } catch (e) {
-        this.pendingResolve = null;
-        reject(e);
-      }
-    });
-
-    if (response.type === 'error' || !response.result) {
-      throw new Error(response.message ?? 'analysis failed');
+    const essentiaDone = performance.now();
+    let result = essentia.result;
+    if (beatWindows.length || vocalWindows.length) {
+      const models = await this.runWorker(
+        () => new Worker(new URL('./models.worker.ts', import.meta.url), { type: 'module' }),
+        { type: 'models', fileKey: videoId, result, beatWindows, vocalWindows },
+        [...beatWindows.map((w) => w.pcm.buffer), ...vocalWindows.flatMap((w) => [w.left.buffer, w.right.buffer])],
+      );
+      if (models.type === 'error' || !models.result) throw new Error(models.message ?? 'analysis failed');
+      result = models.result;
     }
+    const ms = (a: number, b: number) => Math.round(b - a);
+    trackLog.d(
+      `automix analysis steps: fetch ${ms(started, fetched)}ms, decode ${ms(fetched, decoded)}ms, essentia ${ms(decoded, essentiaDone)}ms, models ${ms(essentiaDone, performance.now())}ms`,
+      videoId,
+    );
     return {
       fileKey: videoId,
       path: `youtube:${videoId}`,
       tags,
       durationSec,
-      ...response.result,
+      ...result,
       musicVideo,
       analysisVersion: ANALYSIS_VERSION,
     };
   }
 }
 
-function downmixToMono(buffer: AudioBuffer): Float32Array {
+/**
+ * What the workers read from a song, decoded from its compressed bytes. A
+ * function of its own so the decoded AudioBuffers (a 4-minute song is ~85 MB
+ * as 44.1 kHz stereo floats) are out of scope, and collectable, before the
+ * analysis waits on the workers.
+ */
+async function decodeForAnalysis(arrayBuffer: ArrayBuffer): Promise<{
+  mono: Float32Array;
+  durationSec: number;
+  beatWindows: { offsetSec: number; pcm: Float32Array }[];
+  vocalWindows: { offsetSec: number; left: Float32Array; right: Float32Array }[];
+}> {
+  // BitChord: one decoded copy of the song at a time (a 4-minute song is
+  // ~85 MB as 44.1 kHz stereo floats), and only the windows the models read
+  // are kept from each: the 22,050 Hz decode goes before the 44.1 kHz one.
+
+  const beatWindows: { offsetSec: number; pcm: Float32Array }[] = [];
+  // BitChord: the phone's models read the opening and the end. Beat This!
+  // wants mono at 22,050 Hz (the browser's resampler, not decimation: an
+  // aliased spectrogram gives a wrong grid, not a noisy one); open-unmix
+  // stereo at 44.1 kHz.
+  if (USE_BEAT_MODEL) {
+    const beatCtx = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: BEAT_SR });
+    const beatBuffer = await beatCtx.decodeAudioData(arrayBuffer.slice(0));
+    const beatSec = beatBuffer.duration;
+    const head = Math.round(Math.min(beatSec, BEAT_WINDOW_SEC) * BEAT_SR);
+    beatWindows.push({ offsetSec: 0, pcm: monoRange(beatBuffer, 0, head) });
+    if (beatSec > BEAT_WINDOW_SEC) {
+      const from = beatSec - BEAT_WINDOW_SEC;
+      beatWindows.push({ offsetSec: from, pcm: monoRange(beatBuffer, Math.round(from * BEAT_SR), beatBuffer.length) });
+    }
+  }
+
+  const decodeCtx = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: ANALYSIS_SR });
+  const buffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+  const mono = monoRange(buffer, 0, buffer.length);
+  const durationSec = buffer.duration;
+
+  const vocalWindows: { offsetSec: number; left: Float32Array; right: Float32Array }[] = [];
+  if (USE_VOCAL_MODEL) {
+    const left = buffer.getChannelData(0);
+    const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+    // the opening the incoming loop is looked for in (45 s) and the end the
+    // outgoing one is (60 s): two windows and three, where the song is long enough
+    const vocalStarts = [0, VOCAL_WINDOW_SEC].filter((s) => s + VOCAL_WINDOW_SEC <= durationSec);
+    for (let k = 1; k <= 3; k++) {
+      const start = durationSec - k * VOCAL_WINDOW_SEC;
+      if (start >= 2 * VOCAL_WINDOW_SEC) vocalStarts.push(start);
+    }
+    for (const start of vocalStarts) {
+      const a = Math.round(start * ANALYSIS_SR);
+      const b = Math.min(left.length, a + Math.floor(VOCAL_WINDOW_SEC * ANALYSIS_SR));
+      vocalWindows.push({ offsetSec: start, left: left.slice(a, b), right: right.slice(a, b) });
+    }
+  }
+
+  return { mono, durationSec, beatWindows, vocalWindows };
+}
+
+/** Samples [from, to) of [buffer], downmixed to mono: only that range is copied. */
+function monoRange(buffer: AudioBuffer, from: number, to: number): Float32Array {
   const channels = buffer.numberOfChannels;
-  if (channels === 1) return buffer.getChannelData(0).slice();
-  const out = new Float32Array(buffer.length);
+  if (channels === 1) return buffer.getChannelData(0).slice(from, to);
+  const out = new Float32Array(Math.max(0, to - from));
   for (let ch = 0; ch < channels; ch++) {
     const data = buffer.getChannelData(ch);
-    for (let i = 0; i < out.length; i++) out[i]! += data[i]! / channels;
+    for (let i = 0; i < out.length; i++) out[i]! += data[from + i]! / channels;
   }
   return out;
 }

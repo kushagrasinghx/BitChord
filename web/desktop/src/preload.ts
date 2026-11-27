@@ -17,8 +17,18 @@ import {
  * It runs in an isolated world, so the page can't reach ipcRenderer.
  */
 
-/** Tells the site it's the desktop app (web/app/src/config.ts), so it doesn't ask for the extension. */
-contextBridge.exposeInMainWorld('bitchordDesktop', { platform: process.platform });
+/**
+ * Tells the site it's the desktop app (web/app/src/config.ts), so it doesn't
+ * ask for the extension, and gives its Settings page the app's own settings
+ * (web/app/src/desktop.ts).
+ */
+contextBridge.exposeInMainWorld('bitchordDesktop', {
+  platform: process.platform,
+  settings: {
+    get: () => ipcRenderer.invoke('bitchord-desktop:settings'),
+    set: (change: unknown) => ipcRenderer.invoke('bitchord-desktop:set-settings', change),
+  },
+});
 
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== window || event.origin !== location.origin) return;

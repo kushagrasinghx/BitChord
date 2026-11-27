@@ -2,20 +2,20 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('signalsmith-stretch', () => ({ default: vi.fn() }));
 import type { TrackAnalysis } from '../analysis/types';
 import type { LoopChange, LoopDeck } from './loopDeck';
-import { LOOP_BARS, mixBeatPhaseAt, mixPositionAt, planLoopMix, scheduleLoopMix, sungShare, sungSpansFromLines } from './loopMix';
+import { LOOP_BARS, mixBeatPhaseAt, mixPositionAt, planLoopMix, scheduleLoopMix, sungShare, sungSpansFromLines, type PcmRegion } from './loopMix';
 
 /** Synced lyrics with nothing sung in the searched stretches: every loop is clear. */
 const CLEAR = { out: [] as [number, number][], in: [] as [number, number][] };
 
 const SR = 1000;
 
-/** An AudioBuffer stand-in: constant loudness except where [quiet] says. */
-function buffer(durationSec: number, quiet: [number, number][] = []): AudioBuffer {
+/** A decoded song: constant loudness except where [quiet] says. */
+function buffer(durationSec: number, quiet: [number, number][] = []): PcmRegion {
   const data = new Float32Array(Math.round(durationSec * SR)).map((_, i) => {
     const t = i / SR;
     return quiet.some(([a, b]) => t >= a && t < b) ? 0.001 : 0.3;
   });
-  return { duration: durationSec, sampleRate: SR, length: data.length, numberOfChannels: 1, getChannelData: () => data } as unknown as AudioBuffer;
+  return { duration: durationSec, sampleRate: SR, startSec: 0, channels: [data] };
 }
 
 function analysis(key: string, bpm: number, durationSec: number, vocals: TrackAnalysis['vocals'] = []): TrackAnalysis {
@@ -90,6 +90,17 @@ describe('planLoopMix', () => {
     expect(plan.out.vocal).toBeLessThanOrEqual(0.1);
     expect(plan.in.loop[0]).toBeGreaterThanOrEqual(20);
     expect(plan.in.loop[1]).toBeLessThanOrEqual(35 + 0.8);
+  });
+
+  it('plans the same from the regions the decks hold as from the whole songs', () => {
+    const out = analysis('out', 120, 200);
+    const inn = analysis('in', 120, 180);
+    const whole = buffer(200, [[185, 200]]);
+    // the last 65 s of the outgoing song and the first 85 s of the incoming one (OUT_REGION_SEC, IN_REGION_SEC)
+    const tail: PcmRegion = { ...whole, startSec: 135, channels: [whole.channels[0]!.slice(135 * SR)] };
+    const head = buffer(180);
+    const opening: PcmRegion = { ...head, channels: [head.channels[0]!.slice(0, 85 * SR)] };
+    expect(planLoopMix(out, tail, inn, opening, 0, CLEAR)).toEqual(planLoopMix(out, whole, inn, head, 0, CLEAR));
   });
 
   it('skips a quiet fade-out for a loop that grooves', () => {

@@ -6,7 +6,9 @@
 // whole bars sample-accurately and change tempo with the pitch kept, over any
 // ratio, which an <audio> element can't.
 import SignalsmithStretch, { type SignalsmithStretchNode } from 'signalsmith-stretch';
+import { collectGarbage } from '@/lib/gc';
 import { ThreeBandEQ } from './eq';
+import type { PcmRegion } from './loopMix';
 
 /** One scheduled change, in the track's own seconds (not the region's). */
 export interface LoopChange {
@@ -64,19 +66,25 @@ export class LoopDeck {
     return deck;
   }
 
-  /** Loads [startSec, endSec) of a decoded track. */
-  async load(key: string, buffer: AudioBuffer, startSec: number, endSec: number): Promise<void> {
+  /** Loads a region of a decoded track (loopMix.regionOf). Its channels are handed to the worklet: don't read them after. */
+  async load(key: string, region: PcmRegion): Promise<void> {
     this.stop();
     await this.stretch.dropBuffers();
-    const from = Math.max(0, Math.floor(startSec * buffer.sampleRate));
-    const to = Math.min(buffer.length, Math.ceil(endSec * buffer.sampleRate));
-    const channels: Float32Array[] = [];
-    for (let c = 0; c < Math.min(2, buffer.numberOfChannels); c++) channels.push(buffer.getChannelData(c).slice(from, to));
-    if (channels.length === 1) channels.push(channels[0]!.slice());
-    await this.stretch.addBuffers(channels);
-    this.regionStart = from / buffer.sampleRate;
-    this.regionEnd = to / buffer.sampleRate;
+    const channels = region.channels.length === 1 ? [region.channels[0]!, region.channels[0]!.slice()] : region.channels;
+    // read before the hand-over, which empties them here
+    const lengthSec = channels[0]!.length / region.sampleRate;
+    await this.stretch.addBuffers(channels, channels.map((c) => c.buffer));
+    this.regionStart = region.startSec;
+    this.regionEnd = region.startSec + lengthSec;
     this.loadedKey = key;
+  }
+
+  /** Stops and lets go of the loaded region: a mix's two regions are ~60 MB until the next one. */
+  unload(): void {
+    this.stop();
+    this.loadedKey = null;
+    // the worklet hands the region back to this thread, where it's garbage
+    void this.stretch.dropBuffers().then(collectGarbage);
   }
 
   /** Queues changes (sorted by output); each is posted just before it's due. */

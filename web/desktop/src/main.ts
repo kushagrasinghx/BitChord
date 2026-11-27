@@ -8,8 +8,10 @@ import { pathToFileURL } from 'node:url';
 import { errorResponse, isBridgeRequest, type BridgeEvent, type Capability } from '@bitchord/shared/bridge';
 import * as discord from '../../extension/lib/discord';
 import { createCookieWatcher, createDispatcher } from '../../extension/lib/dispatch';
+import { LYRIC_ORIGINS } from '../../extension/lib/lyricHosts';
 import { installRules } from '../../extension/lib/rules';
 import { installEngine, type RequestContext } from './dnr';
+import { closeToTray, flushDesktopSettings, onSessionEnd, settingsNow, setUpTray } from './tray';
 import { browserWindows, closeBrowserWindow, openBrowserWindow, openExternally, opensInApp } from './windows';
 
 
@@ -38,6 +40,20 @@ protocol.registerSchemesAsPrivileged([
 
 // Google's sign-in refuses browsers that call themselves Electron.
 app.userAgentFallback = chromeUserAgent();
+
+// A music player works while it's behind other windows or in the tray. Left
+// to itself, Chromium treats a window that isn't in front as backgrounded and
+// runs it at a lower priority (on Windows 11, in efficiency mode): Automix's
+// analysis of a song took 172 s instead of 70 s, and its memory stayed up
+// for as long.
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
+// `gc()` for the page (web/app/src/lib/gc.ts): Automix lets go of ~90 MB
+// decodes that an otherwise quiet music player can leave uncollected for
+// minutes. Measured: 273 MB → 123 MB in the page's process.
+app.commandLine.appendSwitch('js-flags', '--expose-gc');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -84,6 +100,23 @@ function isPartyRequest(request: RequestContext): boolean {
   }
 }
 
+const LYRIC_HOSTS = new Set<string>(LYRIC_ORIGINS);
+
+/**
+ * The page asking a lyric provider directly. Some answer only the origins they
+ * list (BetterLyrics, PaxSenix), so from app:// they'd fail CORS and fall back
+ * to the bridge, with an error in the console each time; their replies get
+ * `Access-Control-Allow-Origin: *` instead. The requests carry no cookies.
+ */
+function isLyricRequest(request: RequestContext): boolean {
+  if (request.own || request.initiator !== appHost()) return false;
+  try {
+    return LYRIC_HOSTS.has(new URL(request.url).origin);
+  } catch {
+    return false;
+  }
+}
+
 function deleteHeader(headers: Record<string, unknown>, name: string): void {
   for (const key of Object.keys(headers)) if (key.toLowerCase() === name) delete headers[key];
 }
@@ -99,6 +132,11 @@ function installHeaderRules(): void {
       if (isPartyRequest(request)) deleteHeader(headers, 'origin');
     },
     extraResponseHeaders(request, headers) {
+      if (isLyricRequest(request)) {
+        deleteHeader(headers, 'access-control-allow-origin');
+        headers['Access-Control-Allow-Origin'] = ['*'];
+        return;
+      }
       if (!isPartyRequest(request) || request.resourceType === 'webSocket') return;
       deleteHeader(headers, 'access-control-allow-origin');
       headers['Access-Control-Allow-Origin'] = ['*'];
@@ -203,6 +241,11 @@ function createMainWindow(): void {
     else openExternally(url);
   });
 
+  // With the tray on, closing hides the window and the music keeps playing (tray.ts).
+  mainWindow.on('close', (event) => mainWindow && closeToTray(mainWindow, event));
+  // Windows: logging off or shutting down closes it for real.
+  mainWindow.on('session-end', onSessionEnd);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     discord.allPagesClosed();
@@ -214,24 +257,39 @@ function createMainWindow(): void {
   if (DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
-app.on('second-instance', () => {
+/** Brings the window back: from the tray, the dock, or launching BitChord again. */
+function showMainWindow(): void {
   if (!mainWindow) return createMainWindow();
   if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
   mainWindow.focus();
-});
+}
 
-app.whenReady().then(() => {
+app.on('second-instance', showMainWindow);
+
+/** The page's Settings → Desktop section (web/app/src/desktop.ts, through preload.ts). */
+async function serveDesktopSettings(): Promise<void> {
+  const update = await setUpTray(() => mainWindow, createMainWindow);
+  ipcMain.handle('bitchord-desktop:settings', (event) => (fromPage(event) ? settingsNow() : null));
+  ipcMain.handle('bitchord-desktop:set-settings', (event, change: unknown) =>
+    fromPage(event) && change && typeof change === 'object' ? update(change) : null,
+  );
+}
+
+app.whenReady().then(async () => {
   serveRenderer();
   installHeaderRules();
   serveBridge();
+  await serveDesktopSettings();
   createMainWindow();
-  app.on('activate', () => {
-    if (!mainWindow) createMainWindow();
-  });
+  app.on('activate', showMainWindow);
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => extensionStorage().flush());
+app.on('before-quit', () => {
+  extensionStorage().flush();
+  flushDesktopSettings();
+});

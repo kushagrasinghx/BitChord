@@ -5,6 +5,7 @@ import { SiApplemusic, SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/
 import { config } from '@/config';
 import { PageHeader } from '@/components/PageHeader';
 import { PrefetchLink } from '@/components/PrefetchLink';
+import { desktop, useDesktopSettings, useSetDesktopSettings } from '@/desktop';
 import { useDiscord } from '@/extension/useDiscord';
 import { useExtension } from '@/extension/useExtension';
 import { useYtAuth } from '@/extension/useYtAuth';
@@ -12,9 +13,34 @@ import { useParty } from '@/party/useParty';
 import { useHistorySettings } from '@/playback/historyReporting';
 import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
+import { useTurnOnAutomix } from '@/shell/AutomixWarning';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
+
+/** The desktop app's window behaviour (web/desktop). */
+function DesktopSection() {
+  const settings = useDesktopSettings();
+  const set = useSetDesktopSettings();
+  const mac = desktop?.platform === 'darwin';
+  return (
+    <>
+      <h2 className={settingsUi.sectionHeader}>Desktop</h2>
+      <section className={settingsUi.group}>
+        <Toggle
+          label={mac ? 'Keep in Menu Bar When Closed' : 'Keep in System Tray When Closed'}
+          detail={
+            mac
+              ? 'Closing the window keeps the music playing. Quit from the menu bar icon or with ⌘Q.'
+              : 'Closing the window keeps the music playing. Quit from the tray icon.'
+          }
+          checked={settings.data?.closeToTray ?? true}
+          onChange={(on) => set.mutate({ closeToTray: on })}
+        />
+      </section>
+    </>
+  );
+}
 
 const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
 
@@ -66,7 +92,8 @@ export default function SettingsPage() {
   const showNerdStats = usePlayer((s) => s.showNerdStats);
   const shareHistory = useHistorySettings((s) => s.share);
   const setShareHistory = useHistorySettings((s) => s.setShare);
-  const { setAutoplay, setCrossfade, setAutomix, setAutomixBars, setShowNerdStats } = usePlayer.getState();
+  const { setAutoplay, setCrossfade, setAutomixBars, setShowNerdStats } = usePlayer.getState();
+  const automixWarning = useTurnOnAutomix();
   const [lyrics, setLyrics] = useState(false);
   const present = extension.state === 'present';
   const discordText =
@@ -160,9 +187,10 @@ export default function SettingsPage() {
                 ...CROSSFADE_CHOICES.map((seconds) => ({ value: seconds, label: seconds === 0 ? 'Off' : `${seconds} seconds` })),
                 { value: 'automix', label: 'Automix' },
               ]}
-              onChange={(value) => (value === 'automix' ? setAutomix(true) : setCrossfade(value))}
+              onChange={(value) => (value === 'automix' ? automixWarning.turnOn() : setCrossfade(value))}
             />
           </label>
+          {automixWarning.dialog}
           {automix && (
             <label className={settingsUi.controlRow}>
               <span>Blend Length</span>
@@ -205,6 +233,8 @@ export default function SettingsPage() {
             </div>
           )}
         </section>
+
+        {config.desktop && desktop && <DesktopSection />}
       </div>
       {lyrics && (
         <Suspense fallback={null}>

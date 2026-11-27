@@ -5,6 +5,7 @@ import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
 import { formatDuration } from '@/components/music/links';
 import { autoplaySectionStart, upcomingUserQueueIndices, type QueueEntry } from '@/playback/queue/timeline';
+import { useTurnOnAutomix } from '@/shell/AutomixWarning';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 
 // The panel's square buttons: AutoPlay (the key colour when on) and the options menu.
@@ -114,7 +115,8 @@ export function UpNext() {
   const repeat = usePlayer((s) => s.repeat);
   const crossfadeSec = usePlayer((s) => s.crossfadeSec);
   const automix = usePlayer((s) => s.automix);
-  const { clearUpNext, setAutoplay, setCrossfade, setAutomix, move } = usePlayer.getState();
+  const { clearUpNext, setAutoplay, setCrossfade, move } = usePlayer.getState();
+  const automixWarning = useTurnOnAutomix();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const close = useCallback(() => setAnchor(null), []);
@@ -171,11 +173,12 @@ export function UpNext() {
                 {seconds === 0 ? 'Off' : `${seconds} seconds`}
               </MenuItem>
             ))}
-            <MenuItem checked={automix} onSelect={() => (close(), setAutomix(true))}>
+            <MenuItem checked={automix} onSelect={() => (close(), automixWarning.turnOn())}>
               Automix
             </MenuItem>
           </Menu>
         )}
+        {automixWarning.dialog}
       </div>
       {playingFrom && <p className="truncate px-5 pb-2 type-callout text-secondary">Playing from {playingFrom}</p>}
 

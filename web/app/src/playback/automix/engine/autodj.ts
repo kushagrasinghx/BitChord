@@ -9,6 +9,7 @@
 // 12-second equal-power crossfade. The handoff to the incoming track happens
 // at the blend's midpoint, where the phone's CrossfadeController hands over.
 import type { TrackAnalysis } from '../analysis/types';
+import { collectGarbage } from '@/lib/gc';
 import { analyzer } from '../analysis/analyzer';
 import type { Deck } from './deck';
 import type { Candidate } from './selector';
@@ -22,6 +23,7 @@ import {
   OUT_REGION_SEC,
   OUT_SEARCH_SEC,
   planLoopMix,
+  regionOf,
   scheduleLoopMix,
   type LoopMixPlan,
   type LoopMixTimes,
@@ -236,8 +238,8 @@ export class AutoDJ {
         this.mixPlayhead((onIncoming ? this.loopPlan?.in.key : this.loopPlan?.out.key) ?? '') ??
         (onIncoming ? this.loopTimes.elementTrackTime : this.loopPlan?.out.loop[0]) ??
         keep.audio.currentTime;
-      outDeck.stop();
-      inDeck.stop();
+      outDeck.unload();
+      inDeck.unload();
       drop.cancel();
       keep.cancel();
       keep.audio.currentTime = at;
@@ -463,14 +465,24 @@ export class AutoDJ {
         this.host.sungSpans(cur.fileKey).catch(() => null),
         this.host.sungSpans(next.fileKey).catch(() => null),
       ]);
-      const [outBuffer, inBuffer] = await Promise.all([ctx.decodeAudioData(outBytes.slice(0)), ctx.decodeAudioData(inBytes.slice(0))]);
+      // One song decoded at a time, and only the stretch each deck plays kept
+      // from it: two whole 48 kHz stereo decodes held together are ~180 MB.
+      const outRegion = regionOf(
+        await ctx.decodeAudioData(outBytes.slice(0)),
+        Math.max(0, cur.durationSec - OUT_REGION_SEC),
+        cur.durationSec,
+      );
+      if (!stillWanted()) return;
+      const inRegion = regionOf(await ctx.decodeAudioData(inBytes.slice(0)), 0, Math.min(next.durationSec, IN_REGION_SEC));
       if (!stillWanted()) return;
       const pos = this.host.front().expectedTrackTime ?? 0;
-      const plan = planLoopMix(outGrid, outBuffer, next, inBuffer, pos + LOOP_SETUP_SEC, { out: outSung, in: inSung });
+      const plan = planLoopMix(outGrid, outRegion, next, inRegion, pos + LOOP_SETUP_SEC, { out: outSung, in: inSung });
       if (!plan) return;
       const [outDeck, inDeck] = this.loopDecks;
-      await outDeck.load(cur.fileKey, outBuffer, Math.max(0, cur.durationSec - OUT_REGION_SEC), cur.durationSec);
-      await inDeck.load(next.fileKey, inBuffer, 0, Math.min(next.durationSec, IN_REGION_SEC));
+      await outDeck.load(cur.fileKey, outRegion);
+      await inDeck.load(next.fileKey, inRegion);
+      // the two whole decodes the regions were cut from
+      collectGarbage();
       if (!stillWanted()) return;
       this.loopPlan = plan;
     } catch (error) {
@@ -537,7 +549,7 @@ export class AutoDJ {
   private completeTransition(): void {
     const blend = this.blend;
     if (blend && this.loopTimes && this.loopDecks) {
-      for (const d of this.loopDecks) d.stop();
+      for (const d of this.loopDecks) d.unload();
       this.loopTimes = null;
       this.host.hold(false);
     }

@@ -13,6 +13,7 @@ files:
   - out/**
   - renderer/**
   - build/icon.png
+  - build/tray*.png
   - package.json
 asar: true
 npmRebuild: false

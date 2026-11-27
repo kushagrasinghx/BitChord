@@ -67,6 +67,30 @@ const BASS_CUT_DB = -18;
 /** Where a song is sung, in its own seconds, from its synced lyrics. */
 export type SungSpans = [number, number][];
 
+/**
+ * The part of a decoded song the loop mix reads and plays, instead of the
+ * whole decode (a 4-minute song is ~90 MB of 48 kHz stereo floats, and a mix
+ * needs two): its channels from [startSec], and the song's full length.
+ */
+export interface PcmRegion {
+  sampleRate: number;
+  /** The whole song's length, as decoded. */
+  duration: number;
+  /** Where [channels] start, in the song's seconds. */
+  startSec: number;
+  /** One or two channels, of equal length. */
+  channels: Float32Array[];
+}
+
+/** Copies [startSec, endSec) of [buffer] (at most two channels); the buffer itself can then go. */
+export function regionOf(buffer: AudioBuffer, startSec: number, endSec: number): PcmRegion {
+  const from = Math.max(0, Math.floor(startSec * buffer.sampleRate));
+  const to = Math.min(buffer.length, Math.ceil(endSec * buffer.sampleRate));
+  const channels: Float32Array[] = [];
+  for (let c = 0; c < Math.min(2, buffer.numberOfChannels); c++) channels.push(buffer.getChannelData(c).slice(from, to));
+  return { sampleRate: buffer.sampleRate, duration: buffer.duration, startSec: from / buffer.sampleRate, channels };
+}
+
 export interface LoopPick {
   key: string;
   /** Track seconds. */
@@ -115,15 +139,15 @@ export interface LoopMixTimes {
  * The bars to loop on each side, or null when there is no loop mix to make:
  * either song has no usable grid there, or no instrumental bars at all. A
  * sung word is never looped; the pair then gets a blend or a filter mix.
- * [buffers] are the decoded songs, for loudness; [earliestOutSec] is the
+ * [outRegion] and [inRegion] are the decoded songs' search spans, for loudness; [earliestOutSec] is the
  * earliest the outgoing loop may start (the playhead plus setup time);
  * [sung] is each song's sung lines from its synced lyrics, when it has them.
  */
 export function planLoopMix(
   out: TrackAnalysis,
-  outBuffer: AudioBuffer,
+  outRegion: PcmRegion,
   inn: TrackAnalysis,
-  inBuffer: AudioBuffer,
+  inRegion: PcmRegion,
   earliestOutSec: number,
   sung: { out?: SungSpans | null; in?: SungSpans | null } = {},
 ): LoopMixPlan | null {
@@ -136,11 +160,11 @@ export function planLoopMix(
   const inBar = inn.beatIntervalSec * 4;
 
   // outgoing: the latest instrumental loop that ends before the song does
-  const outEnd = Math.min(out.durationSec - 0.5, outBuffer.duration - 0.1);
+  const outEnd = Math.min(out.durationSec - 0.5, outRegion.duration - 0.1);
   const outFirst = Math.max(earliestOutSec, out.durationSec - OUT_SEARCH_SEC);
   const outPick = firstClean(
     (bars) => loopsBetween(out.tailBeats, out.firstDownbeatSec!, outBar, outFirst, outEnd, bars).reverse(),
-    outBuffer,
+    outRegion,
     out.vocals ?? [],
     sung.out ?? null,
     out.beatIntervalSec,
@@ -148,10 +172,10 @@ export function planLoopMix(
   if (outPick === null) return null;
 
   // incoming: the earliest instrumental loop in its opening
-  const inEnd = Math.min(IN_SEARCH_SEC + LOOP_BARS * inBar, inBuffer.duration - 20);
+  const inEnd = Math.min(IN_SEARCH_SEC + LOOP_BARS * inBar, inRegion.duration - 20);
   const inPick = firstClean(
     (bars) => loopsBetween(inn.headBeats, inn.firstDownbeatSec!, inBar, 0, inEnd, bars),
-    inBuffer,
+    inRegion,
     inn.vocals ?? [],
     sung.in ?? null,
     inn.beatIntervalSec,
@@ -234,7 +258,7 @@ function loopsBetween(side: BeatSide | null | undefined, anchor: number, bar: nu
  */
 function firstClean(
   candidates: (bars: number) => Span[],
-  buffer: AudioBuffer,
+  region: PcmRegion,
   vocals: VocalWindow[],
   sung: SungSpans | null,
   beatSec: number,
@@ -244,7 +268,7 @@ function firstClean(
     if (!loops.length) continue;
     // loudness of the quietest bar against the stretch's own: no fade-out tail, no breakdown
     const barLoud = (l: Span) =>
-      Math.min(...Array.from({ length: bars }, (_, b) => rms(buffer, l.start + (b * (l.end - l.start)) / bars, l.start + ((b + 1) * (l.end - l.start)) / bars)));
+      Math.min(...Array.from({ length: bars }, (_, b) => rms(region, l.start + (b * (l.end - l.start)) / bars, l.start + ((b + 1) * (l.end - l.start)) / bars)));
     const louds = loops.map(barLoud);
     const typical = [...louds].sort((a, b) => a - b)[Math.floor(louds.length * 0.6)] ?? 0;
     for (let i = 0; i < loops.length; i++) {
@@ -314,10 +338,10 @@ export function sungSpansFromLines(lines: { timeMs: number; endMs: number | null
   return spans;
 }
 
-function rms(buffer: AudioBuffer, from: number, to: number): number {
-  const data = buffer.getChannelData(0);
-  const a = Math.max(0, Math.floor(from * buffer.sampleRate));
-  const b = Math.min(data.length, Math.floor(to * buffer.sampleRate));
+function rms(region: PcmRegion, from: number, to: number): number {
+  const data = region.channels[0]!;
+  const a = Math.max(0, Math.floor((from - region.startSec) * region.sampleRate));
+  const b = Math.min(data.length, Math.floor((to - region.startSec) * region.sampleRate));
   let ss = 0;
   let n = 0;
   for (let i = a; i < b; i += 16) {

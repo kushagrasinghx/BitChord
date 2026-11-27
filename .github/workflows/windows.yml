@@ -19,6 +19,7 @@ on:
     paths: &paths
       - 'windows/**'
       - 'web/**'
+      - 'shared/**'
       - 'build.gradle.kts'
       - 'app/src/main/java/com/music/bitchord/data/AppUpdateChecker.kt'
       - '.github/workflows/windows.yml'
@@ -49,6 +50,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: windows/src-tauri
+
+      # The installer bundles web/app's build: compile shared/ for it here rather than trust the committed
+      # web/shared-kotlin, which can lag shared/ once the site deploys from Actions (web-deploy.yml).
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile shared/ for the web
+        shell: bash
+        run: ./gradlew :shared:exportWeb
 
       # Installs, builds the extension and the site, then the shell (windows/README.md).
       - name: Build

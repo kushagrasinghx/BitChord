@@ -1,0 +1,85 @@
+name: Web deploy
+
+# Builds the site with the shared Kotlin compiled here, then deploys it to
+# Cloudflare Pages. Pages' own build has no JDK, so it can only use the copy
+# committed in web/shared-kotlin, which a PR from a fork can't have refreshed
+# for it (CI can't push to a fork, and main only takes reviewed PRs). Deploying
+# from here means the site always runs current shared/ code, and web.yml lets
+# such a PR through with a warning instead of making its author run Gradle.
+#
+# Off until the repository variable WEB_DEPLOY_FROM_ACTIONS is "true". To switch
+# over (web/README.md, Deploy):
+#   secrets   CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
+#   variables WEB_DEPLOY_FROM_ACTIONS=true, PAGES_PROJECT (default bitchord),
+#             and the site's VITE_* settings, named as in web/README.md
+# and turn off the Pages project's own Git builds.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/web-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Web · deploy to Cloudflare Pages
+    # main only: --branch=main below makes this the live site, so a manual run from another branch must not.
+    if: vars.WEB_DEPLOY_FROM_ACTIONS == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pnpm version comes from web/package.json's packageManager; Node before Gradle, as web.yml sets them up.
+      # Third-party actions are pinned to a commit, as wrangler-action is: they share the runner the token reaches.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+
+      # The compiled copy of shared/ this build runs, whatever is committed.
+      - name: Compile shared/ for the web
+        run: ./gradlew :shared:exportWeb
+
+      # Every VITE_* repository variable that is set, so a new setting needs no change here. One line each in
+      # GITHUB_ENV, so a value holding a line break is refused rather than written.
+      - name: The site's settings
+        env:
+          VARS: ${{ toJSON(vars) }}
+        run: node -e 'for (const [k, v] of Object.entries(JSON.parse(process.env.VARS))) if (k.startsWith("VITE_") && v) { if (/[\r\n]/.test(v)) throw new Error(`${k} holds a line break`); console.log(`${k}=${v}`) }' >> "$GITHUB_ENV"
+
+      - name: Build
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:site
+
+      # Pinned to v3's commit, since this step is handed the Cloudflare API token.
+      - uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy web/app/dist --project-name=${{ vars.PAGES_PROJECT || 'bitchord' }} --branch=main

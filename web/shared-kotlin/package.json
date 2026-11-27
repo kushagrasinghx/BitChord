@@ -1,0 +1,13 @@
+{
+  "name": "@bitchord/shared-kotlin",
+  "private": true,
+  "type": "module",
+  "description": "shared/commonMain (the Android app's own logic) compiled to JavaScript. dist/ is generated: ./gradlew :shared:exportWeb",
+  "exports": {
+    ".": {
+      "types": "./dist/BitChord-shared.d.mts",
+      "default": "./dist/BitChord-shared.mjs"
+    }
+  },
+  "sideEffects": false
+}

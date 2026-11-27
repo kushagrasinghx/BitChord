@@ -73,6 +73,16 @@
       "ms": 308
     },
     {
+      "file": "innertube/browse-credits.json",
+      "url": "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false",
+      "method": "POST",
+      "status": 200,
+      "contentType": "application/json; charset=UTF-8",
+      "bytes": 3726,
+      "acao": null,
+      "ms": 73
+    },
+    {
       "file": "innertube/next-radio.json",
       "url": "https://music.youtube.com/youtubei/v1/next?prettyPrint=false",
       "method": "POST",

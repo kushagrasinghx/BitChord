@@ -1,0 +1,30 @@
+/*
+ * The Replay page's ink over its mesh (app/.../ui/replay/ReplayScreen.kt):
+ * a page of ranked lists needs far more separation than a player's few
+ * controls, so most of the mesh is put back under black (.30, .72, .88)
+ * in dark, and under white (.25, .65, .82) in light.
+ */
+.replay-scrim {
+  background: linear-gradient(rgb(255 255 255 / 0.25), rgb(255 255 255 / 0.65), rgb(255 255 255 / 0.82));
+}
+:root[data-theme='dark'] .replay-scrim {
+  background: linear-gradient(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.88));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .replay-scrim {
+    background: linear-gradient(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.88));
+  }
+}
+
+/*
+ * A line pressed into the card rather than printed on it (ReplayCard.kt
+ * PolishedInk, EmbossShadow): a fill brightest along the top edge over a
+ * dark shadow offset down. The shadow is a drop-shadow filter, since a
+ * text-shadow would show through the clipped fill.
+ */
+.replay-emboss {
+  background: linear-gradient(#ffffff, #f3f4f8, #c9ccd6);
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2.5px 2px rgb(0 0 0 / 0.6));
+}

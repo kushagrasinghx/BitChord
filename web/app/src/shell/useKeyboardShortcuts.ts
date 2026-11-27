@@ -1,13 +1,43 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { usePlayer } from '@/state/player';
+import { getAudio, getPlayhead, usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
+import { useShortcutsSheet } from './ShortcutsSheet';
 
 /** Typing in a field shouldn't trigger the player. */
 function typing(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
   if (!element) return false;
   return element.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(element.tagName);
+}
+
+/** Seconds ← and → move the playhead, as YouTube Music's own web player steps. */
+export const SEEK_STEP = 10;
+
+/** The keys a slider steps with; letters and Space stay the player's while one has focus. */
+const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+
+/**
+ * Whether a key belongs to what has focus rather than to the player: a field,
+ * a widget that steps with the arrows (a menu, a list box, tabs), a dialog over
+ * the app (the player's own sheet aside), or a slider's own stepping keys (a
+ * click on the seek line focuses it, and M, L, Q, Space and Shift+arrows must
+ * still work).
+ */
+export function keyBelongsToFocus({ target, key, shiftKey }: Pick<KeyboardEvent, 'target' | 'key' | 'shiftKey'>): boolean {
+  const element = target as HTMLElement | null;
+  if (typing(element)) return true;
+  // A widget or dialog that takes every key wins over a slider inside it.
+  if (element?.closest?.('[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])')) return true;
+  return !!element?.closest?.('[role="slider"]') && !shiftKey && SLIDER_KEYS.has(key);
+}
+
+function seekBy(seconds: number) {
+  const audio = getAudio();
+  if (!audio || !Number.isFinite(audio.duration)) return;
+  // A loop mix plays from its decks with the element paused: its own playhead is the position.
+  const now = getPlayhead()?.sec ?? audio.currentTime;
+  usePlayer.getState().seek(Math.min(audio.duration, Math.max(0, now + seconds)));
 }
 
 function focusSearch(navigate: ReturnType<typeof useNavigate>) {
@@ -28,6 +58,11 @@ function focusSearch(navigate: ReturnType<typeof useNavigate>) {
  * The web player's shortcuts, which BitChord matches (report §8): Space
  * play/pause; ⌘/Ctrl+→ / ← next/previous; ⌘/Ctrl+↑ / ↓ volume; ⌘/Ctrl+F or
  * "/" focuses search; Esc closes the full-screen player, else the side panel.
+ *
+ * And a desktop app's: ← / → back and forward 10 seconds, Shift+← / → the
+ * previous and next song, M mute, L lyrics, Q the queue (the full-screen
+ * player takes L and Q for its own panes while it is up), and ? the sheet
+ * listing all of them (ShortcutsSheet.tsx).
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate();
@@ -44,8 +79,8 @@ export function useKeyboardShortcuts() {
       if (typing(event.target)) return;
 
       if (event.key === ' ' && !command) {
-        // A focused button already answers Space itself.
-        if ((event.target as HTMLElement | null)?.closest('button, a, [role="slider"]')) return;
+        // A focused button already answers Space itself; the seek slider doesn't, so it plays and pauses.
+        if ((event.target as HTMLElement | null)?.closest('button, a')) return;
         event.preventDefault();
         return player.togglePlay();
       }
@@ -61,7 +96,24 @@ export function useKeyboardShortcuts() {
         else if (ui.sidePanel) ui.closeSidePanel();
         return;
       }
-      if (!command) return;
+      if (!command) {
+        if (keyBelongsToFocus(event)) return;
+        const ui = useUi.getState();
+        const run: (() => void) | undefined = {
+          ArrowLeft: () => (event.shiftKey ? player.previous() : seekBy(-SEEK_STEP)),
+          ArrowRight: () => (event.shiftKey ? player.next() : seekBy(SEEK_STEP)),
+          m: player.toggleMute,
+          M: player.toggleMute,
+          l: ui.fullScreen ? undefined : () => ui.toggleSidePanel('lyrics'),
+          L: ui.fullScreen ? undefined : () => ui.toggleSidePanel('lyrics'),
+          q: ui.fullScreen ? undefined : () => ui.toggleSidePanel('up-next'),
+          Q: ui.fullScreen ? undefined : () => ui.toggleSidePanel('up-next'),
+          '?': () => useShortcutsSheet.getState().toggle(),
+        }[event.key];
+        if (!run) return;
+        event.preventDefault();
+        return run();
+      }
       switch (event.key) {
         case 'ArrowRight':
           event.preventDefault();

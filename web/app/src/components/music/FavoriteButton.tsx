@@ -1,4 +1,5 @@
 import { StarFilledIcon, StarIcon } from '@/components/icons/Transport';
+import { isLocalId } from '@/data/local/ids';
 import { useLikeStatus, useSetLiked, useSignedIn } from '@/data/music/queries';
 
 interface FavoriteButtonProps {
@@ -16,7 +17,8 @@ export function FavoriteButton({ videoId, className, size = 18 }: FavoriteButton
   const signedIn = useSignedIn();
   const status = useLikeStatus(videoId);
   const setLiked = useSetLiked();
-  if (!signedIn || !videoId) return null;
+  // A local file isn't a YouTube song to like.
+  if (!signedIn || !videoId || isLocalId(videoId)) return null;
   const liked = status.data === 'LIKE';
   return (
     <button

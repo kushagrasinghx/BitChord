@@ -9,10 +9,14 @@ interface BlockProps {
   style?: CSSProperties;
 }
 
-// A soft highlight sweeping left to right; still under reduced motion. The sweep animates
-// `transform` from the -100% it starts at, so it is set as a transform, not a translate.
+// The phone's ShimmerBox (sharedUi/.../components/Skeletons.kt): surfaceVariant, with a
+// band half the block's width, onSurfaceVariant at 16% at its peak, crossing linearly in
+// 1400ms from fully off one edge to fully off the other. The band is the middle half of a
+// full-width layer moved from -100% to 100%: the same 2× width of travel. Still under
+// reduced motion. The sweep animates `transform` from the -100% it starts at, so it is set
+// as a transform, not a translate.
 const block =
-  'relative shrink-0 overflow-hidden rounded-[4px] bg-skeleton after:absolute after:inset-0 after:transform-[translateX(-100%)] after:animate-shimmer after:bg-[linear-gradient(90deg,transparent_0,var(--skeleton-shimmer)_50%,transparent_100%)] motion-reduce:after:hidden motion-reduce:after:animate-none';
+  'relative shrink-0 overflow-hidden rounded-[4px] bg-surface-variant after:absolute after:inset-0 after:transform-[translateX(-100%)] after:animate-[shimmer_1400ms_linear_infinite] after:bg-[linear-gradient(90deg,transparent_25%,color-mix(in_srgb,var(--color-on-surface-variant)_16%,transparent)_50%,transparent_75%)] motion-reduce:after:hidden motion-reduce:after:animate-none';
 
 /** A placeholder box with a shimmer. Purely decorative, so hidden from AT. */
 export function SkeletonBlock({ width, height, radius, aspectRatio, className, style }: BlockProps) {

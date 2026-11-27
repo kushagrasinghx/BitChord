@@ -1,4 +1,6 @@
 import type { DiscordPresenceOptions } from '@bitchord/shared/bridge';
+import { Activity, CircleUser, Film, Link, Lock, MicVocal, Music, Type } from 'lucide-react';
+import { SiApplemusic, SiDiscord, SiSpotify } from 'react-icons/si';
 import { APPLE_ORIGINS, useAppleAccess } from '@/data/apple/artistArt';
 import { useAppleSettings } from '@/data/apple/motionArt';
 import { useHostAccess } from '@/extension/useHostAccess';
@@ -20,7 +22,7 @@ import {
   type SpotifyAuthStatus,
 } from '@/extension/useSpotifyAuth';
 import { settingsUi } from './settingsStyles';
-import { Select } from '@/components/Select';
+import { ChoiceRow, FieldRow, Group, SettingsRow, Toggle } from './SettingsRows';
 
 /** Allowed, or an Allow button that opens the extension's permission page. */
 function HostAccessValue({ access, request }: ReturnType<typeof useHostAccess>) {
@@ -37,29 +39,42 @@ function HostAccessValue({ access, request }: ReturnType<typeof useHostAccess>) 
   );
 }
 
-/** The Apple Music section's access row: one grant covers artist art and animated artwork. */
-export function AppleMusicIntegration() {
-  return <HostAccessValue {...useAppleAccess()} />;
-}
-
-/** The Apple Music section's switches. Neither needs an Apple Music account. */
-export function AppleMusicToggles() {
-  const { artistArt, motion, setArtistArt, setMotion } = useAppleSettings();
+/**
+ * Content Preferences (SettingsSheet.kt CONTENT_PREFERENCES): what BitChord
+ * takes from Apple Music's public pages. One grant covers artist art and
+ * animated artwork, which Appearance offers.
+ */
+export function ContentSettings() {
+  const { artistArt, setArtistArt } = useAppleSettings();
   return (
-    <>
+    <Group header="Apple Music" footer="From Apple Music’s public pages. No Apple Music account or sign-in needed.">
+      <SettingsRow icon={SiApplemusic} title="Apple Music Access" keywords={['apple', 'permission', 'extension']}>
+        <HostAccessValue {...useAppleAccess()} />
+      </SettingsRow>
       <Toggle
+        icon={MicVocal}
         label="Artist Art"
         detail="Artist pages take Apple Music’s photo, logo and colour."
+        keywords={['apple', 'artist', 'photo', 'logo']}
         checked={artistArt}
         onChange={setArtistArt}
       />
-      <Toggle
-        label="Animated Artwork"
-        detail="Apple Music’s moving covers in the full-screen player and on album pages. Not on metered connections or with reduced motion."
-        checked={motion}
-        onChange={setMotion}
-      />
-    </>
+    </Group>
+  );
+}
+
+/** Apple Music's moving covers (Appearance, beside the phone's Animated cover art). */
+export function AnimatedArtworkToggle() {
+  const { motion, setMotion } = useAppleSettings();
+  return (
+    <Toggle
+      icon={Film}
+      label="Animated Artwork"
+      detail="Apple Music’s moving covers in the full-screen player and on album pages. Not on metered connections or with reduced motion."
+      keywords={['apple', 'motion', 'video', 'cover', 'canvas']}
+      checked={motion}
+      onChange={setMotion}
+    />
   );
 }
 
@@ -70,7 +85,12 @@ export function AppleMusicToggles() {
  */
 const LYRIC_ONLY_ORIGINS = LYRIC_EXTENSION_ORIGINS.filter((o) => !APPLE_ORIGINS.includes(o));
 export function LyricSourcesAccess() {
-  return <HostAccessValue {...useHostAccess(LYRIC_ONLY_ORIGINS)} />;
+  const access = useHostAccess(LYRIC_ONLY_ORIGINS);
+  return (
+    <SettingsRow icon={Lock} title="Lyric Sources Access" keywords={['lyrics', 'permission', 'extension', 'musixmatch', 'kugou']}>
+      <HostAccessValue {...access} />
+    </SettingsRow>
+  );
 }
 
 /** The Spotify row's words and button (SpotifyLibraryScreen's states). */
@@ -101,7 +121,7 @@ function spotifyText(auth: SpotifyAuthStatus): string {
   if (auth.state === 'checking') return 'Checking…';
   if (auth.state === 'unavailable') return 'Not available in this version yet';
   const { browserSignedIn, connected, signedIn, user } = auth.auth;
-  if (!browserSignedIn) return 'Not signed in in this browser';
+  if (!browserSignedIn) return 'Not signed in';
   if (!connected) return 'Disconnected';
   return signedIn ? `Signed in as ${user?.name ?? 'your account'}` : 'Couldn’t read your account';
 }
@@ -140,18 +160,6 @@ function discordText(status: DiscordStatus): string {
   return `${user.name} · on`;
 }
 
-export function Toggle({ label, detail, checked, onChange }: { label: string; detail?: string; checked: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <label className={settingsUi.controlRow}>
-      <span className={settingsUi.rowText}>
-        <span>{label}</span>
-        {detail && <span className={settingsUi.rowDetail}>{detail}</span>}
-      </span>
-      <input type="checkbox" className={settingsUi.switch} checked={checked} onChange={(e) => onChange(e.currentTarget.checked)} />
-    </label>
-  );
-}
-
 /** Spotify Canvas behind the lyrics; only offered once signed in to Spotify. */
 export function CanvasToggle() {
   const auth = useSpotifyAuth();
@@ -160,7 +168,9 @@ export function CanvasToggle() {
   if (auth.state !== 'ready' || !auth.auth.signedIn) return null;
   return (
     <Toggle
+      icon={SiSpotify}
       label="Spotify Canvas"
+      keywords={['spotify', 'video', 'lyrics', 'background']}
       detail="Spotify’s looping clip behind the lyrics. Not on metered connections or with reduced motion."
       checked={canvas}
       onChange={setCanvas}
@@ -191,70 +201,65 @@ export function DiscordSettings() {
   if (status.state !== 'ready' || !status.discord.available || !status.discord.connected) return null;
   const on = status.discord.enabled;
   return (
-    <>
-      <section className={settingsUi.group}>
-        <Toggle label="Show what you’re playing" checked={on} onChange={(v) => setEnabled.mutate(v)} />
-        {on && (
-          <>
-            <label className={settingsUi.controlRow}>
-              <span>Activity</span>
-              <Select
-                label="Activity"
-                value={options.activityType}
-                options={ACTIVITY_TYPES}
-                onChange={(activityType) => set({ activityType })}
-              />
-            </label>
-            <label className={settingsUi.controlRow}>
-              <span>Name</span>
+    <Group
+      header="Presence"
+      footer={
+        <>
+          This uses your Discord account’s own token, which Discord’s terms don’t allow. Button text can use {'{song_name}'},{' '}
+          {'{artist_name}'} and {'{album_name}'}.
+        </>
+      }
+    >
+      <Toggle icon={SiDiscord} label="Show what you’re playing" checked={on} onChange={(v) => setEnabled.mutate(v)} />
+      {on && (
+        <>
+          <ChoiceRow
+            icon={Activity}
+            title="Activity"
+            options={ACTIVITY_TYPES}
+            value={options.activityType}
+            onChange={(activityType) => set({ activityType })}
+          />
+          <FieldRow icon={Type} title="Name">
+            <input
+              className={settingsUi.input}
+              placeholder="BitChord"
+              value={options.activityName}
+              onChange={(e) => set({ activityName: e.currentTarget.value })}
+            />
+          </FieldRow>
+          <ChoiceRow icon={CircleUser} title="Status" options={STATUSES} value={options.status} onChange={(status) => set({ status })} />
+          <Toggle
+            icon={Music}
+            label="Lead with the song"
+            detail="Member lists show the song title instead of the artist."
+            checked={options.useDetails}
+            onChange={(v) => set({ useDetails: v })}
+          />
+          <Toggle icon={Link} label="Listen button" checked={options.button1Visible} onChange={(v) => set({ button1Visible: v })} />
+          {options.button1Visible && (
+            <FieldRow icon={Type} title="Listen button text">
               <input
                 className={settingsUi.input}
-                placeholder="BitChord"
-                value={options.activityName}
-                onChange={(e) => set({ activityName: e.currentTarget.value })}
+                placeholder="Listen on YouTube Music"
+                value={options.button1Text}
+                onChange={(e) => set({ button1Text: e.currentTarget.value })}
               />
-            </label>
-            <label className={settingsUi.controlRow}>
-              <span>Status</span>
-              <Select label="Status" value={options.status} options={STATUSES} onChange={(status) => set({ status })} />
-            </label>
-            <Toggle
-              label="Lead with the song"
-              detail="Member lists show the song title instead of the artist."
-              checked={options.useDetails}
-              onChange={(v) => set({ useDetails: v })}
-            />
-            <Toggle label="Listen button" checked={options.button1Visible} onChange={(v) => set({ button1Visible: v })} />
-            {options.button1Visible && (
-              <label className={settingsUi.controlRow}>
-                <span>Listen button text</span>
-                <input
-                  className={settingsUi.input}
-                  placeholder="Listen on YouTube Music"
-                  value={options.button1Text}
-                  onChange={(e) => set({ button1Text: e.currentTarget.value })}
-                />
-              </label>
-            )}
-            <Toggle label="BitChord button" checked={options.button2Visible} onChange={(v) => set({ button2Visible: v })} />
-            {options.button2Visible && (
-              <label className={settingsUi.controlRow}>
-                <span>BitChord button text</span>
-                <input
-                  className={settingsUi.input}
-                  placeholder="Visit BitChord"
-                  value={options.button2Text}
-                  onChange={(e) => set({ button2Text: e.currentTarget.value })}
-                />
-              </label>
-            )}
-          </>
-        )}
-      </section>
-      <p className={settingsUi.footer}>
-        This uses your Discord account’s own token, which Discord’s terms don’t allow. Button text can use {'{song_name}'},{' '}
-        {'{artist_name}'} and {'{album_name}'}.
-      </p>
-    </>
+            </FieldRow>
+          )}
+          <Toggle icon={Link} label="BitChord button" checked={options.button2Visible} onChange={(v) => set({ button2Visible: v })} />
+          {options.button2Visible && (
+            <FieldRow icon={Type} title="BitChord button text">
+              <input
+                className={settingsUi.input}
+                placeholder="Visit BitChord"
+                value={options.button2Text}
+                onChange={(e) => set({ button2Text: e.currentTarget.value })}
+              />
+            </FieldRow>
+          )}
+        </>
+      )}
+    </Group>
   );
 }

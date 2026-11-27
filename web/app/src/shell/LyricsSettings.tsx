@@ -106,7 +106,7 @@ export function LyricsSettings({ onClose }: { onClose: () => void }) {
                 KuGou, Musixmatch, Genius and PaxSenix don’t let web pages ask them directly. Allow the extension to,
                 once.
               </p>
-              <button className="flex-none rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-white" onClick={() => void getBridge()?.call('lyrics.requestPermissions', { origins: missing })}>
+              <button className="flex-none rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-on-key" onClick={() => void getBridge()?.call('lyrics.requestPermissions', { origins: missing })}>
                 Allow
               </button>
             </div>

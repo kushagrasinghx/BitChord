@@ -14,6 +14,11 @@
 
 /* Tailwind's hover: is (hover: hover)-gated; the design's hovers aren't. */
 @custom-variant hover (&:hover);
+/*
+ * Windows between the phone layout and ~900px: the sidebar folds to a rail of
+ * tab glyphs, so the page keeps most of the window rather than two thirds.
+ */
+@custom-variant rail (@media (min-width: 484px) and (max-width: 899.98px));
 
 @theme {
   /* The design is measured in px (web/docs/apple-music-dom.md): p-4 is 16px at any root font size. */
@@ -44,7 +49,8 @@
   --animate-enter: enter 0.3s var(--ease-out-panel);
   --animate-morph: morph 0.32s var(--ease-out-panel);
   --animate-spin: spin 1s linear infinite;
-  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  /* Skeletons.kt ShimmerBox: one sweep every 1400ms, at a constant speed. */
+  --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-matching: matching 1.4s ease-in-out infinite alternate;
 
   @keyframes menu-in {
@@ -92,9 +98,18 @@
       transform: rotate(360deg);
     }
   }
+  /*
+   * The highlight is a band half the placeholder's width (ShimmerBox: band =
+   * width * 0.5), run from wholly off one edge to wholly off the other, which
+   * leaves a beat of flat grey between passes. The layer it's drawn on covers
+   * the placeholder, so it is halved about its centre and travels 75% either way.
+   */
   @keyframes shimmer {
+    from {
+      transform: translateX(-75%) scaleX(0.5);
+    }
     to {
-      transform: translateX(100%);
+      transform: translateX(75%) scaleX(0.5);
     }
   }
   @keyframes matching {
@@ -130,6 +145,15 @@
   --color-key-rollover: var(--keyColor-rollover);
   --color-key-pressed: var(--keyColor-pressed);
   --color-key-bg: var(--keyColorBG);
+  --color-on-key: var(--keyColor-contrast);
+  --color-accent-red: var(--accentRed);
+
+  --color-surface: var(--surface);
+  --color-surface-variant: var(--surfaceVariant);
+  --color-on-surface-variant: var(--onSurfaceVariant);
+  --color-outline: var(--outline);
+  --color-switch-on: var(--switchTrackOn);
+  --color-switch-off: var(--switchTrackOff);
 
   --color-red: var(--systemRed);
   --color-green: var(--systemGreen);
@@ -172,6 +196,14 @@
   --radius-artwork-lg: var(--radius-artwork-large);
   --radius-nav: var(--radius-nav-item);
   --radius-row: var(--radius-track-row);
+  --radius-card: var(--radius-artwork-medium);
+  --radius-compact: var(--radius-artwork-small);
+  --radius-sleeve: var(--radius-player-sleeve);
+  --radius-search: var(--radius-search-field);
+  --radius-group: var(--radius-settings-group);
+  --radius-mood: var(--radius-mood-tile);
+  --radius-signin-card: var(--radius-signin);
+  --radius-menu: var(--radius-context-menu);
   --radius-pill: 1000px;
   --radius-full: 50%;
 
@@ -184,6 +216,7 @@
   --type-large-title: var(--large-title);
   --type-large-title-emphasized: var(--large-title-emphasized);
   --type-title-1-emphasized: var(--title-1-emphasized);
+  --type-title-large: var(--title-large);
   --type-title-2: var(--title-2);
   --type-title-2-emphasized: var(--title-2-emphasized);
   --type-title-3: var(--title-3);
@@ -196,20 +229,46 @@
   --type-callout: var(--callout);
   --type-callout-medium: var(--callout-medium);
   --type-callout-emphasized: var(--callout-emphasized);
+  --type-label-medium: var(--label-medium);
   --type-subhead-emphasized: var(--subhead-emphasized);
   --type-caption-2: var(--caption-2);
   --type-footnote: var(--footnote);
+
+  /* Each type token's letter spacing, which type-* below sets with it. */
+  --tracking-header-emphasized: var(--header-emphasized-tracking);
+  --tracking-large-title: var(--large-title-tracking);
+  --tracking-large-title-emphasized: var(--large-title-emphasized-tracking);
+  --tracking-title-1-emphasized: var(--title-1-emphasized-tracking);
+  --tracking-title-large: var(--title-large-tracking);
+  --tracking-title-2: var(--title-2-tracking);
+  --tracking-title-2-emphasized: var(--title-2-emphasized-tracking);
+  --tracking-title-3: var(--title-3-tracking);
+  --tracking-title-3-emphasized: var(--title-3-emphasized-tracking);
+  --tracking-body: var(--body-tracking);
+  --tracking-body-emphasized: var(--body-emphasized-tracking);
+  --tracking-body-tall: var(--body-tall-tracking);
+  --tracking-headline: var(--headline-tracking);
+  --tracking-body-reduced: var(--body-reduced-tracking);
+  --tracking-callout: var(--callout-tracking);
+  --tracking-callout-medium: var(--callout-medium-tracking);
+  --tracking-callout-emphasized: var(--callout-emphasized-tracking);
+  --tracking-label-medium: var(--label-medium-tracking);
+  --tracking-subhead-emphasized: var(--subhead-emphasized-tracking);
+  --tracking-caption-2: var(--caption-2-tracking);
+  --tracking-footnote: var(--footnote-tracking);
 }
 
 /*
- * A type token from tokens.css (`type-body`), or a one-off `weight size/leading`
- * in DM Sans (`type-[700_19px/24px]`). Either way the `font` shorthand, as the
- * tokens are written.
+ * A type token from tokens.css (`type-body`), with its letter spacing, or a
+ * one-off `weight size/leading` in the app's face (`type-[700_19px/24px]`),
+ * which keeps the spacing it inherits. Either way the `font` shorthand, as
+ * the tokens are written.
  */
 @utility type-* {
   --tw-sort: font-family;
   font: --value(--type-*);
   font: --value([*]) var(--font-family);
+  letter-spacing: --value(--tracking-*);
 }
 
 /* Glass (report §1): the sidebar, the side panel and the phone's top bar. */
@@ -248,7 +307,7 @@
   }
 }
 
-/* Artwork's 0.5px inner stroke (report §1, "Inner stroke"), Apple's "has-borders". */
+/* Artwork's 1px border at 15% (SongText.kt thumbnailBorder), drawn inside it. */
 @utility artwork-stroke {
   &::after {
     content: '';
@@ -256,12 +315,42 @@
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    box-shadow:
-      inset 0.5px 0.5px 0 var(--containerInnerStroke),
-      inset 0.5px -0.5px 0 var(--containerInnerStroke),
-      inset -0.5px 0.5px 0 var(--containerInnerStroke),
-      inset -0.5px -0.5px 0 var(--containerInnerStroke);
+    box-shadow: inset 0 0 0 1px var(--containerInnerStroke);
     opacity: var(--containerInnerStrokeAlpha);
+  }
+}
+
+/*
+ * The phone's press feedback on a glyph button (PlayerSkipMotion.kt
+ * playerPressCircle): a disc of the glyph's own colour at 8%, 60px across
+ * (set --press-size to change it), feathered over its outer 8%. It fades in
+ * over 45ms while held and, let go, stays 125ms before fading over 100ms, so
+ * a quick click still shows. Drawn behind the content and free to spill past
+ * the button's box, as the phone's is. The button must be positioned
+ * (relative or absolute): this doesn't set position, so it never undoes one.
+ */
+@utility press {
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: var(--press-size, 60px);
+    height: var(--press-size, 60px);
+    translate: -50% -50%;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(closest-side, color-mix(in srgb, currentColor 8%, transparent) 92%, transparent);
+    opacity: 0;
+    transition: opacity 100ms linear 125ms;
+  }
+
+  &:active:not(:disabled)::before {
+    opacity: 1;
+    transition: opacity 45ms cubic-bezier(0, 0, 0.2, 1);
   }
 }
 
@@ -281,10 +370,53 @@
 }
 
 /*
- * The phone's lyric typeface (SF Pro Display, app/src/main/res/font), cut to
- * Latin, Greek and Cyrillic. Other scripts fall through to DM Sans and the
- * system fonts. Its own family name, so a copy installed on a Mac can't stand in.
+ * SF Pro Display (app/src/main/res/font), the phone's face, cut to Latin,
+ * Greek and Cyrillic. Other scripts fall through to the system fonts. Its own
+ * family names, so a copy installed on a Mac can't stand in. Apple's licence
+ * for the face travels in each file's name table.
+ *
+ * 'BitChord SF Pro' is the interface's, and draws each weight a cut lighter
+ * than asked, as Theme.kt's SFProDisplay does: 600 draws Medium, 700
+ * Semibold, 800 Bold, and anything up to 500 Regular. A weight copied from
+ * the Kotlin therefore lands on the cut the phone draws.
  */
+@font-face {
+  font-family: 'BitChord SF Pro';
+  src: url('../assets/fonts/sf-pro-display-regular.woff2') format('woff2');
+  font-weight: 1 500;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'BitChord SF Pro';
+  src: url('../assets/fonts/sf-pro-display-medium.woff2') format('woff2');
+  font-weight: 501 600;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'BitChord SF Pro';
+  src: url('../assets/fonts/sf-pro-display-semibold.woff2') format('woff2');
+  font-weight: 601 700;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'BitChord SF Pro';
+  src: url('../assets/fonts/sf-pro-display-bold.woff2') format('woff2');
+  font-weight: 701 1000;
+  font-display: block;
+  unicode-range: U+0000-024F, U+0259, U+02B0-036F, U+0370-03FF, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-21FF, U+2212, U+FEFF, U+FFFD;
+}
+
+/* The lyrics' family keeps each cut at its own weight, as the panel was tuned to. */
 @font-face {
   font-family: 'BitChord SF Pro Display';
   src: url('../assets/fonts/sf-pro-display-regular.woff2') format('woff2');
@@ -318,6 +450,7 @@
 
   body {
     font: var(--body);
+    letter-spacing: var(--body-tracking);
     color: var(--systemPrimary);
     background-color: var(--pageBG);
     -webkit-font-smoothing: antialiased;
@@ -389,6 +522,35 @@
   :focus,
   :focus-visible {
     outline: none;
+  }
+
+  /*
+   * Keyboard focus is shown instead as the selected sidebar tab's fill, the
+   * key colour at 14% (FloatingBottomBar.kt), which the artwork tint recolours
+   * for its page. It is laid as an image over the control's own background, so
+   * it sits on top of a hover or a filled button rather than replacing it.
+   * Fields keep their caret and are left out; a mouse click shows nothing.
+   */
+  :where(a[href], button, summary, [role='button'], [role='link'], [role='option'], [role='menuitem'], [role='menuitemradio'], [role='tab'], [role='radio'], [role='switch'], [role='checkbox'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    background-image: linear-gradient(rgba(var(--keyColor-rgb), 0.14), rgba(var(--keyColor-rgb), 0.14));
+  }
+
+  /* On the full-screen player's dark glass the key colour at 14% disappears; white shows where focus is. */
+  [data-player] :where(a[href], button, [role='button'], [role='slider'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    background-image: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.2));
+  }
+
+  /* Where artwork covers the whole control, it hides that fill (painted under the image), so those opt in to a soft outline. */
+  [data-art-focus]:focus-visible {
+    outline: 2px solid rgba(var(--keyColor-rgb), 0.6);
+    outline-offset: 2px;
+  }
+
+  /* The rail's width (see the rail variant): a 48px glyph column with 12px either side. */
+  @media (min-width: 484px) and (max-width: 899.98px) {
+    :root {
+      --web-navigation-width: 72px;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

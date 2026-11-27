@@ -1,11 +1,11 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
-import { matchPath } from 'react-router';
+import { matchPath, Navigate } from 'react-router';
 import { prefetchPageData } from '@/data/music/queries';
 import {
   AlbumSkeleton,
   ArtistSkeleton,
+  ExploreSkeleton,
   HomeSkeleton,
-  NewSkeleton,
   PlainSkeleton,
   PlaylistSkeleton,
   SearchSkeleton,
@@ -25,17 +25,26 @@ interface PageRoute {
  */
 export const pages: PageRoute[] = [
   { path: '/home', load: () => import('@/pages/HomePage'), skeleton: <HomeSkeleton /> },
-  { path: '/new', load: () => import('@/pages/NewPage'), skeleton: <NewSkeleton /> },
+  { path: '/explore', load: () => import('@/pages/ExplorePage'), skeleton: <ExploreSkeleton /> },
+  // The page was "New" before it became the phone's Explore tab; old links still land.
+  { path: '/new', load: async () => ({ default: () => <Navigate to="/explore" replace /> }), skeleton: null },
+  { path: '/moods', load: () => import('@/pages/MoodsPage'), skeleton: <PlainSkeleton /> },
+  { path: '/radio', load: () => import('@/pages/RadioPage'), skeleton: <HomeSkeleton /> },
   { path: '/search', load: () => import('@/pages/SearchPage'), skeleton: <SearchSkeleton /> },
   { path: '/album/:id', load: () => import('@/pages/AlbumPage'), skeleton: <AlbumSkeleton /> },
   { path: '/artist/:id', load: () => import('@/pages/ArtistPage'), skeleton: <ArtistSkeleton /> },
   { path: '/playlist/:id', load: () => import('@/pages/PlaylistPage'), skeleton: <PlaylistSkeleton /> },
   { path: '/browse/:id', load: () => import('@/pages/BrowsePage'), skeleton: <PlainSkeleton /> },
-  { path: '/library/:section', load: () => import('@/pages/LibraryPage'), skeleton: <PlainSkeleton /> },
+  { path: '/library', load: () => import('@/pages/LibraryHubPage'), skeleton: <PlainSkeleton /> },
+  { path: '/library/local', load: () => import('@/pages/LocalMusicPage'), skeleton: <PlainSkeleton /> },
+  { path: '/library/local/:id', load: () => import('@/pages/LocalGroupPage'), skeleton: <AlbumSkeleton /> },
+  { path: '/library/:section',load: () => import('@/pages/LibraryPage'), skeleton: <PlainSkeleton /> },
+  { path: '/replay', load: () => import('@/pages/ReplayPage'), skeleton: <PlainSkeleton /> },
   { path: '/spotify', load: () => import('@/pages/SpotifyPage'), skeleton: <PlainSkeleton /> },
   { path: '/spotify/playlist/:id', load: () => import('@/pages/SpotifyPlaylistPage'), skeleton: <PlaylistSkeleton /> },
   { path: '/settings', load: () => import('@/pages/SettingsPage'), skeleton: <PlainSkeleton /> },
   { path: '/settings/discord', load: () => import('@/pages/DiscordSettingsPage'), skeleton: <PlainSkeleton /> },
+  { path: '/settings/backup', load: () => import('@/pages/BackupPage'), skeleton: <PlainSkeleton /> },
   { path: '/settings/listen-together', load: () => import('@/pages/ListenTogetherPage'), skeleton: <PlainSkeleton /> },
   { path: '/invite/:code', load: () => import('@/pages/ListenTogetherPage'), skeleton: <PlainSkeleton /> },
   { path: '/extension', load: () => import('@/pages/ExtensionPage'), skeleton: <PlainSkeleton /> },

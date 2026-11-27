@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Check, Copy, Crown, LogOut, UserMinus } from 'lucide-react';
+import { Check, Copy, Crown, History, Infinity as Loop, KeyRound, LogOut, Server, UserMinus, UserRound, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/PageHeader';
@@ -20,14 +20,14 @@ import {
   useParty,
 } from '@/party/listenTogether';
 import { usePlayer } from '@/state/player';
-import { Toggle } from './IntegrationSettings';
+import { FieldRow, Group, RowGlyph, SettingsRow, Toggle } from './SettingsRows';
 import { settingsUi } from './settingsStyles';
 
-const lede = 'mx-4 mb-4 type-body-tall text-secondary';
-const error = 'mx-4 mt-3 type-callout text-red';
-const primary = 'flex-none rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-white disabled:opacity-45';
+const lede = 'mx-1 mb-4 type-body-tall text-on-surface-variant';
+const error = 'mx-1 mt-3 type-callout text-red';
+const primary = 'flex-none rounded-pill bg-key-bg px-4 py-1.5 type-body-emphasized text-on-key disabled:opacity-45';
 // The code, large, as the phone shows it.
-const invite = 'flex flex-col items-center gap-2.5 rounded-[10px] bg-quinary px-4 py-7 text-center';
+const invite = 'flex flex-col items-center gap-2.5 rounded-group bg-surface-variant px-4 py-7 text-center';
 const inviteCode = 'type-[700_40px/48px] tracking-[0.18em]';
 
 /**
@@ -88,25 +88,22 @@ function StartOrJoin({ signedIn }: { signedIn: boolean }) {
         Listen to the same music at the same moment with up to five devices. Anyone in the party can play, pause and skip.
       </p>
       {!signedIn && <SignInFirst />}
-      <section className={settingsUi.group}>
-        <div className={settingsUi.row}>
-          <span className={settingsUi.rowText}>
-            <span>Start a Party</span>
-            <span className={settingsUi.rowDetail}>Whatever you’re playing comes with you.</span>
-          </span>
+      <Group>
+        <SettingsRow icon={Users} title="Start a Party" detail="Whatever you’re playing comes with you.">
           <button className={primary} disabled={!signedIn || create.isPending} onClick={() => create.mutate()}>
             {create.isPending ? 'Starting…' : 'Start'}
           </button>
-        </div>
+        </SettingsRow>
         <form
-          className={settingsUi.controlRow}
+          className={settingsUi.glyphRow}
           onSubmit={(e) => {
             e.preventDefault();
             const cleaned = cleanCode(code);
             if (cleaned) navigate(`/invite/${cleaned}`);
           }}
         >
-          <span>Join with a Code</span>
+          <RowGlyph icon={KeyRound} />
+          <span className="min-w-0 flex-1">Join with a Code</span>
           <span className="flex gap-2">
             <input
               className="w-[110px] flex-none rounded-[8px] border-0 bg-quaternary px-2.5 py-[5px] text-center type-body tracking-[0.12em] text-primary uppercase"
@@ -121,12 +118,10 @@ function StartOrJoin({ signedIn }: { signedIn: boolean }) {
             </button>
           </span>
         </form>
-      </section>
+      </Group>
 
-      <h2 className={settingsUi.sectionHeader}>You</h2>
-      <section className={settingsUi.group}>
-        <label className={settingsUi.controlRow}>
-          <span>Name in parties</span>
+      <Group header="You" footer="Leave the server empty to use BitChord’s. Anyone joining your party uses the server it’s on.">
+        <FieldRow icon={UserRound} title="Name in parties">
           <input
             className={settingsUi.input}
             placeholder="Your YouTube name"
@@ -134,18 +129,16 @@ function StartOrJoin({ signedIn }: { signedIn: boolean }) {
             maxLength={80}
             onChange={(e) => update({ nickname: e.currentTarget.value })}
           />
-        </label>
-        <label className={settingsUi.controlRow}>
-          <span>Party server</span>
+        </FieldRow>
+        <FieldRow icon={Server} title="Party server">
           <input
             className={settingsUi.input}
             placeholder={DEFAULT_SERVER ? new URL(DEFAULT_SERVER).host : 'party.example.com'}
             value={settings.customServer}
             onChange={(e) => update({ customServer: e.currentTarget.value })}
           />
-        </label>
-      </section>
-      <p className={settingsUi.footer}>Leave the server empty to use BitChord’s. Anyone joining your party uses the server it’s on.</p>
+        </FieldRow>
+      </Group>
     </>
   );
 }
@@ -175,7 +168,7 @@ function InviteCard({ code, server, signedIn }: { code: string; server: string |
       )}
       {!signedIn && <SignInFirst />}
       <button
-        className="mt-1.5 flex-none rounded-pill bg-key-bg px-7 py-2.5 type-title-3-emphasized text-white disabled:opacity-45"
+        className="mt-1.5 flex-none rounded-pill bg-key-bg px-7 py-2.5 type-title-3-emphasized text-on-key disabled:opacity-45"
         disabled={!signedIn || join.isPending || data?.isFull || preview.isError}
         onClick={() => join.mutate()}
       >
@@ -186,7 +179,7 @@ function InviteCard({ code, server, signedIn }: { code: string; server: string |
 }
 
 function Avatar({ name, url, large = false }: { name: string; url: string | null; large?: boolean }) {
-  const className = `grid place-items-center rounded-full bg-quaternary object-cover type-callout-emphasized ${large ? 'size-9' : 'size-6'}`;
+  const className = `grid place-items-center rounded-full bg-quaternary object-cover type-callout-emphasized ${large ? 'size-9' : 'size-[22px] flex-none'}`;
   return url ? (
     <img className={className} src={url} alt="" referrerPolicy="no-referrer" />
   ) : (
@@ -232,14 +225,11 @@ function InParty() {
         </button>
       </div>
 
-      <h2 className={settingsUi.sectionHeader}>
-        Listening · {state.members.length} of {state.maxMembers}
-      </h2>
-      <section className={settingsUi.group}>
+      <Group header={`Listening · ${state.members.length} of ${state.maxMembers}`}>
         {state.members.map((m) => (
-          <div key={m.memberId} className={settingsUi.integrationPlain}>
+          <div key={m.memberId} className={settingsUi.glyphRow}>
             <Avatar name={m.displayName} url={m.avatarUrl} />
-            <span className={settingsUi.integrationName}>
+            <span className="min-w-0 flex-1 truncate">
               {m.displayName}
               {m.memberId === state.you?.memberId && <span className="text-secondary"> (you)</span>}
             </span>
@@ -254,11 +244,14 @@ function InParty() {
             </span>
           </div>
         ))}
-      </section>
+      </Group>
 
-      <h2 className={settingsUi.sectionHeader}>Party</h2>
-      <section className={settingsUi.group}>
+      <Group
+        header="Party"
+        footer={locked ? 'The host controls the music in this party. You can still pause your own device.' : undefined}
+      >
         <Toggle
+          icon={Loop}
           label="AutoPlay"
           detail="Keep the party going with similar music when the queue runs out."
           checked={state.playback.autoplayEnabled}
@@ -266,38 +259,42 @@ function InParty() {
         />
         {isHost && (
           <Toggle
+            icon={Crown}
             label="Only I control the music"
             detail="Others can listen but not play, pause, skip or change the queue."
             checked={state.hostOnlyControl}
             onChange={party.setHostOnlyControl}
           />
         )}
-      </section>
-      {locked && <p className={settingsUi.footer}>The host controls the music in this party. You can still pause your own device.</p>}
+      </Group>
 
       {state.activity.length > 0 && (
-        <>
-          <h2 className={settingsUi.sectionHeader}>Activity</h2>
-          <section className={settingsUi.group}>
-            {state.activity.slice(0, 8).map((a, i) => (
-              <div key={i} className={settingsUi.row}>
-                <span className={settingsUi.rowText}>
-                  <span>
-                    {a.by} · {a.action}
-                  </span>
-                  {a.detail && <span className={settingsUi.rowDetail}>{a.detail}</span>}
+        <Group header="Activity">
+          {state.activity.slice(0, 8).map((a, i) => (
+            <div key={i} className={settingsUi.glyphRow}>
+              <RowGlyph icon={History} />
+              <span className={settingsUi.rowText}>
+                <span>
+                  {a.by} · {a.action}
                 </span>
-                <span className={settingsUi.rowDetail}>{new Date(a.atMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
-              </div>
-            ))}
-          </section>
-        </>
+                {a.detail && <span className={settingsUi.rowDetail}>{a.detail}</span>}
+              </span>
+              <span className={settingsUi.rowDetail}>{new Date(a.atMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+            </div>
+          ))}
+        </Group>
       )}
 
-      <button className="mx-4 mt-6 inline-flex items-center gap-1.5 type-body-emphasized text-red" onClick={() => void leaveParty().then(() => navigate('/settings/listen-together'))}>
-        <LogOut size={15} />
-        Leave Party
-      </button>
+      {/* The phone's DestructiveRow: centred, no glyph, the shape of a real one. */}
+      <Group>
+        <button
+          className="flex w-full items-center justify-center gap-1.5 py-[15px] type-body text-red hover:bg-quinary"
+          onClick={() => void leaveParty().then(() => navigate('/settings/listen-together'))}
+        >
+          <LogOut size={16} />
+          Leave Party
+        </button>
+      </Group>
     </>
   );
 }

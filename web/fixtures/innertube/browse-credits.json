@@ -1,0 +1,296 @@
+{
+  "responseContext": {
+    "visitorData": "CgtUOTg2YzloWHRNNCiSrYnYBjIKCgJHQhIEGgAgbA%3D%3D",
+    "serviceTrackingParams": [
+      {
+        "service": "GFEEDBACK",
+        "params": [
+          {
+            "key": "browse_id",
+            "value": "MPTCQQnc-hM80UQ"
+          },
+          {
+            "key": "browse_id_prefix",
+            "value": ""
+          },
+          {
+            "key": "logged_in",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "service": "CSI",
+        "params": [
+          {
+            "key": "c",
+            "value": "WEB_REMIX"
+          },
+          {
+            "key": "cver",
+            "value": "1.20261117.06.00"
+          },
+          {
+            "key": "yt_li",
+            "value": "0"
+          },
+          {
+            "key": "GetBrowseTrackCreditsPage_rid",
+            "value": "0x609f4024494edfe1"
+          }
+        ]
+      },
+      {
+        "service": "ECATCHER",
+        "params": [
+          {
+            "key": "client.version",
+            "value": "1.20000101"
+          },
+          {
+            "key": "client.name",
+            "value": "WEB_REMIX"
+          }
+        ]
+      }
+    ],
+    "responseId": "IhMInLv368aamAMVf85JBx3sFgqK"
+  },
+  "trackingParams": "CAAQhGciEwicu_frxpqYAxV_zkkHHewWCorKAQTSG_8Z",
+  "onResponseReceivedActions": [
+    {
+      "clickTrackingParams": "CAAQhGciEwicu_frxpqYAxV_zkkHHewWCorKAQTSG_8Z",
+      "openPopupAction": {
+        "popup": {
+          "dismissableDialogRenderer": {
+            "trackingParams": "CAEQzS8iEwicu_frxpqYAxV_zkkHHewWCoo=",
+            "title": "Song credits",
+            "sections": [
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Performed by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Radiohead"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Written by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Thom Yorke"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Colin Greenwood"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Ed O'Brien"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Jonny Greenwood"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Phil Selway"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Produced by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Thom Yorke"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Colin Greenwood"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Ed O'Brien"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Jonny Greenwood"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Nigel Godrich"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Phil Selway"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Music metadata provided by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "XL Recordings"
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "metadata": {
+              "musicMultiRowListItemRenderer": {
+                "trackingParams": "CAIQ3-AIIhMInLv368aamAMVf85JBx3sFgqK",
+                "thumbnail": {
+                  "musicThumbnailRenderer": {
+                    "thumbnail": {
+                      "thumbnails": [
+                        {
+                          "url": "https://yt3.googleusercontent.com/IztVMgq0rRLUhtQa6IxD4Vx145SQYQjnUQtuSHUl12b4B6Oyf-e-M0S1lrtIBnXCQFSeNABeanlxcdk=w60-h60-l90-rj",
+                          "width": 60,
+                          "height": 60
+                        },
+                        {
+                          "url": "https://yt3.googleusercontent.com/IztVMgq0rRLUhtQa6IxD4Vx145SQYQjnUQtuSHUl12b4B6Oyf-e-M0S1lrtIBnXCQFSeNABeanlxcdk=w120-h120-l90-rj",
+                          "width": 120,
+                          "height": 120
+                        },
+                        {
+                          "url": "https://yt3.googleusercontent.com/IztVMgq0rRLUhtQa6IxD4Vx145SQYQjnUQtuSHUl12b4B6Oyf-e-M0S1lrtIBnXCQFSeNABeanlxcdk=w226-h226-l90-rj",
+                          "width": 226,
+                          "height": 226
+                        },
+                        {
+                          "url": "https://yt3.googleusercontent.com/IztVMgq0rRLUhtQa6IxD4Vx145SQYQjnUQtuSHUl12b4B6Oyf-e-M0S1lrtIBnXCQFSeNABeanlxcdk=w544-h544-l90-rj",
+                          "width": 544,
+                          "height": 544
+                        }
+                      ]
+                    },
+                    "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                    "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT",
+                    "trackingParams": "CAMQhL8CIhMInLv368aamAMVf85JBx3sFgqK"
+                  }
+                },
+                "subtitle": {
+                  "runs": [
+                    {
+                      "text": "Radiohead",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CAIQ3-AIIhMInLv368aamAMVf85JBx3sFgqKygEE0hv_GQ==",
+                        "browseEndpoint": {
+                          "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
+                          "browseEndpointContextSupportedConfigs": {
+                            "browseEndpointContextMusicConfig": {
+                              "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    {
+                      "text": "You And Whose Army?",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CAIQ3-AIIhMInLv368aamAMVf85JBx3sFgqKygEE0hv_GQ==",
+                        "watchEndpoint": {
+                          "videoId": "QQnc-hM80UQ",
+                          "watchEndpointMusicSupportedConfigs": {
+                            "watchEndpointMusicConfig": {
+                              "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "secondTitle": {
+                  "runs": [
+                    {
+                      "text": "Song"
+                    },
+                    {
+                      "text": " • "
+                    },
+                    {
+                      "text": "2001"
+                    }
+                  ]
+                },
+                "description": {
+                  "runs": [
+                    {
+                      "text": "Lyrics not available"
+                    }
+                  ]
+                },
+                "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_SIMPLE_EXPANDED"
+              }
+            },
+            "displayStyle": "DISMISSABLE_DIALOG_DISPLAY_STYLE_TRACK_CREDITS"
+          }
+        },
+        "popupType": "DIALOG"
+      }
+    }
+  ]
+}

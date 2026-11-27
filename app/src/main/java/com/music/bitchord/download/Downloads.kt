@@ -1734,12 +1734,5 @@ data class SavedCollection(
     val videoIds: List<String> = emptyList(),
 )
 
-/** A [SavedCollection] with its surviving tracks attached, ready to draw. */
-data class DownloadedCollection(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val thumbnailUrl: String?,
-    val playlist: Boolean,
-    val songs: List<Song>,
-)
+// DownloadedCollection (a SavedCollection with its tracks attached) is in
+// shared/commonMain, beside the LocalGroups.albumsOf that draws it.

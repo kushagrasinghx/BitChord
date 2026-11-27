@@ -1,5 +1,10 @@
 package com.music.bitchord.data.listentogether
 
+// Explicit, so commonMain also compiles for the web player: on Android and desktop these are
+// the JVM annotations the unqualified names already meant (Synchronized.kt).
+import kotlin.concurrent.Volatile
+import com.music.bitchord.Synchronized
+import kotlin.time.TimeSource
 
 /**
  * This device's offset from the party server's clock.
@@ -38,9 +43,10 @@ class ServerClock(
      * This device's monotonic milliseconds. Injected because the right source differs per platform:
      * Android wants `SystemClock.elapsedRealtime`, which counts through deep sleep, and a desktop
      * has `System.nanoTime`. Both are monotonic, which is the whole requirement — see the note on
-     * the wall clock above.
+     * the wall clock above. The default is Kotlin's common monotonic clock (System.nanoTime on
+     * the JVM, performance.now in a browser); only differences between readings matter.
      */
-    private val localNowMs: () -> Long = { System.nanoTime() / 1_000_000L },
+    private val localNowMs: () -> Long = MonotonicStart.let { start -> { start.elapsedNow().inWholeMilliseconds } },
 ) {
 
     private data class Sample(val offsetMs: Long, val roundTripMs: Long, val takenAtMs: Long)
@@ -93,3 +99,6 @@ class ServerClock(
         private const val SAMPLE_TTL_MS = 120_000L
     }
 }
+
+/** Where the default monotonic clock counts from. */
+private val MonotonicStart = TimeSource.Monotonic.markNow()

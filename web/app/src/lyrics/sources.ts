@@ -41,24 +41,5 @@ export function orderedSources(saved: readonly string[]): LyricsSourceId[] {
   return result;
 }
 
-// ---- LyricsQuery.kt -------------------------------------------------------------------
-
-const CREDITS = [
-  /\s*[([]\s*(feat|ft|featuring|with)\b[^)\]]*[)\]]/gi,
-  /\s+(feat|ft|featuring)\.?\s+.*$/gi,
-  /\s*[([]\s*(official\s*)?(music\s*)?(video|audio|visuali[sz]er|lyrics?\s*video|lyrics?|m\/?v|hd|hq|4k|full\s*song)\s*[)\]]/gi,
-  /\s*[([]\s*official\s*[)\]]/gi,
-];
-
-/** A YouTube title as a lyrics database indexed it: credits and packaging off, version words kept. */
-export function forLyricsSearch(title: string): string {
-  let name = title;
-  for (const pattern of CREDITS) name = name.replace(pattern, ' ');
-  const cleaned = name.replace(/\s+/g, ' ').trim().replace(/[,\-–—]+$/, '').trim();
-  return cleaned || title.trim();
-}
-
-/** " - Topic" off an auto-generated channel name. */
-export function artistForLyricsSearch(artist: string): string {
-  return artist.replace(/ - Topic$/, '').trim() || artist.trim();
-}
+// LyricsQuery.kt itself: a YouTube title as a lyrics database indexed it, and " - Topic" off a channel name.
+export { artistForLyricsSearch, forLyricsSearch } from '@bitchord/shared-kotlin';

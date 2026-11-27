@@ -27,12 +27,14 @@ import {
   fetchSearch,
   fetchSuggestions,
   setListSaved,
+  setSubscribed,
+  setTrackDisliked,
   setTrackLiked,
   type LikeStatus,
   type Paged,
 } from './api';
 import { isLibrarySection, LIKED_MUSIC_PLAYLIST, type LibrarySection } from './library';
-import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
+import type { AlbumPage, ArtistPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
 
 // TanStack Query for every browse request (prompt §1: caching, dedupe,
 // retries). YouTube requests need the extension, so every query waits for it;
@@ -48,8 +50,8 @@ export const exploreQuery = () =>
   queryOptions({ queryKey: ['music', 'explore'], queryFn: fetchExplore, staleTime: STALE });
 export const categoriesQuery = () =>
   queryOptions({ queryKey: ['music', 'categories'], queryFn: fetchCategories, staleTime: 60 * 60_000 });
-export const searchQuery = (query: string) =>
-  queryOptions({ queryKey: ['music', 'search', query], queryFn: () => fetchSearch(query), staleTime: STALE });
+export const searchQuery = (query: string, params?: string | null) =>
+  queryOptions({ queryKey: ['music', 'search', query, params ?? null], queryFn: () => fetchSearch(query, params), staleTime: STALE });
 export const browseQuery = (link: BrowseLink) =>
   queryOptions({ queryKey: ['music', 'browse', link.browseId, link.params], queryFn: () => fetchBrowse(link), staleTime: STALE });
 
@@ -110,9 +112,9 @@ export function useCategories() {
   const { ready } = useYouTubeReady();
   return useQuery({ ...categoriesQuery(), enabled: ready });
 }
-export function useSearch(query: string) {
+export function useSearch(query: string, params?: string | null) {
   const { ready } = useYouTubeReady();
-  return useQuery({ ...searchQuery(query), enabled: ready && query.trim().length > 0 });
+  return useQuery({ ...searchQuery(query, params), enabled: ready && query.trim().length > 0 });
 }
 export function useBrowse(link: BrowseLink) {
   const { ready } = useYouTubeReady();
@@ -151,7 +153,10 @@ export function prefetchPageData(pathname: string): void {
   const [, kind, id] = pathname.split('/');
   if (!id) {
     if (kind === 'home') void queryClient.prefetchInfiniteQuery(homeQuery());
-    if (kind === 'new') void queryClient.prefetchQuery(exploreQuery());
+    if (kind === 'explore') {
+      void queryClient.prefetchQuery(categoriesQuery());
+      void queryClient.prefetchQuery(exploreQuery());
+    }
     return;
   }
   const decoded = decodeURIComponent(id);
@@ -211,11 +216,26 @@ export function useLikeStatus(videoId: string | null) {
 
 /** Like or unlike, shown at once and put back if YouTube refuses. */
 export function useSetLiked() {
+  return useRating(
+    ({ videoId, liked }: { videoId: string; liked: boolean }) => setTrackLiked(videoId, liked),
+    ({ liked }) => (liked ? 'LIKE' : 'INDIFFERENT'),
+  );
+}
+
+/** Dislike or take it back, the same way. */
+export function useSetDisliked() {
+  return useRating(
+    ({ videoId, disliked }: { videoId: string; disliked: boolean }) => setTrackDisliked(videoId, disliked),
+    ({ disliked }) => (disliked ? 'DISLIKE' : 'INDIFFERENT'),
+  );
+}
+
+function useRating<V extends { videoId: string }>(rate: (vars: V) => Promise<void>, status: (vars: V) => LikeStatus) {
   return useMutation({
-    mutationFn: ({ videoId, liked }: { videoId: string; liked: boolean }) => setTrackLiked(videoId, liked),
-    onMutate: ({ videoId, liked }) => {
-      const previous = queryClient.getQueryData<LikeStatus>(likeKey(videoId));
-      queryClient.setQueryData<LikeStatus>(likeKey(videoId), liked ? 'LIKE' : 'INDIFFERENT');
+    mutationFn: rate,
+    onMutate: (vars) => {
+      const previous = queryClient.getQueryData<LikeStatus>(likeKey(vars.videoId));
+      queryClient.setQueryData<LikeStatus>(likeKey(vars.videoId), status(vars));
       return { previous };
     },
     onError: (_error, { videoId }, context) => queryClient.setQueryData(likeKey(videoId), context?.previous),
@@ -249,6 +269,23 @@ export function useSetListSaved() {
   });
 }
 
+/**
+ * The artist header's subscribe star (MainViewModel.toggleSubscription):
+ * flipped in the cached page at once and put back if YouTube refuses.
+ */
+export function useSetSubscribed() {
+  const mark = (artistId: string, subscribed: boolean) =>
+    queryClient.setQueryData<ArtistPage>(artistQuery(artistId).queryKey, (page) =>
+      page?.subscription ? { ...page, subscription: { ...page.subscription, subscribed } } : page,
+    );
+  return useMutation({
+    mutationFn: ({ channelId, subscribed }: { artistId: string; channelId: string; subscribed: boolean }) =>
+      setSubscribed(channelId, subscribed),
+    onMutate: ({ artistId, subscribed }) => mark(artistId, subscribed),
+    onError: (_error, { artistId, subscribed }) => mark(artistId, !subscribed),
+  });
+}
+
 export function usePlaylistOptions(videoId: string, enabled: boolean) {
   const signedIn = useSignedIn();
   return useQuery({
@@ -261,7 +298,7 @@ export function usePlaylistOptions(videoId: string, enabled: boolean) {
 
 export function useAddToPlaylist() {
   return useMutation({
-    mutationFn: ({ playlistId, videoId }: { playlistId: string; videoId: string }) => addToPlaylist(playlistId, videoId),
+    mutationFn: ({ playlistId, videoId }: { playlistId: string; videoId: string | string[] }) => addToPlaylist(playlistId, videoId),
     onSettled: (_data, _error, { playlistId }) => {
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', playlistId] });
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', `VL${playlistId.replace(/^VL/, '')}`] });

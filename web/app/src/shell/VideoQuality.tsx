@@ -3,8 +3,9 @@ import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { qualityLabel, setVideoQuality, useVideo } from '@/state/video';
 
 /**
- * The playing music video's quality, in the full-screen player beside the
- * full-screen button: a small glass box with the rendition on screen written
+ * The playing music video's quality, on the video's corner beside its
+ * full-screen button (VideoCornerControls): a small glass box, black at 38%
+ * as the phone's, with the rendition on screen written
  * in it — 360p, 480p, HD, FullHD, 2K, 4K — which opens the list of the
  * heights this video offers.
  *
@@ -31,10 +32,14 @@ export function VideoQuality({ className = '' }: { className?: string }) {
   return (
     <>
       <button
-        className={`grid h-7 min-w-11 place-items-center overflow-hidden rounded-[8px] bg-white/10 px-2 [backdrop-filter:saturate(1.8)_blur(18px)] [interpolate-size:allow-keywords] [transition:width_0.3s_ease,background-color_0.1s_ease-in,opacity_0.3s_ease] hover:bg-white/20 ${className}`}
+        className={`grid h-[30px] min-w-11 place-items-center overflow-hidden rounded-[8px] bg-black/38 px-2 [backdrop-filter:saturate(1.8)_blur(18px)] [interpolate-size:allow-keywords] [transition:width_0.3s_ease,background-color_0.1s_ease-in,opacity_0.3s_ease] hover:bg-black/50 ${className}`}
         aria-haspopup="menu"
         aria-label={`Video quality: ${quality === 'auto' ? `Auto (${label})` : label}`}
-        onClick={(event) => setAnchor(event.currentTarget)}
+        onClick={(event) => {
+          // Not a click on the picture under it, which plays and pauses in the video's full screen.
+          event.stopPropagation();
+          setAnchor(event.currentTarget);
+        }}
       >
         {/* Keyed on the reading, so each new one melts in over the last. */}
         <span

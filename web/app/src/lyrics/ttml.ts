@@ -1,4 +1,4 @@
-import { isGap, type LyricLine, type LyricWord } from './model';
+import { isGap, isRtl, type LyricLine, type LyricWord } from './model';
 
 /**
  * Writes lyric lines as the TTML am-lyrics reads (prompt §10.2: every result
@@ -45,21 +45,22 @@ export function writeTtml(lines: LyricLine[], language = 'en'): string {
   const duet = sung.some((l) => l.alignment === 'end');
 
   const paragraphs = sung.map((l, index) => {
-    const agent = duet ? ` ttm:agent="${l.alignment === 'end' ? 'v2' : 'v1'}"` : '';
-    if (!timed) return `<p${agent}>${escape(l.text)}</p>`;
+    // Each line's direction from its own letters, as the phone sets it (am-lyrics reads `dir`).
+    const attributes = (duet ? ` ttm:agent="${l.alignment === 'end' ? 'v2' : 'v1'}"` : '') + (isRtl(l.text) ? ' dir="rtl"' : '');
+    if (!timed) return `<p${attributes}>${escape(l.text)}</p>`;
     const next = sung[index + 1]?.timeMs;
     if (l.words.length) {
       const lastEnd = Math.max(l.words.at(-1)!.endMs, l.background?.words.at(-1)?.endMs ?? 0);
       const background = l.background?.words.length
         ? ` <span ttm:role="x-bg">${spansOf(l.background.words)}</span>`
         : '';
-      return `<p begin="${clock(l.timeMs)}" end="${clock(lastEnd)}"${agent}>${spansOf(l.words)}${background}</p>`;
+      return `<p begin="${clock(l.timeMs)}" end="${clock(lastEnd)}"${attributes}>${spansOf(l.words)}${background}</p>`;
     }
     // A line-timed answering vocal has no timing of its own to hang under the
     // lead, so it stays in the line, as the provider wrote it.
     const text = l.background ? `${l.text} ${l.background.text}` : l.text;
     const end = l.sungUntilMs ?? next ?? l.timeMs + 5000;
-    return `<p begin="${clock(l.timeMs)}" end="${clock(Math.max(end, l.timeMs))}"${agent}>${escape(text)}</p>`;
+    return `<p begin="${clock(l.timeMs)}" end="${clock(Math.max(end, l.timeMs))}"${attributes}>${escape(text)}</p>`;
   });
 
   const agents = duet ? '<ttm:agent type="person" xml:id="v1"/><ttm:agent type="other" xml:id="v2"/>' : '';

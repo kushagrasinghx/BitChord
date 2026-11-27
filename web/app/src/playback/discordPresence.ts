@@ -29,7 +29,8 @@ function nowPlaying(): DiscordNowPlaying | null {
     title: np.title,
     artist: np.artist,
     album: queue[index]?.track.album?.name ?? null,
-    artworkUrl: np.artworkUrl ? sizedArtwork(np.artworkUrl, ART_PX) : null,
+    // A local file's cover is a blob URL, which means nothing outside this page.
+    artworkUrl: np.artworkUrl && !np.artworkUrl.startsWith('blob:') ? sizedArtwork(np.artworkUrl, ART_PX) : null,
     positionMs: Math.round((audio?.currentTime ?? 0) * 1000),
     durationMs: Math.round(durationSec * 1000),
     playbackRate: audio?.playbackRate || 1,

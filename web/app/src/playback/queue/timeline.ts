@@ -1,9 +1,19 @@
+import {
+  queueAutoplaySectionStart,
+  queueJumpOrder,
+  queuePlayedUserIndices,
+  queueSectionedOrder,
+  queueUpcomingUserIndices,
+} from '@bitchord/shared-kotlin';
 import type { Track } from '@/data/music/types';
 
 /**
- * The three-tier queue's rules, as plain list edits: a port of
- * shared/…/playback/QueueTimeline.kt and QueueSections.kt, so the web player
- * orders a queue exactly as the phone and the desktop do.
+ * The three-tier queue's rules, as plain list edits, so the web player orders
+ * a queue exactly as the phone and the desktop do. The index rules (jumps,
+ * sections, Clear) are QueueTimeline.kt and QueueSections.kt themselves, from
+ * shared/commonMain. The entry-building half stays here: Kotlin builds Songs
+ * with its own source types and shuffles with its own Random, where the web
+ * keeps QueueEntry objects and tests pass their own random.
  *
  * - **context**: the album, playlist or one-off song the user started.
  * - **user**: tracks queued by hand ("Play Next", "Add to Queue").
@@ -106,57 +116,15 @@ export interface JumpPlan {
 const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from) }, (_, i) => from + i);
 
 /**
- * Tapping a row in Up Next (QueueTimeline.computeJumpOrder):
- * 1. Back, or the same track: a pure seek.
- * 2. A context track: a pure seek, unless hand-queued tracks were skipped
- *    over; then those are pinned right after the target instead of lost.
- * 3. A hand-queued track: the hand-queued tracks bypassed are dropped.
- * 4. An AutoPlay track: it becomes the context (a station pivot); the user's
- *    queue is kept behind it; the old context and the bypassed AutoPlay go.
+ * Tapping a row in Up Next (QueueTimeline.computeJumpOrder): back or a context
+ * track is a seek (hand-queued tracks skipped over are pinned after it), a
+ * hand-queued track drops the ones bypassed, an AutoPlay track becomes the
+ * context.
  */
 export function computeJumpOrder(tiers: readonly QueueTier[], currentIndex: number, targetIndex: number): JumpPlan | null {
-  const n = tiers.length;
-  if (currentIndex < 0 || currentIndex >= n || targetIndex < 0 || targetIndex >= n) return null;
-  const identity = range(0, n);
-  if (targetIndex <= currentIndex) return { isPureSeek: true, order: identity, newIndex: targetIndex, promoteTarget: false };
-  const where = (from: number, tier: QueueTier) => range(from, n).filter((i) => tiers[i] === tier);
-  const between = (tier: QueueTier) => range(currentIndex + 1, targetIndex).filter((i) => tiers[i] === tier);
-  const history = range(0, currentIndex + 1);
-
-  switch (tiers[targetIndex]) {
-    case 'context': {
-      const crossedUser = between('user');
-      if (!crossedUser.length) return { isPureSeek: true, order: identity, newIndex: targetIndex, promoteTarget: false };
-      const bypassedContext = between('context');
-      const after = targetIndex + 1;
-      const order = [
-        ...history,
-        ...bypassedContext,
-        targetIndex,
-        ...crossedUser,
-        ...where(after, 'user'),
-        ...where(after, 'context'),
-        ...where(after, 'autoplay'),
-      ];
-      return { isPureSeek: false, order, newIndex: history.length + bypassedContext.length, promoteTarget: false };
-    }
-    case 'user': {
-      const order = [
-        ...history,
-        targetIndex,
-        ...where(targetIndex + 1, 'user'),
-        ...where(currentIndex + 1, 'context'),
-        ...where(currentIndex + 1, 'autoplay'),
-      ];
-      return { isPureSeek: false, order, newIndex: history.length, promoteTarget: false };
-    }
-    case 'autoplay': {
-      const order = [...history, targetIndex, ...where(currentIndex + 1, 'user'), ...where(targetIndex + 1, 'autoplay')];
-      return { isPureSeek: false, order, newIndex: history.length, promoteTarget: true };
-    }
-    default:
-      return null;
-  }
+  const plan = queueJumpOrder([...tiers], currentIndex, targetIndex);
+  if (!plan) return null;
+  return { isPureSeek: plan.isPureSeek, order: plan.order, newIndex: plan.newIndex, promoteTarget: plan.promoteTarget };
 }
 
 /** Applies a jump plan; returns the new timeline and the index to play. */
@@ -183,20 +151,34 @@ export function applyJump(timeline: readonly QueueEntry[], currentIndex: number,
   };
 }
 
-/** The upcoming hand-queued rows: what "Clear" removes. Context and AutoPlay stay. */
-export function upcomingUserQueueIndices(tiers: readonly QueueTier[], currentIndex: number): number[] {
-  return range(Math.max(currentIndex + 1, 0), tiers.length).filter((i) => tiers[i] === 'user');
+export interface QueueRow {
+  entry: QueueEntry;
+  /** Where it sits in the timeline: what jumpTo, removeAt and move take. */
+  at: number;
 }
 
 /**
- * Played hand-queued rows, to prune once playback is back in the context, so
- * repeat-all cycles only the context. Empty while a hand-queued track (or
- * AutoPlay) is playing.
+ * Up Next's rows (PlayerQueue.splitQueue): the songs already played, only
+ * when history is shown, then what's next. The playing song is in neither:
+ * it's the player's, not a row.
  */
-export function playedUserQueueIndices(tiers: readonly QueueTier[], currentIndex: number): number[] {
-  if (currentIndex <= 0 || currentIndex >= tiers.length || tiers[currentIndex] !== 'context') return [];
-  return range(0, currentIndex).filter((i) => tiers[i] === 'user');
+export function splitQueue(
+  timeline: readonly QueueEntry[],
+  currentIndex: number,
+  showHistory: boolean,
+): { history: QueueRow[]; upcoming: QueueRow[] } {
+  if (currentIndex < 0 || currentIndex >= timeline.length) return { history: [], upcoming: [] };
+  const rows = timeline.map((entry, at) => ({ entry, at }));
+  return { history: showHistory ? rows.slice(0, currentIndex) : [], upcoming: rows.slice(currentIndex + 1) };
 }
+
+/** The upcoming hand-queued rows: what "Clear" removes (QueueTimeline.upcomingUserQueueIndices). */
+export const upcomingUserQueueIndices = (tiers: readonly QueueTier[], currentIndex: number): number[] =>
+  queueUpcomingUserIndices([...tiers], currentIndex);
+
+/** Played hand-queued rows, to prune once playback is back in the context (QueueTimeline.playedUserQueueIndices). */
+export const playedUserQueueIndices = (tiers: readonly QueueTier[], currentIndex: number): number[] =>
+  queuePlayedUserIndices([...tiers], currentIndex);
 
 export function shuffled<T>(items: readonly T[], random: () => number = Math.random): T[] {
   const out = [...items];
@@ -241,18 +223,10 @@ export function shuffledUpcomingOrder(upcoming: readonly QueueTier[], random?: (
   ];
 }
 
-/** Puts restored upcoming rows back in their sections (user, context, AutoPlay), keeping their order within each. */
-export function sectionedOrder(restored: readonly number[], upcoming: readonly QueueTier[]): number[] {
-  return (['user', 'context', 'autoplay'] as const).flatMap((tier) => restored.filter((i) => upcoming[i] === tier));
-}
+/** Puts restored upcoming rows back in their sections (QueueTimeline.sectionedOrder). */
+export const sectionedOrder = (restored: readonly number[], upcoming: readonly QueueTier[]): number[] =>
+  queueSectionedOrder([...restored], [...upcoming]);
 
-/**
- * Where AutoPlay's section begins, and so where a hand-queued track belongs:
- * the first AutoPlay track still to come (QueueSections.autoplaySectionStart).
- * The Up Next panel draws its AutoPlay heading at this index.
- */
-export function autoplaySectionStart(tiers: readonly QueueTier[], currentIndex: number): number {
-  const after = Math.min(Math.max(currentIndex + 1, 0), tiers.length);
-  for (let i = after; i < tiers.length; i++) if (tiers[i] === 'autoplay') return i;
-  return tiers.length;
-}
+/** The first AutoPlay row still to come: where a hand-queued track belongs and Up Next's heading goes (QueueSections.kt). */
+export const autoplaySectionStart = (tiers: readonly QueueTier[], currentIndex: number): number =>
+  queueAutoplaySectionStart([...tiers], currentIndex);

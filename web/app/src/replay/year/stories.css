@@ -1,0 +1,207 @@
+/*
+ * The year story's motion (ReplayYearMotion.kt), as CSS animations: each card's
+ * beats are delays on these, so holding the card pauses every one of them, and
+ * the progress bar with them, by pausing play state on the story.
+ */
+
+.ry-story[data-held] *,
+.ry-story[data-held] *::before,
+.ry-story[data-held] *::after {
+  animation-play-state: paused !important;
+}
+
+/* A card arriving: zooming through, rising up or sweeping across, from --ry-from (transitionInto). */
+.ry-card-in {
+  animation: ry-card-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ry-card-in {
+  from {
+    opacity: 0;
+    transform: var(--ry-from);
+  }
+}
+
+/* A line or block arriving: up a little, out of nothing. */
+.ry-enter {
+  animation: ry-enter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ry-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+}
+
+/* A word of a setup line, dropping in from above (KineticText). */
+.ry-word {
+  display: inline-block;
+  animation: ry-word 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+@keyframes ry-word {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6em) rotate(-4deg);
+  }
+}
+
+/* A digit of the year slammed down from too close, with an overshoot. */
+.ry-slam {
+  display: inline-block;
+  animation: ry-slam 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes ry-slam {
+  from {
+    opacity: 0;
+    transform: scale(3.2);
+    filter: blur(6px);
+  }
+}
+
+/* The reveal itself: in from small with a bounce. */
+.ry-pop {
+  animation: ry-pop 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+@keyframes ry-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* The record turning over as it lands on the song card. */
+.ry-flip {
+  animation: ry-flip 0.7s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+@keyframes ry-flip {
+  from {
+    opacity: 0;
+    transform: perspective(800px) rotateY(-100deg) scale(0.85);
+  }
+}
+
+/* The blank sleeve breathing while the song card keeps you waiting. */
+.ry-breathe {
+  animation: ry-breathe 1.4s ease-in-out infinite alternate;
+}
+@keyframes ry-breathe {
+  to {
+    transform: scale(1.04);
+  }
+}
+
+/* Gone at the reveal (the waiting sleeve, the countdown). */
+.ry-leave {
+  animation: ry-leave 0.25s ease-in both;
+}
+@keyframes ry-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+    visibility: hidden;
+  }
+}
+
+/* A runner-up flickering past in the artist countdown. */
+.ry-flicker {
+  animation: ry-flicker 0.62s ease-in-out both;
+}
+@keyframes ry-flicker {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  25%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+    visibility: hidden;
+  }
+}
+
+/* The opener's cover wall: rows drifting in turn left and right, looping without a seam. */
+.ry-drift {
+  animation: ry-drift 26s linear infinite;
+}
+.ry-drift-back {
+  animation: ry-drift 26s linear infinite reverse;
+}
+@keyframes ry-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* The months ribbon, carried through the year. */
+.ry-ribbon {
+  animation: ry-ribbon 3.6s cubic-bezier(0.65, 0, 0.35, 1) 1.8s both;
+}
+@keyframes ry-ribbon {
+  to {
+    transform: translateX(var(--ry-travel));
+  }
+}
+
+/* A bar of the clock dial, or a day of the year, lighting up. */
+.ry-grow {
+  animation: ry-grow 0.5s ease-out both;
+  transform-origin: bottom;
+}
+@keyframes ry-grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+}
+.ry-light {
+  animation: ry-light 0.4s ease-out both;
+}
+@keyframes ry-light {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The busiest day flaring. */
+.ry-flare {
+  animation: ry-flare 0.9s ease-out both;
+}
+@keyframes ry-flare {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  40% {
+    transform: scale(2.4);
+    box-shadow: 0 0 18px 6px currentColor;
+  }
+  100% {
+    transform: scale(1.6);
+    box-shadow: 0 0 10px 2px currentColor;
+  }
+}
+
+/* The current card's progress segment: 15 s, and the card turns when it ends. */
+.ry-progress {
+  animation: ry-progress linear both;
+  transform-origin: left;
+}
+@keyframes ry-progress {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* With motion reduced nothing slides or counts in; the cards still turn on their clock. */
+@media (prefers-reduced-motion: reduce) {
+  .ry-story :is(.ry-card-in, .ry-enter, .ry-word, .ry-slam, .ry-pop, .ry-flip, .ry-breathe, .ry-drift, .ry-drift-back, .ry-ribbon, .ry-grow, .ry-light, .ry-flare) {
+    animation: none;
+  }
+  /* What only exists to be waited through (the blank sleeve, the countdown) isn't shown at all. */
+  .ry-story :is(.ry-leave, .ry-flicker) {
+    display: none;
+  }
+}

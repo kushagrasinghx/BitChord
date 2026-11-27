@@ -249,10 +249,17 @@ function headerInfo(header: YTNodes.MusicResponsiveHeader | null | undefined): H
 
 export function mapAlbum(id: string, album: Pick<YTMusic.Album, 'header' | 'contents' | 'sections' | 'url'>): AlbumPage {
   const listId = album.url ? new URL(album.url).searchParams.get('list') : null;
+  const header = headerInfo(album.header as YTNodes.MusicResponsiveHeader | undefined);
+  // An album's rows don't name their album; the phone gives each the page's (InnertubeParser
+  // parseResponsiveListItem's page fallback), so Song info, Go to album and the queue know it.
+  const self: AlbumRef = { name: header.title, id };
   return {
     id,
-    ...headerInfo(album.header as YTNodes.MusicResponsiveHeader | undefined),
-    tracks: album.contents.map(mapTrack).filter((t): t is Track => !!t),
+    ...header,
+    tracks: album.contents
+      .map(mapTrack)
+      .filter((t): t is Track => !!t)
+      .map((t) => (t.album ? t : { ...t, album: self })),
     playlistId: listId,
     more: mapShelves(album.sections),
   };
@@ -288,7 +295,23 @@ export function mapArtist(id: string, artist: Pick<YTMusic.Artist, 'header' | 's
     topSongs: (topShelf?.contents ?? []).map(mapTrack).filter((t): t is Track => !!t),
     topSongsSeeAll: linkOf(topShelf?.endpoint) ?? linkOf(topShelf?.bottom_button?.endpoint),
     shelves: mapShelves(sections.filter((s) => s.type !== 'MusicShelf')),
+    subscription: subscriptionOf(header),
   };
+}
+
+/**
+ * The header's subscribe button as state (InnertubeParser.subscription). The
+ * channel id comes off the button, not the browse id: a page reached through
+ * an alias is served under another id, and the button knows what it acts on.
+ */
+function subscriptionOf(header: unknown): ArtistPage['subscription'] {
+  const button = (header as { subscription_button?: unknown } | undefined)?.subscription_button as
+    | Partial<YTNodes.SubscribeButton>
+    | null
+    | undefined;
+  // No `subscribed` flag means YouTube isn't offering the toggle here.
+  if (typeof button?.subscribed !== 'boolean' || !button.channel_id) return null;
+  return { channelId: button.channel_id, subscribed: button.subscribed };
 }
 
 /**
@@ -336,7 +359,12 @@ export function mapSearch(search: { contents?: readonly unknown[] | null }): Sea
         results.top.push(item);
         add(item);
       }
-      for (const inner of card.contents ?? []) add(mapItem(inner));
+      // An artist card's own songs come as "Song • 3:11", naming nobody: they are the card's artist's.
+      const cardArtist = id && /^Artist/i.test(text(card.subtitle)) ? { name: text(card.title), id } : null;
+      for (const inner of card.contents ?? []) {
+        const item = mapItem(inner);
+        add(item && cardArtist && item.kind === 'song' && !item.artists.length ? { ...item, artists: [cardArtist], subtitle: item.subtitle || cardArtist.name } : item);
+      }
       continue;
     }
     for (const node of ((section.contents as unknown[] | undefined) ?? [])) add(mapItem(node));

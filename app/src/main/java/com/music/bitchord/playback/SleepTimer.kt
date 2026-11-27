@@ -2,7 +2,6 @@ package com.music.bitchord.playback
 
 import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlin.math.roundToInt
 
 /**
  * Sleep timer. Holds a deadline; [PlaybackService] watches it and pauses
@@ -30,24 +29,23 @@ object SleepTimer {
      */
     val afterTrack = MutableStateFlow(false)
 
+    // The durations and the fade are plain arithmetic, in shared/commonMain
+    // (SleepTimerSteps.kt) so the web player's timer follows the same rules.
+
     /** Durations offered in the picker. */
-    val PRESETS = listOf(15, 30, 45, 60)
+    val PRESETS = SleepTimerSteps.PRESETS
 
     /** The custom picker moves in steps this size, from one step up to [MAX_MINUTES]. */
-    const val STEP_MINUTES = 5
+    const val STEP_MINUTES = SleepTimerSteps.STEP_MINUTES
 
     /** Longest custom duration: twelve hours. */
-    const val MAX_MINUTES = 720
+    const val MAX_MINUTES = SleepTimerSteps.MAX_MINUTES
 
     /** The custom duration a slider at [fraction] (0..1) of its travel stands for. */
-    fun minutesAt(fraction: Float): Int {
-        val raw = STEP_MINUTES + fraction.coerceIn(0f, 1f) * (MAX_MINUTES - STEP_MINUTES)
-        return (raw / STEP_MINUTES).roundToInt() * STEP_MINUTES
-    }
+    fun minutesAt(fraction: Float): Int = SleepTimerSteps.minutesAt(fraction)
 
     /** Where [minutes] sits along the custom slider, the inverse of [minutesAt]. */
-    fun fractionOf(minutes: Int): Float =
-        (minutes - STEP_MINUTES).toFloat() / (MAX_MINUTES - STEP_MINUTES)
+    fun fractionOf(minutes: Int): Float = SleepTimerSteps.fractionOf(minutes)
 
     /** Whether any kind of timer is currently armed. */
     val isRunning: Boolean get() = deadline.value != null || afterTrack.value
@@ -76,7 +74,7 @@ object SleepTimer {
         deadline.value?.let { (it - SystemClock.elapsedRealtime()).coerceAtLeast(0L) }
 
     /** Duration of the volume fade-out before playback stops (30 seconds). */
-    const val FADE_OUT_DURATION_MS = 30_000L
+    const val FADE_OUT_DURATION_MS = SleepTimerSteps.FADE_OUT_DURATION_MS
 
     /**
      * Volume multiplier (0.0f..1.0f) for [remainingMs] milliseconds before deadline.
@@ -86,9 +84,5 @@ object SleepTimer {
         remainingMs: Long,
         fadeDurationMs: Long = FADE_OUT_DURATION_MS,
         fadeOutEnabled: Boolean = true,
-    ): Float {
-        if (!fadeOutEnabled || remainingMs >= fadeDurationMs) return 1f
-        if (remainingMs <= 0L || fadeDurationMs <= 0L) return 0f
-        return (remainingMs.toFloat() / fadeDurationMs.toFloat()).coerceIn(0f, 1f)
-    }
+    ): Float = SleepTimerSteps.calculateFadeVolume(remainingMs, fadeDurationMs, fadeOutEnabled)
 }

@@ -1,0 +1,57 @@
+/*
+ * The welcome pages' motion (app/.../ui/onboarding/OnboardingScreen.kt).
+ *
+ * A page change slides both pages a third of the window over 420ms, the new
+ * one fading in over 320ms after 100ms and the old one out over 200ms
+ * (Compose's tween, so FastOutSlowIn). --ob-dir is 1 going forward and -1
+ * going back.
+ */
+.ob-in {
+  animation:
+    ob-slide-in 420ms cubic-bezier(0.4, 0, 0.2, 1) both,
+    ob-fade-in 320ms cubic-bezier(0.4, 0, 0.2, 1) 100ms both;
+}
+.ob-out {
+  animation:
+    ob-slide-out 420ms cubic-bezier(0.4, 0, 0.2, 1) both,
+    ob-fade-out 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes ob-slide-in {
+  from {
+    translate: calc(var(--ob-dir) * 100% / 3) 0;
+  }
+}
+@keyframes ob-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ob-slide-out {
+  to {
+    translate: calc(var(--ob-dir) * -100% / 3) 0;
+  }
+}
+@keyframes ob-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Done: the whole sheet drops out of the window, as the phone's does (560ms, .32 .72 0 1). */
+.ob-closing {
+  animation: ob-dismiss 560ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes ob-dismiss {
+  to {
+    translate: 0 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-in {
+    animation: none;
+  }
+  .ob-out {
+    display: none;
+  }
+}

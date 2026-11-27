@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePlayerOptions } from '@/playback/playerOptions';
 import { getAudio, getMixBeat, getPlayhead, usePlayer } from '@/state/player';
 
 export function clock(seconds: number): string {
@@ -7,10 +8,26 @@ export function clock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+const SEEK_STEP: Record<string, number> = { ArrowLeft: -10, ArrowDown: -10, ArrowRight: 10, ArrowUp: 10 };
+
+/**
+ * Where a key on the focused seek line moves the playhead, or null when the key isn't the line's: the arrows
+ * step ten seconds as the app's own ←/→ do, Home and End go to either end, and Shift/Ctrl/Alt/Meta+arrows are
+ * left to the app (next, previous, volume) rather than seeking too.
+ */
+export function seekTarget(e: Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'>, now: number, duration: number): number | null {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !Number.isFinite(duration)) return null;
+  const step = SEEK_STEP[e.key];
+  const to = e.key === 'Home' ? 0 : e.key === 'End' ? duration : step === undefined ? null : now + step;
+  return to === null ? null : Math.min(duration, Math.max(0, to));
+}
+
 // ---- The Automix pulse (the phone's MixPulse, ThinSlider.kt) -------------------------------
 
 /** How long the fill takes to glide out to full width, and back, around a blend. */
 const COVER_SEC = 0.7;
+/** Between redraws of a steadily playing bar (see the draw loop). */
+const STEADY_MS = 250;
 /** How long the beat pulse takes to swell in as a blend starts and settle as it ends. */
 const PULSE_FADE_SEC = 0.9;
 /** Opacity between beats, as a share of the fill's own: low enough to read, never gone. */
@@ -79,6 +96,7 @@ export function useScrubber() {
   const deck = usePlayer((s) => s.deck);
   const mixing = usePlayer((s) => s.mixing);
   const seek = usePlayer((s) => s.seek);
+  const showTotal = usePlayerOptions((s) => s.showTotalDuration);
   const [dragging, setDragging] = useState<number | null>(null);
 
   useEffect(() => {
@@ -86,7 +104,13 @@ export function useScrubber() {
     const element = bar.current;
     if (!audio || !element) return;
     let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // The first draw of each run writes the value (a new track, play, pause); later ticks stay quiet while focused.
+    let seeked = true;
     const draw = () => {
+      // A seek redraws at once; it replaces the pending redraw rather than starting a second chain.
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
       const duration = audio.duration;
       // during a loop mix the element is paused under the decks: the mix's own playhead
       const head = getPlayhead();
@@ -98,21 +122,38 @@ export function useScrubber() {
       element.style.setProperty('--progress', String(base + (1 - base) * mix.cover));
       element.style.opacity = mix.active ? String(mix.alpha) : '';
       if (elapsed.current) elapsed.current.textContent = clock(time);
-      if (remaining.current) remaining.current.textContent = `-${clock((duration || 0) - time)}`;
+      if (remaining.current) remaining.current.textContent = showTotal ? clock(duration || 0) : `-${clock((duration || 0) - time)}`;
       for (const span of [elapsed.current, remaining.current]) {
         if (span) span.style.opacity = mix.active ? String(1 - mix.cover) : '';
       }
       if (mixLabel.current) mixLabel.current.style.opacity = mix.active ? String(mix.cover * (0.35 + 0.65 * mix.alpha)) : '0';
-      if (!paused || dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
+      // The slider's value for assistive tech, written with the bar rather than through a render. A focused
+      // slider is read aloud on every change, so there only a seek updates it, not playback ticking by.
+      const slider = element.closest('[role="slider"]');
+      if (slider && (seeked || slider !== document.activeElement)) {
+        slider.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
+        slider.setAttribute('aria-valuenow', String(Math.round(time)));
+        slider.setAttribute('aria-valuetext', `${clock(time)} of ${clock(duration || 0)}`);
+      }
+      seeked = false;
+      if (dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
+      // Plain playback moves the bar a pixel or two a second: four redraws a second are enough,
+      // rather than one per display refresh for as long as music plays. Still through a frame,
+      // so a hidden window doesn't draw at all.
+      else if (!paused) timer = setTimeout(() => (frame = requestAnimationFrame(draw)), STEADY_MS);
     };
     draw();
-    const onSeeked = () => draw();
+    const onSeeked = () => {
+      seeked = true;
+      draw();
+    };
     audio.addEventListener('seeked', onSeeked);
     return () => {
       cancelAnimationFrame(frame);
+      clearTimeout(timer);
       audio.removeEventListener('seeked', onSeeked);
     };
-  }, [status, deck, dragging, mixing]);
+  }, [status, deck, dragging, mixing, showTotal]);
 
   const fractionAt = (event: React.PointerEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -120,6 +161,18 @@ export function useScrubber() {
   };
 
   const handlers = {
+    // A real slider for the keyboard and screen readers; the arrows step as the app's ←/→ do.
+    role: 'slider' as const,
+    tabIndex: 0,
+    'aria-label': 'Seek',
+    'aria-valuemin': 0,
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      const audio = getAudio();
+      const to = audio ? seekTarget(e, getPlayhead()?.sec ?? audio.currentTime, audio.duration) : null;
+      if (to === null) return;
+      e.preventDefault();
+      seek(to);
+    },
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (!getAudio()) return;
       e.currentTarget.setPointerCapture(e.pointerId);

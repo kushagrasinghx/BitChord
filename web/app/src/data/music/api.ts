@@ -78,9 +78,13 @@ export async function fetchCategories(): Promise<CategoryGroup[]> {
   return mapCategories(response.data);
 }
 
-export async function fetchSearch(query: string): Promise<SearchResults> {
+/** A search, narrowed by one of the filter chips' YouTube Music params (Models.kt SearchFilter) when given. */
+export async function fetchSearch(query: string, params?: string | null): Promise<SearchResults> {
   const yt = await getMusicClient();
-  return mapSearch(await yt.music.search(query));
+  if (!params) return mapSearch(await yt.music.search(query));
+  // YouTube.js only builds params for its own five types; Library's are YouTube Music's own.
+  const { YTMusic } = await import('youtubei.js/web');
+  return mapSearch(new YTMusic.Search(await yt.actions.execute('/search', { query, params, client: 'YTMUSIC' }), yt.actions, true));
 }
 
 /** YouTube Music's Songs shelf for [query]: what an import or a match is chosen from. */
@@ -164,7 +168,7 @@ export async function fetchBrowse({ browseId, params }: BrowseLink): Promise<Bro
 type Raw = Record<string, unknown>;
 
 /** Every object stored under [key], anywhere inside a raw response. */
-function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
+export function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
   if (Array.isArray(root)) for (const item of root) collect(item, key, out);
   else if (root && typeof root === 'object') {
     for (const [k, v] of Object.entries(root)) {
@@ -175,7 +179,7 @@ function collect(root: unknown, key: string, out: Raw[] = []): Raw[] {
   return out;
 }
 
-function runsText(node: unknown): string {
+export function runsText(node: unknown): string {
   const n = node as { runs?: { text?: string }[]; simpleText?: string } | undefined;
   return n?.runs?.map((r) => r.text ?? '').join('') ?? n?.simpleText ?? '';
 }
@@ -238,10 +242,32 @@ export async function setTrackLiked(videoId: string, liked: boolean): Promise<vo
   await yt.actions.execute(liked ? '/like/like' : '/like/removelike', { target: { videoId }, client: 'YTMUSIC' });
 }
 
+/** Dislikes a track, which also takes back a like, or takes the dislike back (SongActionsMenu's Dislike). */
+export async function setTrackDisliked(videoId: string, disliked: boolean): Promise<void> {
+  const yt = await getSignedInnertube();
+  await yt.actions.execute(disliked ? '/like/dislike' : '/like/removelike', { target: { videoId }, client: 'YTMUSIC' });
+}
+
 /** Adds an album or playlist to the library, or removes it: YouTube saves both by liking the list. */
 export async function setListSaved(playlistId: string, saved: boolean): Promise<void> {
   const yt = await getSignedInnertube();
   await yt.actions.execute(saved ? '/like/like' : '/like/removelike', { target: { playlistId }, client: 'YTMUSIC' });
+}
+
+/**
+ * Subscribes to an artist's channel or unsubscribes (Innertube.setSubscribed).
+ * A YouTube-wide verb, not a `like/` one, addressed by the `UC…` channel id.
+ * Innertube answers a refused write with HTTP 200 and an `error` object, so
+ * the body is read rather than trusted.
+ */
+export async function setSubscribed(channelId: string, subscribed: boolean): Promise<void> {
+  const yt = await getSignedInnertube();
+  const response = await yt.actions.execute(subscribed ? '/subscription/subscribe' : '/subscription/unsubscribe', {
+    channelIds: [channelId],
+    client: 'YTMUSIC',
+  });
+  const error = (response.data as Raw | undefined)?.error as { message?: string } | undefined;
+  if (error) throw new Error(`YouTube Music refused the change: ${error.message ?? 'unknown error'}`);
 }
 
 export interface PlaylistOption {
@@ -266,11 +292,12 @@ export async function fetchPlaylistOptions(videoId: string): Promise<PlaylistOpt
     .filter((option) => option.playlistId && option.playlistId !== LIKED_MUSIC_PLAYLIST && option.title);
 }
 
-export async function addToPlaylist(playlistId: string, videoId: string): Promise<void> {
+/** Adds one track or several, in one request; ones the playlist already holds are skipped. */
+export async function addToPlaylist(playlistId: string, videoIds: string | string[]): Promise<void> {
   const yt = await getSignedInnertube();
   await yt.actions.execute('/browse/edit_playlist', {
     playlistId: playlistId.replace(/^VL/, ''),
-    actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }],
+    actions: [videoIds].flat().map((addedVideoId) => ({ action: 'ACTION_ADD_VIDEO', addedVideoId, dedupeOption: 'DEDUPE_OPTION_SKIP' })),
     client: 'YTMUSIC',
   });
 }

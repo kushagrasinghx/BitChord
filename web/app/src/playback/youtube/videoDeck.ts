@@ -62,6 +62,13 @@ async function ensurePlayer(): Promise<shaka.Player> {
   created.addEventListener('error', (event) => {
     const error = (event as unknown as { detail: shaka.util.Error }).detail;
     trackLog.d(`video: Shaka error ${error.code} (severity ${error.severity})`, loaded);
+    // A picture that has died mid-song would sit frozen or black in the sleeve: back to the artwork, as a failed load is.
+    if (error.severity === shaka.util.Error.Severity.CRITICAL && loaded) {
+      trackLog.w(`video: the picture stopped (Shaka ${error.code}); showing the artwork`, loaded);
+      loaded = null;
+      loadedQuality = null;
+      useVideo.setState({ videoId: null });
+    }
   });
   // Auto moves between renditions as it measures the connection; the switcher shows where it landed.
   for (const event of ['adaptation', 'variantchanged'] as const) {
@@ -71,12 +78,21 @@ async function ensurePlayer(): Promise<shaka.Player> {
   return created;
 }
 
-/** Holds the picture at [quality]: Auto adapts up to the H.264 ceiling, a picked height doesn't move. */
+
+/**
+ * Holds the picture at [quality]. Auto adapts to the connection, up to the H.264 ceiling and no
+ * further than the element it's drawn in needs (Shaka measures the <video>, which fills whichever
+ * surface holds it): the mini player's preview takes 144p, not 1080p. Opening the full-screen
+ * sleeve grows the element, and Shaka switches up at once, dropping the small buffered picture.
+ */
 function configureQuality(target: shaka.Player, quality: VideoQuality) {
   target.configure({
     abr: {
       enabled: quality === 'auto',
       defaultBandwidthEstimate: AUTO_START_BPS,
+      restrictToElementSize: quality === 'auto',
+      clearBufferSwitch: true,
+      safeMarginSwitch: 2,
       restrictions: { maxHeight: quality === 'auto' ? AUTO_MAX_HEIGHT : Infinity },
     },
   });
@@ -100,6 +116,8 @@ export function stopVideo(): void {
   void refresh();
 }
 
+document.addEventListener('visibilitychange', () => void refresh());
+
 useVideo.subscribe((state, previous) => {
   if (state.surfaces > 0 !== previous.surfaces > 0 || state.quality !== previous.quality) void refresh();
 });
@@ -107,11 +125,13 @@ useVideo.subscribe((state, previous) => {
 async function refresh(): Promise<void> {
   const run = ++generation;
   const quality = useVideo.getState().quality;
-  const wanted = source && useVideo.getState().surfaces > 0 ? source : null;
+  // No one sees a minimised window's picture: the audio plays on, the video stops decoding.
+  const wanted = source && useVideo.getState().surfaces > 0 && !document.hidden ? source : null;
   const stream = wanted ? await wanted.engine.videoStream(quality === 'auto' ? null : quality).catch(() => null) : null;
   if (run !== generation) return;
   if (!stream) {
-    await unload();
+    // Hidden: keep the surfaces (and the full-screen sleeve's 16:9 box) for when the window returns.
+    await unload(document.hidden);
     return;
   }
   if (stream.videoId === loaded && quality === loadedQuality) return;

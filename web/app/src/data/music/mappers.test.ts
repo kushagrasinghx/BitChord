@@ -11,7 +11,8 @@ import type { BrowsePage } from './types';
 
 const fixture = (name: string) =>
   JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../fixtures/innertube/${name}.json`, import.meta.url)), 'utf8'));
-const response = (name: string) => ({ success: true, status_code: 200, data: fixture(name) }) as never;
+const responseOf = (data: unknown) => ({ success: true, status_code: 200, data }) as never;
+const response = (name: string) => responseOf(fixture(name));
 const actions = { session: { context: { client: {} } } } as never;
 
 describe('home', () => {
@@ -62,6 +63,10 @@ describe('album', () => {
     expect(album.playlistId).toMatch(/^OLAK/);
   });
 
+  it('names the album on every track, as the phone does', () => {
+    album.tracks.forEach((track) => expect(track.album).toEqual({ name: album.title, id: 'MPREb_test' }));
+  });
+
   it('reads numbered tracks with durations', () => {
     expect(album.tracks.length).toBeGreaterThan(3);
     album.tracks.forEach((track, i) => {
@@ -96,6 +101,20 @@ describe('artist', () => {
     expect(artist.shelves.some((s) => s.items[0]?.kind === 'album')).toBe(true);
     expect(artist.shelves.some((s) => s.layout === 'circle')).toBe(true);
   });
+
+  it('reads the subscribe state and channel off the header button', () => {
+    const artist = mapArtist('UCtest', new YTMusic.Artist(response('browse-artist'), actions));
+    // The button's channel, not the id the page was fetched under.
+    expect(artist.subscription).toEqual({ channelId: 'UCq19-LqvG35A-30oyAiPiqA', subscribed: false });
+  });
+
+  it('offers no subscription where the button has no state', () => {
+    const copy = fixture('browse-artist') as { header: { musicImmersiveHeaderRenderer: Record<string, unknown> } };
+    delete (copy.header.musicImmersiveHeaderRenderer.subscriptionButton as { subscribeButtonRenderer: Record<string, unknown> })
+      .subscribeButtonRenderer.subscribed;
+    const artist = mapArtist('UCtest', new YTMusic.Artist(responseOf(copy), actions));
+    expect(artist.subscription).toBeNull();
+  });
 });
 
 describe('search', () => {
@@ -107,6 +126,14 @@ describe('search', () => {
     expect(results.albums.length + results.playlists.length).toBeGreaterThan(0);
     const ids = [...results.songs, ...results.albums, ...results.artists, ...results.playlists, ...results.videos].map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("names the artist on an artist card's own songs, which YouTube words as just \"Song • 3:11\"", () => {
+    const results = mapSearch(new YTMusic.Search(response('search-all'), actions, { is_filtered: false } as never));
+    expect(results.top[0]!.title).toBe('Radiohead');
+    for (const song of results.songs) expect(song.artists.length, song.title).toBeGreaterThan(0);
+    const cardSong = results.songs.find((s) => s.title === 'You And Whose Army?');
+    expect(cardSong?.subtitle).toBe('Radiohead');
   });
 });
 

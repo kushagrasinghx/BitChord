@@ -33,9 +33,9 @@ export default function SpotifyPage() {
   const state = auth.auth;
   if (!state.signedIn) {
     const [title, detail, action] = !state.browserSignedIn
-      ? ['Sign in to Spotify', 'BitChord uses the Spotify account this browser is signed in to, through the extension.', 'Sign In']
+      ? ['Sign in to Spotify', 'BitChord uses the Spotify account you’re signed in to here.', 'Sign In']
       : !state.connected
-        ? ['Spotify is disconnected', 'You’re signed in to Spotify in this browser. Connect to see your playlists here.', 'Connect']
+        ? ['Spotify is disconnected', 'You’re signed in to Spotify. Connect to see your playlists here.', 'Connect']
         : ['Couldn’t read your Spotify account', state.problem ?? 'Spotify didn’t answer.', 'Try Again'];
     return (
       <>

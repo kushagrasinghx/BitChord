@@ -1,0 +1,278 @@
+{
+  "$comment": "Android feature -> its web counterpart (web/scripts/parity.mjs). `shared`: shared/commonMain code both run, so that part follows Android by itself. A PR that changes a feature's `android` files without its `web` or `shared` ones gets a warning naming where the web side lives. Paths are checked to exist on every PR.",
+  "features": [
+    {
+      "id": "best-part",
+      "name": "Best Part (most-replayed start, the artwork's button)",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerControls.kt", "app/src/main/java/com/music/bitchord/ui/replay/year/BestParts.kt", "app/src/main/java/com/music/bitchord/ui/player/AndroidPlayerHost.kt"],
+      "web": ["web/app/src/playback/bestPart.ts", "web/app/src/shell/BestPartPill.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/replay/year/BestPart.kt"]
+    },
+    {
+      "id": "automix-artwork",
+      "name": "AutoMix artwork transitions",
+      "android": ["app/src/main/java/com/music/bitchord/playback/AutoMixVisualFeed.kt", "app/src/main/java/com/music/bitchord/ui/player/AndroidAutoMixReveal.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/AutoMixCover.kt"],
+      "web": ["web/app/src/playback/mixVisual.ts", "web/app/src/shell/NowPlayingCover.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/AutoMixVisualState.kt"]
+    },
+    {
+      "id": "artwork",
+      "name": "Artwork renditions, without flicker",
+      "android": ["app/src/main/java/com/music/bitchord/data/YouTubeThumbnailFallback.kt"],
+      "web": ["web/app/src/lib/artwork.ts", "web/app/src/components/music/Artwork.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/Models.kt"]
+    },
+    {
+      "id": "transport-motion",
+      "name": "Play/pause and skip motion; total duration option",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerPlayPauseMotion.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ExpandedPlayPauseMotion.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerSkipMotion.kt"],
+      "web": ["web/app/src/shell/transportMotion.ts", "web/app/src/shell/TransportGlyphs.tsx", "web/app/src/playback/playerOptions.ts"]
+    },
+    {
+      "id": "queue-editing",
+      "name": "Queue: swipe, undo, multi-select",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/QueueSwipeRow.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/QueueSelection.kt", "app/src/main/java/com/music/bitchord/playback/QueueScreenUndo.kt"],
+      "web": ["web/app/src/shell/UpNext.tsx", "web/app/src/state/player.ts"]
+    },
+    {
+      "id": "queue-history",
+      "name": "Queue history and the last queue",
+      "android": ["app/src/main/java/com/music/bitchord/playback/QueueHistory.kt", "app/src/main/java/com/music/bitchord/playback/LastPlayed.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerQueue.kt"],
+      "web": ["web/app/src/shell/UpNext.tsx", "web/app/src/playback/lastQueue.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueHistoryWindow.kt"]
+    },
+    {
+      "id": "sleep-timer",
+      "name": "Sleep timer with fade-out",
+      "android": ["app/src/main/java/com/music/bitchord/playback/SleepTimer.kt"],
+      "web": ["web/app/src/playback/sleepTimer.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/SleepTimerSteps.kt"]
+    },
+    {
+      "id": "queue-timeline",
+      "name": "Queue timeline (jumps, sections)",
+      "android": ["app/src/main/java/com/music/bitchord/playback/QueueCoordinator.kt"],
+      "web": ["web/app/src/playback/queue/timeline.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueTimeline.kt", "shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueSections.kt"]
+    },
+    {
+      "id": "queue-builder",
+      "name": "Queue building",
+      "android": ["app/src/main/java/com/music/bitchord/playback/Autoplay.kt"],
+      "web": ["web/app/src/playback/queue/builder.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/QueueBuilder.kt"]
+    },
+    {
+      "id": "radio",
+      "name": "Radio (mixes, grouped)",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/MixesScreen.kt"],
+      "web": ["web/app/src/pages/RadioPage.tsx", "web/app/src/data/music/library.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/screens/MixGroups.kt"]
+    },
+    {
+      "id": "song-sorts",
+      "name": "Album and playlist sorts, played in the order shown",
+      "android": ["app/src/main/java/com/music/bitchord/ui/screens/DetailScreen.kt"],
+      "web": ["web/app/src/components/music/DetailMenu.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/screens/DetailSort.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/settings/SongSort.kt"]
+    },
+    {
+      "id": "playlist-editing",
+      "name": "Playlist reorder, rename, delete",
+      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/innertube/Innertube.kt"],
+      "web": ["web/app/src/data/music/playlistEdit.ts", "web/app/src/pages/PlaylistPage.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/PlaylistOrder.kt"]
+    },
+    {
+      "id": "playlist-picker",
+      "name": "Add to playlists (search, several at once)",
+      "android": ["app/src/main/java/com/music/bitchord/ui/components/PlaylistPickerSheet.kt"],
+      "web": ["web/app/src/components/music/PlaylistPicker.tsx"]
+    },
+    {
+      "id": "tap-to-top",
+      "name": "Tap the current tab to scroll to the top",
+      "android": ["app/src/main/java/com/music/bitchord/MainActivity.kt"],
+      "web": ["web/app/src/shell/Sidebar.tsx"]
+    },
+    {
+      "id": "search",
+      "name": "Search filters (incl. Library), live results",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/SearchScreen.kt"],
+      "web": ["web/app/src/pages/SearchPage.tsx", "web/app/src/components/music/SearchField.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/Models.kt"]
+    },
+    {
+      "id": "song-credits",
+      "name": "Song credits",
+      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/SongInfoRepository.kt"],
+      "web": ["web/app/src/data/music/credits.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/SongCredits.kt"]
+    },
+    {
+      "id": "track-matching",
+      "name": "Song matching (accents, CJK romanization)",
+      "android": ["app/src/main/java/com/music/bitchord/data/sources/SourceResolver.kt"],
+      "web": ["web/app/src/data/match/trackMatcher.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/sources/TrackMatcher.kt"]
+    },
+    {
+      "id": "artist-credits",
+      "name": "Artist bylines",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ArtistCredits.kt"],
+      "web": ["web/app/src/lib/artistCredits.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/ArtistCredits.kt"]
+    },
+    {
+      "id": "lyric-clock",
+      "name": "Lyric clock (karaoke sweep, pause and resume)",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LyricsOffsetSheet.kt"],
+      "web": ["web/app/src/shell/LyricsPanel.tsx", "web/app/src/lyrics/offset.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/player/LyricClock.kt"]
+    },
+    {
+      "id": "lyrics-direction",
+      "name": "Lyrics and translations in their own direction (RTL)",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt"],
+      "web": ["web/app/src/lyrics/model.ts"]
+    },
+    {
+      "id": "lyrics-share",
+      "name": "Lyrics share (animated video, story card)",
+      "android": ["app/src/main/java/com/music/bitchord/ui/player/LyricsShareVideo.kt", "app/src/main/java/com/music/bitchord/ui/player/LyricsShareCard.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LyricsShare.kt"],
+      "web": ["web/app/src/lyrics/share/"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/ui/player/LyricsShareLines.kt"]
+    },
+    {
+      "id": "lyrics-sources",
+      "name": "Lyrics providers and parsing",
+      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/lyrics/"],
+      "web": ["web/app/src/lyrics/parse.ts", "web/app/src/lyrics/model.ts", "web/app/src/lyrics/sources.ts", "web/app/src/lyrics/providers.ts", "web/app/src/lyrics/youtube.ts", "web/app/src/lyrics/ttml.ts"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/EnhancedLrc.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/SyllableRuns.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricGaps.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/BackgroundVocals.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricAlignments.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricSections.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/lyrics/LyricsQuery.kt"]
+    },
+    {
+      "id": "replay",
+      "name": "Replay and Replay Year",
+      "android": ["app/src/main/java/com/music/bitchord/data/stats/ListeningRecorder.kt", "app/src/main/java/com/music/bitchord/data/stats/ListeningStats.kt", "app/src/main/java/com/music/bitchord/ui/replay/"],
+      "web": ["web/app/src/replay/", "web/app/src/pages/ReplayPage.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/stats/ListeningModels.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/ListeningBuckets.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/ListeningTally.kt", "shared/src/commonMain/kotlin/com/music/bitchord/ui/replay/year/YearPlan.kt"]
+    },
+    {
+      "id": "backup-drive",
+      "name": "Backup, restore and Google Drive sync",
+      "android": ["app/src/main/java/com/music/bitchord/data/backup/", "app/src/main/java/com/music/bitchord/data/stats/Backup.kt"],
+      "web": ["web/app/src/data/backup/", "web/app/src/pages/BackupPage.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/backup/SyncPlanner.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/PrefValue.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/stats/BucketMath.kt"]
+    },
+    {
+      "id": "premium-audio",
+      "name": "YouTube Premium audio",
+      "android": ["app/src/main/java/com/music/bitchord/data/innertube/AndroidStreamHooks.kt", "shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/innertube/InnerTubeXResolver.kt"],
+      "web": ["web/app/src/playback/youtube/premiumAudio.ts", "web/app/src/playback/youtube/engine.ts"]
+    },
+    {
+      "id": "liked-offline",
+      "name": "Downloads: keep liked songs downloaded, and single songs from the menu",
+      "android": ["app/src/main/java/com/music/bitchord/download/PlaylistSync.kt", "app/src/main/java/com/music/bitchord/download/Downloads.kt"],
+      "web": ["web/app/src/playback/offline/", "web/app/src/playback/offline/downloads.ts"]
+    },
+    {
+      "id": "stream-resolution",
+      "name": "YouTube stream resolution (client order)",
+      "android": ["shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/innertube/StreamResolver.kt"],
+      "web": ["web/app/src/playback/youtube/resolver.ts"]
+    },
+    {
+      "id": "listen-together",
+      "name": "Listen Together (party models, clock, invites)",
+      "android": ["shared/src/commonMain/kotlin/com/music/bitchord/data/listentogether/"],
+      "web": ["web/app/src/party/"]
+    },
+    {
+      "id": "loop-mix",
+      "name": "AutoMix loop mix",
+      "android": ["shared/src/commonMain/kotlin/com/music/bitchord/playback/smart/LoopMix.kt"],
+      "web": ["web/app/src/playback/automix/engine/loopMix.ts"]
+    },
+    {
+      "id": "look",
+      "name": "Colours, type, radii and theme; the shared controls (switch, segmented choice, glass disc, pill)",
+      "android": ["app/src/main/java/com/music/bitchord/ui/theme/Theme.kt", "app/src/main/java/com/music/bitchord/ui/components/IosSwitch.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/PillSegmentedControl.kt"],
+      "web": ["web/app/src/styles/tokens.css", "web/app/src/styles/global.css", "web/app/src/state/theme.ts", "web/app/src/components/ui/"]
+    },
+    {
+      "id": "navigation",
+      "name": "Tabs, top bar, back and page transitions",
+      "android": ["app/src/main/java/com/music/bitchord/MainActivity.kt", "app/src/main/java/com/music/bitchord/ui/components/FloatingBottomBar.kt", "app/src/main/java/com/music/bitchord/ui/components/FrostedTopBar.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/icons/BitChordIcons.kt"],
+      "web": ["web/app/src/shell/Sidebar.tsx", "web/app/src/shell/tabs.ts", "web/app/src/shell/tabSpring.ts", "web/app/src/shell/TopBar.tsx", "web/app/src/shell/AccountButton.tsx", "web/app/src/components/icons/TabIcons.tsx"]
+    },
+    {
+      "id": "mini-player",
+      "name": "Mini player",
+      "android": ["app/src/main/java/com/music/bitchord/ui/components/MiniPlayer.kt"],
+      "web": ["web/app/src/shell/PlayerBar.tsx", "web/app/src/shell/Lcd.tsx"]
+    },
+    {
+      "id": "menus",
+      "name": "Menus: song and release actions, right-click (long press), Song info",
+      "android": ["app/src/main/java/com/music/bitchord/ui/components/IosMenu.kt", "app/src/main/java/com/music/bitchord/ui/components/SongActionsMenu.kt", "app/src/main/java/com/music/bitchord/ui/components/SongInfoDialog.kt"],
+      "web": ["web/app/src/components/Menu.tsx", "web/app/src/components/music/TrackMenu.tsx", "web/app/src/shell/LyricsOffsetMenu.tsx", "web/app/src/components/music/BrowseMenu.tsx", "web/app/src/components/music/actionMenu.ts", "web/app/src/components/music/SongCredits.tsx", "web/app/src/data/music/songInfo.ts"]
+    },
+    {
+      "id": "home",
+      "name": "Home: sign-in card, Top Picks, shelves, Find Your Mood",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/HomeScreen.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/TopPicksShelf.kt", "shared/src/jvmSharedMain/kotlin/com/music/bitchord/data/TopPicks.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/Common.kt"],
+      "web": ["web/app/src/pages/HomePage.tsx", "web/app/src/components/music/TopPicksShelf.tsx", "web/app/src/components/music/topPicksArt.ts", "web/app/src/data/music/topPicks.ts", "web/app/src/components/music/SignInBanner.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/model/TopPicks.kt"]
+    },
+    {
+      "id": "explore",
+      "name": "Explore: moods and genres grid, new releases",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/ExploreScreen.kt"],
+      "web": ["web/app/src/pages/ExplorePage.tsx", "web/app/src/components/music/CategoryTiles.tsx"]
+    },
+    {
+      "id": "search-screen",
+      "name": "Search screen: field, recent searches, suggestions, top result",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/SearchScreen.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/SearchField.kt"],
+      "web": ["web/app/src/pages/SearchPage.tsx", "web/app/src/components/music/SearchField.tsx", "web/app/src/data/music/searchPages.ts"]
+    },
+    {
+      "id": "library",
+      "name": "Library hub and its Show all pages",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/screens/LibraryScreen.kt", "app/src/main/java/com/music/bitchord/ui/screens/LibraryPhoneParts.kt"],
+      "web": ["web/app/src/pages/LibraryHubPage.tsx", "web/app/src/pages/LibraryPage.tsx", "web/app/src/data/music/pinnedPlaylists.ts"]
+    },
+    {
+      "id": "detail-pages",
+      "name": "Album, artist and playlist pages; song rows",
+      "android": ["app/src/main/java/com/music/bitchord/ui/screens/DetailScreen.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/Common.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/components/Skeletons.kt"],
+      "web": ["web/app/src/pages/AlbumPage.tsx", "web/app/src/pages/ArtistPage.tsx", "web/app/src/pages/PlaylistPage.tsx", "web/app/src/components/music/DetailHeader.tsx", "web/app/src/components/music/TrackList.tsx", "web/app/src/components/music/SongRows.tsx", "web/app/src/components/music/SelectionBar.tsx", "web/app/src/components/music/trackSelection.ts", "web/app/src/data/music/suggestions.ts"]
+    },
+    {
+      "id": "onboarding",
+      "name": "Onboarding welcome",
+      "android": ["app/src/main/java/com/music/bitchord/ui/onboarding/OnboardingScreen.kt"],
+      "web": ["web/app/src/onboarding/"]
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "android": ["app/src/main/java/com/music/bitchord/ui/screens/SettingsSheet.kt"],
+      "web": ["web/app/src/pages/SettingsPage.tsx", "web/app/src/pages/SettingsRows.tsx", "web/app/src/pages/settingsStyles.ts"]
+    },
+    {
+      "id": "full-screen-player",
+      "name": "Full-screen player: layout, transport, seek, volume, lyrics and queue panes, backdrop, sheet",
+      "android": ["sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/LandscapePlayer.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerControls.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ThinSlider.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerLyrics.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/PlayerQueue.kt", "sharedUi/src/jvmSharedMain/kotlin/com/music/bitchord/ui/player/ArtworkMeshBackdrop.kt", "app/src/main/java/com/music/bitchord/MainActivity.kt"],
+      "web": ["web/app/src/shell/FullScreenPlayer.tsx", "web/app/src/shell/player/", "web/app/src/shell/LyricsPanel.tsx", "web/app/src/shell/UpNext.tsx"]
+    },
+    {
+      "id": "local-music",
+      "name": "Local Music: the chosen folder, its scan and tags, the Songs/Artists/Albums/Folders tabs and their pages, the non-music filter",
+      "android": ["app/src/main/java/com/music/bitchord/data/LocalMediaRepository.kt", "app/src/main/java/com/music/bitchord/ui/screens/LocalFolder.kt", "app/src/main/java/com/music/bitchord/ui/screens/SettingsSheet.kt", "app/src/main/java/com/music/bitchord/ui/screens/LibraryPhoneParts.kt"],
+      "web": ["web/app/src/data/local/", "web/app/src/pages/LocalMusicPage.tsx", "web/app/src/pages/LocalGroupPage.tsx", "web/app/src/pages/LocalMusicSettings.tsx"],
+      "shared": ["shared/src/commonMain/kotlin/com/music/bitchord/data/LocalGroups.kt", "shared/src/commonMain/kotlin/com/music/bitchord/data/LocalMusicRules.kt", "shared/src/jsMain/kotlin/com/music/bitchord/web/LocalWeb.kt"]
+    }
+  ]
+}

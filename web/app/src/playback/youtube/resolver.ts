@@ -183,12 +183,20 @@ export async function playerRequest(
 /** Why a playability status is a verdict on the track rather than on the client, or null if it isn't. */
 const AGE_GATE = /confirm your age|age-restricted|inappropriate for some users|sign in to confirm/;
 
-function permanentReason(status: string | undefined, reason: string | undefined, signedIn: boolean): string | null {
+export function permanentReason(status: string | undefined, reason: string | undefined, signedIn: boolean): string | null {
   const text = (reason ?? '').toLowerCase();
+  // YouTube's bot check ("Sign in to confirm you're not a bot") also matches AGE_GATE, which is right
+  // for the retry (a signed-in request gets past both) but not for what the listener is told: it is
+  // about this connection, not the track.
+  if (/not a bot/.test(text)) {
+    return signedIn
+      ? 'YouTube wants this account to confirm it’s not a bot. Open YouTube Music in a browser once, then try again.'
+      : 'YouTube is asking for a sign-in before it plays more here. Sign in to YouTube Music to keep listening.';
+  }
   if (AGE_GATE.test(text)) {
     return signedIn
       ? 'YouTube won’t serve this age-restricted track to this account. Check the account’s age is verified on YouTube.'
-      : 'This track is age-restricted. Sign in to YouTube Music in this browser to play it.';
+      : 'This track is age-restricted. Sign in to YouTube Music to play it.';
   }
   if (/country|region/.test(text)) return 'This track isn’t available in your country';
   if (/private/.test(text)) return 'This track is private';

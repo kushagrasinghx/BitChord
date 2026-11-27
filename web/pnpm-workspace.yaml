@@ -2,6 +2,7 @@ packages:
   - app
   - extension
   - shared
+  - shared-kotlin
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.104.3'
   - '@tanstack/react-query@5.104.3'

@@ -131,6 +131,7 @@ import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.matchesSearch
 import com.music.bitchord.data.sortedForLibrary
 import com.music.bitchord.data.useTrackTags
+import com.music.bitchord.ui.components.AlphabetFastScroller
 import com.music.bitchord.ui.components.CoverPlaceholder
 import com.music.bitchord.data.canvas.AppleArtistArt
 import com.music.bitchord.data.DebugLog as Log
@@ -891,6 +892,25 @@ fun DetailScreen(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = topBarContentPadding(), start = PAGE_GUTTER, end = PAGE_GUTTER),
+                    )
+                }
+
+                val isAlphabeticalSort = songSort == SongSort.TITLE_ASC || songSort == SongSort.TITLE_DESC
+                if (!isArtist && folder == null && reorder == null && isAlphabeticalSort && queue.size >= 15) {
+                    val aboutShown = (!page.description.isNullOrBlank() && page.type == BrowseType.ALBUM)
+                    val headerOffset = 1 + (if (searching) 1 else 0) + (if (aboutShown) 1 else 0)
+                    val titles = remember(queue) { queue.map { it.title } }
+                    AlphabetFastScroller(
+                        titles = titles,
+                        descending = songSort == SongSort.TITLE_DESC,
+                        accentColor = palette.accent,
+                        surfaceColor = palette.background,
+                        onJumpToIndex = { songIndex ->
+                            listState.scrollToItem(headerOffset + songIndex)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 4.dp),
                     )
                 }
 

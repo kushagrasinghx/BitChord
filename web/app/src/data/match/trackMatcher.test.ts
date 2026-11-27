@@ -168,3 +168,11 @@ describe('Latin accents (TrackMatcherAccentsTest)', () => {
     expect(foldLatin('दिल')).not.toBe(foldLatin('दल'));
   });
 });
+
+describe('unreadable runtimes', () => {
+  it('treats a NaN duration, on either side, as none', () => {
+    const row: MatchCandidate = { title: 'Tum Hi Ho', artist: 'Arijit Singh', durationSec: Number.NaN, album: null };
+    expect(matches(row, 'Tum Hi Ho', 'Arijit Singh', Number.NaN)).toBe(true);
+    expect(best([row], { title: 'Tum Hi Ho', artist: 'Arijit Singh', durationSec: Number.NaN })).toBe(row);
+  });
+});

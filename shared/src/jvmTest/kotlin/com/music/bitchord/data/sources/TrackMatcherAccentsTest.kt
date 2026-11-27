@@ -4,6 +4,7 @@ import com.music.bitchord.data.model.Song
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class TrackMatcherAccentsTest {
@@ -45,5 +46,11 @@ class TrackMatcherAccentsTest {
     fun cjkPunctuationLeavesTheCore() {
         // 、 and 。 survive NFKC; the core strips them as Android's ICU \p{Punct} did.
         assertEquals(TrackMatcher.parseTitle("夜に駆ける").core, TrackMatcher.parseTitle("夜に、駆ける。").core)
+    }
+
+    @Test
+    fun cjkSymbolsStayInTheCore() {
+        // ＋ folds to ASCII "+", a symbol rather than punctuation, so it is part of the title.
+        assertNotEquals(TrackMatcher.parseTitle("ラブ").core, TrackMatcher.parseTitle("ラブ＋").core)
     }
 }

@@ -21,15 +21,18 @@ class MatchWanted(
     val isVideo: Boolean,
 )
 
+// youtubei.js gives NaN for a runtime it couldn't read; like a zero, that is no runtime.
+private fun seconds(value: Double?): Int? = value?.takeIf { it.isFinite() && it > 0 }?.roundToInt()
+
 // A Song states its runtime as text ("3:45"), which TrackMatcher.secondsOf reads back.
 private fun MatchRow.song(): Song {
-    val seconds = durationSec?.roundToInt()
+    val seconds = seconds(durationSec)
     val clock = seconds?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" }
     return Song("", title, artist, thumbnailUrl = null, durationText = clock, albumName = album, isExplicit = explicit)
 }
 
 private fun MatchWanted.target() =
-    TrackMatcher.Target(title, artist, durationSec?.roundToInt(), album, isExplicit, isVideo)
+    TrackMatcher.Target(title, artist, seconds(durationSec), album, isExplicit, isVideo)
 
 /** TrackMatcher.kt `ranked`: the rows that really are [wanted], most confident first, as indices into [rows]. */
 @JsExport

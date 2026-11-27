@@ -18,7 +18,7 @@ export interface CreditSegment {
 }
 
 /** The marks a byline joins credits with, in every script (ArtistCredits.kt `CreditJoiner`). */
-const CREDIT_JOINER = new RegExp(creditJoinerPattern(), 'g');
+const CREDIT_JOINER = new RegExp(creditJoinerPattern(), 'gu');
 
 /**
  * A byline split on its joiners, for a track that states no per-artist

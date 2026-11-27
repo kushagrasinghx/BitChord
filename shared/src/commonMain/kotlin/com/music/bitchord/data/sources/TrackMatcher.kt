@@ -1,6 +1,7 @@
 package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.isLatinScript
 import com.music.bitchord.nfd
 import com.music.bitchord.nfkc
 import kotlin.math.abs
@@ -578,7 +579,7 @@ object TrackMatcher {
         text.forEach { c ->
             when {
                 c == 'ı' -> append('i')
-                c.code < 0x80 || !LATIN_SCRIPT.matches(c.toString()) -> append(c)
+                c.code < 0x80 || !c.isLatinScript() -> append(c)
                 else -> c.toString().nfd().forEach {
                     if (it.category != CharCategory.NON_SPACING_MARK) append(it)
                 }
@@ -875,11 +876,8 @@ object TrackMatcher {
     /** The Unicode blocks HIRAGANA, KATAKANA, CJK_UNIFIED_IDEOGRAPHS and HANGUL_SYLLABLES. */
     private val CJK_BLOCKS = listOf('\u3040'..'\u309F', '\u30A0'..'\u30FF', '\u4E00'..'\u9FFF', '\uAC00'..'\uD7AF')
 
-    /** Whitespace and punctuation off a CJK core: Java's ASCII `\p{Punct}` spelled out, plus `\p{P}` for the CJK marks Android's ICU `\p{Punct}` also took. */
-    private val CJK_CORE_STRIP = Regex("""[\s!-/:-@\[-`{-~\p{P}・～〜ー-]+""")
-
-    /** `sc=`, not `IsLatin`: the one script syntax both Java and JavaScript read. */
-    private val LATIN_SCRIPT = Regex("""\p{sc=Latin}""")
+    /** Whitespace and punctuation off a CJK core, as Android's ICU reads `\p{Punct}` (gc=P); desktop Java's ASCII reading is not a product. */
+    private val CJK_CORE_STRIP = Regex("""[\s\p{P}・～〜ー-]+""")
 
     private val BRACKETED = Regex("""[(\[]([^()\[\]]*)[)\]]""")
     private val DASH = Regex("""\s+[-–—|]+\s+""")

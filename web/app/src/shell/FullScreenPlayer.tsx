@@ -133,7 +133,7 @@ function PlayerSheet({ open, onClosed }: { open: boolean; onClosed: () => void }
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || keyBelongsToFocus(event.target)) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || keyBelongsToFocus(event)) return;
       const to = ({ l: 'lyrics', q: 'queue' } as const)[event.key.toLowerCase() as 'l' | 'q'];
       if (!to) return;
       event.preventDefault();

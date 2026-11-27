@@ -91,6 +91,7 @@ export function useScrubber() {
     if (!audio || !element) return;
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let seeked = false;
     const draw = () => {
       // A seek redraws at once; it replaces the pending redraw rather than starting a second chain.
       cancelAnimationFrame(frame);
@@ -111,11 +112,15 @@ export function useScrubber() {
         if (span) span.style.opacity = mix.active ? String(1 - mix.cover) : '';
       }
       if (mixLabel.current) mixLabel.current.style.opacity = mix.active ? String(mix.cover * (0.35 + 0.65 * mix.alpha)) : '0';
-      // The slider's value for assistive tech, written with the bar rather than through a render.
+      // The slider's value for assistive tech, written with the bar rather than through a render. A focused
+      // slider is read aloud on every change, so there only a seek updates it, not playback ticking by.
       const slider = element.closest('[role="slider"]');
-      slider?.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
-      slider?.setAttribute('aria-valuenow', String(Math.round(time)));
-      slider?.setAttribute('aria-valuetext', `${clock(time)} of ${clock(duration || 0)}`);
+      if (slider && (seeked || slider !== document.activeElement)) {
+        slider.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
+        slider.setAttribute('aria-valuenow', String(Math.round(time)));
+        slider.setAttribute('aria-valuetext', `${clock(time)} of ${clock(duration || 0)}`);
+      }
+      seeked = false;
       if (dragging !== null || mix.active || beat) frame = requestAnimationFrame(draw);
       // Plain playback moves the bar a pixel or two a second: four redraws a second are enough,
       // rather than one per display refresh for as long as music plays. Still through a frame,
@@ -123,7 +128,10 @@ export function useScrubber() {
       else if (!paused) timer = setTimeout(() => (frame = requestAnimationFrame(draw)), STEADY_MS);
     };
     draw();
-    const onSeeked = () => draw();
+    const onSeeked = () => {
+      seeked = true;
+      draw();
+    };
     audio.addEventListener('seeked', onSeeked);
     return () => {
       cancelAnimationFrame(frame);
@@ -144,6 +152,8 @@ export function useScrubber() {
     'aria-label': 'Seek',
     'aria-valuemin': 0,
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      // Shift/Ctrl+arrows are the app's next, previous and volume, not a seek.
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const audio = getAudio();
       if (!audio || !Number.isFinite(audio.duration)) return;
       const now = getPlayhead()?.sec ?? audio.currentTime;

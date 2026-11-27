@@ -8,6 +8,7 @@
     "types": [
       "node"
     ],
+    "jsx": "react-jsx",
     "paths": {
       "@/*": [
         "./src/*"

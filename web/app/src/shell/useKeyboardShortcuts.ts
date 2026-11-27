@@ -14,16 +14,22 @@ function typing(target: EventTarget | null): boolean {
 /** Seconds ← and → move the playhead, as YouTube Music's own web player steps. */
 export const SEEK_STEP = 10;
 
+/** The keys a slider steps with; letters and Space stay the player's while one has focus. */
+const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+
 /**
- * Whether a bare arrow or letter belongs to what has focus rather than to the
- * player: a field, or a widget that steps with the arrows (a slider, a menu,
- * a list box, tabs), or a dialog over the app (the player's own sheet aside).
+ * Whether a key belongs to what has focus rather than to the player: a field,
+ * a widget that steps with the arrows (a menu, a list box, tabs), a dialog over
+ * the app (the player's own sheet aside), or a slider's own stepping keys (a
+ * click on the seek line focuses it, and M, L, Q, Space and Shift+arrows must
+ * still work).
  */
-export function keyBelongsToFocus(target: EventTarget | null): boolean {
+export function keyBelongsToFocus({ target, key, shiftKey }: Pick<KeyboardEvent, 'target' | 'key' | 'shiftKey'>): boolean {
   const element = target as HTMLElement | null;
   if (typing(element)) return true;
+  if (element?.closest?.('[role="slider"]')) return !shiftKey && SLIDER_KEYS.has(key);
   return !!element?.closest?.(
-    '[role="slider"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])',
+    '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="grid"], [role="tree"], [role="dialog"]:not([data-full-screen])',
   );
 }
 
@@ -74,8 +80,8 @@ export function useKeyboardShortcuts() {
       if (typing(event.target)) return;
 
       if (event.key === ' ' && !command) {
-        // A focused button already answers Space itself.
-        if ((event.target as HTMLElement | null)?.closest('button, a, [role="slider"]')) return;
+        // A focused button already answers Space itself; the seek slider doesn't, so it plays and pauses.
+        if ((event.target as HTMLElement | null)?.closest('button, a')) return;
         event.preventDefault();
         return player.togglePlay();
       }
@@ -92,7 +98,7 @@ export function useKeyboardShortcuts() {
         return;
       }
       if (!command) {
-        if (keyBelongsToFocus(event.target)) return;
+        if (keyBelongsToFocus(event)) return;
         const ui = useUi.getState();
         const run: (() => void) | undefined = {
           ArrowLeft: () => (event.shiftKey ? player.previous() : seekBy(-SEEK_STEP)),

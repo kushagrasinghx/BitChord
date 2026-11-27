@@ -227,8 +227,12 @@ export type LikeStatus = 'LIKE' | 'DISLIKE' | 'INDIFFERENT';
 export async function fetchLikeStatus(videoId: string): Promise<LikeStatus> {
   const yt = await getSignedInnertube();
   const response = await yt.actions.execute('/next', { videoId, client: 'YTMUSIC' });
-  const button = collect((response.data as Raw).playerOverlays, 'likeButtonRenderer')[0];
-  const status = button?.likeStatus;
+  // YouTube serves the state in a likeStatusEntity (the ViewModel player) or,
+  // on older layouts, in a likeButtonRenderer; both are read here.
+  const data = response.data as Raw;
+  const entity = collect(data.playerOverlays, 'likeStatusEntity')[0] ?? collect(data.frameworkUpdates, 'likeStatusEntity')[0];
+  const button = collect(data.playerOverlays, 'likeButtonRenderer')[0];
+  const status = entity?.status ?? entity?.likeStatus ?? button?.likeStatus;
   return status === 'LIKE' || status === 'DISLIKE' ? status : 'INDIFFERENT';
 }
 

@@ -333,6 +333,8 @@ private fun Song.canStartStation(): Boolean =
 class PlaybackService : MediaLibraryService() {
 
     private var mediaSession: MediaLibrarySession? = null
+    /** Stable identity exposed to every MediaController; delegates change on handoff. */
+    private var sessionFacade: StableSessionPlayer? = null
     private val searchResults = ConcurrentHashMap<String, List<Song>>()
     private val searchBrowseResults = ConcurrentHashMap<String, List<BrowseItem>>()
     private val songCache = ConcurrentHashMap<String, Song>()
@@ -2004,9 +2006,12 @@ class PlaybackService : MediaLibraryService() {
         QueueShuffle.isCrossfadeTransitioning = { crossfade?.isTransitioning() == true }
         controller.start()
 
+        val initialSessionPlayer = newSessionPlayer(exoPlayer, controller)
+        val facade = StableSessionPlayer(initialSessionPlayer)
+        sessionFacade = facade
         mediaSession = MediaLibrarySession.Builder(
             this,
-            newSessionPlayer(exoPlayer, controller),
+            facade,
             MediaLibraryCallback(),
         )
             .setId(SESSION_ID)
@@ -2051,6 +2056,23 @@ class PlaybackService : MediaLibraryService() {
         cast = speakers,
         onShuffleRequest = ::toggleShuffleFromSession,
     ) { lastPublishedSubtitle }
+
+    /**
+     * Moves the controller-visible facade to the new deck. MediaSession keeps
+     * the same Player object, so commands at the handoff boundary resolve
+     * against the current delegate rather than a demoted SessionPlayer.
+     */
+    private fun switchSessionPlayer(player: Player, crossfade: CrossfadeController) {
+        val next = newSessionPlayer(player, crossfade)
+        val facade = sessionFacade
+        if (facade != null) {
+            facade.switchTo(next)
+        } else {
+            val replacement = StableSessionPlayer(next)
+            sessionFacade = replacement
+            mediaSession?.player = replacement
+        }
+    }
 
     /**
      * The stream a Cast receiver can open for [item], or null when there is none
@@ -2450,6 +2472,12 @@ class PlaybackService : MediaLibraryService() {
         // guarded symmetrically in [createCrossfadeController].
         if (crossfade?.isTransitioning() == true) {
             TrackLog.d("BitChord", "version swap deferred: Automix is mid-transition", about = currentItem.mediaId)
+            return
+        }
+        // A receiver or watch owns the audio path; swapping the local player
+        // underneath it would restart/desync the remote stream.
+        if (shouldDeferVersionSwap(remoteSpeakerActive = speakers.active)) {
+            TrackLog.d("BitChord", "version swap deferred: remote speaker is active", about = currentItem.mediaId)
             return
         }
 
@@ -2859,7 +2887,10 @@ class PlaybackService : MediaLibraryService() {
         incoming.addAnalyticsListener(formatListener)
         adoptFormatOf(incoming)
 
-        mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
+        switchSessionPlayer(incoming, requireNotNull(crossfade))
+        // The version swap installs a new live player; the controller must not
+        // keep listening to the retired one for seeks/errors/end-of-media.
+        crossfade?.listenTo(incoming)
 
         incoming.volume = 1f
         outgoing.stop()
@@ -4210,7 +4241,7 @@ class PlaybackService : MediaLibraryService() {
         incoming.addAnalyticsListener(formatListener)
         adoptFormatOf(incoming)
 
-        mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
+        switchSessionPlayer(incoming, requireNotNull(crossfade))
 
         // The queue moving on used to arrive here as an item transition on the
         // one player that owned the queue. It cannot any more — the incoming
@@ -4225,6 +4256,9 @@ class PlaybackService : MediaLibraryService() {
             reason = Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
             alreadyAudible = true,
         )
+        // A blended advance never reaches the listener-driven prune above: do
+        // it here so consumed USER_QUEUE rows cannot be replayed by repeat-all.
+        QueueCoordinator.consumePlayedUserQueue(incoming)
 
         // A crossfade starts the incoming item on the player that was idle, so
         // it never delivers onMediaItemTransition to playbackListener. Keep
@@ -4519,7 +4553,7 @@ class PlaybackService : MediaLibraryService() {
         // moment the track the user meant has finished. REPEAT counts
         // too, or the timer would never fire with repeat-one on.
         if (ended && SleepTimer.afterTrack.value) {
-            exoPlayer.pause()
+            pauseActiveForSleep()
             SleepTimer.cancel()
         }
         if (exoPlayer.isPlaying) registerCurrentPlay()
@@ -6825,7 +6859,7 @@ class PlaybackService : MediaLibraryService() {
         val context = boundedContextRegistry.snapshot() ?: return
         val source = boundedContextSource ?: return
         if (context.contextToken != boundedContextToken || context.songs.isEmpty()) return
-        val currentIndex = player.currentMediaItemIndex.coerceIn(0, player.mediaItemCount - 1)
+        val currentIndex = safeCurrentIndex(player.currentMediaItemIndex, player.mediaItemCount)
         val range = LastPlayed.window(player.mediaItemCount, currentIndex)
         if (range.isEmpty()) return
         val entries = range.map { index ->
@@ -6994,8 +7028,14 @@ class PlaybackService : MediaLibraryService() {
      * play right up to the moment it is released.
      */
     private fun publishWidgetState(playing: Boolean? = null) {
-        val exoPlayer = player ?: return
-        val song = exoPlayer.currentMediaItem?.toSong() ?: return
+        val exoPlayer = player
+        val song = exoPlayer?.currentMediaItem?.toSong()
+        if (song == null) {
+            // Clearing the queue is a real state: do not leave the launcher
+            // and the watch showing the last track's controls forever.
+            MediaWidgetSnapshot.save(this, MediaWidgetSnapshot.EMPTY)
+            return
+        }
         // LikeState only knows ratings this process has seen: a fresh service
         // started from the widget or a restart has none until something seeds
         // it. Unknown is not "not liked", so keep what was last published for
@@ -7448,6 +7488,14 @@ class PlaybackService : MediaLibraryService() {
      * `collectLatest` is what makes re-setting the timer work: the pending wait
      * is cancelled and restarted on the new deadline instead of both firing.
      */
+    /**
+     * Pauses through the session wrapper, so a sleep timer stops whichever
+     * destination is actually sounding: the phone, Cast, or the watch.
+     */
+    private fun pauseActiveForSleep() {
+        sleepPauseTarget(mediaSession?.player, player)?.pause()
+    }
+
     private fun watchSleepTimer() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
@@ -7479,7 +7527,7 @@ class PlaybackService : MediaLibraryService() {
                         }
                     }
 
-                    player?.pause()
+                    pauseActiveForSleep()
                     SleepTimer.cancel()
                 } finally {
                     faded?.volume = 1f
@@ -7925,13 +7973,11 @@ class PlaybackService : MediaLibraryService() {
         val newCrossfade = createCrossfadeController()
         crossfade = newCrossfade
         newCrossfade.start()
-        mediaSession?.player = newSessionPlayer(newActive, newCrossfade)
+        switchSessionPlayer(newActive, newCrossfade)
         applyOutputRoute()
         if (items.isNotEmpty()) newActive.prepare()
-        newActive.playWhenReady = playWhenReady
-
-        oldActive.release()
-        oldSpare.release()
+        // Retire both old focus owners before the new one starts playing.
+        retireThenStart(oldActive, oldSpare, newActive, playWhenReady)
         TrackLog.i(
             "AUDIO_OUT",
             "live output switch: ${if (enableFloat) "PCM_FLOAT" else "PCM_16BIT"}",
@@ -9898,8 +9944,14 @@ class PlaybackService : MediaLibraryService() {
             // 1. If player currently holds items in its queue, resume from it
             val activePlayer = player
             if (activePlayer != null && activePlayer.mediaItemCount > 0) {
-                val currentItems = (0 until activePlayer.mediaItemCount).map { activePlayer.getMediaItemAt(it) }
-                val startIndex = activePlayer.currentMediaItemIndex.coerceIn(0, currentItems.size - 1)
+                // A head unit gets the same bounded window used for queue
+                // restoration, not a multi-megabyte Binder payload of thousands
+                // of fully-described MediaItems.
+                val count = activePlayer.mediaItemCount
+                val currentIndex = activePlayer.currentMediaItemIndex.coerceIn(0, count - 1)
+                val window = LastPlayed.window(count, currentIndex)
+                val currentItems = window.map { activePlayer.getMediaItemAt(it) }
+                val startIndex = currentIndex - window.first
                 val startPositionMs = activePlayer.currentPosition.coerceAtLeast(0L)
                 return@future MediaSession.MediaItemsWithStartPosition(
                     ImmutableList.copyOf(currentItems),
@@ -10875,3 +10927,20 @@ internal fun lyricsSettingChanges(
 ): Flow<List<Any>> = combine(synced, sources, order, prioritizeSyllableSync) { s, src, o, p ->
     listOf(s, src, o, p)
 }.distinctUntilChanged()
+
+/** The session wrapper when present, because it routes pause to the active speaker. */
+internal fun sleepPauseTarget(sessionPlayer: Player?, localPlayer: Player?): Player? = sessionPlayer ?: localPlayer
+
+/** A valid index even when the player is empty. */
+internal fun safeCurrentIndex(current: Int, count: Int): Int =
+    if (count <= 0) 0 else current.coerceIn(0, count - 1)
+
+/** Version swaps are local-only; a remote speaker would be left playing the old cut. */
+internal fun shouldDeferVersionSwap(remoteSpeakerActive: Boolean): Boolean = remoteSpeakerActive
+
+/** Releases old focus owners before starting the replacement player. */
+internal fun retireThenStart(oldActive: ExoPlayer, oldSpare: ExoPlayer, newActive: ExoPlayer, playWhenReady: Boolean) {
+    oldActive.release()
+    oldSpare.release()
+    newActive.playWhenReady = playWhenReady
+}

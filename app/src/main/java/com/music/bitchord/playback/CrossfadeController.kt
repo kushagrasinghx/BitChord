@@ -37,6 +37,7 @@ import com.music.bitchord.playback.smart.echoTailSeconds
 import com.music.bitchord.playback.smart.planTransition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -756,15 +757,17 @@ class CrossfadeController(
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // Something replaced the queue out from under the fade — a new
+            // album, a new search result — or the user seeked, so the tail
+            // still playing is a leftover of a session that no longer exists.
+            // This does *not* fire when AutoPlay appends to the end, since the
+            // playing item doesn't change: extending the queue mid-fade is
+            // harmless and shouldn't cost the listener the blend.
+            if (shouldBailOnTransition(reason)) {
+                bail()
+                return
+            }
             when (reason) {
-                // Something replaced the queue out from under the fade — a new
-                // album, a new search result — so the tail still playing is a
-                // leftover of a session that no longer exists. Note that this
-                // does *not* fire when AutoPlay appends to the end, since the
-                // playing item doesn't change: extending the queue mid-fade is
-                // harmless and shouldn't cost the listener the blend.
-                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> bail()
-                Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> bail()
                 Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> {
                     cancelAutoMixVisual()
                     ranOutBeforeHandoff()
@@ -834,7 +837,7 @@ class CrossfadeController(
      * attached there would read that as the queue being replaced out from under
      * the very transition it is setting up.
      */
-    private fun listenTo(target: ExoPlayer) {
+    internal fun listenTo(target: ExoPlayer) {
         if (listeningTo === target) return
         listeningTo?.removeListener(listener)
         target.addListener(listener)
@@ -1099,6 +1102,9 @@ class CrossfadeController(
         }
 
         if (configuredFadeMs() <= 0L) return
+        // Repeat-all over a one-item queue resolves "next" to the current item:
+        // blending it would be the same recording played against itself.
+        if (isSelfTransition(player.currentMediaItemIndex, player.nextMediaItemIndex)) return
         val fade = fadeFor(duration)
         if (fade <= 0L) return
 
@@ -1142,6 +1148,8 @@ class CrossfadeController(
         val currentItem = player.currentMediaItem ?: return
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
+        // One-item repeat-all: "next" is the song already playing, never a pair.
+        if (isSelfTransition(player.currentMediaItemIndex, nextIndex)) return
         val nextItem = player.getMediaItemAt(nextIndex)
         // Even a manual catalogue match is still video-origin. AutoMix's
         // analysis and cueing are deliberately never applied to either side
@@ -1522,13 +1530,16 @@ class CrossfadeController(
         outgoingItemIndex = out.currentMediaItemIndex
 
         val t0 = SystemClock.elapsedRealtimeNanos()
-        val items = (0 until out.mediaItemCount).map { out.getMediaItemAt(it) }
-        val copyDurationUs = (SystemClock.elapsedRealtimeNanos() - t0) / 1000L
-        queuedItemCount = items.size
-        val perTrackUs = if (items.isNotEmpty()) copyDurationUs.toDouble() / items.size else 0.0
+        val reused = StandbyQueueTransfer.prepare(out, into, nextIndex, incomingCueTimeMs)
+        val transferDurationUs = (SystemClock.elapsedRealtimeNanos() - t0) / 1000L
+        queuedItemCount = out.mediaItemCount
         Log.d(
             TAG,
-            "begin() queue copy: ${items.size} tracks in ${copyDurationUs}µs (${String.format(java.util.Locale.US, "%.2f", perTrackUs)}µs/track)",
+            if (reused) {
+                "begin() standby queue reused: ${out.mediaItemCount} tracks in ${transferDurationUs}µs"
+            } else {
+                "begin() queue transfer: ${out.mediaItemCount} tracks in ${transferDurationUs}µs"
+            },
         )
 
         Log.d(
@@ -1553,25 +1564,23 @@ class CrossfadeController(
         // fight each other. Undone in [finish].
         into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
         into.volume = 0f
-        val setNanos0 = SystemClock.elapsedRealtimeNanos()
-        into.setMediaItems(items, nextIndex, incomingCueTimeMs)
-        val setDurationUs = (SystemClock.elapsedRealtimeNanos() - setNanos0) / 1000L
-        Log.d(TAG, "standby setMediaItems: ${items.size} tracks in ${setDurationUs}µs")
         // Before `prepare`, so the standby's per-player audio state is right
         // for the incoming track from its very first decoded frame rather than
         // from the handoff, which is half a blend too late.
-        items.getOrNull(nextIndex)?.let { item ->
-            val after = into.nextMediaItemIndex
-            val afterId = if (after == C.INDEX_UNSET) null else items.getOrNull(after)?.mediaId
-            onArmIncoming(item, afterId)
-        }
+        val inItem = out.getMediaItemAt(nextIndex)
+        val after = into.nextMediaItemIndex
+        val afterId = if (after in 0 until out.mediaItemCount) out.getMediaItemAt(after).mediaId else null
+        onArmIncoming(inItem, afterId)
         // Buffers without sounding. Started for real in [startFade].
         into.playWhenReady = false
         into.prepare()
         if (smart && plan != null) {
-            val outItem = items.getOrNull(outgoingItemIndex)
-            val inItem = items.getOrNull(nextIndex)
-            if (outItem != null && inItem != null) {
+            val outItem = if (outgoingItemIndex in 0 until out.mediaItemCount) {
+                out.getMediaItemAt(outgoingItemIndex)
+            } else {
+                null
+            }
+            if (outItem != null) {
                 val outDuration = out.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
                 val geometry = mixGeometry()
                 prefetchMixWaves(
@@ -1583,8 +1592,12 @@ class CrossfadeController(
 
         phase = Phase.ARMING
         if (smart) {
-            armAutoMixVisual(out, into, nextIndex, items)
-            items.getOrNull(nextIndex)?.let(onArmAutoMixIncoming)
+            // The AutoMix visual keeps the queue it was armed against, so it
+            // needs its own snapshot; the plain crossfade above no longer
+            // copies the queue at every boundary.
+            val snapshot = List(out.mediaItemCount) { out.getMediaItemAt(it) }
+            armAutoMixVisual(out, into, nextIndex, snapshot)
+            onArmAutoMixIncoming(inItem)
         }
         return true
     }
@@ -2123,6 +2136,9 @@ class CrossfadeController(
         wantOut: Boolean = true,
         wantIn: Boolean = true,
     ) {
+        // Waveforms exist only for the mix view/preview. Decoding both decks
+        // for a popup nobody opens wastes two cache reads on every boundary.
+        if (!shouldPrefetchMixWaves(AppSettings.smartMixView.value, AppSettings.smartMixPreview.value)) return
         val span = (outEnd - outStart).coerceAtLeast(0.5)
         val pad = span * MIX_VIEW_CONTEXT + MIX_PREFETCH_PAD_SECONDS
         val outFrom = (outStart - pad).coerceAtLeast(0.0)
@@ -2972,10 +2988,7 @@ class CrossfadeController(
 
     /** Frees the renderer once the retired sink is certain to have stopped calling it. */
     private fun closeLater(renderer: LoopMixRenderer) {
-        scope.launch {
-            delay(LOOP_RENDERER_CLOSE_DELAY_MS)
-            renderer.close()
-        }
+        closeLoopRendererLater(scope, LOOP_RENDERER_CLOSE_DELAY_MS, renderer)
     }
 
     // ---- Stats for nerds ----------------------------------------------------
@@ -3186,7 +3199,9 @@ class CrossfadeController(
      */
     private fun retire(player: ExoPlayer) {
         player.stop()
-        player.clearMediaItems()
+        // Keep the retired timeline so the next transition can reuse it when it
+        // still matches the active queue. StandbyQueueTransfer validates every
+        // item before reuse and falls back to a full transfer on any mismatch.
         // This is the next transition's incoming player, and from its handoff
         // the session: a hold left on it would pause every track at its end.
         player.pauseAtEndOfMediaItems = false
@@ -3951,10 +3966,8 @@ class CrossfadeController(
     }
 
     /** See [onBlendHeadroom]. */
-    private fun headroomFor(incomingGain: Float, outgoingGain: Float): Float {
-        val sum = incomingGain + outgoingGain
-        return if (sum <= 1f) 1f else 1f / kotlin.math.sqrt(sum)
-    }
+    private fun headroomFor(incomingGain: Float, outgoingGain: Float): Float =
+        crossfadeHeadroom(incomingGain, outgoingGain)
 
     // There is deliberately no second, equal-gain pair here any more. It existed
     // for the handoff of a track from one player to the other, where the two
@@ -4435,5 +4448,45 @@ class CrossfadeController(
 
         /** A retired sink has long stopped rendering by then. */
         const val LOOP_RENDERER_CLOSE_DELAY_MS = 1_500L
+    }
+}
+
+/**
+ * Shared trim for two tracks overlapping.
+ *
+ * Equal-power faders assume uncorrelated material. DJ bass-swap curves can
+ * hold both faders at 1.0, and correlated bass then sums coherently, so
+ * `1/sqrt(sum)` still permits ~1.19 full scale and hard clipping. Dividing by
+ * the gain sum guarantees the pair cannot exceed full scale for any
+ * correlation; it costs at most the extra trim at the overlap.
+ */
+internal fun crossfadeHeadroom(incomingGain: Float, outgoingGain: Float): Float {
+    val sum = incomingGain.coerceAtLeast(0f) + outgoingGain.coerceAtLeast(0f)
+    return if (sum <= 1f) 1f else 1f / sum
+}
+
+/**
+ * A queue replacement or seek changes what the incoming item is, so the standby
+ * copy is no longer a valid tail and the blend must be dropped. AutoPlay's
+ * append does not change the playing item and is reconciled instead.
+ */
+internal fun shouldBailOnTransition(reason: Int): Boolean =
+    reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED ||
+        reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
+
+/** True when the transition would pair the current item with itself. */
+internal fun isSelfTransition(currentIndex: Int, nextIndex: Int): Boolean = currentIndex == nextIndex
+
+/** Whether any surface can show a mix waveform, making prefetch worthwhile. */
+internal fun shouldPrefetchMixWaves(view: Any?, preview: Any?): Boolean = view != null || preview != null
+
+/**
+ * Closes a native renderer after a delay even when the service scope that
+ * scheduled it is cancelled: otherwise nativeDestroy never runs on teardown.
+ */
+internal fun closeLoopRendererLater(scope: CoroutineScope, delayMs: Long, renderer: AutoCloseable) {
+    CoroutineScope(scope.coroutineContext + NonCancellable).launch {
+        delay(delayMs)
+        renderer.close()
     }
 }

@@ -1,7 +1,10 @@
 package com.music.bitchord.playback
 
+import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
+import java.lang.reflect.Proxy
 
 class SleepTimerTest {
 
@@ -41,5 +44,28 @@ class SleepTimerTest {
         assertEquals(0.25f, SleepTimer.calculateFadeVolume(7_500L, fadeOutEnabled = true), 0.001f)
         assertEquals(0.0f, SleepTimer.calculateFadeVolume(0L, fadeOutEnabled = true), 0.001f)
         assertEquals(0.0f, SleepTimer.calculateFadeVolume(-100L, fadeOutEnabled = true), 0.001f)
+    }
+
+    private fun fakePlayer(): Player = Proxy.newProxyInstance(
+        Player::class.java.classLoader,
+        arrayOf(Player::class.java),
+    ) { _, _, _ -> null } as Player
+
+    @Test
+    fun `sleep pause uses the session wrapper when one exists`() {
+        val session = fakePlayer()
+        val local = fakePlayer()
+        assertSame(session, sleepPauseTarget(session, local))
+    }
+
+    @Test
+    fun `sleep pause falls back to the local player without a session`() {
+        val local = fakePlayer()
+        assertSame(local, sleepPauseTarget(null, local))
+    }
+
+    @Test
+    fun `sleep pause tolerates a torn-down service`() {
+        assertEquals(null, sleepPauseTarget(null, null))
     }
 }

@@ -123,6 +123,34 @@ func TestRESTEndpoints(t *testing.T) {
 	}
 }
 
+func TestCreateUsesConfiguredPartySize(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+	defer func(saved int) { config.MaxMembers = saved }(config.MaxMembers)
+	config.MaxMembers = 3
+
+	create := func(body map[string]interface{}) float64 {
+		b, _ := json.Marshal(body)
+		res, err := http.Post(ts.URL+"/api/parties", "application/json", bytes.NewReader(b))
+		if err != nil || res.StatusCode != http.StatusCreated {
+			t.Fatalf("POST /api/parties failed: %v", err)
+		}
+		defer res.Body.Close()
+		var created map[string]interface{}
+		_ = json.NewDecoder(res.Body).Decode(&created)
+		return created["party"].(map[string]interface{})["maxMembers"].(float64)
+	}
+
+	// A client that names no size (the web player) gets JAM_MAX_MEMBERS.
+	if got := create(map[string]interface{}{"userId": "u1", "deviceId": "d1", "displayName": "Host"}); got != 3 {
+		t.Fatalf("expected the configured size 3, got %v", got)
+	}
+	// A size the client asks for still wins.
+	if got := create(map[string]interface{}{"userId": "u2", "deviceId": "d2", "displayName": "Host", "maxMembers": 8}); got != 8 {
+		t.Fatalf("expected the requested size 8, got %v", got)
+	}
+}
+
 func TestWebSocketFlow(t *testing.T) {
 	ts := setupTestServer()
 	defer ts.Close()

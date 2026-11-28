@@ -1,4 +1,4 @@
-import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { ArrowUpRight, ListMusic, MonitorDown, RefreshCw, Settings } from 'lucide-react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
@@ -21,6 +21,7 @@ import { useLibraryPlaylists, useSignedIn } from '@/data/music/queries';
 import { useSpotifyPlaylists } from '@/data/spotify/queries';
 import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
+import { install, usePwa } from '@/pwa/pwa';
 import { useUi } from '@/state/ui';
 import { AccountButton } from './AccountButton';
 
@@ -138,6 +139,8 @@ export function Sidebar() {
   const drawerOpen = useUi((s) => s.drawerOpen);
   const setDrawerOpen = useUi((s) => s.setDrawerOpen);
   const update = useExtensionUpdate();
+  const canInstall = usePwa((s) => s.canInstall);
+  const applyUpdate = usePwa((s) => s.applyUpdate);
   const signedIn = useSignedIn();
   const spotifySignedIn = useSpotifySignedIn();
   const close = () => setDrawerOpen(false);
@@ -163,6 +166,22 @@ export function Sidebar() {
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
         </div>
         <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5">
+          {applyUpdate && (
+            <button type="button" className={`${item} text-start`} onClick={applyUpdate}>
+              <span className={icon}>
+                <RefreshCw size={17} strokeWidth={1.9} />
+              </span>
+              <span className={navLabel}>Reload to update BitChord</span>
+            </button>
+          )}
+          {canInstall && (
+            <button type="button" className={`${item} text-start`} onClick={() => void install()}>
+              <span className={icon}>
+                <MonitorDown size={17} strokeWidth={1.9} />
+              </span>
+              <span className={navLabel}>Install app</span>
+            </button>
+          )}
           <PrefetchNavLink to="/extension" className={item} onClick={close}>
             {/* Chrome's own toolbar glyph for extensions (Material "extension"). */}
             <span className={icon}>

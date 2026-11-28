@@ -8,8 +8,7 @@ package com.music.bitchord.data.lyrics
  * (feat. JENNIE)" is filed by Apple, LRCLIB and everyone else as "Dracula", and
  * asked for verbatim it misses all of them — which is exactly how a track ends
  * up answered by whichever source happened to clean the title on its own
- * ([PaxSenix] was the only one that did) regardless of the order the user put
- * their sources in.
+ * regardless of the order the user put their sources in.
  *
  * ### What is taken off, and what is deliberately left on
  *

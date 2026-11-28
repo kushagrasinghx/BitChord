@@ -13,7 +13,7 @@ Prompt §10. Our providers decide the lyrics; **am-lyrics renders them, unmodifi
 | `parse.ts` | `TtmlLyrics.kt`, `EnhancedLrc.kt`, `LrcLib.parseLrc`, `KaraokeLrc`, `ProviderLyrics.kt` |
 | `providers.ts` | every provider file |
 | `repository.ts` | `LyricsRepository.kt` (the race) |
-| `settings.ts` | the desktop's lyric settings (order, on/off, prefer syllables, PaxSenix key) |
+| `settings.ts` | the desktop's lyric settings (order, on/off, prefer syllables) |
 | `clock.ts` | `LyricClock.kt`, verbatim |
 | `ttml.ts` | writes TTML from lines, for am-lyrics |
 
@@ -29,10 +29,10 @@ The race, as on the phone:
 
 | Host | CORS | Route |
 |---|---|---|
-| lrc.red (search and `/s/{isrc}.ttml`), lyrics-api.binimum.org (307 to lrc.red, both `*`), lyrics.paxsenix.org, lrclib.net | `*` | direct |
+| lrc.red (search and `/s/{isrc}.ttml`), lyrics-api.binimum.org (307 to lrc.red, both `*`), lrclib.net | `*` | direct |
 | lyricsplus.prjktla.my.id, lyricsplus.binimum.org (the only LyricsPlus mirrors left; atomix.one, `.workers.dev` and both `.vercel.app` were dead on 2026-10-17 and dropped) | `*` | direct |
 | lyrics-api.boidu.dev, unison.boidu.dev | echoes `localhost` only | direct, falling back to the extension elsewhere |
-| KuGou, Musixmatch, Genius, music.apple.com and amp-api (PaxSenix's Apple search), api.paxsenix.org | none | extension |
+| KuGou, Genius, music.apple.com and amp-api (Apple artist/motion art) | none | extension |
 | translate.googleapis.com (am-lyrics' translation) | `*` | direct |
 
 How the extension route works:
@@ -43,7 +43,6 @@ How the extension route works:
 - The grant happens in the extension's tab, so when BitChord's tab comes back (focus or visibility) the app asks `lyrics.permissions` about the refused hosts. Any that are allowed now leave the notice, the lyric cache is dropped, and the lookup runs again.
 - Session rules give the extension's own requests:
   - Apple's Origin, for `amp-api`.
-  - Musixmatch's `mxm_bab=AB` cookie.
 
 ## Rendering
 
@@ -78,5 +77,5 @@ Playwright Chromium and stock Firefox, with the extension:
 
 ## Not done or not verified
 
-- The extension-only providers (KuGou, Musixmatch, Genius, PaxSenix's Apple search) end to end: granting needs a real click on the browser's permission prompt, which the headless harness can't give. Only the refusal path (`permission`, then the Allow offer) was seen.
+- The extension-only providers (KuGou, Genius) end to end: granting needs a real click on the browser's permission prompt, which the headless harness can't give. Only the refusal path (`permission`, then the Allow offer) was seen.
 - Choosing a translation language other than English.

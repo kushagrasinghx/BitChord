@@ -13,16 +13,11 @@ import { getBridge } from '@/extension/bridge';
  *   that send no CORS headers or need headers a page can't set.
  */
 
-/** Hosts the page can't reach itself: KuGou, Musixmatch, Genius and Apple's catalogue (for PaxSenix). */
+/** Hosts the page can't reach itself: KuGou, Genius, BetterLyrics and Unison. */
 export const LYRIC_EXTENSION_ORIGINS = [
   'https://mobileservice.kugou.com',
   'https://lyrics.kugou.com',
-  'https://apic.musixmatch.com',
-  'https://www.musixmatch.com',
   'https://genius.com',
-  'https://music.apple.com',
-  'https://amp-api.music.apple.com',
-  'https://api.paxsenix.org',
   'https://lyrics-api.boidu.dev',
   'https://unison.boidu.dev',
 ];
@@ -68,8 +63,6 @@ if (typeof window !== 'undefined') {
 export interface GetOptions {
   route?: 'direct' | 'extension';
   headers?: Record<string, string>;
-  /** Longer deadline for authenticated routes that look things up upstream (PaxSenix). */
-  patient?: boolean;
 }
 
 async function viaExtension(url: string, headers: Record<string, string> | undefined): Promise<string | null> {
@@ -95,12 +88,12 @@ async function viaExtension(url: string, headers: Record<string, string> | undef
   }
 }
 
-export async function lyricsGet(url: string, { route = 'direct', headers, patient }: GetOptions = {}): Promise<string | null> {
+export async function lyricsGet(url: string, { route = 'direct', headers }: GetOptions = {}): Promise<string | null> {
   if (route === 'extension') return viaExtension(url, headers);
   try {
     const response = await fetch(url, {
       headers: { Accept: 'application/json, text/plain, */*', ...headers },
-      signal: AbortSignal.timeout(patient ? EXTENSION_TIMEOUT_MS : DIRECT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(DIRECT_TIMEOUT_MS),
       referrerPolicy: 'no-referrer',
     });
     return response.ok ? await response.text() : null;

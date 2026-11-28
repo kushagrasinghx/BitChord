@@ -24,12 +24,6 @@ const RULES = [
       { header: 'Referer', operation: 'set', value: 'https://music.apple.com/' },
     ],
   },
-  {
-    // Musixmatch's web client and the signing key it carries (Musixmatch.kt's browserGet).
-    id: 201,
-    urlFilter: '||musixmatch.com/',
-    headers: [{ header: 'Cookie', operation: 'set', value: 'mxm_bab=AB' }],
-  },
 ] as const;
 
 let rulesReady: Promise<void> | null = null;

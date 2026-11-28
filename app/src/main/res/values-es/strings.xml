@@ -1249,12 +1249,6 @@
     </plurals>
     <string name="party_queue_full">La cola está llena (máximo %d canciones en la fiesta)</string>
 
-    <string name="paxsenix_api_key">PaxSenix API key</string>
-
-    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
-
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
-
 
 
 

@@ -86,7 +86,7 @@ export interface LookupOptions {
 export async function lookupLyrics(track: LyricsTrack, { only, onSource }: LookupOptions = {}): Promise<LyricsResult | null> {
   const sequence = only ? [only] : enabledSources();
   if (!sequence.length) return null;
-  const { paxsenixKey, preferSyllables } = useLyricsSettings.getState();
+  const { preferSyllables } = useLyricsSettings.getState();
   // preferSyllables picks a different winner from the same answers, so it is part of the key.
   const key = `${track.videoId}|${track.durationMs}|${track.title}|${track.artist}|${only ?? ''}|${sequence.join(',')}|${preferSyllables}`;
   const cached = cache.get(key);
@@ -132,12 +132,6 @@ export async function lookupLyrics(track: LyricsTrack, { only, onSource }: Looku
         return providers.betterLyrics(query);
       case 'better-lyrics-portato':
         return providers.betterLyricsPortato(query);
-      case 'paxsenix':
-        return providers.paxSenix(query);
-      case 'paxsenix-spotify':
-        return providers.paxSenixSpotify(query, paxsenixKey);
-      case 'paxsenix-musixmatch':
-        return providers.paxSenixMusixmatch(query, paxsenixKey);
       case 'lyrics-plus':
         return providers.lyricsPlus(query);
       case 'unison':
@@ -150,8 +144,6 @@ export async function lookupLyrics(track: LyricsTrack, { only, onSource }: Looku
         return providers.kugou(query);
       case 'lrclib':
         return providers.lrclib(query);
-      case 'musixmatch':
-        return providers.musixmatch(query);
       case 'genius':
         return providers.genius(query);
     }

@@ -1,6 +1,6 @@
 /**
- * Lyric providers the page can't reach itself (prompt §10.1): hosts that send
- * no CORS headers (KuGou, Musixmatch, Genius, Apple's catalogue search), and
+ * Lyric providers and Apple artwork hosts the page can't reach itself: hosts
+ * that send no CORS headers (KuGou, Genius, Apple's catalogue search), and
  * a fallback for the ones that only allow some origins (BetterLyrics allows
  * localhost but not an arbitrary production domain).
  *
@@ -14,8 +14,6 @@ export const LYRIC_ORIGINS = [
   'https://lyrics-api.binimum.org',
   'https://lyrics-api.boidu.dev',
   'https://unison.boidu.dev',
-  'https://lyrics.paxsenix.org',
-  'https://api.paxsenix.org',
   'https://lyricsplus.prjktla.my.id',
   'https://lyricsplus.atomix.one',
   'https://lyricsplus.binimum.org',
@@ -25,8 +23,6 @@ export const LYRIC_ORIGINS = [
   'https://lrclib.net',
   'https://mobileservice.kugou.com',
   'https://lyrics.kugou.com',
-  'https://apic.musixmatch.com',
-  'https://www.musixmatch.com',
   'https://genius.com',
   'https://music.apple.com',
   'https://amp-api.music.apple.com',

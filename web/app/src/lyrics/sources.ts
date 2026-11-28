@@ -8,16 +8,12 @@ export const LYRICS_SOURCES = [
   { id: 'bini', label: 'BiniLyrics', detail: 'The same Apple timings, matched on the recording itself', wordSynced: true },
   { id: 'better-lyrics', label: 'BetterLyrics', detail: 'Apple Music timings, word by word', wordSynced: true },
   { id: 'better-lyrics-portato', label: 'BetterLyrics Portato', detail: 'QQ Music karaoke timings through BetterLyrics', wordSynced: true },
-  { id: 'paxsenix', label: 'PaxSenix', detail: 'Apple Music timings through the original keyless provider', wordSynced: true },
-  { id: 'paxsenix-spotify', label: 'PaxSenix: Spotify', detail: 'Spotify lyrics with PaxSenix fallback; API key required', wordSynced: false },
-  { id: 'paxsenix-musixmatch', label: 'PaxSenix: Musixmatch', detail: 'Musixmatch timings with PaxSenix fallback; API key required', wordSynced: true },
   { id: 'lyrics-plus', label: 'LyricsPlus', detail: 'Syllable by syllable, on community mirrors', wordSynced: true },
   { id: 'unison', label: 'Unison', detail: 'Contributed by listeners, so it has what nobody licensed', wordSynced: true },
   { id: 'youtube-captions', label: 'YouTube captions', detail: 'Timed captions matched to the exact playing video', wordSynced: false },
   { id: 'youtube-music', label: 'YouTube Music', detail: 'Timed lyrics from the playing video’s Lyrics tab', wordSynced: false },
   { id: 'kugou', label: 'KuGou', detail: 'Whole lines, strong outside the English catalogue', wordSynced: false },
   { id: 'lrclib', label: 'LRCLIB', detail: 'Whole lines only, and always up', wordSynced: false },
-  { id: 'musixmatch', label: 'Musixmatch', detail: 'Whole lines, from the biggest lyrics database there is', wordSynced: false },
   { id: 'genius', label: 'Genius', detail: 'Plain text fallback, massive web catalogue', wordSynced: false },
 ] as const;
 

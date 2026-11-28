@@ -19,14 +19,14 @@ import java.util.concurrent.ConcurrentHashMap
  *
  *  - [LrcRed] — Apple Music TTML filed by ISRC, and the catalogue
  *    [BiniLyrics] itself answers from.
- *  - [BetterLyrics], [PaxSenix] and [BiniLyrics] — Apple Music TTML,
- *    per-syllable, from three independent hosts so one having a bad day
+ *  - [BetterLyrics] and [BiniLyrics] — Apple Music TTML,
+ *    per-syllable, from independent hosts so one having a bad day
  *    doesn't cost the timing.
  *  - [LyricsPlus] — the YouLy+ backend; finest timing of the lot, flakiest hosting.
  *  - [SimpMusicLyrics] — keyed on the video id, so it can't fetch the wrong edit.
  *  - [Unison] — contributed rather than licensed; thin, and occasionally the
  *    only place a track exists.
- *  - [LrcLib], [Musixmatch], [KuGou] — line-synced only, but between them
+ *  - [LrcLib], [KuGou] — line-synced only, but between them
  *    almost always up, and [KuGou] carries a lot that the others don't.
  *
  * Every enabled source is asked *at the same time*, but their answers are
@@ -224,10 +224,6 @@ object LyricsRepository {
             LyricsSource.YOUTUBE_TRANSCRIPT -> YouTubeTranscriptLyrics.lyrics(videoId)
             LyricsSource.YOUTUBE_MUSIC -> YouTubeMusicLyrics.lyrics(videoId)
             LyricsSource.LRCLIB -> LrcLib.lyrics(title, artist, durationMs)
-            LyricsSource.MUSIXMATCH -> Musixmatch.lyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX -> PaxSenix.lyrics(title, artist, durationMs, album)
-            LyricsSource.PAXSENIX_SPOTIFY -> PaxSenix.spotifyLyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX_MUSIXMATCH -> PaxSenix.musixmatchLyrics(title, artist, durationMs)
             LyricsSource.KUGOU -> KuGou.lyrics(title, artist, durationMs, album)
             LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(title, artist)
             LyricsSource.GENIUS -> Genius.lyrics(title, artist)

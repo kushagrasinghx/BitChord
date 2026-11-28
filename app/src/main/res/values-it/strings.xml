@@ -1216,12 +1216,6 @@
     </plurals>
     <string name="party_queue_full">La coda è piena (massimo %d brani nel party)</string>
 
-    <string name="paxsenix_api_key">PaxSenix API key</string>
-
-    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
-
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
-
 
 
 

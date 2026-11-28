@@ -360,17 +360,13 @@ The default priority is the declaration order of `LyricsSource`, minus the `hidd
 2. BiniLyrics (`lyrics-api.binimum.org`): matched on the recording; source of the ISRC.
 3. BetterLyrics (`lyrics-api.boidu.dev/getLyrics`).
 4. BetterLyrics Portato (`lyrics-api.boidu.dev/qq/getLyrics`).
-5. PaxSenix (`lyrics.paxsenix.org`/`api.paxsenix.org`, with Apple catalogue search).
-6. PaxSenix: Spotify (API key required).
-7. PaxSenix: Musixmatch (API key required).
-8. LyricsPlus (community mirrors; port the mirror list and failover from `LyricsPlus.kt`).
-9. Unison (`unison.boidu.dev`).
-10. YouTube captions (timed captions for the playing video).
-11. YouTube Music (plain lyrics from the Lyrics tab).
-12. KuGou.
-13. LRCLIB.
-14. Musixmatch.
-15. Genius (plain-text fallback).
+5. LyricsPlus (community mirrors; port the mirror list and failover from `LyricsPlus.kt`).
+6. Unison (`unison.boidu.dev`).
+7. YouTube captions (timed captions for the playing video).
+8. YouTube Music (plain lyrics from the Lyrics tab).
+9. KuGou.
+10. LRCLIB.
+11. Genius (plain-text fallback).
 
 Translation and romanisation: `LyricsTranslation.kt` and `TranslationLanguages.kt`.
 

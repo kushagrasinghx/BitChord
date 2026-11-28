@@ -411,7 +411,7 @@
     <string name="artist_signatures_test_failed">Could not reach the API at that URL</string>
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
-    <string name="hide_lyrics_preview">Hide lyrics</string>
+    <string name="hide_lyrics_preview">Hide Lyrics Preview</string>
     <string name="hide_lyrics_preview_subtitle">Hides the lyrics line on the main player screen</string>
     <string name="lyrics_sources">Lyrics sources</string>
     <string name="song_cache_limit">Song cache limit</string>
@@ -669,9 +669,6 @@
     <string name="listenbrainz_token_description">Paste your ListenBrainz user token to enable scrobbling.</string>
     <string name="listening_history">Listening history</string>
     <string name="lyrics_sources_order">Sources are tried in this order. Drag to reorder them. The first source with lyrics wins unless syllable lyrics are prioritized.</string>
-    <string name="paxsenix_api_key">PaxSenix API key</string>
-    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
     <string name="max_delay">Maximum delay</string>
     <string name="max_delay_subtitle">Maximum scrobble delay in seconds</string>
     <string name="min_song_duration">Minimum song duration</string>

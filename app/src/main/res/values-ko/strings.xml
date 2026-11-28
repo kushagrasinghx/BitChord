@@ -616,9 +616,6 @@
     <string name="listenbrainz_token_description">스크로블을 켜려면 ListenBrainz 사용자 토큰을 붙여넣으세요.</string>
     <string name="listening_history">청취 기록</string>
     <string name="lyrics_sources_order">이 순서대로 소스에 접근합니다. 드래그하여 순서를 변경하세요. 음절 단위 가사를 우선으로 설정하지 않았다면 가사가 있는 첫 번째 소스를 사용합니다.</string>
-    <string name="paxsenix_api_key">PaxSenix API 키</string>
-    <string name="paxsenix_api_key_configured">PaxSenix API 키 — 설정됨</string>
-    <string name="paxsenix_api_key_missing">PaxSenix API key — 선택, 설정되지 않음</string>
     <string name="max_delay">최대 지연</string>
     <string name="max_delay_subtitle">초 단위로 최대 스크로블 지연을 설정합니다</string>
     <string name="min_song_duration">최소 곡 길이</string>

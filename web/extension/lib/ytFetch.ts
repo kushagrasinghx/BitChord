@@ -1,9 +1,8 @@
 import type { HttpResponse, YtFetchParams } from '@bitchord/shared/bridge';
 import { installExtensionFetchRule } from './rules';
 import { activeIdentity, signedFetch, SignedOutError } from './ytAuth';
+import { allowsAnonymousYtRequest } from './ytRequests';
 
-/** Where an anonymous `yt.fetch` may go: BotGuard, which a page can't call with YouTube's Origin. */
-const ALLOWED = [/^https:\/\/www\.youtube\.com\/api\/jnn\//];
 /** Where a signed one may go: InnerTube only, never an account or settings page. */
 const ALLOWED_SIGNED = [/^https:\/\/(music|www)\.youtube\.com\/youtubei\/v1\//];
 /**
@@ -44,7 +43,7 @@ function forbidden(url: string): Error {
  */
 export async function ytFetch(request: YtFetchParams): Promise<HttpResponse> {
   if (request.auth) return signedYtFetch(request);
-  if (!ALLOWED.some((pattern) => pattern.test(request.url))) throw forbidden(request.url);
+  if (!allowsAnonymousYtRequest(request.url)) throw forbidden(request.url);
   ruleReady ??= installExtensionFetchRule().catch((error: unknown) => {
     ruleReady = null;
     throw error;
@@ -55,10 +54,13 @@ export async function ytFetch(request: YtFetchParams): Promise<HttpResponse> {
     request.body === undefined ? undefined : request.bodyEncoding === 'base64' ? toBytes(request.body) : request.body;
   const response = await fetch(request.url, {
     method: request.method ?? 'GET',
-    headers: request.headers ?? {},
+    headers: Object.fromEntries(Object.entries(request.headers ?? {}).filter(([key]) => !IDENTITY_HEADERS.includes(key.toLowerCase()))),
     body: body as BodyInit | undefined,
     credentials: 'omit',
+    // Google's media servers redirect between CDN hosts; no identity headers or cookies travel with these requests.
+    redirect: new URL(request.url).hostname.endsWith('.googlevideo.com') ? 'follow' : 'error',
   });
+  if (!allowsAnonymousYtRequest(response.url)) throw forbidden(response.url);
   return serialise(response);
 }
 

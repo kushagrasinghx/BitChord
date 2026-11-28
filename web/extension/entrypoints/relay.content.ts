@@ -12,7 +12,7 @@ import {
 const RECONNECT_MS = 2000;
 
 /**
- * Firefox has no externally_connectable for web pages, so this relays the
+ * Firefox and Safari use this relay to forward the
  * page's window messages to the background and posts the answers back
  * (prompt §4.2). Chromium builds leave it out. `matches` is replaced with the
  * site origins by the manifest hook in wxt.config.ts.
@@ -22,7 +22,7 @@ const RECONNECT_MS = 2000;
  */
 export default defineContentScript({
   matches: ['http://localhost/*'],
-  include: ['firefox'],
+  include: ['firefox', 'safari'],
   runAt: 'document_start',
   main() {
     window.addEventListener('message', (event: MessageEvent) => {

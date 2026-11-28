@@ -5,7 +5,7 @@ The web player and its companion browser extension. The plan, and the decisions 
 | Package | What it is |
 |---|---|
 | `app/` | The site: Vite, React 19, TypeScript, React Router, TanStack Query, Zustand, Tailwind CSS v4 |
-| `extension/` | Manifest V3 extension for Chromium and Firefox, built with WXT |
+| `extension/` | Manifest V3 extension for Chromium, Firefox and experimental macOS Safari, built with WXT |
 | `shared/` | The page ↔ extension bridge contract and client, used by both |
 | `docs/` | `apple-music-dom.md` (the design measurements), `kira-notes.md` (how the reference YouTube web client plays), `youtube-playback.md`, `youtube-signin.md`, `queue-and-player.md`, `lyrics.md`, `spotify-and-discord.md` |
 | `fixtures/` | Real captured responses for parser tests (see its README) |
@@ -29,7 +29,7 @@ It serves on `http://localhost:5173`, and only there (`strictPort`): the extensi
 
 ## Run the extension
 
-Build both targets:
+Build all targets:
 
 ```bash
 corepack pnpm --dir web/extension build
@@ -37,6 +37,7 @@ corepack pnpm --dir web/extension build
 
 - **Chrome, Edge, Brave:** `chrome://extensions` → Developer mode → *Load unpacked* → `web/extension/.output/chrome-mv3`. The id is always `pkddffeebcmhhanjcigilehaeonkkfih`, pinned by the manifest `key` (`extension/dev-key/`), so the site finds it without configuration.
 - **Firefox:** `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `web/extension/.output/firefox-mv3/manifest.json`.
+- **Safari:** load `.output/safari-mv3` as a temporary extension. See [Safari setup, unsigned app packaging and validation status](docs/safari.md).
 
 To offer the extension as a download from the site's Extension page, package it:
 
@@ -44,16 +45,16 @@ To offer the extension as a download from the site's Extension page, package it:
 corepack pnpm --dir web/extension package
 ```
 
-This builds both targets and writes three files to `app/public/downloads/` (git-ignored):
+This builds all targets and writes four files to `app/public/downloads/` (git-ignored):
 
-- `bitchord-extension-chrome.zip` and `bitchord-extension-firefox.zip`. Each holds a single folder (`bitchord-extension-<browser>/`), so extracting it in place leaves one folder to load unpacked.
+- `bitchord-extension-chrome.zip`, `bitchord-extension-firefox.zip` and `bitchord-extension-safari.zip`. Each holds a single folder (`bitchord-extension-<browser>/`), so extracting it in place leaves one folder to load unpacked.
 - `extension.json`, with the version. The site compares it with the installed extension's version and shows **Update** in the sidebar and an update row on the Extension page when the zip is newer. Bump `version` in `extension/package.json` to publish an update.
 
-`VITE_EXTENSION_CHROME_URL`, `VITE_EXTENSION_FIREFOX_URL` and `VITE_EXTENSION_MANIFEST_URL` override those links, for example to point at store listings.
+`VITE_EXTENSION_CHROME_URL`, `VITE_EXTENSION_FIREFOX_URL`, `VITE_EXTENSION_SAFARI_URL` and `VITE_EXTENSION_MANIFEST_URL` override those links, for example to point at store listings.
 
 The toolbar icons (`extension/public/icon/`) are rendered from `app/public/favicon.svg` by `corepack pnpm --dir web/extension icons`.
 
-Then open `http://localhost:5173/extension`. It shows "Installed", with the version and the transport: **Direct** on Chromium (`externally_connectable`), **Page relay** on Firefox (content script).
+Then open `http://localhost:5173/extension`. It shows "Installed", with the version and the transport: **Direct** on Chromium (`externally_connectable`), **Page relay** on Firefox and Safari (content script).
 
 ## Configuration
 

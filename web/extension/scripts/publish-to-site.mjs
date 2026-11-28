@@ -8,7 +8,7 @@
 // Each zip holds a single folder (bitchord-extension-<browser> (<version>)/) rather than
 // loose files, so "Extract here" leaves one tidy folder to load unpacked.
 //
-//   corepack pnpm --dir web/extension package   (builds both, then runs this)
+//   corepack pnpm --dir web/extension package   (builds all targets, then runs this)
 
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -28,7 +28,7 @@ function filesUnder(dir) {
   });
 }
 
-const builds = { chrome: 'chrome-mv3', firefox: 'firefox-mv3' };
+const builds = { chrome: 'chrome-mv3', firefox: 'firefox-mv3', safari: 'safari-mv3' };
 const files = {};
 let version;
 
@@ -36,7 +36,7 @@ for (const [browser, folder] of Object.entries(builds)) {
   const root = join(output, folder);
   const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
   if (version && manifest.version !== version) {
-    throw new Error(`Chrome and Firefox builds disagree on the version (${version} vs ${manifest.version}); rebuild both`);
+    throw new Error(`Extension builds disagree on the version (${version} vs ${manifest.version}); rebuild all targets`);
   }
   version = manifest.version;
 

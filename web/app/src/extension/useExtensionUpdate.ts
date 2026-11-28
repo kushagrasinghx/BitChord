@@ -11,7 +11,7 @@ export function downloadUrl(name: string): string {
 export interface PublishedExtension {
   version: string;
   builtAt: string;
-  files: { chrome: string; firefox: string };
+  files: { chrome: string; firefox: string; safari?: string };
 }
 
 export type ExtensionUpdate =
@@ -61,6 +61,7 @@ export function useExtensionUpdate(): ExtensionUpdate {
   const extension = useExtension();
   const latest = usePublishedExtension();
   if (!latest || extension.state !== 'present') return { state: 'unknown' };
+  if (extension.extension.info.browser === 'safari' && !latest.files.safari) return { state: 'unknown' };
   const installed = extension.extension.info.version;
   return compareVersions(latest.version, installed) > 0
     ? { state: 'available', installed, latest }

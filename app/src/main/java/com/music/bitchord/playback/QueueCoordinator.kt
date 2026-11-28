@@ -129,6 +129,26 @@ object QueueCoordinator {
     ): List<Song>? = QueueTimeline.buildJumpQueue(currentTimeline, currentIndex, targetIndex)
 
     /**
+     * Plays the history row at [targetIndex] again as a fresh play: it moves up
+     * to the playhead and the playing track drops into history behind it, so
+     * everything played after it stays history and the upcoming queue is
+     * untouched. A plain backward seek would instead turn that later history
+     * back into upcoming: the queue screen files it under its old sections
+     * (Next from Search, AutoPlay) and the player plays all of it again.
+     *
+     * @return false, changing nothing, when [targetIndex] is not history.
+     */
+    fun replayFromHistory(player: Player, targetIndex: Int, positionMs: Long = 0L): Boolean {
+        val current = player.currentMediaItemIndex
+        if (targetIndex !in 0 until current || current >= player.mediaItemCount) return false
+        // Moving an earlier row past the playhead shifts the playing track to
+        // current - 1 without a transition; the seek then starts the moved row.
+        player.moveMediaItem(targetIndex, current)
+        player.seekTo(current, positionMs)
+        return true
+    }
+
+    /**
      * Executes a semantic queue jump on [player], preserving history up to [Player.getCurrentMediaItemIndex]
      * and avoiding unintended reshuffling.
      */

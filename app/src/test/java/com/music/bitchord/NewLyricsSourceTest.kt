@@ -43,6 +43,36 @@ class NewLyricsSourceTest {
         assertEquals("https://lyrics-storage.binimum.org/GBKPL2204171.ttml", hit.lyricsUrl)
     }
 
+    /**
+     * `GET https://lyrics-api.binimum.org/?track=Mockingbird&artist=Eminem&duration=251`
+     * on 2026-11-16, trimmed to the first four of 15 results. None of the 15
+     * results is Eminem's own recording.
+     */
+    private val mockingbirdSearch = """
+        {"total":15,"source":"HIT-LRC-RED","results":[
+        {"track_name":"Californication / Love the Way You Lie (feat. Rihanna) / Mockingbird (Mixed)",
+         "artist_name":"Red Hot Chili Peppers, Eminem","duration":118,"isrc":"US23A8123748",
+         "timing_type":"line","lyricsUrl":"https://lrc.red/s/US23A8123748.ttml"},
+        {"track_name":"Mockingbird (Mixed)","artist_name":"Eminem","duration":91,
+         "isrc":"US23A9015852","timing_type":"none"},
+        {"track_name":"Mockingbird","artist_name":"JULA","duration":247,"isrc":"QT6ET2622623",
+         "timing_type":"none"},
+        {"track_name":"Mockingbird (1950s Eminem)","artist_name":"The Speakeasy Rappers",
+         "duration":160,"isrc":"USANG2475706","timing_type":"none"}]}
+    """.trimIndent().replace("\n", "")
+
+    @Test
+    fun `a binilyrics hit for another recording is not taken`() {
+        val results = lyricsJson.decodeFromString<BiniLyrics.Response>(mockingbirdSearch).results!!
+        assertNull(BiniLyrics.best(results, "Mockingbird", "Eminem", 251_000))
+    }
+
+    @Test
+    fun `a binilyrics hit with the same title, artist and length is taken`() {
+        val results = lyricsJson.decodeFromString<BiniLyrics.Response>(biniSearch).results!!
+        assertEquals("GBKPL2204171", BiniLyrics.best(results, "golden hour", "JVKE", 209_000)?.isrc)
+    }
+
     @Test
     fun `a binilyrics response with no results is not a match`() {
         val response = lyricsJson.decodeFromString<BiniLyrics.Response>("""{"total":0}""")

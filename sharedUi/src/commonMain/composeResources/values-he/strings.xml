@@ -207,4 +207,6 @@
     <string name="queue_selection_remove">הסר</string>
     <string name="queue_add_all_to_playlist">הוספת הכול לפלייליסט</string>
     <string name="add_to_queue">הוסף לתור</string>
+    <string name="mixes_yours">המיקסים שלך</string>
+    <string name="mixes_none">עדיין אין מיקסים. המשיכו להאזין ו-YouTube Music ייצור עבורכם מיקסים.</string>
 </resources>

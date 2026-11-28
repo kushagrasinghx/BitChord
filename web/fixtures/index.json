@@ -263,16 +263,6 @@
       "ms": 283
     },
     {
-      "file": "lyrics/paxsenix-apple.json",
-      "url": "https://lyrics.paxsenix.org/apple-music/lyrics?id=1097861834&ttml=true",
-      "method": "GET",
-      "status": 200,
-      "contentType": "application/json",
-      "bytes": 14556,
-      "acao": "*",
-      "ms": 3322
-    },
-    {
       "file": "lyrics/simpmusic.json",
       "url": "https://api-lyrics.simpmusic.org/v1/ZVgHPSyEIqk",
       "method": "GET",

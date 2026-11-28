@@ -43,17 +43,13 @@ The **Route** column is how the web app reaches each provider:
 | 2 | BiniLyrics | `binilyrics.json` (gives `isrc` and `lyricsUrl` → lrc.red) | 200 | `*` | direct |
 | 3 | BetterLyrics | `betterlyrics.json` | 200 | echoes origin | direct |
 | 4 | BetterLyrics Portato | `betterlyrics-portato.json` | 200 | echoes origin | direct |
-| 5 | PaxSenix (Apple) | `paxsenix-apple.json` (by Apple id `1097861834`) | 200 | `*` | direct for the lyrics. The Apple id search goes to `amp-api.music.apple.com` with a token scraped from the Apple web player and `Origin: music.apple.com`: **extension** |
-| 6 | PaxSenix: Spotify | (not captured) | | | needs the user's API key |
-| 7 | PaxSenix: Musixmatch | (not captured) | | | needs the user's API key |
-| 8 | LyricsPlus | `lyricsplus-lyricsplus.prjktla.my.id.json` (first mirror that answered) | 200 | `*` | direct; the other mirrors are untested until one fails |
-| 9 | Unison | `unison.json` | 200 | echoes origin | direct |
-| 10 | YouTube captions | (captured with the player in phase 3: `get_transcript` needs a playable session) | | | extension (youtubei rules) |
-| 11 | YouTube Music lyrics tab | `youtube-music-lyrics-tab.json` (`MPLYt…` browse from `next`) | 200 | none | extension (youtubei rules) |
-| 12 | KuGou | `kugou-song-search.json` (0 hits for `"Radiohead - Let Down"`), `kugou-lyric-search.json`, `kugou-download.json` | 200 | `acsing.kugou.com` | extension |
-| 13 | LRCLIB | `lrclib-get.json`, `lrclib-search.json` | 200 | `*` | direct. It rate-limits by IP (429s during capture), so the client must back off |
-| 14 | Musixmatch | (not captured: needs a usertoken signed with a secret scraped from its web JS; capture when the provider is ported, phase 8) | | | extension |
-| 15 | Genius | `genius-search.json` | 200 | none | extension |
+| 5 | LyricsPlus | `lyricsplus-lyricsplus.prjktla.my.id.json` (first mirror that answered) | 200 | `*` | direct; the other mirrors are untested until one fails |
+| 6 | Unison | `unison.json` | 200 | echoes origin | direct |
+| 7 | YouTube captions | (captured with the player in phase 3: `get_transcript` needs a playable session) | | | extension (youtubei rules) |
+| 8 | YouTube Music lyrics tab | `youtube-music-lyrics-tab.json` (`MPLYt…` browse from `next`) | 200 | none | extension (youtubei rules) |
+| 9 | KuGou | `kugou-song-search.json` (0 hits for `"Radiohead - Let Down"`), `kugou-lyric-search.json`, `kugou-download.json` | 200 | `acsing.kugou.com` | extension |
+| 10 | LRCLIB | `lrclib-get.json`, `lrclib-search.json` | 200 | `*` | direct. It rate-limits by IP (429s during capture), so the client must back off |
+| 11 | Genius | `genius-search.json` | 200 | none | extension |
 | — | SimpMusic (hidden) | `simpmusic.json` | 403 | none | extension |
 | — | Google Translate | `google-translate.json` (429) | 429 | none on the 429 | the script got 429 on every run while plain curl got 200; possibly the `Origin` header. Re-check in phase 8 |
 

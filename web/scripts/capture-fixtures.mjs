@@ -223,13 +223,7 @@ async function lyrics() {
   await capture('lyrics/betterlyrics.json', q('https://lyrics-api.boidu.dev/getLyrics', better), { headers: json });
   await capture('lyrics/betterlyrics-portato.json', q('https://lyrics-api.boidu.dev/qq/getLyrics', better), { headers: json });
 
-  // 5. PaxSenix public Apple route, by Apple track id. (The app resolves the
-  // id through amp-api.music.apple.com with a token scraped from the Apple web
-  // player; that search needs Origin music.apple.com, so it is extension-only.)
-  await capture('lyrics/paxsenix-apple.json', q('https://lyrics.paxsenix.org/apple-music/lyrics', { id: t.appleId, ttml: 'true' }), { headers: json });
-  // 6–7. PaxSenix Spotify/Musixmatch need the user's API key: not captured.
-
-  // 8. LyricsPlus: first mirror that answers.
+  // 5. LyricsPlus: first mirror that answers.
   for (const host of [
     'https://lyricsplus.prjktla.my.id',
     'https://lyricsplus.atomix.one',
@@ -277,10 +271,7 @@ async function lyrics() {
     track_name: t.title, artist_name: t.artist,
   }), { headers: lrclib });
 
-  // 14. Musixmatch needs a signed usertoken (secret scraped from its web JS):
-  //     captured when the provider is ported in phase 8.
-
-  // 15. Genius search (the lyric page itself is HTML, scraped in phase 8).
+  // Genius search (the lyric page itself is HTML, scraped in phase 8).
   await capture('lyrics/genius-search.json', q('https://genius.com/api/search/multi', { q: `${t.title} ${t.artist}` }), {
     headers: { Accept: 'application/json' },
   });

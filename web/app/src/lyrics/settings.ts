@@ -11,24 +11,19 @@ interface LyricsSettings {
   disabled: LyricsSourceId[];
   /** Keep looking past a line-timed answer for a word-timed one (LyricsRepository.prioritizeSyllableSync). */
   preferSyllables: boolean;
-  /** PaxSenix's Spotify and Musixmatch routes need the user's own key. */
-  paxsenixKey: string;
   setEnabled: (id: LyricsSourceId, on: boolean) => void;
   move: (id: LyricsSourceId, by: -1 | 1) => void;
   setPreferSyllables: (on: boolean) => void;
-  setPaxsenixKey: (key: string) => void;
   reset: () => void;
 }
 
 const KEY = 'bitchord:lyrics';
-type Saved = Pick<LyricsSettings, 'order' | 'disabled' | 'preferSyllables' | 'paxsenixKey'>;
+type Saved = Pick<LyricsSettings, 'order' | 'disabled' | 'preferSyllables'>;
 
 const DEFAULTS: Saved = {
   order: LYRICS_SOURCES.map((s) => s.id),
-  // The keyed routes do nothing without a key; off until one is entered.
-  disabled: ['paxsenix-spotify', 'paxsenix-musixmatch'],
+  disabled: [],
   preferSyllables: false,
-  paxsenixKey: '',
 };
 
 function load(): Saved {
@@ -43,8 +38,8 @@ function load(): Saved {
 export const useLyricsSettings = create<LyricsSettings>()((set, get) => {
   const save = (change: Partial<Saved>) => {
     set(change);
-    const { order, disabled, preferSyllables, paxsenixKey } = get();
-    localStorage.setItem(KEY, JSON.stringify({ order, disabled, preferSyllables, paxsenixKey }));
+    const { order, disabled, preferSyllables } = get();
+    localStorage.setItem(KEY, JSON.stringify({ order, disabled, preferSyllables }));
   };
   return {
     ...load(),
@@ -58,7 +53,6 @@ export const useLyricsSettings = create<LyricsSettings>()((set, get) => {
       save({ order });
     },
     setPreferSyllables: (preferSyllables) => save({ preferSyllables }),
-    setPaxsenixKey: (paxsenixKey) => save({ paxsenixKey: paxsenixKey.trim() }),
     reset: () => save(DEFAULTS),
   };
 });

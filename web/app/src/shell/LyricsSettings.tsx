@@ -16,15 +16,13 @@ const moveButton = 'grid size-[26px] place-items-center rounded-[6px] text-secon
 
 /**
  * Lyric providers, as the desktop's settings have them: switch each on or
- * off, put them in order, prefer syllable timing, and the PaxSenix key. Plus
- * the one thing only the web needs: letting the extension reach the hosts a
- * page can't.
+ * off, put them in order, and prefer syllable timing. Plus the one thing only
+ * the web needs: letting the extension reach the hosts a page can't.
  */
 export function LyricsSettings({ onClose }: { onClose: () => void }) {
-  const { order, disabled, preferSyllables, paxsenixKey, setEnabled, move, setPreferSyllables, setPaxsenixKey, reset } =
+  const { order, disabled, preferSyllables, setEnabled, move, setPreferSyllables, reset } =
     useLyricsSettings();
   const [granted, setGranted] = useState<string[] | null>(null);
-  const [key, setKey] = useState(paxsenixKey);
 
   useEffect(() => {
     const check = () =>
@@ -99,12 +97,11 @@ export function LyricsSettings({ onClose }: { onClose: () => void }) {
 
           <h3 className={section}>Extension access</h3>
           {granted === null ? (
-            <p className={note}>KuGou, Musixmatch, Genius and PaxSenix need the BitChord extension.</p>
+            <p className={note}>KuGou and Genius need the BitChord extension.</p>
           ) : missing.length ? (
             <div className="flex items-center gap-3">
               <p className={note}>
-                KuGou, Musixmatch, Genius and PaxSenix don’t let web pages ask them directly. Allow the extension to,
-                once.
+                KuGou and Genius don’t let web pages ask them directly. Allow the extension to, once.
               </p>
               <button className="flex-none rounded-[14px] bg-key px-3.5 py-1.5 type-callout-emphasized text-white" onClick={() => void getBridge()?.call('lyrics.requestPermissions', { origins: missing })}>
                 Allow
@@ -113,17 +110,6 @@ export function LyricsSettings({ onClose }: { onClose: () => void }) {
           ) : (
             <p className={note}>All providers are reachable.</p>
           )}
-
-          <h3 className={section}>PaxSenix key</h3>
-          <input
-            className="w-full rounded-[10px] border-0 bg-quinary px-3 py-2 type-body text-primary"
-            type="password"
-            placeholder="For PaxSenix: Spotify and Musixmatch"
-            value={key}
-            onChange={(e) => setKey(e.currentTarget.value)}
-            onBlur={() => setPaxsenixKey(key)}
-            autoComplete="off"
-          />
 
           <button className="mt-[18px] type-callout-emphasized text-key" onClick={reset}>
             Restore Defaults

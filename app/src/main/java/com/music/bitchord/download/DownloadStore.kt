@@ -92,7 +92,34 @@ object DownloadStore {
             title.isEmpty() -> artist
             else -> "$artist - $title"
         }.ifEmpty { song.videoId }
-        return "${stem.take(MAX_STEM_CHARS).trimEnd()}.$extension"
+        val extBytes = extension.toByteArray(Charsets.UTF_8).size
+        // 255-byte NAME_MAX minus "." + extension + leading "." and ".part" temp suffix (6 bytes)
+        val maxStemBytes = (255 - 7 - extBytes).coerceIn(1, MAX_STEM_BYTES)
+        return "${truncateUtf8Bytes(stem, maxStemBytes).trimEnd()}.$extension"
+    }
+
+    /** Long enough for anything real, short of the 255-byte filename ceiling. */
+    private const val MAX_STEM_BYTES = 220
+
+    private fun truncateUtf8Bytes(text: String, maxBytes: Int): String {
+        val out = StringBuilder()
+        var bytes = 0
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            val charCount = Character.charCount(cp)
+            val cpBytes = when {
+                cp <= 0x7F -> 1
+                cp <= 0x7FF -> 2
+                cp <= 0xFFFF -> 3
+                else -> 4
+            }
+            if (bytes + cpBytes > maxBytes) break
+            out.appendCodePoint(cp)
+            bytes += cpBytes
+            i += charCount
+        }
+        return out.toString()
     }
 
     /**

@@ -30,9 +30,16 @@ internal object StandbyQueueTransfer {
         for (i in 0 until count) {
             val a = out.getMediaItemAt(i)
             val b = into.getMediaItemAt(i)
+            if (a === b) continue
             if (a.mediaId != b.mediaId) return false
             if (a.queueEntryId != b.queueEntryId) return false
             if (a.queueTier != b.queueTier) return false
+            // Same ids is not the same item: the active queue replaces rows in
+            // place (a direct-YouTube switch, a stream fallback, a version
+            // change) keeping mediaId and entry id. The retired standby still
+            // holds the old copy, so its URI and metadata must match too or
+            // the next transition would play the source just replaced.
+            if (a != b) return false
         }
         return true
     }

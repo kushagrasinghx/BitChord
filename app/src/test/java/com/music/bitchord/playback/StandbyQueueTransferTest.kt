@@ -57,4 +57,18 @@ class StandbyQueueTransferTest {
         val b = listOf(item("same", "e2"), item("same", "e1"))
         assertFalse(StandbyQueueTransfer.canReuse(player(a), player(b)))
     }
+
+    @Test
+    fun itemReplacedInPlaceWithSameIdsIsNotReused() {
+        // The active queue swapped a row's stream (direct-YouTube switch,
+        // stream fallback) keeping mediaId and entry id; the retired standby
+        // still holds the old copy and must not be reused.
+        fun withUri(id: String, entry: String, uri: String): MediaItem = QueueShuffle.withQueueMetadata(
+            MediaItem.Builder().setMediaId(id).setUri(uri).build(),
+            newEntryId = entry,
+        )
+        val active = listOf(withUri("a", "e1", "https://example.test/new"), item("b", "e2"))
+        val standby = listOf(withUri("a", "e1", "https://example.test/old"), item("b", "e2"))
+        assertFalse(StandbyQueueTransfer.canReuse(player(active), player(standby)))
+    }
 }

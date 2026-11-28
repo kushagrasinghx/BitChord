@@ -195,6 +195,8 @@ import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
 import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SignatureApiEditor
+import com.music.bitchord.ui.components.GlobalProxyEditorAlert
+import com.music.bitchord.ui.components.SourceProxyEditorAlert
 import com.music.bitchord.ui.screens.SettingsScreen
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
@@ -685,6 +687,8 @@ private fun BitChordApp(
     // background at all. Hosting it here also puts the scrim over the tab bar
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
+    var editingSourceProxy by remember { mutableStateOf<SourceConfig?>(null) }
+    var showProxyEditor by remember { mutableStateOf(false) }
     var choosingSourceQuality by remember { mutableStateOf<SourceConfig?>(null) }
     var confirmJioSaavn by remember { mutableStateOf(false) }
     var confirmBitPerfect by remember { mutableStateOf<BitPerfectMode?>(null) }
@@ -3219,6 +3223,7 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                                 onEditSource = { editingSource = it },
                                 onChooseSourceQuality = { choosingSourceQuality = it },
+                                onEditSourceProxy = { editingSourceProxy = it },
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
@@ -3307,6 +3312,7 @@ private fun BitChordApp(
                                 onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                                 onAppLanguage = { showAppLanguage = true },
                                 onEditSignatureApi = { editingSignatureApi = true },
+                                onEditProxy = { showProxyEditor = true },
                                 onConfirmBitPerfect = { confirmBitPerfect = it },
                                 onConfirmFixedVolume = { confirmFixedVolume = true },
                                 contentPadding = listPadding,
@@ -6197,6 +6203,22 @@ private fun BitChordApp(
                     editingSource = null
                 },
                 scope = scope,
+            )
+        }
+
+        if (showProxyEditor) {
+            GlobalProxyEditorAlert(
+                hazeState = hazeState,
+                onDismiss = { showProxyEditor = false },
+            )
+        }
+
+        editingSourceProxy?.let { config ->
+            SourceProxyEditorAlert(
+                hazeState = hazeState,
+                config = config,
+                onDismiss = { editingSourceProxy = null },
+                onSaved = { editingSourceProxy = null },
             )
         }
 

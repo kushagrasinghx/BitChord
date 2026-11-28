@@ -209,6 +209,8 @@ fun SettingsScreen(
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
     onEditSignatureApi: () -> Unit,
+    /** Opens the app-wide proxy editor, under Network. */
+    onEditProxy: () -> Unit = {},
     /**
      * Asks before [mode] is turned on: it hands volume to the DAC at full
      * scale. Shown in the app's frosted alert, which needs the app's blur.
@@ -262,6 +264,10 @@ fun SettingsScreen(
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
+    val proxyEnabled by AppSettings.proxyEnabled.collectAsStateWithLifecycle()
+    val proxyProtocol by AppSettings.proxyProtocol.collectAsStateWithLifecycle()
+    val proxyHost by AppSettings.proxyHost.collectAsStateWithLifecycle()
+    val proxyPort by AppSettings.proxyPort.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
     val showTotalDuration by AppSettings.showTotalDuration.collectAsStateWithLifecycle()
@@ -1633,6 +1639,26 @@ fun SettingsScreen(
                 row(stringResource(R.string.wear_os_section), "watch", "wear os", "galaxy watch", "pixel watch", "install") {
                     WearOsSettingsRow(onClick = onWearOs)
                 }
+            }
+        }
+
+        if (shows(SettingsCategory.NETWORK)) SearchableSettingsGroup(search, header = stringResource(R.string.network)) {
+            val proxyTitle = stringResource(R.string.proxy)
+            row(proxyTitle, "proxy", "http", "https", "socks5", "network", "connection") {
+                SettingsRow(
+                    icon = SfIcons.Dns,
+                    title = proxyTitle,
+                    subtitle = when {
+                        !proxyEnabled -> stringResource(R.string.proxy_off)
+                        proxyHost.isBlank() || proxyPort == 0 -> stringResource(R.string.proxy_not_configured)
+                        else -> {
+                            val host = if (proxyHost.contains(':')) "[$proxyHost]" else proxyHost
+                            "${proxyProtocol.name} · $host:$proxyPort"
+                        }
+                    },
+                    value = stringResource(if (proxyEnabled) R.string.proxy_on else R.string.off),
+                    onClick = onEditProxy,
+                )
             }
         }
 
@@ -3062,6 +3088,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
     PERFORMANCE(R.string.performance),
     LOCAL_MUSIC(R.string.local_music),
     STORAGE(R.string.storage),
+    NETWORK(R.string.network),
     YOUR_DATA(R.string.your_data),
     MISCELLANEOUS(R.string.miscellaneous),
     LANGUAGE(R.string.language),
@@ -3076,6 +3103,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
             PERFORMANCE -> SfIcons.Performance
             LOCAL_MUSIC -> SfIcons.LibraryMusic
             STORAGE -> SfIcons.Storage
+            NETWORK -> SfIcons.Dns
             YOUR_DATA -> SfIcons.YourData
             MISCELLANEOUS -> SfIcons.Miscellaneous
             LANGUAGE -> SfIcons.Language

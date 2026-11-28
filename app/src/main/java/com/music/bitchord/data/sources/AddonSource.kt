@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.proxy.ProxyRouter
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
@@ -425,6 +426,11 @@ class AddonSource(
         // extractor and fails as an unreadable container. The addon told us
         // what it is; the player only needed to be passed it on.
         answer.transport?.let { StreamContainer.declare(url, it) }
+
+        // The URL is usually a CDN, not the addon's own host. Remember it so
+        // the playback and download fetches follow the same proxy decision as
+        // the request that produced it.
+        ProxyRouter.rememberStreamHost(config.id, url)
 
         return SourceStream(
             url = url,

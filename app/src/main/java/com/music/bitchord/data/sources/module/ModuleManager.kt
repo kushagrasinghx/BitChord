@@ -3,6 +3,7 @@ package com.music.bitchord.data.sources.module
 import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.Http
+import com.music.bitchord.data.proxy.ProxyRouter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +44,7 @@ internal fun redactModuleUrl(url: String): String =
  * One instance should be held per [ModuleSource] config so that loaded
  * engines survive across successive search calls.
  */
-class ModuleManager {
+class ModuleManager(private val sourceId: String) {
 
     private val json = Json {
         isLenient = true
@@ -135,16 +136,22 @@ class ModuleManager {
 
                 TrackLog.d(TAG, "▶ fetchIndex(${redactModuleUrl(sourceUrl)})")
                 runCatching {
+                    // The registry already knows the source's own host, but
+                    // saying it here too keeps an index moved to a new host
+                    // routed the same way without waiting for a republish.
+                    ProxyRouter.rememberStreamHost(sourceId, sourceUrl)
                     val request = Request.Builder().url(sourceUrl).build()
-                    Http.client.newCall(request).execute().use { resp ->
-                        if (!resp.isSuccessful) {
-                            throw Exception("HTTP ${resp.code} from ${redactModuleUrl(sourceUrl)}")
+                    ProxyRouter.withSource(sourceId) {
+                        Http.client.newCall(request).execute().use { resp ->
+                            if (!resp.isSuccessful) {
+                                throw Exception("HTTP ${resp.code} from ${redactModuleUrl(sourceUrl)}")
+                            }
+                            val body = resp.body?.string()
+                                ?: throw Exception("Empty body from ${redactModuleUrl(sourceUrl)}")
+                            val modules = ModuleIndex.parseModules(json, body)
+                            TrackLog.d(TAG, "  Parsed ${modules.size} modules")
+                            modules
                         }
-                        val body = resp.body?.string()
-                            ?: throw Exception("Empty body from ${redactModuleUrl(sourceUrl)}")
-                        val modules = ModuleIndex.parseModules(json, body)
-                        TrackLog.d(TAG, "  Parsed ${modules.size} modules")
-                        modules
                     }
                 }.onSuccess {
                     indexCache[sourceUrl] = CachedIndex(it, System.currentTimeMillis())
@@ -198,12 +205,12 @@ class ModuleManager {
     ): Result<LoadedModule> = withContext(Dispatchers.IO) {
         val cached = loadedModules[module.id]
         if (cached != null) {
-            if (QuickJsExecutor.isLoaded(module.id)) {
+            if (QuickJsExecutor.isLoaded(sourceId, module.id)) {
                 TrackLog.d(TAG, "▶ loadModule(${module.id}) — CACHE HIT")
                 return@withContext Result.success(cached)
             }
             val revived = QuickJsExecutor
-                .loadModule(module.id, cached.jsCode, cached.baseUrl)
+                .loadModule(sourceId, module.id, cached.jsCode, cached.baseUrl)
                 .map { cached }
             if (revived.isSuccess) return@withContext revived
             loadedModules.remove(module.id)
@@ -219,16 +226,20 @@ class ModuleManager {
             }
 
             TrackLog.d(TAG, "  Resolved download URL: ${redactModuleUrl(downloadUrl)}")
+            // Module JS often comes from a CDN rather than the index host.
+            ProxyRouter.rememberStreamHost(sourceId, downloadUrl)
             val request = Request.Builder().url(downloadUrl).build()
-            val jsCode = Http.client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) {
-                    throw Exception("HTTP ${resp.code} downloading module ${module.id}")
+            val jsCode = ProxyRouter.withSource(sourceId) {
+                Http.client.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        throw Exception("HTTP ${resp.code} downloading module ${module.id}")
+                    }
+                    resp.body?.string() ?: throw Exception("Empty body for module ${module.id}")
                 }
-                resp.body?.string() ?: throw Exception("Empty body for module ${module.id}")
             }
             val baseUrl = downloadUrl.substringBeforeLast("/")
 
-            QuickJsExecutor.loadModule(module.id, jsCode, baseUrl).getOrThrow()
+            QuickJsExecutor.loadModule(sourceId, module.id, jsCode, baseUrl).getOrThrow()
 
             val loaded = LoadedModule(module = module, jsCode = jsCode, baseUrl = baseUrl)
             loadedModules[module.id] = loaded
@@ -267,6 +278,7 @@ class ModuleManager {
         TrackLog.d(TAG, "▶ searchTracks() module=${loaded.module.id} query=\"$query\" limit=$limit")
         runCatching {
             val result = QuickJsExecutor.callExport(
+                sourceId = sourceId,
                 moduleId = loaded.module.id,
                 functionName = "searchTracks",
                 args = listOf(jsString(query), limit.toString(), contextArg),
@@ -313,6 +325,7 @@ class ModuleManager {
         TrackLog.d(TAG, "▶ getStreamUrl() module=${loaded.module.id} trackId=$trackId quality=$quality")
         runCatching {
             val result = QuickJsExecutor.callExport(
+                sourceId = sourceId,
                 moduleId = loaded.module.id,
                 functionName = "getTrackStreamUrl",
                 args = listOf(jsString(trackId), jsString(quality), contextArg),
@@ -376,7 +389,7 @@ class ModuleManager {
 
     fun unloadModule(moduleId: String) {
         loadedModules.remove(moduleId)
-        QuickJsExecutor.unload(moduleId)
+        QuickJsExecutor.unload(sourceId, moduleId)
     }
 
     /**
@@ -393,7 +406,7 @@ class ModuleManager {
         loads.clear()
         searches.clear()
         streams.clear()
-        QuickJsExecutor.unloadAll()
+        QuickJsExecutor.unloadSource(sourceId)
     }
 
     private companion object {

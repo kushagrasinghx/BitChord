@@ -220,6 +220,12 @@
     <string name="crossfade">Chuyển bài mượt (Crossfade)</string>
     <string name="crossfade_subtitle">Hòa quyện bài hát hiện tại vào bài tiếp theo</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_art_transition">Chuyển ảnh bìa</string>
+    <string name="automix_art_transition_subtitle">Hòa mượt ảnh bìa giữa các bài trong AutoMix.</string>
+    <string name="automix_mini_art_transition">Chuyển ảnh bìa ở trình phát nhỏ</string>
+    <string name="automix_mini_art_transition_subtitle">Hiện hiệu ứng chuyển ảnh bìa ở trình phát nhỏ trong AutoMix.</string>
+    <string name="show_best_part">Nút Đoạn hay nhất</string>
+    <string name="show_best_part_subtitle">Nút trên ảnh bìa để nhảy tới đoạn được phát lại nhiều nhất</string>
     <string name="automix_overview">Tổng quan Automix</string>
     <string name="automix_performance">Hiệu năng Automix</string>
     <string name="automix_performance_subtitle">Đặt mức sử dụng CPU cho phân tích nền</string>
@@ -256,6 +262,9 @@
     <string name="player_theme_simple_subtitle">Ảnh bìa làm mờ phía sau toàn bộ trình phát</string>
     <string name="player_theme_legacy_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
     <string name="animated_cover_art">Ảnh bìa động</string>
+    <string name="canvas_shape">Hình dạng canvas</string>
+    <string name="canvas_shape_square">Vuông (1:1)</string>
+    <string name="canvas_shape_portrait">Dọc (3:4)</string>
     <string name="synced_lyrics">Lời bài hát đồng bộ</string>
     <string name="synced_lyrics_subtitle">Làm sáng các từ trên trình phát khi đang được hát</string>
     <string name="lyrics_sources">Nguồn lời bài hát</string>
@@ -287,6 +296,7 @@
     <string name="full_screen_detail_cover">Ảnh bìa album/danh sách phát toàn màn hình</string>
     <string name="full_screen_detail_cover_subtitle">Mở rộng ảnh bìa album và danh sách phát ra các cạnh trang thay vì khung</string>
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
+    <string name="canvas_shape_subtitle">Bìa vuông quen thuộc, hoặc video dọc 3:4 mà một số bản phát hành cung cấp</string>
     <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
     <string name="download_quality_subtitle">%1$s mỗi bài, bất kể loại kết nối</string>
@@ -1476,4 +1486,60 @@
     <string name="drive_backup_row_subtitle">Sao lưu và đồng bộ Replay trên mọi thiết bị</string>
     <string name="drive_over_cellular">Đồng bộ qua dữ liệu di động</string>
     <string name="drive_over_cellular_subtitle">Khi tắt, đồng bộ tự động sẽ chờ Wi-Fi</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">Mở Replay %1$s của bạn</string>
+    <string name="replay_year_building">Đang dựng lại năm của bạn…</string>
+    <string name="replay_year_opener_start">Năm</string>
+    <string name="replay_year_opener_end">trên BitChord</string>
+    <string name="replay_year_opener_detail">Cùng nhìn lại những gì bạn đã nghe.</string>
+    <string name="replay_year_minutes_start">Năm nay bạn đã nghe</string>
+    <string name="replay_year_minutes_days_start">Tức là</string>
+    <string name="replay_year_minutes_days_value">%1$s ngày</string>
+    <string name="replay_year_minutes_hours_value">%1$s giờ</string>
+    <string name="replay_year_minutes_days_end">âm nhạc.</string>
+    <string name="replay_year_busiest_start">Ngày sôi động nhất của bạn là</string>
+    <string name="replay_year_busiest_minutes">%1$s phút nhạc trong một ngày</string>
+    <string name="replay_year_busiest_song">Phần lớn là %1$s</string>
+    <string name="replay_year_clock_start">Bạn rực rỡ nhất vào khoảng</string>
+    <string name="replay_year_night_owl">Cú đêm</string>
+    <string name="replay_year_night_owl_detail">Phần lớn thời gian nghe của bạn diễn ra sau 22 giờ.</string>
+    <string name="replay_year_early_bird">Chim sớm</string>
+    <string name="replay_year_early_bird_detail">Ngày của bạn bắt đầu bằng âm nhạc trước 10 giờ.</string>
+    <string name="replay_year_golden_hour">Giờ vàng</string>
+    <string name="replay_year_golden_hour_detail">Buổi tối là lúc âm nhạc xuất hiện.</string>
+    <string name="replay_year_daytime">Kẻ lang thang ban ngày</string>
+    <string name="replay_year_daytime_detail">Bạn giữ âm nhạc suốt cả ngày.</string>
+    <string name="replay_year_all_day">Mọi giờ trong ngày</string>
+    <string name="replay_year_all_day_detail">Sáng, trưa hay đêm, luôn có thứ gì đó đang phát.</string>
+    <string name="replay_year_genres_start">Âm thanh của bạn năm nay</string>
+    <string name="replay_year_artist_start">Nghệ sĩ nghe nhiều nhất năm nay của bạn là…</string>
+    <string name="replay_year_minutes_together">%1$s phút bên nhau</string>
+    <string name="replay_year_top_artists">Nghệ sĩ nghe nhiều nhất</string>
+    <string name="replay_year_song_start">Và bài hát của năm…</string>
+    <string name="replay_year_top_songs">Phần còn lại trong các bài nghe nhiều nhất</string>
+    <string name="replay_year_albums">Những album bạn đã sống cùng</string>
+    <string name="replay_year_months">Năm của bạn, từng tháng một</string>
+    <string name="replay_year_discovery_start">Năm nay bạn đã khám phá</string>
+    <string name="replay_year_summary_title">%1$s của bạn</string>
+    <string name="replay_year_summary_artists">Nghệ sĩ hàng đầu</string>
+    <string name="replay_year_summary_songs">Bài hát hàng đầu</string>
+    <string name="replay_year_summary_minutes">Số phút đã nghe</string>
+    <string name="replay_year_mute">Tắt tiếng câu chuyện</string>
+    <string name="replay_year_unmute">Bật tiếng câu chuyện</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">phút</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">Đã phát %1$s lần</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">bài hát</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">nghệ sĩ</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">album</item>
+    </plurals>
 </resources>

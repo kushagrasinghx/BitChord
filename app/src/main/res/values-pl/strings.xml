@@ -201,6 +201,12 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Płynne przejścia między utworami</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_art_transition">Przejście okładki</string>
+    <string name="automix_art_transition_subtitle">Płynnie przenika okładkę między utworami podczas AutoMix.</string>
+    <string name="automix_mini_art_transition">Przejście okładki w miniplayerze</string>
+    <string name="automix_mini_art_transition_subtitle">Pokazuje przejścia okładki w miniplayerze podczas AutoMix.</string>
+    <string name="show_best_part">Przycisk Najlepszy fragment</string>
+    <string name="show_best_part_subtitle">Przycisk na okładce, który przeskakuje do najczęściej powtarzanego fragmentu utworu</string>
     <string name="automix_overview">Przegląd Automix</string>
     <string name="skip_silence">Pomiń ciszę</string>
     <string name="skip_silence_subtitle">Przycinanie przerw dłuższych niż sekunda</string>
@@ -218,6 +224,9 @@
     <string name="disable_blend_effects_subtitle">Pokazuje ikony, tekst i ciemne menu odtwarzacza w czystej bieli zamiast barwić je kolorem okładki</string>
     <string name="full_screen_cover_art">Pełnoekranowa okładka</string>
     <string name="animated_cover_art">Animowana okładka</string>
+    <string name="canvas_shape">Kształt canvasu</string>
+    <string name="canvas_shape_square">Kwadrat (1:1)</string>
+    <string name="canvas_shape_portrait">Pion (3:4)</string>
     <string name="synced_lyrics">Zsynchronizowany tekst</string>
     <string name="synced_lyrics_subtitle">Podświetla słowa na odtwarzaczu w miarę ich śpiewania</string>
     <string name="lyrics_sources">Źródła tekstów</string>
@@ -249,6 +258,7 @@
     <string name="full_screen_detail_cover">Pełnoekranowa okładka albumu/playlisty</string>
     <string name="full_screen_detail_cover_subtitle">Wyświetla okładki albumów i playlist do krawędzi strony zamiast w ramce</string>
     <string name="animated_cover_art_subtitle">Odtwarza animowaną okładkę dostępną w niektórych wydaniach zamiast statycznej</string>
+    <string name="canvas_shape_subtitle">Klasyczna kwadratowa okładka albo pionowe wideo 3:4 z niektórych wydań</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay nie zaproponuje utworu, który został już odtworzony lub zaproponowany w tej sesji</string>
     <string name="download_quality_subtitle">%1$s na utwór, niezależnie od połączenia</string>
     <string name="filter_non_music_audio">Filtruj dźwięk inny niż muzyka</string>
@@ -1602,4 +1612,75 @@
     <string name="drive_backup_row_subtitle">Kopia i synchronizacja Replay na wszystkich urządzeniach</string>
     <string name="drive_over_cellular">Synchronizuj przez dane komórkowe</string>
     <string name="drive_over_cellular_subtitle">Gdy wyłączone, automatyczne synchronizacje czekają na Wi-Fi</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">Otwórz swój Replay %1$s</string>
+    <string name="replay_year_building">Tworzymy Twój rok…</string>
+    <string name="replay_year_opener_start">Twój</string>
+    <string name="replay_year_opener_end">w BitChord</string>
+    <string name="replay_year_opener_detail">Spójrzmy wstecz na to, czego słuchałeś.</string>
+    <string name="replay_year_minutes_start">W tym roku słuchałeś przez</string>
+    <string name="replay_year_minutes_days_start">To</string>
+    <string name="replay_year_minutes_days_value">%1$s dni</string>
+    <string name="replay_year_minutes_hours_value">%1$s godzin</string>
+    <string name="replay_year_minutes_days_end">muzyki.</string>
+    <string name="replay_year_busiest_start">Twój największy dzień to</string>
+    <string name="replay_year_busiest_minutes">%1$s minut muzyki w jeden dzień</string>
+    <string name="replay_year_busiest_song">Głównie %1$s</string>
+    <string name="replay_year_clock_start">Budziłeś się do życia około</string>
+    <string name="replay_year_night_owl">Nocny marek</string>
+    <string name="replay_year_night_owl_detail">Większość słuchania przypadła po 22:00.</string>
+    <string name="replay_year_early_bird">Ranny ptaszek</string>
+    <string name="replay_year_early_bird_detail">Twoje dni zaczynały się od muzyki przed 10:00.</string>
+    <string name="replay_year_golden_hour">Złota godzina</string>
+    <string name="replay_year_golden_hour_detail">Wieczorami wychodziła muzyka.</string>
+    <string name="replay_year_daytime">Dzienny wędrowiec</string>
+    <string name="replay_year_daytime_detail">Trzymałeś muzykę przez cały dzień.</string>
+    <string name="replay_year_all_day">Całą dobę</string>
+    <string name="replay_year_all_day_detail">Rano, w południe czy w nocy coś grało.</string>
+    <string name="replay_year_genres_start">Twój dźwięk w tym roku</string>
+    <string name="replay_year_artist_start">Twoim najczęściej słuchanym artystą w tym roku był…</string>
+    <string name="replay_year_minutes_together">%1$s minut razem</string>
+    <string name="replay_year_top_artists">Twoi najczęściej słuchani artyści</string>
+    <string name="replay_year_song_start">A Twoja piosenka roku…</string>
+    <string name="replay_year_top_songs">Reszta Twoich najczęstszych utworów</string>
+    <string name="replay_year_albums">Albumy, w których żyłeś</string>
+    <string name="replay_year_months">Twój rok, miesiąc po miesiącu</string>
+    <string name="replay_year_discovery_start">W tym roku odkrywałeś</string>
+    <string name="replay_year_summary_title">Twój %1$s</string>
+    <string name="replay_year_summary_artists">Najczęściej słuchani artyści</string>
+    <string name="replay_year_summary_songs">Najczęstsze utwory</string>
+    <string name="replay_year_summary_minutes">Przesłuchane minuty</string>
+    <string name="replay_year_mute">Wycisz historię</string>
+    <string name="replay_year_unmute">Włącz dźwięk historii</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">minutę</item>
+        <item quantity="few">minuty</item>
+        <item quantity="many">minut</item>
+        <item quantity="other">minuty</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">Odtworzono %1$s raz</item>
+        <item quantity="few">Odtworzono %1$s razy</item>
+        <item quantity="many">Odtworzono %1$s razy</item>
+        <item quantity="other">Odtworzono %1$s razy</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">piosenkę</item>
+        <item quantity="few">piosenki</item>
+        <item quantity="many">piosenek</item>
+        <item quantity="other">piosenki</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">artystę</item>
+        <item quantity="few">artystów</item>
+        <item quantity="many">artystów</item>
+        <item quantity="other">artysty</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">album</item>
+        <item quantity="few">albumy</item>
+        <item quantity="many">albumów</item>
+        <item quantity="other">albumu</item>
+    </plurals>
 </resources>

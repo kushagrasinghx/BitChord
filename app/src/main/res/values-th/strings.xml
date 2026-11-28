@@ -210,6 +210,12 @@
     <string name="crossfade">ครอสเฟด</string>
     <string name="crossfade_subtitle">ผสานเพลงหนึ่งเข้ากับเพลงถัดไป</string>
     <string name="automix">Automix [เบต้า]</string>
+    <string name="automix_art_transition">การเปลี่ยนผ่านปก</string>
+    <string name="automix_art_transition_subtitle">ผสานปกอาร์ตระหว่างเพลงอย่างนุ่มนวลระหว่าง AutoMix</string>
+    <string name="automix_mini_art_transition">การเปลี่ยนผ่านปกในมินิเพลเยอร์</string>
+    <string name="automix_mini_art_transition_subtitle">แสดงการเปลี่ยนผ่านปกในมินิเพลเยอร์ระหว่าง AutoMix</string>
+    <string name="show_best_part">ปุ่มท่อนที่ดีที่สุด</string>
+    <string name="show_best_part_subtitle">ปุ่มบนปกอาร์ตที่ข้ามไปยังท่อนที่ผู้คนเล่นซ้ำมากที่สุด</string>
     <string name="automix_overview">ภาพรวม Automix</string>
     <string name="automix_performance">ประสิทธิภาพ Automix</string>
     <string name="automix_performance_subtitle">กำหนดปริมาณ CPU ที่ใช้วิเคราะห์ในพื้นหลัง</string>
@@ -239,6 +245,9 @@
     <string name="liquid_glass_unavailable">ต้องใช้ Android 12 ขึ้นไป</string>
     <string name="full_screen_cover_art">ปกอัลบั้มเต็มจอ</string>
     <string name="animated_cover_art">ปกอัลบั้มเคลื่อนไหว</string>
+    <string name="canvas_shape">รูปร่างแคนวาส</string>
+    <string name="canvas_shape_square">สี่เหลี่ยม (1:1)</string>
+    <string name="canvas_shape_portrait">แนวตั้ง (3:4)</string>
     <string name="synced_lyrics">เนื้อเพลงซิงค์</string>
     <string name="synced_lyrics_subtitle">ไฮไลต์คำร้องบนหน้าเครื่องเล่นตามจังหวะที่ร้อง</string>
     <string name="lyrics_sources">แหล่งเนื้อเพลง</string>
@@ -270,6 +279,7 @@
     <string name="full_screen_detail_cover">ปกอัลบั้ม/เพลย์ลิสต์เต็มจอ</string>
     <string name="full_screen_detail_cover_subtitle">ขยายปกอัลบั้มและเพลย์ลิสต์เต็มขอบหน้าแทนการแสดงในกรอบ</string>
     <string name="animated_cover_art_subtitle">เล่นวิดีโอวนซ้ำที่บางผลงานมีให้แทนปกนิ่ง</string>
+    <string name="canvas_shape_subtitle">ปกสี่เหลี่ยมแบบเดิม หรือวิดีโอแนวตั้ง 3:4 ที่บางอัลบั้มมีให้</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay จะไม่แนะนำเพลงที่เล่นหรือแนะนำไปแล้วในเซสชันนี้</string>
     <string name="download_quality_subtitle">%1$s ต่อแทร็ก ไม่ว่าการเชื่อมต่อจะเป็นแบบใด</string>
     <string name="filter_non_music_audio">กรองเสียงที่ไม่ใช่เพลง</string>
@@ -1542,4 +1552,60 @@
     <string name="drive_backup_row_subtitle">สำรองและซิงค์ Replay ในทุกอุปกรณ์ของคุณ</string>
     <string name="drive_over_cellular">ซิงค์ผ่านอินเทอร์เน็ตมือถือ</string>
     <string name="drive_over_cellular_subtitle">เมื่อปิด การซิงค์อัตโนมัติจะรอ Wi-Fi</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">เปิด Replay %1$s ของคุณ</string>
+    <string name="replay_year_building">กำลังสร้างปีของคุณ…</string>
+    <string name="replay_year_opener_start">ปี</string>
+    <string name="replay_year_opener_end">ของคุณใน BitChord</string>
+    <string name="replay_year_opener_detail">ย้อนดูสิ่งที่คุณฟัง</string>
+    <string name="replay_year_minutes_start">ปีนี้คุณฟังไป</string>
+    <string name="replay_year_minutes_days_start">คิดเป็น</string>
+    <string name="replay_year_minutes_days_value">%1$s วัน</string>
+    <string name="replay_year_minutes_hours_value">%1$s ชั่วโมง</string>
+    <string name="replay_year_minutes_days_end">ของเพลง</string>
+    <string name="replay_year_busiest_start">วันที่คุณฟังมากที่สุดคือ</string>
+    <string name="replay_year_busiest_minutes">%1$s นาทีของเพลงในหนึ่งวัน</string>
+    <string name="replay_year_busiest_song">ส่วนใหญ่เป็น %1$s</string>
+    <string name="replay_year_clock_start">คุณมีชีวิตชีวาช่วง</string>
+    <string name="replay_year_night_owl">นกกลางคืน</string>
+    <string name="replay_year_night_owl_detail">การฟังส่วนใหญ่ของคุณเกิดขึ้นหลัง 22:00 น.</string>
+    <string name="replay_year_early_bird">คนตื่นเช้า</string>
+    <string name="replay_year_early_bird_detail">วันของคุณเริ่มด้วยเพลงก่อน 10:00 น.</string>
+    <string name="replay_year_golden_hour">ชั่วโมงทอง</string>
+    <string name="replay_year_golden_hour_detail">ช่วงเย็นคือเวลาที่เพลงออกมา</string>
+    <string name="replay_year_daytime">นักท่องกลางวัน</string>
+    <string name="replay_year_daytime_detail">คุณเปิดเพลงต่อเนื่องตลอดวัน</string>
+    <string name="replay_year_all_day">ตลอดทั้งวัน</string>
+    <string name="replay_year_all_day_detail">เช้า เที่ยง หรือกลางคืน ก็มีอะไรเล่นอยู่เสมอ</string>
+    <string name="replay_year_genres_start">เสียงของคุณปีนี้</string>
+    <string name="replay_year_artist_start">ศิลปินที่คุณฟังมากที่สุดปีนี้คือ…</string>
+    <string name="replay_year_minutes_together">%1$s นาทีด้วยกัน</string>
+    <string name="replay_year_top_artists">ศิลปินที่คุณฟังมากที่สุด</string>
+    <string name="replay_year_song_start">และเพลงแห่งปีของคุณ…</string>
+    <string name="replay_year_top_songs">เพลงยอดนิยมที่เหลือของคุณ</string>
+    <string name="replay_year_albums">อัลบั้มที่คุณใช้ชีวิตอยู่ด้วย</string>
+    <string name="replay_year_months">ปีของคุณ เดือนต่อเดือน</string>
+    <string name="replay_year_discovery_start">ปีนี้คุณได้ค้นพบ</string>
+    <string name="replay_year_summary_title">%1$s ของคุณ</string>
+    <string name="replay_year_summary_artists">ศิลปินยอดนิยม</string>
+    <string name="replay_year_summary_songs">เพลงยอดนิยม</string>
+    <string name="replay_year_summary_minutes">นาทีที่ฟัง</string>
+    <string name="replay_year_mute">ปิดเสียงเรื่องราว</string>
+    <string name="replay_year_unmute">เปิดเสียงเรื่องราว</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">นาที</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">เล่นไป %1$s ครั้ง</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">เพลง</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">ศิลปิน</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">อัลบั้ม</item>
+    </plurals>
 </resources>

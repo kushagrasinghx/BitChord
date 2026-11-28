@@ -39,6 +39,18 @@ enum class PlayerTheme {
     SIMPLE,
 }
 
+/**
+ * How an animated cover is framed on the phone's main player.
+ *
+ * [SQUARE] is the classic sleeve: the clip plays inside the square card.
+ * [PORTRAIT] is Apple's tall 3:4 rendition — the same clip framed for a
+ * phone-shaped surface — laid out as the full-height artwork.
+ */
+enum class CanvasShape {
+    SQUARE,
+    PORTRAIT,
+}
+
 /** The surface that was last open inside the expanded player. */
 enum class LastPlayerScreen {
     MAIN,

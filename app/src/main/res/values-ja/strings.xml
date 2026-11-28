@@ -198,6 +198,12 @@
     <string name="crossfade">クロスフェード</string>
     <string name="crossfade_subtitle">1曲を次の曲へなめらかにつなげます</string>
     <string name="automix">オートミックス [BETA]</string>
+    <string name="automix_art_transition">アートの切り替え</string>
+    <string name="automix_art_transition_subtitle">AutoMix 中に曲間でカバーアートを滑らかにつなぎます。</string>
+    <string name="automix_mini_art_transition">ミニプレーヤーのアート切り替え</string>
+    <string name="automix_mini_art_transition_subtitle">AutoMix 中にミニプレーヤーでカバーアートの切り替えを表示します。</string>
+    <string name="show_best_part">ベストパートボタン</string>
+    <string name="show_best_part_subtitle">もっとも繰り返し再生される部分へスキップする、カバーアート上のボタン</string>
     <string name="automix_overview">オートミックスの概要</string>
     <string name="skip_silence">無音をスキップ</string>
     <string name="skip_silence_subtitle">1秒より長い無音部分をカットします</string>
@@ -215,6 +221,9 @@
     <string name="disable_blend_effects_subtitle">プレーヤーのアイコン、テキスト、ダークメニューをアートワークの色に染めず、白で表示します</string>
     <string name="full_screen_cover_art">全画面カバーアート</string>
     <string name="animated_cover_art">アニメーションカバーアート</string>
+    <string name="canvas_shape">キャンバスの形</string>
+    <string name="canvas_shape_square">正方形 (1:1)</string>
+    <string name="canvas_shape_portrait">縦長 (3:4)</string>
     <string name="synced_lyrics">同期歌詞</string>
     <string name="synced_lyrics_subtitle">歌われている歌詞をプレイヤー上でハイライト表示します</string>
     <string name="lyrics_sources">歌詞のソース</string>
@@ -246,6 +255,7 @@
     <string name="full_screen_detail_cover">アルバム/プレイリストの全画面カバー</string>
     <string name="full_screen_detail_cover_subtitle">アルバムとプレイリストのカバーを枠に収めず、ページの端まで広げます</string>
     <string name="animated_cover_art_subtitle">静止画のジャケットの代わりに一部のリリースが持つループ動画を再生します</string>
+    <string name="canvas_shape_subtitle">定番の正方形カバー、または一部の作品に付属する縦長 3:4 動画</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
     <string name="filter_non_music_audio">音楽以外の音声を除外</string>
@@ -1537,4 +1547,60 @@
     <string name="drive_backup_row_subtitle">Replay をすべてのデバイスでバックアップ・同期</string>
     <string name="drive_over_cellular">モバイルデータで同期</string>
     <string name="drive_over_cellular_subtitle">オフの場合、自動同期は Wi-Fi 接続を待ちます</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">Replay %1$s を開く</string>
+    <string name="replay_year_building">あなたの1年を準備中…</string>
+    <string name="replay_year_opener_start">あなたの</string>
+    <string name="replay_year_opener_end">BitChord での</string>
+    <string name="replay_year_opener_detail">聴いたことを振り返りましょう。</string>
+    <string name="replay_year_minutes_start">今年聴いたのは</string>
+    <string name="replay_year_minutes_days_start">つまり</string>
+    <string name="replay_year_minutes_days_value">%1$s 日</string>
+    <string name="replay_year_minutes_hours_value">%1$s 時間</string>
+    <string name="replay_year_minutes_days_end">の音楽。</string>
+    <string name="replay_year_busiest_start">いちばん聴いた日は</string>
+    <string name="replay_year_busiest_minutes">1日で %1$s 分の音楽</string>
+    <string name="replay_year_busiest_song">主に %1$s</string>
+    <string name="replay_year_clock_start">あなたが輝いていたのは</string>
+    <string name="replay_year_night_owl">夜型</string>
+    <string name="replay_year_night_owl_detail">聴いた時間の多くは22時以降でした。</string>
+    <string name="replay_year_early_bird">朝型</string>
+    <string name="replay_year_early_bird_detail">あなたの1日は10時前の音楽から始まりました。</string>
+    <string name="replay_year_golden_hour">ゴールデンアワー</string>
+    <string name="replay_year_golden_hour_detail">夕方に音楽が顔を出しました。</string>
+    <string name="replay_year_daytime">昼の放浪者</string>
+    <string name="replay_year_daytime_detail">一日中音楽を流していました。</string>
+    <string name="replay_year_all_day">24時間いつでも</string>
+    <string name="replay_year_all_day_detail">朝でも昼でも夜でも、何かが流れていました。</string>
+    <string name="replay_year_genres_start">今年のあなたの音</string>
+    <string name="replay_year_artist_start">今年のトップアーティストは…</string>
+    <string name="replay_year_minutes_together">%1$s 分を一緒に</string>
+    <string name="replay_year_top_artists">あなたのトップアーティスト</string>
+    <string name="replay_year_song_start">そして今年の一曲は…</string>
+    <string name="replay_year_top_songs">ほかのトップソング</string>
+    <string name="replay_year_albums">あなたが暮らしたアルバム</string>
+    <string name="replay_year_months">あなたの1年を月ごとに</string>
+    <string name="replay_year_discovery_start">今年はこんなものを開拓しました</string>
+    <string name="replay_year_summary_title">あなたの %1$s</string>
+    <string name="replay_year_summary_artists">トップアーティスト</string>
+    <string name="replay_year_summary_songs">トップソング</string>
+    <string name="replay_year_summary_minutes">聴いた分数</string>
+    <string name="replay_year_mute">ストーリーをミュート</string>
+    <string name="replay_year_unmute">ストーリーの音をオン</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="other">分</item>
+    </plurals>
+    <plurals name="replay_year_played_times">
+        <item quantity="other">%1$s 回再生</item>
+    </plurals>
+    <plurals name="replay_year_songs_word">
+        <item quantity="other">曲</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="other">アーティスト</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="other">アルバム</item>
+    </plurals>
 </resources>

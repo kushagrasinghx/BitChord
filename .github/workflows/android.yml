@@ -8,6 +8,9 @@ on:
 jobs:
   build-prod-release:
     runs-on: ubuntu-latest
+    # The release step below publishes with the workflow's own token.
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout Repository
@@ -21,17 +24,46 @@ jobs:
         cache: gradle
 
     - name: Setup Secrets (Keystore & local.properties)
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
         echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
         echo "LISTEN_TOGETHER_SERVER=${{ secrets.LISTEN_TOGETHER_SERVER }}" >> local.properties
 
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -d > bitchord-release.jks
+          store_password="$KEYSTORE_PASSWORD"
+          key_alias="$KEY_ALIAS"
+          key_password="$KEY_PASSWORD"
+        else
+          # A fork, or a repository without the release key: mint a throwaway
+          # one so the APKs are still signed and installable instead of failing
+          # the build outright. It cannot update an install made with another
+          # key, which the run summary says out loud.
+          key_alias="bitchord-ci"
+          store_password="bitchord-ci"
+          key_password="bitchord-ci"
+          keytool -genkeypair -keystore bitchord-release.jks -storetype PKCS12 \
+            -alias "$key_alias" -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$store_password" -keypass "$key_password" \
+            -dname "CN=BitChord CI, O=BitChord, C=US"
+          {
+            echo "### Signed with a throwaway key"
+            echo ""
+            echo "No \`KEYSTORE_BASE64\` secret is configured, so these APKs are signed with a key generated on this run."
+            echo "They install next to the official app, not over it. Add the keystore secrets to ship real releases."
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
         {
           echo "storeFile=bitchord-release.jks"
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}"
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+          echo "storePassword=$store_password"
+          echo "keyAlias=$key_alias"
+          echo "keyPassword=$key_password"
         } > keystore.properties
 
     - name: Grant execute permission for gradlew
@@ -54,3 +86,24 @@ jobs:
       with:
         name: bitchord-wear-prod-release-signed
         path: wearos/build/outputs/apk/prod/release/*.apk
+
+    # One release per app version: a rebuild of the same version replaces the
+    # APKs on the existing tag instead of piling up a release per push.
+    - name: Read app version
+      id: version
+      run: |
+        version=$(grep -oP '(?<=extra\["bitchordVersionName"\] = ")[^"]+' build.gradle.kts)
+        [ -n "$version" ] || { echo "Could not read bitchordVersionName" >&2; exit 1; }
+        echo "name=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Publish GitHub Release
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: v${{ steps.version.outputs.name }}
+        name: BitChord v${{ steps.version.outputs.name }}
+        generate_release_notes: true
+        overwrite_files: true
+        make_latest: true
+        files: |
+          app/build/outputs/apk/prod/release/*.apk
+          wearos/build/outputs/apk/prod/release/*.apk

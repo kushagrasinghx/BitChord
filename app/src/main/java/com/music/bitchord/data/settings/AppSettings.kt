@@ -637,6 +637,15 @@ object AppSettings {
     val fullBleedArtwork = MutableStateFlow(true)
 
     /**
+     * How an animated cover is framed on the phone's main player: the classic
+     * square sleeve, or the tall 3:4 rendition some releases ship (Apple's
+     * motion artwork). Square is the default — the shift to 3:4 was never
+     * meant to be the only shape — and only the clip is affected, never the
+     * still sleeve.
+     */
+    val canvasShape = MutableStateFlow(CanvasShape.SQUARE)
+
+    /**
      * The album and playlist page's answer to [fullBleedArtwork]: the sleeve
      * runs edge to edge off the top of the screen and dissolves into the page
      * colour, instead of sitting framed in the middle. Everything under it —
@@ -1155,6 +1164,9 @@ object AppSettings {
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
+        canvasShape.value = runCatching {
+            CanvasShape.valueOf(prefs.getString(KEY_CANVAS_SHAPE, null).orEmpty())
+        }.getOrDefault(CanvasShape.SQUARE)
         fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
         showTotalDuration.value = prefs.getBoolean(KEY_SHOW_TOTAL_DURATION, false)
         // The old legacy mesh switch answers until a theme has been picked.
@@ -1863,6 +1875,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_ARTWORK, value).apply()
     }
 
+    fun setCanvasShape(value: CanvasShape) {
+        canvasShape.value = value
+        prefs.edit().putString(KEY_CANVAS_SHAPE, value.name).apply()
+    }
+
     fun setFullBleedDetailArtwork(value: Boolean) {
         fullBleedDetailArtwork.value = value
         prefs.edit().putBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, value).apply()
@@ -2494,6 +2511,7 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
+    private const val KEY_CANVAS_SHAPE = "canvas_shape"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
     private const val KEY_SHOW_TOTAL_DURATION = "show_total_duration"
     private const val KEY_PLAYER_THEME = "player_theme"

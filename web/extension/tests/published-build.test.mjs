@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 
 test('published Safari download contains a loadable extension folder', () => {
-  execFileSync(process.execPath, [new URL('../scripts/publish-to-site.mjs', import.meta.url).pathname]);
+  execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/publish-to-site.mjs', import.meta.url))]);
   const downloads = new URL('../../app/public/downloads/', import.meta.url);
   const metadata = JSON.parse(readFileSync(new URL('extension.json', downloads), 'utf8'));
   assert.ok(metadata.files.safari, 'Safari must have its own download');

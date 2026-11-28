@@ -3,6 +3,7 @@ package com.music.bitchord.data.sources
 import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.proxy.ProxyRouter
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.module.ModuleManager
 import com.music.bitchord.data.sources.module.ModuleSearchResult
@@ -43,7 +44,7 @@ class ModuleSource(
      * what keeps the QuickJS engines alive between a search and the stream
      * call for a result it returned.
      */
-    private val manager = ModuleManager()
+    private val manager = ModuleManager(config.id)
 
     // ── Health ────────────────────────────────────────────────────────────
 
@@ -284,6 +285,7 @@ class ModuleSource(
                 )
                 return@withContext null
             }
+            ProxyRouter.rememberStreamHost(config.id, url)
             SourceStream(url = url, format = format)
         }
 

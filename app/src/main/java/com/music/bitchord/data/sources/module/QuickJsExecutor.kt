@@ -10,9 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.music.bitchord.data.Http
+import com.music.bitchord.data.proxy.ProxyRouter
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
@@ -98,12 +99,24 @@ internal object QuickJsExecutor {
         val made = mutableListOf<QuickJs>()
     }
 
-    /** Whether [moduleId] still has a live pool, i.e. hasn't been evicted. */
-    fun isLoaded(moduleId: String): Boolean =
-        synchronized(engineLock) { pools.containsKey(moduleId) }
+    /**
+     * A module's pool is per source, not per module id.
+     *
+     * Two sources may list the same module and route it through different
+     * proxies. Sharing one interpreter would give both of them whichever
+     * route happened to create it first, so the pool key carries the source
+     * the engine was loaded for.
+     */
+    private data class PoolKey(val sourceId: String, val moduleId: String)
+
+    /** Whether [moduleId] still has a live pool for [sourceId], i.e. hasn't been evicted. */
+    fun isLoaded(sourceId: String, moduleId: String): Boolean =
+        synchronized(engineLock) { pools.containsKey(PoolKey(sourceId, moduleId)) }
 
     private val syncHttpClient by lazy {
-        OkHttpClient.Builder()
+        // Derived from the shared client so module fetch() follows the same
+        // proxy routing table as addon and playback requests.
+        Http.client.newBuilder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .build()
@@ -112,21 +125,27 @@ internal object QuickJsExecutor {
     private val engineLock = Any()
 
     /** LRU map: access-ordered so the oldest-used entry is first. */
-    private val pools = LinkedHashMap<String, Pool>(16, 0.75f, true)
+    private val pools = LinkedHashMap<PoolKey, Pool>(16, 0.75f, true)
 
     // ── Load ─────────────────────────────────────────────────────────────
 
-    suspend fun loadModule(moduleId: String, jsCode: String, fetchBase: String = ""): Result<Unit> {
+    suspend fun loadModule(
+        sourceId: String,
+        moduleId: String,
+        jsCode: String,
+        fetchBase: String = "",
+    ): Result<Unit> {
+        val key = PoolKey(sourceId, moduleId)
         val evicted = synchronized(engineLock) {
-            if (pools.containsKey(moduleId)) {
+            if (pools.containsKey(key)) {
                 TrackLog.d(TAG, "QuickJsExecutor.loadModule($moduleId) — ENGINE CACHE HIT")
                 return Result.success(Unit)
             }
             buildList {
                 while (pools.size >= MAX_MODULES) {
-                    val lruId = pools.keys.firstOrNull() ?: break
-                    TrackLog.d(TAG, "  Evicting LRU module engine: $lruId")
-                    pools.remove(lruId)?.let { addAll(it.made) }
+                    val lruKey = pools.keys.firstOrNull() ?: break
+                    TrackLog.d(TAG, "  Evicting LRU module engine: ${lruKey.moduleId}")
+                    pools.remove(lruKey)?.let { addAll(it.made) }
                 }
             }
         }
@@ -134,7 +153,7 @@ internal object QuickJsExecutor {
 
         TrackLog.d(TAG, "QuickJsExecutor.loadModule($moduleId) fetchBase=$fetchBase jsCodeLength=${jsCode.length}")
         return withContext(Dispatchers.Default) {
-            runCatching { newEngine(jsCode, fetchBase) }
+            runCatching { newEngine(jsCode, fetchBase, sourceId) }
                 .onSuccess { qjs ->
                     // The pool starts at one and grows only if two callers ever
                     // want this module at the same moment. A module that is
@@ -143,7 +162,7 @@ internal object QuickJsExecutor {
                     pool.started = 1
                     pool.made += qjs
                     pool.free.trySend(qjs)
-                    synchronized(engineLock) { pools[moduleId] = pool }
+                    synchronized(engineLock) { pools[key] = pool }
                 }
                 .onFailure { TrackLog.e(TAG, "  ✗ loadModule FAILED for $moduleId: ${it.message}", it) }
                 .map { }
@@ -151,12 +170,12 @@ internal object QuickJsExecutor {
     }
 
     /** A fresh interpreter with [jsCode] evaluated into it, or a throw saying why not. */
-    private suspend fun newEngine(jsCode: String, fetchBase: String): QuickJs {
+    private suspend fun newEngine(jsCode: String, fetchBase: String, sourceId: String): QuickJs {
         val qjs = QuickJs.create(Dispatchers.Default)
         qjs.maxStackSize = 512 * 1024L
         try {
             bindConsole(qjs)
-            bindAsyncFetch(qjs, fetchBase)
+            bindAsyncFetch(qjs, fetchBase, sourceId)
 
             qjs.evaluate<String>(POLYFILLS)
             val cleanCode = preprocessModuleCode(jsCode)
@@ -206,7 +225,7 @@ internal object QuickJsExecutor {
      * a module whose script fails to evaluate cannot permanently consume a slot
      * in the pool it never joined.
      */
-    private suspend fun acquire(moduleId: String, pool: Pool): QuickJs {
+    private suspend fun acquire(sourceId: String, pool: Pool): QuickJs {
         pool.free.tryReceive().getOrNull()?.let { return it }
 
         val mine = pool.lock.withLock {
@@ -217,7 +236,7 @@ internal object QuickJsExecutor {
         if (!mine) return pool.free.receive()
 
         return try {
-            newEngine(pool.jsCode, pool.fetchBase).also { fresh ->
+            newEngine(pool.jsCode, pool.fetchBase, sourceId).also { fresh ->
                 pool.lock.withLock { pool.made += fresh }
             }
         } catch (e: Throwable) {
@@ -228,14 +247,19 @@ internal object QuickJsExecutor {
 
     // ── Call ─────────────────────────────────────────────────────────────
 
-    suspend fun callExport(moduleId: String, functionName: String, args: List<String>): Result<String> {
-        val pool = synchronized(engineLock) { pools[moduleId] }
+    suspend fun callExport(
+        sourceId: String,
+        moduleId: String,
+        functionName: String,
+        args: List<String>,
+    ): Result<String> {
+        val pool = synchronized(engineLock) { pools[PoolKey(sourceId, moduleId)] }
             ?: return Result.failure(IllegalStateException("Module $moduleId is not loaded"))
 
         TrackLog.d(TAG, "QuickJsExecutor.callExport($moduleId, $functionName) args=$args")
         return withContext(Dispatchers.Default) {
             val qjs = try {
-                acquire(moduleId, pool)
+                acquire(sourceId, pool)
             } catch (e: Throwable) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 return@withContext Result.failure(e)
@@ -298,10 +322,22 @@ internal object QuickJsExecutor {
 
     // ── Unload ───────────────────────────────────────────────────────────
 
-    fun unload(moduleId: String) {
-        val closing = synchronized(engineLock) { pools.remove(moduleId) }?.made.orEmpty()
+    fun unload(sourceId: String, moduleId: String) {
+        val closing = synchronized(engineLock) {
+            pools.remove(PoolKey(sourceId, moduleId))
+        }?.made.orEmpty()
         closing.forEach { runCatching { it.close() } }
         TrackLog.d(TAG, "QuickJsExecutor.unload($moduleId)")
+    }
+
+    /** Drops every engine belonging to one source, leaving other sources' engines alone. */
+    fun unloadSource(sourceId: String) {
+        val closing = synchronized(engineLock) {
+            val keys = pools.keys.filter { it.sourceId == sourceId }
+            keys.mapNotNull { pools.remove(it) }.flatMap { it.made }
+        }
+        closing.forEach { runCatching { it.close() } }
+        TrackLog.d(TAG, "QuickJsExecutor.unloadSource($sourceId)")
     }
 
     fun unloadAll() {
@@ -377,7 +413,7 @@ internal object QuickJsExecutor {
 
     // ── Fetch binding ────────────────────────────────────────────────────
 
-    private suspend fun bindAsyncFetch(qjs: QuickJs, fetchBase: String) {
+    private suspend fun bindAsyncFetch(qjs: QuickJs, fetchBase: String, sourceId: String) {
         qjs.define("__spine") {
             asyncFunction("fetch", object : AsyncFunctionBinding<String> {
                 override suspend fun invoke(args: Array<Any?>): String {
@@ -388,8 +424,17 @@ internal object QuickJsExecutor {
                     val body = args[3]?.toString()
                     val url = resolveUrl(rawUrl, fetchBase)
 
+                    // Modules fetch their catalogue's API and CDNs directly, not
+                    // just the index host the registry already knows. Register
+                    // each host with this source before the request so a
+                    // per-source proxy applies to the very first call, not the
+                    // second one after the host has been seen.
+                    ProxyRouter.rememberStreamHost(sourceId, url)
+
                     TrackLog.d(TAG, "  → fetch $method ${redactModuleUrl(url)}")
-                    val (statusCode, responseBody) = fetchUrlSync(url, method, headersJson, body)
+                    val (statusCode, responseBody) = ProxyRouter.withSource(sourceId) {
+                        fetchUrlSync(url, method, headersJson, body)
+                    }
                     TrackLog.d(TAG, "    HTTP $statusCode (${responseBody.length} bytes)")
 
                     val respObj = JSONObject().apply {

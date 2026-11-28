@@ -1,5 +1,6 @@
 package com.music.bitchord.data.scrobbling
 
+import com.music.bitchord.data.Http
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -64,6 +65,8 @@ object LastFM {
 
     private val client by lazy {
         HttpClient(OkHttp) {
+            // Scrobbles take the same route as playback and metadata.
+            engine { preconfigured = Http.client }
             install(ContentNegotiation) {
                 json(json)
             }

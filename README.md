@@ -58,6 +58,7 @@
 - **Discord Rich Presence** — in-app login, live track/artist/album and progress.
 - **Scrobbling** to Last.fm and ListenBrainz.
 - **Pluggable sources** — add, edit, test and health-check module sources.
+- **Proxy support** — HTTP and SOCKS5 proxies with optional authentication, plus per-source overrides. [Details](docs/PROXY.md).
 
     </td>
     <td width="50%" valign="top">

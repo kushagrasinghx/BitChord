@@ -34,6 +34,7 @@ enum class FallbackReason(val label: String) {
     ROUTE_LIMITATION("Route limitation (device profile)"),
     OS_LIMITATION("OS limitation (system audio policy)"),
     DECODER_LIMITATION("Decoder limitation"),
+    USER_PREFERENCE("User selected output depth"),
 }
 
 data class SourceDescriptor(
@@ -263,12 +264,15 @@ object OutputNegotiator {
         // Priority 3C: Direct PCM16
         if (directSupport.supportsPcm16) {
             val fallbackReason = when {
+                requestedMode == OutputPcmMode.PCM_16 && isSourceHighRes -> FallbackReason.USER_PREFERENCE
                 requestedMode == OutputPcmMode.PCM_16 -> FallbackReason.NONE
                 requestedMode == OutputPcmMode.FLOAT_32 -> FallbackReason.ROUTE_LIMITATION
                 isSourceHighRes -> FallbackReason.ROUTE_LIMITATION
                 else -> FallbackReason.NONE
             }
             val fallbackDetail = when {
+                requestedMode == OutputPcmMode.PCM_16 && isSourceHighRes ->
+                    "${source.bitDepth ?: "High-res"}-bit source reduced to direct 16-bit by the output setting"
                 requestedMode == OutputPcmMode.FLOAT_32 ->
                     "Route does not expose direct Float32 or 24-bit PCM (using direct 16-bit PCM)"
                 isSourceHighRes ->
@@ -335,6 +339,14 @@ object OutputNegotiator {
 
         // 4. 16-bit PCM Fallback
         val (reason, detail) = when {
+            // The request itself caused the loss, not the route: say so rather
+            // than blaming the device with FallbackReason.NONE.
+            isSourceHighRes && requestedMode == OutputPcmMode.PCM_16 -> {
+                Pair(
+                    FallbackReason.USER_PREFERENCE,
+                    "${source.bitDepth ?: "High-res"}-bit source reduced to 16-bit by the output setting",
+                )
+            }
             routeKind == AudioRouting.Kind.USB ->
                 Pair(FallbackReason.ROUTE_LIMITATION, "USB device advertises 16-bit PCM only")
             routeKind == AudioRouting.Kind.BLUETOOTH -> {

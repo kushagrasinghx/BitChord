@@ -193,6 +193,10 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeResample(
     jfloatArray samples,
     jdouble input_rate,
     jdouble output_rate) {
+  // Same guard as nativeAnalyze above, and for the same reason: GetArrayLength
+  // on a null array is undefined behaviour. The two entry points took their
+  // input differently, and only one of them checked it.
+  if (samples == nullptr) return nullptr;
   const jsize count = env->GetArrayLength(samples);
   std::vector<float> input(static_cast<size_t>(count));
   if (count > 0) {

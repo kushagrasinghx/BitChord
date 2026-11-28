@@ -279,10 +279,11 @@ class OutputNegotiatorTest {
         assertEquals(96000, result.dsp.sampleRateHz)
         assertEquals(2, result.dsp.channelCount)
 
-        // AudioTrack output encoding MUST strictly honor 16-bit PCM request
+        // AudioTrack output encoding MUST strictly honor 16-bit PCM request,
+        // and the loss must be attributed to the user's setting, not the route.
         assertEquals(TransportType.AUDIO_TRACK, result.output.transport)
         assertEquals(PcmEncoding.PCM_16BIT, result.output.encoding)
-        assertEquals(FallbackReason.NONE, result.output.fallbackReason)
+        assertEquals(FallbackReason.USER_PREFERENCE, result.output.fallbackReason)
     }
 
     @Test

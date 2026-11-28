@@ -68,6 +68,7 @@ internal class UsbDirectTransport private constructor(
     private val connection: UsbDeviceConnection,
     private var handle: Long,
     val usbDeviceId: Int,
+    val usbVolumeKey: String?,
     override val deviceName: String,
     private val format: UsbDescriptors.OutputFormat,
     private val volumeControl: UsbVolume.Volume?,
@@ -185,12 +186,27 @@ internal class UsbDirectTransport private constructor(
                     ?.let { feature -> runCatching { UsbVolume.Volume.open(control, feature) }.getOrNull() }
                 if (volume == null && !allowFixedVolume) throw BitPerfectTransportException("volume_unavailable")
                 if (volume != null && rememberedDb != null) {
-                    runCatching { volume.set(control, minOf(rememberedDb, volume.snapshot.restoreLimitDb)) }
+                    // A remembered level is now persisted across sessions, so it
+                    // can predate a firmware or range change. Lift it into the
+                    // DAC's range first: below-range is a refusal [set] throws on,
+                    // and it would otherwise fail every open of this DAC. The
+                    // restore ceiling still wins, so this never raises the level.
+                    val snapshot = volume.snapshot
+                    val target = minOf(maxOf(rememberedDb, snapshot.minDb), snapshot.restoreLimitDb)
+                    try {
+                        volume.set(control, target)
+                    } catch (error: Throwable) {
+                        // Startup attenuation already succeeded; never leave the
+                        // DAC quieter because the remembered level was refused.
+                        runCatching { volume.restore(control) }
+                        throw BitPerfectTransportException("volume_restore", error)
+                    }
                 }
                 return UsbDirectTransport(
                     connection = connection,
                     handle = handle,
                     usbDeviceId = device.deviceId,
+                    usbVolumeKey = runCatching { UsbVolumeIdentity.stableKey(device.serialNumber) }.getOrNull(),
                     deviceName = device.productName?.takeIf { it.isNotBlank() } ?: "USB audio",
                     format = plan.format,
                     volumeControl = volume,

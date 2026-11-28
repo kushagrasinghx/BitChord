@@ -424,7 +424,9 @@ class DirectAudioStreamingRegressionTest {
             assertEquals("DSP must be Float32", "Float32", result.dsp.format)
             assertEquals("Output must strictly be PCM16 at $rate", PcmEncoding.PCM_16BIT, result.output.encoding)
             assertTrue("Direct must be active at $rate", result.output.isDirect)
-            assertEquals(FallbackReason.NONE, result.output.fallbackReason)
+            // A 24-bit source on a PCM16 request is a user-selected precision
+            // loss and must be disclosed, not reported as no fallback.
+            assertEquals(FallbackReason.USER_PREFERENCE, result.output.fallbackReason)
         }
     }
 

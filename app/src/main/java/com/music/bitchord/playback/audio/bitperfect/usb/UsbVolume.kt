@@ -239,8 +239,15 @@ internal object UsbVolume {
                         restoreLimitDb = restoreLimit / 256.0,
                     ),
                 )
-                // Never raise the device's current volume on connection.
-                volume.setTargets(control, startup)
+                // Never raise the device's current volume on connection. If the
+                // attenuating write or its read-back fails, put back every
+                // channel we changed before reporting the failure.
+                try {
+                    volume.setTargets(control, startup)
+                } catch (error: Throwable) {
+                    runCatching { volume.setTargets(control, original) }
+                    throw error
+                }
                 return volume
             }
         }

@@ -1397,7 +1397,7 @@ fun SettingsScreen(
                 if (!hide && !syncedLyrics) AppSettings.setSyncedLyrics(true)
             }
             val hideLyricsTitle = stringResource(R.string.hide_lyrics_preview)
-            row(hideLyricsTitle, "lyrics", "hide", "synced", "translation", "lrclib") {
+            row(hideLyricsTitle, "lyrics", "hide", "preview", "synced", "translation", "lrclib") {
                 SettingsRow(
                     icon = SfIcons.VisibilityOff,
                     title = hideLyricsTitle,

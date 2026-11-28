@@ -879,18 +879,50 @@ private fun BitChordApp(
     )
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
+    val isOffline by com.music.bitchord.data.NetworkConnectivityMonitor.isOffline.collectAsStateWithLifecycle()
+    val offlineBackupVersion by com.music.bitchord.data.offlinebackup.OfflineBackupRepository.globalVersion.collectAsStateWithLifecycle()
+    val offlineBackupSongs by produceState(
+        initialValue = emptyList<Song>(),
+        key1 = isOffline,
+        key2 = offlineBackupVersion,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+                ?.getOfflineBackupPlaylist()
+                .orEmpty()
+        }
+    }
     val hideRecents by AppSettings.hideRecents.collectAsStateWithLifecycle()
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
     val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
     val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
     // Only what Home draws: Top Picks reads the unfiltered feed from the view model.
-    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents) {
+    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents, isOffline, offlineBackupSongs) {
+        val offlineShelf = if (isOffline && offlineBackupSongs.isNotEmpty()) {
+            HomeShelf(
+                title = "Offline Backup",
+                items = listOf(
+                    ShelfItem(
+                        title = "Offline Backup",
+                        subtitle = "${offlineBackupSongs.size} cached tracks",
+                        thumbnailUrl = offlineBackupSongs.firstOrNull()?.thumbnailUrl,
+                        videoId = null,
+                        browseId = com.music.bitchord.data.offlinebackup.OfflineBackupRepository.BROWSE_ID,
+                    ),
+                ),
+            )
+        } else {
+            null
+        }
         val loaded = homeState as? UiState.Success
-        if (loaded != null && (hideHomeVideos || hideRecents)) {
+        if (loaded != null) {
             var shelves = loaded.data
             if (hideRecents) shelves = shelves.filterNot { it.title == YtMusicRepository.RECENT_TITLE }
             if (hideHomeVideos) shelves = shelves.withoutVideos()
+            if (offlineShelf != null) shelves = listOf(offlineShelf) + shelves
             UiState.Success(shelves)
+        } else if (offlineShelf != null) {
+            UiState.Success(listOf(offlineShelf))
         } else {
             homeState
         }

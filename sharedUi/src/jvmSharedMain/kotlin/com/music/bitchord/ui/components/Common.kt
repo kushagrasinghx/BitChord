@@ -330,18 +330,24 @@ fun SongRow(
      */
     showSourceQuality: Boolean = false,
     /**
+     * Whether this row is interactive. When false (for example, an uncached
+     * online-only track while the device is offline), the row is dimmed and
+     * clicks are disabled.
+     */
+    enabled: Boolean = true,
+    /**
      * A control of the page's own, drawn just ahead of the ⋮ — the Cached
      * songs folder's per-track download button. Null on every other list.
      */
     trailing: (@Composable () -> Unit)? = null,
 ) {
     SwipeToQueueBox(
-        onSwipeToQueue = onSwipeToQueue,
+        onSwipeToQueue = if (enabled) onSwipeToQueue else null,
         modifier = modifier,
     ) {
         SongRowContent(
             song = song,
-            onClick = onClick,
+            onClick = if (enabled) onClick else ({}),
             onLongPress = onLongPress,
             onMore = onMore ?: onLongPress,
             modifier = if (onSwipeToQueue != null) Modifier.background(rowBackground) else modifier,
@@ -354,6 +360,7 @@ fun SongRow(
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
             showSourceQuality = showSourceQuality,
+            enabled = enabled,
             trailing = trailing,
         )
     }
@@ -495,6 +502,7 @@ private fun SongRowContent(
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
+    enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
@@ -512,7 +520,7 @@ private fun SongRowContent(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(if (unavailable) 0.45f else 1f)
+            .alpha(if (unavailable || !enabled) 0.38f else 1f)
             .background(activeBackground)
             .longPressMenuClickable(
                 onClick = onClick,

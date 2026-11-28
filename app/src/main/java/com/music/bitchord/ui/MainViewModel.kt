@@ -1614,6 +1614,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
+            com.music.bitchord.data.offlinebackup.OfflineBackupRepository.globalVersion.drop(1).collect {
+                val backupId = com.music.bitchord.data.offlinebackup.OfflineBackupRepository.BROWSE_ID
+                if (_detailStack.value.any { page -> page.browseId == backupId }) {
+                    reloadLocalDetail(backupId)
+                }
+            }
+        }
+        viewModelScope.launch {
             AppSettings.webdavUrl.drop(1).collect {
                 reloadRemoteDetail(com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID)
             }
@@ -3206,6 +3214,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             browseId == "local:downloads" ->
                 nonEmpty(Downloads.getDownloadedSongs(context)) { "No downloaded tracks" }
             browseId == CACHE_FOLDER_BROWSE_ID -> cachedSongsState()
+            browseId == com.music.bitchord.data.offlinebackup.OfflineBackupRepository.BROWSE_ID -> offlineBackupSongsState()
             browseId == "local:all" -> if (!LocalMediaRepository.hasStoragePermission(context)) {
                 UiState.Error(text(R.string.storage_required_read))
             } else {
@@ -3251,6 +3260,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun cachedSongsState(): UiState<List<Song>> {
         val songs = AudioCache.cachedSongs().map { it.song }
         return if (songs.isEmpty()) UiState.Error(text(R.string.cached_songs_empty)) else UiState.Success(songs)
+    }
+
+    /**
+     * The dynamic Offline Backup playlist: recently and frequently played tracks
+     * held in the rolling LRU audio cache.
+     */
+    private suspend fun offlineBackupSongsState(): UiState<List<Song>> = withContext(Dispatchers.IO) {
+        val songs = com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+            ?.getOfflineBackupPlaylist()
+            .orEmpty()
+        if (songs.isEmpty()) UiState.Error(text(R.string.cached_songs_empty)) else UiState.Success(songs)
     }
 
     /**

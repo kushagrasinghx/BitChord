@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Lan
@@ -43,6 +44,14 @@ fun libraryLinks(): List<LibraryLink> {
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val isOffline by com.music.bitchord.data.NetworkConnectivityMonitor.isOffline.collectAsStateWithLifecycle()
+    val offlineBackupVersion by com.music.bitchord.data.offlinebackup.OfflineBackupRepository.globalVersion.collectAsStateWithLifecycle()
+    val offlineBackupCount = androidx.compose.runtime.remember(offlineBackupVersion, isOffline) {
+        com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+            ?.getOfflineBackupPlaylist()
+            ?.size
+            ?: 0
+    }
     fun link(title: String, subtitle: String, browseId: String, icon: ImageVector = deviceFolderIcon(browseId) ?: Icons.Rounded.Cloud) = LibraryLink(
         item = ShelfItem(
             title = title,
@@ -64,6 +73,11 @@ fun libraryLinks(): List<LibraryLink> {
             stringResource(R.string.audio_files_on_device),
             "local:all",
         ),
+        link(
+            "Offline Backup",
+            if (offlineBackupCount > 0) "$offlineBackupCount cached tracks" else "Recently played offline tracks",
+            com.music.bitchord.data.offlinebackup.OfflineBackupRepository.BROWSE_ID,
+        ).takeIf { isOffline || offlineBackupCount > 0 },
         // Opt-in from Settings → Storage: what the song cache is holding from
         // YouTube and JioSaavn. See [com.music.bitchord.playback.AudioCache.cachedSongs].
         link(
@@ -127,6 +141,7 @@ fun deviceFolderIcon(browseId: String): ImageVector? = when (browseId) {
     "local:downloads" -> Icons.Rounded.Download
     "local:all" -> Icons.Rounded.Folder
     CACHE_FOLDER_BROWSE_ID -> Icons.Rounded.Storage
+    com.music.bitchord.data.offlinebackup.OfflineBackupRepository.BROWSE_ID -> Icons.Rounded.CloudOff
     com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID -> Icons.Rounded.Cloud
     com.music.bitchord.data.smb.SmbConfig.BROWSE_ID -> Icons.Rounded.Lan
     else -> null

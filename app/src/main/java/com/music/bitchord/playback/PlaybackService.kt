@@ -1878,11 +1878,20 @@ class PlaybackService : MediaLibraryService() {
             // track's bytes it is fetching; this is the seam where both are in
             // hand. See [StreamContainer].
             streamResolver.resolveDataSpec(dataSpec).also { resolved ->
-                mediaIdIn(dataSpec.uri)?.let { StreamContainer.served(it, resolved.uri.toString()) }
+                val resolvedId = mediaIdIn(dataSpec.uri)
+                resolvedId?.let { StreamContainer.served(it, resolved.uri.toString()) }
                 // The same seam tells the cache whose file it is writing, which
                 // decides whether the entry outlives the track — see
                 // [AudioCache.Origin].
                 AudioCache.recordServed(dataSpec, resolved.uri.toString())
+                if (resolvedId != null && (resolved.uri.scheme == "http" || resolved.uri.scheme == "https")) {
+                    com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+                        ?.ensureCachedFromStream(
+                            songId = resolvedId,
+                            remoteUrl = resolved.uri.toString(),
+                            headers = resolved.httpRequestHeaders,
+                        )
+                }
             }
         }
         // Read-ahead resolves streams through the same chain the player does.

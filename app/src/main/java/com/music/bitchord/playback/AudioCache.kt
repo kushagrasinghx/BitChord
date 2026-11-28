@@ -729,6 +729,10 @@ object AudioCache {
         if (playedIds.size > MAX_NOTED_SONGS) playedIds.clear()
         playedIds += song.videoId
         noteSongs(listOf(song))
+        scope.launch {
+            com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+                ?.onTrackStreamedOnline(song, remoteUrl = null)
+        }
         if (!::cache.isInitialized || uri?.scheme != "bitchord") return
         scope.launch {
             val key = keyFactory.buildCacheKey(DataSpec(uri))
@@ -1196,6 +1200,23 @@ object AudioCache {
 
             override fun open(dataSpec: DataSpec): Long {
                 val scheme = dataSpec.uri.scheme
+                val localBackupFile = if (scheme == "bitchord") {
+                    mediaIdIn(dataSpec.uri)
+                        ?.let { com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()?.getValidLocalCachePath(it) }
+                        ?.let(::File)
+                        ?.takeIf { it.isFile && it.length() > 0L }
+                } else {
+                    null
+                }
+                if (localBackupFile != null) {
+                    activeDs = upstreamDs
+                    return activeDs.open(
+                        dataSpec.buildUpon()
+                            .setUri(Uri.fromFile(localBackupFile))
+                            .setKey(null)
+                            .build(),
+                    )
+                }
                 activeDs = if (scheme == "file" || scheme == "content") {
                     upstreamDs
                 } else {

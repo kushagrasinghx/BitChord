@@ -2,7 +2,10 @@ package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
 import android.os.Build
+import androidx.compose.runtime.produceState
 import com.music.bitchord.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
@@ -487,6 +490,25 @@ fun DetailScreen(
     // qualifies and the badge would be decoration rather than information.
     val downloadedTint = palette.accent.takeUnless { page.browseId.startsWith("local:") }
 
+    val isOffline by com.music.bitchord.data.NetworkConnectivityMonitor.isOffline.collectAsStateWithLifecycle()
+    val offlineBackupVersion by com.music.bitchord.data.offlinebackup.OfflineBackupRepository.globalVersion.collectAsStateWithLifecycle()
+    val downloadedSongs by com.music.bitchord.download.Downloads.saved.collectAsStateWithLifecycle()
+    val offlineBackupIds by produceState(
+        initialValue = emptySet<String>(),
+        key1 = isOffline,
+        key2 = offlineBackupVersion,
+    ) {
+        value = if (isOffline) {
+            withContext(Dispatchers.IO) {
+                com.music.bitchord.data.offlinebackup.OfflineBackupRepository.getOrNull()
+                    ?.getCachedSongIds()
+                    .orEmpty()
+            }
+        } else {
+            emptySet()
+        }
+    }
+
     // Animated cover art on the header, the same feature the player has.
     // Albums only: a playlist's artwork is a collage and an artist page's is a
     // photograph, and neither is something a label publishes a canvas for.
@@ -782,6 +804,10 @@ fun DetailScreen(
                     ) { position, entry ->
                         val song = entry.value
                         val isCurrent = isCurrentRow(song)
+                        val isRowAvailable = !isOffline ||
+                            song.localUri != null ||
+                            song.videoId in downloadedSongs ||
+                            song.videoId in offlineBackupIds
                         SongRow(
                             song = if (numbered) {
                                 song
@@ -803,6 +829,7 @@ fun DetailScreen(
                             isPlaying = isCurrent && isPlaying,
                             activeTint = palette.accent,
                             searchPlayingStyle = true,
+                            enabled = isRowAvailable,
                         )
                         if (position < matches.lastIndex) {
                             HorizontalDivider(

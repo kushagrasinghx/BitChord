@@ -14,6 +14,8 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.net.URI
 import java.security.MessageDigest
 import java.util.Locale
@@ -285,12 +287,19 @@ object LastFM {
         if (!response.status.isSuccess()) {
             throw LastFmException(response.status.value, response.status.description)
         }
-        if (responseText.contains("\"error\"")) {
-            val error = json.decodeFromString<LastFmError>(responseText)
-            throw LastFmException(error.error, error.message)
-        }
+        errorIn(responseText)?.let { throw LastFmException(it.error, it.message) }
         return responseText
     }
+
+    /**
+     * The error a response carries, if any. Looked up as a top-level key: a
+     * scrobble echoes the track back, so a song or artist called "error" puts
+     * that word in a successful response too.
+     */
+    internal fun errorIn(responseText: String): LastFmError? =
+        runCatching { json.parseToJsonElement(responseText).jsonObject }.getOrNull()
+            ?.takeIf { "error" in it }
+            ?.let { json.decodeFromJsonElement<LastFmError>(it) }
 
     const val DEFAULT_SCROBBLE_DELAY_PERCENT = 0.5f
     const val DEFAULT_SCROBBLE_MIN_SONG_DURATION = 30

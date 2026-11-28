@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -154,6 +155,8 @@ class LocalFolder(
     val playlists: List<LocalGroup> = emptyList(),
     /** Puts "New playlist" at the head of the Playlists tab. */
     val onCreatePlaylist: (() -> Unit)? = null,
+    /** Puts "Import M3U / M3U8" at the head of the Playlists tab. */
+    val onImportPlaylist: (() -> Unit)? = null,
 )
 
 enum class LocalFolderTab {
@@ -291,7 +294,23 @@ internal fun LazyListScope.localFolderItems(
     if (state.tab == LocalFolderTab.PLAYLISTS && query.isBlank()) {
         folder.onCreatePlaylist?.let { create ->
             item(key = "folder-new-playlist") {
-                NewPlaylistRow(palette, onClick = create)
+                PlaylistActionRow(
+                    icon = BitChordIcons.Plus,
+                    label = stringResource(R.string.new_playlist),
+                    palette = palette,
+                    onClick = create,
+                )
+                FolderDivider(palette)
+            }
+        }
+        folder.onImportPlaylist?.let { importPlaylist ->
+            item(key = "folder-import-playlist") {
+                PlaylistActionRow(
+                    icon = Icons.Rounded.FileDownload,
+                    label = stringResource(R.string.import_m3u_playlist),
+                    palette = palette,
+                    onClick = importPlaylist,
+                )
                 FolderDivider(palette)
             }
         }
@@ -422,7 +441,12 @@ private fun LocalFolderTab.label(): String = stringResource(
 )
 
 @Composable
-private fun NewPlaylistRow(palette: ArtworkPalette, onClick: () -> Unit) {
+private fun PlaylistActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    palette: ArtworkPalette,
+    onClick: () -> Unit,
+) {
     val shape = RoundedCornerShape(8.dp)
     Row(
         modifier = Modifier
@@ -439,7 +463,7 @@ private fun NewPlaylistRow(palette: ArtworkPalette, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                BitChordIcons.Plus,
+                icon,
                 contentDescription = null,
                 tint = palette.accent,
                 modifier = Modifier.size(22.dp),
@@ -447,7 +471,7 @@ private fun NewPlaylistRow(palette: ArtworkPalette, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(16.dp))
         Text(
-            text = stringResource(R.string.new_playlist),
+            text = label,
             style = MaterialTheme.typography.titleMedium,
             color = palette.onBackground,
             modifier = Modifier.weight(1f),

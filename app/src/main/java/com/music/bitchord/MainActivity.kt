@@ -169,6 +169,11 @@ import com.music.bitchord.ui.navigation.AppDestination
 import com.music.bitchord.ui.navigation.AppRoute
 import com.music.bitchord.ui.screens.EqualizerPresetPage
 import com.music.bitchord.ui.screens.SettingsChoicePage
+import com.music.bitchord.data.playlist.M3uFormat
+import com.music.bitchord.data.playlist.M3uImportPreview
+import com.music.bitchord.data.playlist.M3uPlaylistManager
+import com.music.bitchord.ui.components.M3uExportDialog
+import com.music.bitchord.ui.components.M3uImportDialog
 import com.music.bitchord.ui.components.SpotifyImportAlert
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
@@ -750,6 +755,9 @@ private fun BitChordApp(
     var offlinePlaylistTargets by remember { mutableStateOf<List<Song>>(emptyList()) }
     var creatingOfflinePlaylist by remember { mutableStateOf(false) }
     var showSpotifyImportDialog by remember { mutableStateOf(false) }
+    var m3uExportTarget by remember { mutableStateOf<BrowseTarget?>(null) }
+    var m3uExportFormat by remember { mutableStateOf(M3uFormat.M3U8) }
+    var m3uImportPreview by remember { mutableStateOf<M3uImportPreview?>(null) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -1386,6 +1394,102 @@ private fun BitChordApp(
     }
 
     val scope = rememberCoroutineScope()
+
+    val m3uExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("audio/x-mpegurl"),
+    ) { targetUri ->
+        val exportTarget = m3uExportTarget
+        m3uExportTarget = null
+        if (targetUri == null || exportTarget == null) return@rememberLauncherForActivityResult
+        val format = m3uExportFormat
+        fun performExport(songs: List<Song>) {
+            scope.launch {
+                M3uPlaylistManager.exportToUri(
+                    context = context,
+                    targetUri = targetUri,
+                    songs = songs,
+                    format = format,
+                    playlistTitle = exportTarget.title,
+                ).fold(
+                    onSuccess = { res ->
+                        val fmtName = format.extension.uppercase()
+                        val msg = if (res.missingLocalCount > 0) {
+                            context.getString(
+                                R.string.m3u_export_succeeded_with_missing,
+                                res.exportedCount,
+                                fmtName,
+                                res.missingLocalCount,
+                            )
+                        } else {
+                            context.getString(R.string.m3u_export_succeeded, res.exportedCount, fmtName)
+                        }
+                        showQueueNotice(msg)
+                    },
+                    onFailure = { err ->
+                        showQueueNotice(
+                            context.getString(
+                                R.string.m3u_export_failed,
+                                err.message ?: context.getString(R.string.unknown_error),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        val offline = OfflinePlaylists.get(exportTarget.browseId)
+        when {
+            offline != null -> performExport(offline.songs)
+            exportTarget.browseId != null && (exportTarget.fromCard || exportTarget.songs.isEmpty()) -> {
+                viewModel.collectSongs(exportTarget.browseId, exportTarget.thumbnailUrl) { result ->
+                    result.fold(
+                        onSuccess = ::performExport,
+                        onFailure = { err ->
+                            showQueueNotice(
+                                context.getString(
+                                    R.string.m3u_export_failed,
+                                    err.message ?: context.getString(R.string.unknown_error),
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+            else -> performExport(exportTarget.songs)
+        }
+    }
+
+    val m3uImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { sourceUri ->
+        if (sourceUri == null) return@rememberLauncherForActivityResult
+        showQueueNotice(context.getString(R.string.m3u_import_parsing))
+        scope.launch {
+            M3uPlaylistManager.prepareImport(context, sourceUri).fold(
+                onSuccess = { preview -> m3uImportPreview = preview },
+                onFailure = { err ->
+                    showQueueNotice(
+                        context.getString(
+                            R.string.m3u_import_failed,
+                            err.message ?: context.getString(R.string.unknown_error),
+                        ),
+                    )
+                },
+            )
+        }
+    }
+
+    fun launchM3uImport() {
+        m3uImportLauncher.launch(
+            arrayOf(
+                "audio/x-mpegurl",
+                "audio/mpegurl",
+                "application/vnd.apple.mpegurl",
+                "application/x-mpegurl",
+                "text/plain",
+                "*/*",
+            ),
+        )
+    }
 
     // Copies tracks to the WebDAV server, leaving the local files alone.
     // A clash suspends the batch on WebDavUploads.conflict until the dialog
@@ -3242,6 +3346,7 @@ private fun BitChordApp(
                                     tabs = if (isDevice) LocalFolderTab.DEVICE else LocalFolderTab.BASIC,
                                     playlists = if (isDevice) offlinePlaylistGroups else emptyList(),
                                     onCreatePlaylist = if (isDevice) ({ creatingOfflinePlaylist = true }) else null,
+                                    onImportPlaylist = if (isDevice) ({ launchM3uImport() }) else null,
                                 )
                             } else {
                                 null
@@ -4092,7 +4197,7 @@ private fun BitChordApp(
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
-                                if (isReleaseDetail && releaseSongs.isNotEmpty()) {
+                                if (isReleaseDetail && (releaseSongs.isNotEmpty() || detail.type == BrowseType.PLAYLIST)) {
                                     // The page's own tracks, in the order the page
                                     // shows them, so the sheet has them already and
                                     // Play, Shuffle and Open are the buttons beside
@@ -5111,6 +5216,39 @@ private fun BitChordApp(
             )
         }
 
+        m3uExportTarget?.let { exportTarget ->
+            BackHandler { m3uExportTarget = null }
+            M3uExportDialog(
+                hazeState = hazeState,
+                playlistTitle = exportTarget.title,
+                isRemotePlaylist = exportTarget.browseId?.startsWith("local:") == false ||
+                    exportTarget.browseId?.startsWith("local:playlist:sp_local_") == true,
+                onExport = { format ->
+                    m3uExportFormat = format
+                    val fileName = M3uPlaylistManager.suggestedExportFileName(exportTarget.title, format)
+                    m3uExportLauncher.launch(fileName)
+                },
+                onDismiss = { m3uExportTarget = null },
+            )
+        }
+
+        m3uImportPreview?.let { preview ->
+            BackHandler { m3uImportPreview = null }
+            M3uImportDialog(
+                hazeState = hazeState,
+                preview = preview,
+                onConfirmSave = { title ->
+                    val created = OfflinePlaylists.create(title, preview.matchedSongs)
+                    m3uImportPreview = null
+                    viewModel.reloadLocalDetail("local:all")
+                    showQueueNotice(
+                        context.getString(R.string.m3u_import_saved, created.title, created.songs.size),
+                    )
+                },
+                onDismiss = { m3uImportPreview = null },
+            )
+        }
+
         // ---- Album / playlist actions ----
         // Opened by holding a card on any tab, or from the release page's own
         // overflow. What a track's long-press menu is to one song, this is to
@@ -5248,6 +5386,14 @@ private fun BitChordApp(
                             browseActions = null
                         }
                     },
+                onExport = if (target.type == BrowseType.PLAYLIST) {
+                    {
+                        browseActions = null
+                        m3uExportTarget = target
+                    }
+                } else {
+                    null
+                },
                 isPinned = pinnableId != null && pinnableId in pinnedPlaylists,
                 onTogglePin = pinnableId?.let { id ->
                     {

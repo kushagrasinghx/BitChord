@@ -1329,4 +1329,33 @@
     <string name="diwali_title" translatable="false">BitVinyl wishes you a Happy Diwali</string>
     <string name="diwali_subtitle" translatable="false">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta" translatable="false">Let\'s Celebrate</string>
+
+    <!-- M3U / M3U8 playlist import & export -->
+    <string name="export_playlist" translatable="false">Export playlist</string>
+    <string name="import_m3u_playlist" translatable="false">Import M3U / M3U8</string>
+    <string name="m3u_export_title" translatable="false">Export playlist</string>
+    <string name="m3u_export_subtitle" translatable="false">Choose a portable playlist format. M3U8 uses UTF-8 encoding and is recommended for non-English titles and paths.</string>
+    <string name="m3u_export_yt_note" translatable="false">Remote YouTube Music tracks are exported as canonical music.youtube.com links (no account tokens or stream URLs).</string>
+    <string name="m3u_format_m3u8" translatable="false">M3U8 (UTF-8, Recommended)</string>
+    <string name="m3u_format_m3u" translatable="false">M3U (Legacy)</string>
+    <string name="m3u_choose_location" translatable="false">Choose location…</string>
+    <string name="m3u_export_succeeded" translatable="false">Exported %1$d tracks (%2$s)</string>
+    <string name="m3u_export_succeeded_with_missing" translatable="false">Exported %1$d tracks (%2$s; %3$d missing local files kept as paths)</string>
+    <string name="m3u_export_failed" translatable="false">Export failed: %1$s</string>
+    <string name="m3u_import_title" translatable="false">Import M3U / M3U8</string>
+    <string name="m3u_import_name_hint" translatable="false">Playlist name</string>
+    <string name="m3u_import_save" translatable="false">Save playlist</string>
+    <string name="m3u_import_parsing" translatable="false">Reading playlist…</string>
+    <string name="m3u_import_failed" translatable="false">Import failed: %1$s</string>
+    <string name="m3u_import_summary_total" translatable="false">Total entries: %1$d</string>
+    <string name="m3u_import_summary_matched" translatable="false">Matched local tracks: %1$d</string>
+    <string name="m3u_import_summary_missing" translatable="false">Missing files: %1$d</string>
+    <string name="m3u_import_summary_unsupported" translatable="false">Unsupported / remote-only: %1$d</string>
+    <string name="m3u_import_summary_duplicates" translatable="false">Duplicate entries skipped: %1$d</string>
+    <string name="m3u_import_issues_header" translatable="false">Unmatched entries</string>
+    <string name="m3u_import_issue_missing" translatable="false">Missing</string>
+    <string name="m3u_import_issue_remote" translatable="false">YouTube link (not downloaded)</string>
+    <string name="m3u_import_issue_unsupported" translatable="false">Unsupported</string>
+    <string name="m3u_import_none_matched" translatable="false">No local or downloaded tracks could be matched from this playlist.</string>
+    <string name="m3u_import_saved" translatable="false">Imported \"%1$s\" (%2$d tracks)</string>
 </resources>

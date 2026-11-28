@@ -7,6 +7,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import com.music.bitchord.BitChordApplication
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import io.ktor.client.HttpClient
@@ -222,17 +223,15 @@ object ListenTogether {
 
     private val http = HttpClient(OkHttp) {
         engine {
-            config {
-                // Not the shared [Http.client]: that one is tuned for streaming
-                // media, and its read timeout would take down a socket that is
-                // merely quiet. A party can sit paused for ten minutes and the
-                // connection is not in trouble — the server's own heartbeat and
-                // the ping below are what say whether it is.
-                readTimeout(0, TimeUnit.MILLISECONDS)
-                connectTimeout(15, TimeUnit.SECONDS)
-                pingInterval(20, TimeUnit.SECONDS)
-                retryOnConnectionFailure(true)
-            }
+            // Derived from the shared client so a party follows the same proxy
+            // route as the rest of the app, with the quiet-socket timeouts a
+            // streaming-tuned client would otherwise impose.
+            preconfigured = Http.client.newBuilder()
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .pingInterval(20, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
         }
         install(ContentNegotiation) { json(json) }
         // Installed with no defaults so it changes nothing on its own — the

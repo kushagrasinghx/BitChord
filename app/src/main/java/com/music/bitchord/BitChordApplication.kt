@@ -18,6 +18,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.DebugLog
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.YouTubeThumbnailFallback
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import androidx.appcompat.app.AppCompatDelegate
@@ -226,7 +227,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
      * identifying agent. Anything else falls through to Coil's own fetchers.
      */
     private val coilHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        // Artwork follows the same proxy route as the music it illustrates.
+        Http.client.newBuilder()
             .addInterceptor { chain ->
                 chain.proceed(
                     chain.request().newBuilder()

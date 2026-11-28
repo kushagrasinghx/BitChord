@@ -1,5 +1,6 @@
 package com.music.bitchord.data
 
+import com.music.bitchord.data.proxy.ProxyRouter
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
@@ -136,7 +137,22 @@ object Http {
         .retryOnConnectionFailure(true)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
+        // The selector is asked once per connection, so a proxy change takes
+        // effect for new connections without rebuilding every client that was
+        // derived from this one.
+        .proxySelector(ProxyRouter.selector)
+        .proxyAuthenticator(ProxyRouter.proxyAuthenticator)
         .addInterceptor(webDavInterceptor)
         .apply { if (USAGE_LOGGING_ENABLED) addNetworkInterceptor(usageInterceptor) }
         .build()
+
+    /**
+     * Drops pooled connections after a proxy change.
+     *
+     * A kept-alive socket was opened through the old route; reusing it would
+     * quietly send the next request around the proxy the user just selected.
+     */
+    fun evictConnections() {
+        client.connectionPool.evictAll()
+    }
 }

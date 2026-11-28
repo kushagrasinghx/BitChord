@@ -14,7 +14,7 @@ import org.junit.Test
  */
 class ModuleCallArgsTest {
 
-    private val manager = ModuleManager()
+    private val manager = ModuleManager("test-source")
 
     @Test
     fun `a title with quotes and backslashes stays one string`() {

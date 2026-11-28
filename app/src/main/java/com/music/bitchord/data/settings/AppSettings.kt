@@ -10,8 +10,12 @@ import android.net.NetworkCapabilities
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.proxy.ProxyConfig
+import com.music.bitchord.data.proxy.ProxyProtocol
+import com.music.bitchord.data.proxy.ProxyRouter
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.AutoMixVisualFeed
@@ -195,7 +199,7 @@ object AppSettings {
 
     private lateinit var prefs: SharedPreferences
 
-    /** Only for the Discord, WebDAV and SMB secrets — everything else on here is plain prefs. */
+    /** Encrypted store for Discord, WebDAV, SMB, proxy and other credentials. */
     private lateinit var authStore: AuthStore
 
     /**
@@ -206,6 +210,28 @@ object AppSettings {
      */
     val audioQualityWifi = MutableStateFlow(AudioQuality.LOSSLESS)
     val audioQualityCellular = MutableStateFlow(AudioQuality.LOSSLESS)
+
+    /**
+     * The app-wide proxy. Host and port are ordinary preferences; the password
+     * is in [authStore] with the other credentials. [proxyConfig] is the
+     * snapshot handed to [ProxyRouter] after every change.
+     */
+    val proxyEnabled = MutableStateFlow(false)
+    val proxyProtocol = MutableStateFlow(ProxyProtocol.HTTP)
+    val proxyHost = MutableStateFlow("")
+    val proxyPort = MutableStateFlow(0)
+    val proxyUsername = MutableStateFlow("")
+    val proxyPassword = MutableStateFlow("")
+
+    val proxyConfig: ProxyConfig
+        get() = ProxyConfig(
+            enabled = proxyEnabled.value,
+            protocol = proxyProtocol.value,
+            host = proxyHost.value,
+            port = proxyPort.value,
+            username = proxyUsername.value,
+            password = proxyPassword.value,
+        )
 
     /** Allowed duration difference when replacing a playing stream with one from a source. */
     val upgradeLengthSlackSeconds = MutableStateFlow(DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS)
@@ -1017,6 +1043,39 @@ object AppSettings {
     }
 
     /**
+     * Saves the app-wide proxy and applies it to new connections.
+     *
+     * One setter rather than six: a form is saved as a whole, and applying the
+     * six fields one at a time would briefly route through a half-written
+     * endpoint. The old connections are evicted after the router has the new
+     * value, so a keep-alive socket cannot carry a request around it.
+     */
+    fun setProxyConfig(config: ProxyConfig) {
+        if (!this::prefs.isInitialized) return
+        val normalized = config.normalized()
+        val previous = proxyConfig
+        proxyEnabled.value = normalized.enabled
+        proxyProtocol.value = normalized.protocol
+        proxyHost.value = normalized.host
+        proxyPort.value = normalized.port
+        proxyUsername.value = normalized.username
+        proxyPassword.value = normalized.password
+        putSecret(KEY_PROXY_PASSWORD, normalized.password)
+        prefs.edit()
+            .putBoolean(KEY_PROXY_ENABLED, normalized.enabled)
+            .putString(KEY_PROXY_PROTOCOL, normalized.protocol.name)
+            .putString(KEY_PROXY_HOST, normalized.host)
+            .putInt(KEY_PROXY_PORT, normalized.port)
+            .putString(KEY_PROXY_USERNAME, normalized.username)
+            .apply()
+        ProxyRouter.setGlobal(normalized)
+        if (previous != normalized) Http.evictConnections()
+    }
+
+    /** Clears the app-wide proxy. Per-source overrides are left alone. */
+    fun clearProxy() = setProxyConfig(ProxyConfig())
+
+    /**
      * Credentials ([SECRETS]) live in [authStore]'s encrypted file, not this
      * one: this file is in Android's Auto Backup, so a scrobbler session key or
      * the Spotify cookie kept here was copied to the cloud in plain text and
@@ -1043,6 +1102,16 @@ object AppSettings {
     private fun putSecret(key: String, value: String) = authStore.setSettingSecret(key, value)
 
     private fun readAll() {
+        proxyEnabled.value = prefs.getBoolean(KEY_PROXY_ENABLED, false)
+        proxyProtocol.value = runCatching {
+            ProxyProtocol.valueOf(prefs.getString(KEY_PROXY_PROTOCOL, null).orEmpty())
+        }.getOrDefault(ProxyProtocol.HTTP)
+        proxyHost.value = prefs.getString(KEY_PROXY_HOST, "").orEmpty()
+        proxyPort.value = prefs.getInt(KEY_PROXY_PORT, 0)
+        proxyUsername.value = prefs.getString(KEY_PROXY_USERNAME, "").orEmpty()
+        proxyPassword.value = secret(KEY_PROXY_PASSWORD)
+        ProxyRouter.setGlobal(proxyConfig)
+
         migrateSingleQuality()
         audioQualityWifi.value = readQuality(KEY_QUALITY_WIFI)
         audioQualityCellular.value = readQuality(KEY_QUALITY_CELLULAR)
@@ -2371,6 +2440,7 @@ object AppSettings {
         KEY_LISTENBRAINZ_TOKEN,
         KEY_SPOTIFY_SPDC_TOKEN,
         KEY_PAXSENIX_API_KEY,
+        KEY_PROXY_PASSWORD,
     )
 
     /**
@@ -2521,6 +2591,12 @@ object AppSettings {
     private const val KEY_SMB_SHARE = "smb_share"
     private const val KEY_SMB_BASE_PATH = "smb_base_path"
     private const val KEY_SMB_USERNAME = "smb_username"
+    private const val KEY_PROXY_ENABLED = "proxy_enabled"
+    private const val KEY_PROXY_PROTOCOL = "proxy_protocol"
+    private const val KEY_PROXY_HOST = "proxy_host"
+    private const val KEY_PROXY_PORT = "proxy_port"
+    private const val KEY_PROXY_USERNAME = "proxy_username"
+    private const val KEY_PROXY_PASSWORD = "proxy_password"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
 
     private const val KEY_LASTFM_ENABLED = "lastfm_enabled"

@@ -5,7 +5,12 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
 import com.music.bitchord.auth.EncryptedPrefs
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.proxy.ProxyConfig
+import com.music.bitchord.data.proxy.ProxyRouter
+import com.music.bitchord.data.proxy.SourceProxy
+import com.music.bitchord.data.proxy.SourceRoute
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.addon.AddonAuth
@@ -38,6 +43,13 @@ data class SourceConfig(
     /** What the user called it. Blank falls back to the server's host, or the kind's own label. */
     val label: String = "",
     val baseUrl: String = "",
+    /**
+     * This source's own proxy decision. INHERIT follows the app-wide setting,
+     * DIRECT is an explicit bypass, and CUSTOM names an endpoint. Stored in
+     * this encrypted file, so a custom proxy's credentials are encrypted with
+     * the rest of the source configuration.
+     */
+    val proxy: SourceProxy = SourceProxy(),
     /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
     val enabled: Boolean = kind != SourceKind.JIOSAAVN,
     /**
@@ -405,7 +417,14 @@ object SourceRegistry {
      * and not just the one with a text field.
      */
     private fun SourceConfig.tidied(): SourceConfig =
-        if (kind == SourceKind.ADDON) copy(baseUrl = AddonClient.normalizeBase(baseUrl)) else this
+        if (kind == SourceKind.ADDON) {
+            copy(
+                baseUrl = AddonClient.normalizeBase(baseUrl),
+                proxy = proxy.normalized(),
+            )
+        } else {
+            copy(proxy = proxy.normalized())
+        }
 
     fun remove(configId: String) {
         val target = config(configId) ?: return
@@ -458,6 +477,19 @@ object SourceRegistry {
 
     private fun publish(next: List<SourceConfig>, persist: Boolean = true) {
         configs.value = next
+        val proxyRoutes = next
+            .filter { it.kind.isUserAdded && it.baseUrl.isNotBlank() }
+            .mapNotNull { config ->
+                ProxyRouter.hostOf(config.baseUrl)?.let { host ->
+                    SourceRoute(
+                        sourceId = config.id,
+                        host = host,
+                        mode = config.proxy.mode,
+                        config = config.proxy.customConfig() ?: ProxyConfig(),
+                    )
+                }
+            }
+        if (ProxyRouter.setSourceRoutes(proxyRoutes)) Http.evictConnections()
         // Rebuilt against the previous map so that an untouched source keeps
         // the instance it already had, rather than being replaced by an
         // identical-but-cold one every time an unrelated row is toggled.

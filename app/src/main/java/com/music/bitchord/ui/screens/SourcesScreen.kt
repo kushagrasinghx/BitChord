@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.proxy.ProxyMode
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.smb.SmbRepository
@@ -113,6 +114,8 @@ fun SourcesScreen(
     onEditSource: (SourceConfig) -> Unit,
     /** Asks the activity to open an addon's quality list — raised for the same reason as [onEditSource]. */
     onChooseSourceQuality: (SourceConfig) -> Unit,
+    /** Asks the activity to open one addon's proxy editor. */
+    onEditSourceProxy: (SourceConfig) -> Unit,
     /**
      * Asks the activity to open the WebDAV editor — raised for the same
      * reason as [onEditSource]: the frosted alert cannot be drawn from inside
@@ -149,7 +152,11 @@ fun SourcesScreen(
     // say why. Except an addon waiting on a lossless output: it is not to be
     // contacted at all until one is connected, and connecting one re-runs this.
     val probeKey = configs.filter { it.kind.needsServer }
-        .joinToString { "${it.id}@${it.baseUrl}@${it.checkValidLossless}" } + "@${losslessOutput.capable}"
+        .joinToString {
+            "${it.id}@${it.baseUrl}@${it.checkValidLossless}@" +
+                "${it.proxy.mode}@${it.proxy.protocol}@${it.proxy.host}@${it.proxy.port}@" +
+                "${it.proxy.username}@${it.proxy.password.isNotEmpty()}"
+        } + "@${losslessOutput.capable}"
     LaunchedEffect(probeKey) {
         configs.filter { it.kind.needsServer && it.isComplete && !it.awaitsLosslessOutput }.forEach { config ->
             val source = SourceRegistry.instance(config.id) ?: return@forEach
@@ -250,6 +257,7 @@ fun SourcesScreen(
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
                         onChooseQuality = { onChooseSourceQuality(config) },
+                        onEditProxy = { onEditSourceProxy(config) },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -764,6 +772,7 @@ private fun SourceRow(
     health: SourceHealth?,
     onClick: (() -> Unit)?,
     onChooseQuality: () -> Unit,
+    onEditProxy: () -> Unit,
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
@@ -935,6 +944,56 @@ private fun SourceRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
+                    )
+                }
+            }
+            // Per-source routing is shown on the row rather than buried in the
+            // editor: "this addon uses a different proxy" is part of what the
+            // row means, and the line is also the way in to change it.
+            if (config.kind.isUserAdded && config.isComplete) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.source_proxy_edit),
+                            onClick = onEditProxy,
+                        )
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Dns,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = when (config.proxy.mode) {
+                            ProxyMode.INHERIT -> stringResource(R.string.source_proxy_summary_inherit)
+                            ProxyMode.DIRECT -> stringResource(R.string.source_proxy_summary_direct)
+                            ProxyMode.CUSTOM -> if (config.proxy.host.isBlank() || config.proxy.port == 0) {
+                                stringResource(R.string.proxy_not_configured)
+                            } else {
+                                stringResource(
+                                    R.string.source_proxy_summary_custom,
+                                    config.proxy.protocol.name,
+                                    config.proxy.host,
+                                    config.proxy.port,
+                                )
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        imageVector = SfIcons.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(10.dp),
                     )
                 }
             }

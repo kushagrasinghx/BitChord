@@ -16,7 +16,9 @@ import com.my.kizzy.gateway.entities.op.OpCode.PRESENCE_UPDATE
 import com.my.kizzy.gateway.entities.op.OpCode.RECONNECT
 import com.my.kizzy.gateway.entities.op.OpCode.RESUME
 import com.my.kizzy.gateway.entities.presence.Presence
+import com.music.bitchord.data.Http
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -90,7 +92,9 @@ open class DiscordWebSocket(
     private var heartbeatInterval = 0L
     private var resumeGatewayUrl: String? = null
     private var heartbeatJob: Job? = null
-    private var client: HttpClient = HttpClient {
+    private var client: HttpClient = HttpClient(OkHttp) {
+        // The gateway socket follows the same proxy route as Discord REST.
+        engine { preconfigured = Http.client }
         install(WebSockets)
     }
     private val json = Json {

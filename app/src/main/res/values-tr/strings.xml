@@ -1234,12 +1234,6 @@
     </plurals>
     <string name="party_queue_full">Sıra dolu (partide en fazla %d şarkı)</string>
 
-    <string name="paxsenix_api_key">PaxSenix API anahtarı</string>
-
-    <string name="paxsenix_api_key_configured">PaxSenix API anahtarı — yapılandırıldı</string>
-
-    <string name="paxsenix_api_key_missing">PaxSenix API anahtarı — isteğe bağlı, yapılandırılmadı</string>
-
 
 
 

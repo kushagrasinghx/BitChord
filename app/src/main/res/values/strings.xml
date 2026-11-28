@@ -669,9 +669,6 @@
     <string name="listenbrainz_token_description">Paste your ListenBrainz user token to enable scrobbling.</string>
     <string name="listening_history">Listening history</string>
     <string name="lyrics_sources_order">Sources are tried in this order. Drag to reorder them. The first source with lyrics wins unless syllable lyrics are prioritized.</string>
-    <string name="paxsenix_api_key">PaxSenix API key</string>
-    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
     <string name="max_delay">Maximum delay</string>
     <string name="max_delay_subtitle">Maximum scrobble delay in seconds</string>
     <string name="min_song_duration">Minimum song duration</string>

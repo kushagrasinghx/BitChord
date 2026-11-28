@@ -1278,12 +1278,6 @@
     </plurals>
     <string name="party_queue_full">La file est pleine (%d titres maximum dans la session)</string>
 
-    <string name="paxsenix_api_key">Clé API PaxSenix</string>
-
-    <string name="paxsenix_api_key_configured">Clé API PaxSenix — configurée</string>
-
-    <string name="paxsenix_api_key_missing">Clé API PaxSenix — optionnelle, non configurée</string>
-
 
 
 

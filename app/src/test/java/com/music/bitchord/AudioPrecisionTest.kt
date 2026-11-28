@@ -18,16 +18,30 @@ class AudioPrecisionTest {
     fun `TPDF dither changes a sub-LSB signal but never adds noise to silence`() {
         assertEquals(0, PcmBoundary.clamp16FromFloat(0f, dither = true, noise = { 1f }).toInt())
 
-        val positive = PcmBoundary.clamp16FromFloat(0.5f, dither = true, noise = { 1f })
+        // A quarter of an LSB above 16384: real sub-LSB precision to lose.
+        val subLsb = (16384f + 0.25f) / 32768f
+        val positive = PcmBoundary.clamp16FromFloat(subLsb, dither = true, noise = { 1f })
         var call = 0
         val negative = PcmBoundary.clamp16FromFloat(
-            0.5f,
+            subLsb,
             dither = true,
             noise = { if (call++ == 0) 0f else 1f },
         )
         assertNotEquals(positive, negative)
         assertEquals(16384.toShort(), positive)
         assertEquals(16383.toShort(), negative)
+    }
+
+    @Test
+    fun `a sample already on the 16-bit grid is never dithered`() {
+        // A 16-bit source decoded to float lands exactly on the grid; dither
+        // there would only add noise to an otherwise bit-exact stream.
+        var call = 0
+        val noisy = { if (call++ % 2 == 0) 0f else 1f } // would subtract a whole LSB
+        for (value in listOf(16384, -16384, 1, -1, 32767, -32768, 12345)) {
+            val f = value / 32768f
+            assertEquals(value.toShort(), PcmBoundary.clamp16FromFloat(f, dither = true, noise = noisy))
+        }
     }
 
     @Test

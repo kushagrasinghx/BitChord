@@ -171,7 +171,10 @@ internal class ExclusiveTransport private constructor(
                 )
             } catch (error: Exception) {
                 ExclusiveNative.close(handle)
-                throw BitPerfectTransportException("exclusive_unavailable", error)
+                // Keep a specific reason (exclusive_device_mismatch) intact so
+                // the owner can report the accurate fallback.
+                throw error as? BitPerfectTransportException
+                    ?: BitPerfectTransportException("exclusive_unavailable", error)
             }
         }
     }

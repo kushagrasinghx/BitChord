@@ -165,8 +165,13 @@ object PcmBoundary {
         // Digital silence stays digital silence; dither is only for signals
         // that actually carry sub-LSB precision.
         if (f == 0f) return 0
-        val jitter = if (dither) noise() - noise() else 0f
-        val scaled = f * 32768.0f + jitter
+        val exact = f * 32768.0f
+        // A sample already on the 16-bit grid loses nothing here: a 16-bit
+        // source decoded to float lands exactly on it, and dithering it would
+        // add noise to a stream that could have been delivered bit-exact.
+        val onGrid = exact == kotlin.math.floor(exact)
+        val jitter = if (dither && !onGrid) noise() - noise() else 0f
+        val scaled = exact + jitter
         if (scaled <= -32768.0f) return Short.MIN_VALUE
         if (scaled >= 32767.0f) return Short.MAX_VALUE
         return Math.round(scaled).toShort()

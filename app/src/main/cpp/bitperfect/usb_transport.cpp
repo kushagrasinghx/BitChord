@@ -32,6 +32,7 @@
 
 using bitchord::usb::IsoPacketView;
 using bitchord::usb::packetCompleted;
+using bitchord::usb::packetMusicBytes;
 using bitchord::usb::packetShort;
 using bitchord::usb::packetUnsentLength;
 using bitchord::usb::packetUnsentOffset;
@@ -182,13 +183,23 @@ struct Slot {
         }
     }
 
-    std::size_t actualFrames(std::size_t frameBytes) const {
+    // Music frames the device actually accepted: the queued audio at the
+    // front of the buffer, less whatever a short packet left unsent. The
+    // silence padding after it never counts, so the played-frame clock stops
+    // when the queue runs dry instead of running on with the padding.
+    std::size_t acceptedMusicFrames(std::size_t frameBytes) const {
         if (frameBytes == 0) return 0;
-        std::size_t actual = 0;
+        const std::size_t musicBytes = static_cast<std::size_t>(musicFrames) * frameBytes;
+        std::size_t start = 0;
+        std::size_t accepted = 0;
         for (int i = 0; i < transfer->num_iso_packets; ++i) {
-            actual += transfer->iso_packet_desc[i].actual_length;
+            const auto &packet = transfer->iso_packet_desc[i];
+            accepted += packetMusicBytes(
+                {packet.status == LIBUSB_TRANSFER_COMPLETED, true, packet.length, packet.actual_length},
+                start, musicBytes);
+            start += packet.length;
         }
-        return actual / frameBytes;
+        return accepted / frameBytes;
     }
 
     size_t actual() const { return transfer->iso_packet_desc[0].actual_length; }
@@ -374,8 +385,7 @@ public:
                 if (slot->pending || !slot->submitted) continue;
                 require(slot->success(), "USB audio transfer failed");
                 slot->padShortPackets();
-                slot->musicFrames = slot->actualFrames(frame);
-                state.frames += slot->musicFrames;
+                state.frames += slot->acceptedMusicFrames(frame);
                 slot->musicFrames = 0;
                 slot->submitted = false;
             }

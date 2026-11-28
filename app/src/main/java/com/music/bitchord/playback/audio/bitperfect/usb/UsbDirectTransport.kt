@@ -186,8 +186,15 @@ internal class UsbDirectTransport private constructor(
                     ?.let { feature -> runCatching { UsbVolume.Volume.open(control, feature) }.getOrNull() }
                 if (volume == null && !allowFixedVolume) throw BitPerfectTransportException("volume_unavailable")
                 if (volume != null && rememberedDb != null) {
+                    // A remembered level is now persisted across sessions, so it
+                    // can predate a firmware or range change. Lift it into the
+                    // DAC's range first: below-range is a refusal [set] throws on,
+                    // and it would otherwise fail every open of this DAC. The
+                    // restore ceiling still wins, so this never raises the level.
+                    val snapshot = volume.snapshot
+                    val target = minOf(maxOf(rememberedDb, snapshot.minDb), snapshot.restoreLimitDb)
                     try {
-                        volume.set(control, minOf(rememberedDb, volume.snapshot.restoreLimitDb))
+                        volume.set(control, target)
                     } catch (error: Throwable) {
                         // Startup attenuation already succeeded; never leave the
                         // DAC quieter because the remembered level was refused.

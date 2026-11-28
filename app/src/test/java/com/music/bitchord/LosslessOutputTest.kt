@@ -25,6 +25,32 @@ class LosslessOutputTest {
     }
 
     @Test
+    fun `aptX Lossless on A2DP alone still counts when the active flag is unreliable`() {
+        // isBluetoothA2dpOn() is deprecated and can report false while A2DP is
+        // the only route; the codec must still decide.
+        val state = LosslessOutput.decide(
+            outputTypes = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP),
+            bluetoothCodec = "aptX Lossless",
+            bluetoothSampleRateHz = 44_100,
+            bluetoothActive = false,
+        )
+        assertTrue(state.capable)
+        assertEquals(LosslessOutput.Kind.BLUETOOTH, state.via)
+    }
+
+    @Test
+    fun `lossy A2DP alone is not lossless when the active flag is unreliable`() {
+        val state = LosslessOutput.decide(
+            outputTypes = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP),
+            bluetoothCodec = "LDAC",
+            bluetoothSampleRateHz = 96_000,
+            bluetoothActive = false,
+        )
+        assertFalse(state.capable)
+        assertEquals("LDAC", state.bluetoothCodec)
+    }
+
+    @Test
     fun `wired output is lossless when Bluetooth is not active`() {
         val state = LosslessOutput.decide(
             outputTypes = setOf(AudioDeviceInfo.TYPE_WIRED_HEADPHONES),

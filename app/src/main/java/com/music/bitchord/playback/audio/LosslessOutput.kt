@@ -124,16 +124,7 @@ object LosslessOutput {
     ): State {
         // A connected DAC does not make A2DP lossless. When Android says A2DP
         // is the active route, only the Bluetooth codec decides.
-        if (bluetoothActive) {
-            if (AudioDeviceInfo.TYPE_BLUETOOTH_A2DP !in outputTypes) return State()
-            if (bluetoothCodec == null) return State(bluetoothCodecUnknown = true)
-            val lossless = isLosslessBluetoothCodec(bluetoothCodec, bluetoothSampleRateHz)
-            return State(
-                capable = lossless,
-                via = Kind.BLUETOOTH.takeIf { lossless },
-                bluetoothCodec = bluetoothCodec,
-            )
-        }
+        if (bluetoothActive) return bluetoothDecision(outputTypes, bluetoothCodec, bluetoothSampleRateHz)
         val cabled = when {
             outputTypes.any { it in WIRED } -> Kind.WIRED
             outputTypes.any { it in USB } -> Kind.USB
@@ -142,24 +133,34 @@ object LosslessOutput {
             else -> null
         }
         if (cabled != null) return State(capable = true, via = cabled, bluetoothCodec = bluetoothCodec)
-        return State(bluetoothCodec = bluetoothCodec)
+        // No cable: A2DP is the only candidate left even when the deprecated
+        // isBluetoothA2dpOn() did not say so (it is unreliable on newer
+        // releases), so the codec still decides rather than refusing outright.
+        return bluetoothDecision(outputTypes, bluetoothCodec, bluetoothSampleRateHz)
+    }
+
+    private fun bluetoothDecision(outputTypes: Set<Int>, bluetoothCodec: String?, sampleRateHz: Int?): State {
+        if (AudioDeviceInfo.TYPE_BLUETOOTH_A2DP !in outputTypes) return State(bluetoothCodec = bluetoothCodec)
+        if (bluetoothCodec == null) return State(bluetoothCodecUnknown = true)
+        val lossless = isLosslessBluetoothCodec(bluetoothCodec, sampleRateHz)
+        return State(
+            capable = lossless,
+            via = Kind.BLUETOOTH.takeIf { lossless },
+            bluetoothCodec = bluetoothCodec,
+        )
     }
 
     /**
-     * LDAC, any LHDC generation, aptX Lossless or SSC UHQ — by the name Android
-     * reports. Samsung's codec may be named for the family alone ("SSC",
-     * "Samsung Seamless") whichever mode it is in, so a Samsung name without
-     * "UHQ" still counts when it runs at 88.2 kHz or above: UHQ is the only
-     * Samsung mode that does.
+     * aptX Lossless, by the name Android reports. LDAC, LHDC and Samsung's SSC
+     * (UHQ included) are lossy codecs however high their bitrate or sample
+     * rate, so they are reported but never pass. [sampleRateHz] is kept for
+     * callers and logs; it no longer changes the answer.
      */
+    @Suppress("UNUSED_PARAMETER")
     internal fun isLosslessBluetoothCodec(name: String, sampleRateHz: Int? = null): Boolean {
         val codec = name.uppercase(Locale.ROOT)
-        // A high sample rate or bitrate does not make LDAC/LHDC/SSC lossless.
-        // aptX Lossless is the only A2DP codec this gate can honestly accept.
         return "APTX" in codec && "LOSSLESS" in codec
     }
-
-    private val SAMSUNG_NAMES = listOf("SSC", "SAMSUNG", "SCALABLE", "SEAMLESS")
 
     // AudioDeviceInfo constants, by value so the newer ones compile into older
     // API levels as the plain ints they are; a phone that predates a type

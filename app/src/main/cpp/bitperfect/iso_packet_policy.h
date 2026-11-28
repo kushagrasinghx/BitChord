@@ -33,4 +33,18 @@ inline std::size_t packetUnsentLength(const IsoPacketView &packet) {
     return packet.length > packet.actual ? packet.length - packet.actual : 0;
 }
 
+// Bytes of music this packet delivered. A transfer carries `musicBytes` of
+// queued audio first and silence padding after it (see finishTransfer), and
+// only the music counts as played: counting accepted padding would make the
+// played-frame clock run on through an underrun or past the end of a stream.
+// A short packet delivered only its first `actual` bytes.
+inline std::size_t packetMusicBytes(const IsoPacketView &packet,
+                                    std::size_t packetStart,
+                                    std::size_t musicBytes) {
+    if (packetStart >= musicBytes) return 0;
+    const std::size_t sent = packet.actual < packet.length ? packet.actual : packet.length;
+    const std::size_t remaining = musicBytes - packetStart;
+    return sent < remaining ? sent : remaining;
+}
+
 }  // namespace bitchord::usb

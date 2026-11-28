@@ -66,6 +66,7 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.audio.LosslessOutput
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.dsd.DsdFilter
 import com.music.bitchord.playback.dsd.DsdFormat
@@ -149,7 +150,10 @@ internal fun bitExactVerdict(
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
-    bluetooth -> "No — lossy Bluetooth${bluetoothCodec?.let { " ($it)" }.orEmpty()} re-encode"
+    // aptX Lossless is the one A2DP codec LosslessOutput accepts; calling it a
+    // lossy re-encode here would contradict that gate.
+    bluetooth && bluetoothCodec?.let(LosslessOutput::isLosslessBluetoothCodec) != true ->
+        "No — lossy Bluetooth${bluetoothCodec?.let { " ($it)" }.orEmpty()} re-encode"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
